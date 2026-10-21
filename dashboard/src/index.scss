@@ -191,10 +191,6 @@ body {
   direction: inherit;
   table-layout: auto;
   width: 100%;
-  /* Columns keep their content width and the wrapper scrolls instead: with a
-     plain `width: 100%` the auto layout squeezed the last columns and the
-     truncating cells cut off tag lists and numbers. */
-  min-width: max-content;
 }
 
 .rb-data-table tr {
@@ -227,20 +223,25 @@ body {
   text-align: inherit;
 }
 
+/* Dense rows: 13px keeps every column inside a 1440px viewport without the
+   sticky action cell covering the last data column. */
 .rb-data-table td {
+  font-size: 0.8125rem !important;
   background: var(--rb-panel-surface) !important;
   border-top: 1px solid var(--rb-panel-border) !important;
   border-bottom: 1px solid var(--rb-panel-border) !important;
   border-left: 0 !important;
   border-right: 0 !important;
-  height: 48px;
+  /* A minimum, not a fixed height: cells that wrap (tag lists, a metric plus
+     its progress bar) grow instead of having their last line clipped. */
+  height: auto;
   min-height: 48px;
   min-width: 0;
   overflow: hidden;
   vertical-align: middle;
   text-align: inherit;
-  padding-left: clamp(4px, 0.45vw, 8px) !important;
-  padding-right: clamp(4px, 0.45vw, 8px) !important;
+  padding-left: clamp(3px, 0.35vw, 6px) !important;
+  padding-right: clamp(3px, 0.35vw, 6px) !important;
   padding-top: 6px !important;
   padding-bottom: 6px !important;
 }

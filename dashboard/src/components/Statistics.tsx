@@ -938,14 +938,17 @@ const SectionCard: FC<{
 	action?: ReactNode;
 	noHover?: boolean;
 	roleGroup?: boolean;
+	/** Extra classes for the content area, e.g. to centre a short card. */
+	contentClassName?: string;
 }> = ({
 	children,
 	title,
 	action,
 	noHover = false,
 	roleGroup = true,
+	contentClassName,
 }) => (
-	<div role={roleGroup ? "group" : undefined} className={cn(noHover ? "" : "hover:md:border-panel-border-strong!" + " " + "hover:md:bg-panel-elevated" + " " + "hover:md:shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_12px_32px_-4px_rgba(0,_0,_0,_0.22)]", "bg-panel-surface border border-panel-border! rounded-[20px] overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] [transition:border-color_0.25s_ease,_background-color_0.25s_ease,_box-shadow_0.25s_ease]")}>
+	<div role={roleGroup ? "group" : undefined} className={cn(noHover ? "" : "hover:md:border-panel-border-strong!" + " " + "hover:md:bg-panel-elevated" + " " + "hover:md:shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_12px_32px_-4px_rgba(0,_0,_0,_0.22)]", "bg-panel-surface border border-panel-border! rounded-[20px] overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] [transition:border-color_0.25s_ease,_background-color_0.25s_ease,_box-shadow_0.25s_ease] flex h-full flex-col")}>
 		{(title || action) && (
 			<div className="flex px-4 sm:px-5 md:px-6 py-3.5 items-center justify-between border-b border-panel-border!">
 				{title && (
@@ -956,7 +959,7 @@ const SectionCard: FC<{
 				{action}
 			</div>
 		)}
-		<div className="px-4 sm:px-5 md:px-6 py-4">
+		<div className={cn("flex-1 px-4 sm:px-5 md:px-6 py-4", contentClassName)}>
 			{children}
 		</div>
 	</div>
@@ -1560,7 +1563,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						</div>
 					}
 				>
-					<div className="flex flex-col gap-3">
+					<div className="flex h-full flex-col justify-between gap-3">
 						<div className="flex items-center justify-between gap-3">
 							<div className="flex flex-row items-center gap-2.5 text-panel-text-muted">
 								<div className="flex w-[28px] h-[28px] items-center justify-center rounded-[8px] bg-panel-elevated shrink-0">

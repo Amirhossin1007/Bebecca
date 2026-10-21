@@ -1805,6 +1805,9 @@ const ServicesPage: FC = () => {
 				actionsDisplay="menu"
 				actionsPlacement="end"
 				actionsColumnWidth="60px"
+				// Two services, sorted client-side: the floating sort control above the
+				// table added noise without a toolbar to sit in.
+				showSortMenu={false}
 				showActionsOnHover
 				onRowClick={(service) => {
 					void openServiceDetail(service.id, "admins");

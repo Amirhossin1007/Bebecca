@@ -282,7 +282,7 @@ const NodeMetricDisplay = ({
 }) => {
 	const progressValue = boundedPercent(percent);
 	return (
-		<div className="flex flex-col items-center justify-center gap-0.5 min-w-0! max-w-full min-h-[34px] overflow-hidden text-center mx-auto">
+		<div className="flex flex-col items-center justify-center gap-1 min-w-0! max-w-full min-h-[34px] pb-1 text-center mx-auto">
 			<p className="font-semibold text-[0.75rem] leading-[1.375] truncate max-w-full">
 				{value}
 			</p>

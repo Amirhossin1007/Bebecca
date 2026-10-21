@@ -941,6 +941,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				header: t("expire"),
 				priority: "medium",
 				width: "1%",
+				minWidth: "88px",
 				mobilePriority: 8,
 				mobileMetaLabel: t("expire"),
 				cell: (admin) => <UserExpiryCountdown expire={admin.expire} />,

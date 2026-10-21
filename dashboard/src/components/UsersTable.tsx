@@ -921,9 +921,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 				header: t("usersTable.traffic"),
 				sortable: true,
 				priority: "high",
-				width: "clamp(204px, 18vw, 280px)",
-				minWidth: "204px",
-				maxWidth: "280px",
+				width: "clamp(188px, 15vw, 240px)",
+				minWidth: "188px",
+				maxWidth: "240px",
 				headerAlign: "start",
 				cellAlign: "start",
 				mobileVisible: true,
@@ -1002,8 +1002,8 @@ export const UsersTable: FC<UsersTableProps> = ({
 			header: t("usersTable.expire"),
 			sortable: true,
 			priority: "high",
-			width: "132px",
-			minWidth: "114px",
+			width: "152px",
+			minWidth: "132px",
 			maxWidth: "148px",
 			headerAlign: "start",
 			cellAlign: "start",
@@ -1437,7 +1437,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 						)}
 						actionsDisplay={compactRowActions ? "menu" : "inline"}
 						actionsPlacement="end"
-						actionsColumnWidth={compactRowActions ? "64px" : "210px"}
+						actionsColumnWidth={compactRowActions ? "64px" : "156px"}
 						actionsAlwaysVisible
 						onRowClick={
 							isDesktop
