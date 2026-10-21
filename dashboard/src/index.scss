@@ -2608,3 +2608,16 @@ input:focus-visible + .rb-checkbox {
 input:disabled + .rb-checkbox {
   cursor: not-allowed;
 }
+
+/* Number fields: the browser's spinner arrows are the one control we cannot
+   theme, and Chakra's NumberInput drew its own steppers. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

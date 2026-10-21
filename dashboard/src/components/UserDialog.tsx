@@ -2338,7 +2338,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																			)
 																		: Boolean(form.formState.errors.expire)
 																} className="mb-[10px]">
-																<div className={"grid grid-cols-[1fr] md:grid-cols-[minmax(0,_1fr)_auto] [template-areas:\"label\"_\"field\"_\"helper\"_\"button\"] md:[template-areas:\"label_.\"_\"field_button\"_\"helper_.\"] gap-y-2 gap-x-0 md:gap-x-4 w-full min-w-0!"}>
+																<div className={"grid grid-cols-[1fr] md:grid-cols-[minmax(0,_1fr)_auto] [grid-template-areas:'label'_'field'_'helper'_'button'] md:[grid-template-areas:'label_.'_'field_button'_'helper_.'] gap-y-2 gap-x-0 md:gap-x-4 w-full min-w-0!"}>
 																	<FormLabel className={cn("[grid-area:label] mb-0", isRTL ? "text-right" : "text-left")}>
 																		{isOnHold
 																			? t("expires.days")
