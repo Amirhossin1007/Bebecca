@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { Tag } from "components/shadcn/badge";
 import { Progress } from "components/shadcn/feedback";
 import { useToast } from "components/shadcn/toast";
@@ -541,8 +540,8 @@ export const NodesPage: FC = () => {
 	const queryClient = useQueryClient();
 	const toast = useToast();
 	const refreshHosts = useHosts((state) => state.fetchHosts);
-	const nodePanelBg = useColorModeValue("bg-panel-surface", "bg-panel-surface");
-	const nodePanelBorder = useColorModeValue("border-panel-border!", "border-panel-border!");
+	const nodePanelBg = "bg-panel-surface";
+	const nodePanelBorder = "border-panel-border!";
 	const [editingNode, setEditingNode] = useState<NodeType | null>(null);
 	const [expandedNodeID, setExpandedNodeID] = useState<number | null>(null);
 	const [isAddNodeOpen, setAddNodeOpen] = useState(false);

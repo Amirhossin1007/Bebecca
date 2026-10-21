@@ -80,10 +80,10 @@ const EmptySectionIcon = withClass(AddFileIcon, "");
 
 const USER_STATUS_TEXT_COLORS: Partial<Record<UserListItem["status"], string>> =
 	{
-		active: "green.400",
-		on_hold: "purple.400",
-		expired: "yellow.400",
-		limited: "red.400",
+		active: "var(--color-green-400)",
+		on_hold: "var(--color-purple-400)",
+		expired: "var(--color-yellow-400)",
+		limited: "var(--color-red-400)",
 	};
 
 const UserSpeed: FC<{ user: UserListItem }> = ({ user }) => {
@@ -851,7 +851,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 							</p>
 						</div>
 						<UserAdminChip adminUsername={user.admin_username} />
-						<p color={USER_STATUS_TEXT_COLORS[user.status] ?? "panel.text"} className="text-[0.75rem] font-semibold capitalize rb-user-card-status">
+						<p style={{ color: USER_STATUS_TEXT_COLORS[user.status] ?? "var(--rb-panel-text)" }} className="text-[0.75rem] font-semibold capitalize rb-user-card-status">
 							{t(`status.${user.status}`)}
 						</p>
 					</div>
@@ -887,7 +887,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobilePriority: 2,
 				mobileMetaLabel: t("usersTable.status"),
 				cell: (user) => (
-					<p color={USER_STATUS_TEXT_COLORS[user.status] ?? "panel.text"} className="text-[0.875rem] font-semibold capitalize">
+					<p style={{ color: USER_STATUS_TEXT_COLORS[user.status] ?? "var(--rb-panel-text)" }} className="text-[0.875rem] font-semibold capitalize">
 						{t(`status.${user.status}`)}
 					</p>
 				),

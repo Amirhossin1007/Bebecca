@@ -52,10 +52,10 @@ const getUrgency = (remainingSeconds: number): Urgency => {
 };
 
 const URGENCY_COLORS: Record<Urgency, string> = {
-	none: "panel.text",
-	soon: "orange.400",
-	urgent: "red.400",
-	expired: "red.400",
+	none: "var(--rb-panel-text)",
+	soon: "var(--color-orange-400)",
+	urgent: "var(--color-red-400)",
+	expired: "var(--color-red-400)",
 };
 
 /**
@@ -93,7 +93,7 @@ export const UserExpiryCountdown: FC<UserExpiryCountdownProps> = ({
 	const urgency = status === "expired" ? "expired" : getUrgency(remaining);
 
 	return (
-		<p data-urgency={urgency} color={URGENCY_COLORS[urgency]} dir="auto" className={cn("text-[0.875rem] font-semibold truncate", urgency === "expired" ? "uppercase" : "", "rb-user-expiry-countdown")}>
+		<p data-urgency={urgency} style={{ color: URGENCY_COLORS[urgency] }} dir="auto" className={cn("text-[0.875rem] font-semibold truncate", urgency === "expired" ? "uppercase" : "", "rb-user-expiry-countdown")}>
 			{urgency === "expired"
 				? t("status.expired")
 				: isLiveCountdown

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useToast } from "components/shadcn/toast";
 import { useBreakpointValue } from "hooks/useBreakpointValue";
-import { useColorMode, useColorModeValue } from "lib/color-mode";
+import { useColorMode } from "lib/color-mode";
 import { Input as ChakraInput, InputGroup, InputRightAddon, InputRightElement, Textarea } from "components/shadcn/input";
 import { Modal, ModalCloseButton, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
 import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
@@ -579,8 +579,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			};
 
 	const { colorMode } = useColorMode();
-	const footerBg = useColorModeValue("bg-white", "bg-gray-900");
-	const footerBorderColor = useColorModeValue("border-gray-200!", "border-whiteAlpha-300!");
+	const footerBg = "bg-white dark:bg-gray-900";
+	const footerBorderColor = "border-gray-200! dark:border-whiteAlpha-300!";
 
 	const UNIT_RADIUS = "6px";
 

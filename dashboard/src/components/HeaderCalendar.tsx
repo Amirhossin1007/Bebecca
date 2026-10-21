@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { Popover, PopoverArrow, PopoverBody, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
 import { Button, IconButton } from "components/shadcn/button";
 import { Badge } from "components/shadcn/badge";
@@ -96,9 +95,9 @@ export const HeaderCalendar: FC = () => {
 		? "fa-IR-u-ca-persian"
 		: `${i18n.language || "en"}-u-ca-gregory`;
 	const numberLocale = isPersian ? "fa-IR" : i18n.language || "en";
-	const badgeBg = useColorModeValue("bg-blackAlpha-50", "bg-whiteAlpha-100");
-	const highlight = useColorModeValue("border-primary-600!", "border-primary-200!");
-	const border = useColorModeValue("border-blackAlpha-200!", "border-whiteAlpha-200!");
+	const badgeBg = "bg-blackAlpha-50 dark:bg-whiteAlpha-100";
+	const highlight = "border-primary-600! dark:border-primary-200!";
+	const border = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
 
 	useEffect(() => {
 		const timer = setInterval(() => setToday(new Date()), 60 * 1000);

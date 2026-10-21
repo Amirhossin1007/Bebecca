@@ -4,7 +4,6 @@ import { FormControl, FormLabel } from "components/shadcn/field";
 import { useToast } from "components/shadcn/toast";
 import { useDisclosure } from "hooks/useDisclosure";
 import { useBreakpointValue } from "hooks/useBreakpointValue";
-import { useColorModeValue } from "lib/color-mode";
 import { Tag, TagCloseButton, TagLabel } from "components/shadcn/badge";
 import { Spinner } from "components/shadcn/feedback";
 import { Button, IconButton } from "components/shadcn/button";
@@ -598,9 +597,9 @@ const SettingsSection: FC<{
 	children: ReactNode;
 	defaultOpen?: boolean;
 }> = ({ title, children, defaultOpen = false }) => {
-	const headerBg = useColorModeValue("bg-gray-50", "bg-whiteAlpha-100");
-	const panelBg = useColorModeValue("bg-white", "bg-surface-dark");
-	const borderColor = useColorModeValue("border-gray-200!", "border-whiteAlpha-300!");
+	const headerBg = "bg-gray-50 dark:bg-whiteAlpha-100";
+	const panelBg = "bg-white dark:bg-surface-dark";
+	const borderColor = "border-gray-200! dark:border-whiteAlpha-300!";
 	return (
 		<Accordion allowToggle defaultIndex={defaultOpen ? 0 : undefined}>
 			<AccordionItem className={cn("border rounded-md overflow-hidden", borderColor, panelBg)}>
@@ -630,9 +629,9 @@ const SettingRow: FC<{
 	controlId: string;
 	children: (controlId: string) => ReactNode;
 }> = ({ label, description, controlId, children }) => {
-	const labelColor = useColorModeValue("text-gray-700", "text-whiteAlpha-800");
-	const descriptionColor = useColorModeValue("text-gray-500", "text-whiteAlpha-600");
-	const dividerColor = useColorModeValue("border-t-gray-100!", "border-t-whiteAlpha-200!");
+	const labelColor = "text-gray-700 dark:text-whiteAlpha-800";
+	const descriptionColor = "text-gray-500 dark:text-whiteAlpha-600";
+	const dividerColor = "border-t-gray-100! dark:border-t-whiteAlpha-200!";
 	return (
 		<div className={cn("grid grid-cols-[1fr] md:grid-cols-[minmax(220px,_32%)_1fr] gap-2 md:gap-4 px-3 md:px-4 py-3 border-t first:border-t-0 items-center", dividerColor)}>
 			<div className="min-w-0!">
@@ -930,10 +929,10 @@ export const CoreSettingsPage: FC = () => {
 		return () => window.removeEventListener("hashchange", onHashChange);
 	}, [location.hash, readHashTab, tabKeys]);
 
-	const pageShellBg = useColorModeValue("bg-white", "bg-surface-dark");
+	const pageShellBg = "bg-white dark:bg-surface-dark";
 	const pageShellBorder = "border-gray-200! dark:border-whiteAlpha-300!";
 	const pageShellBorderTop = "border-t-gray-200! dark:border-t-whiteAlpha-300!";
-	const pageHintColor = useColorModeValue("text-gray-600", "text-gray-300");
+	const pageHintColor = "text-gray-600 dark:text-gray-300";
 
 	const buildOutboundRows = useCallback(
 		(outbounds: OutboundJson[]) =>
@@ -3245,7 +3244,7 @@ export const CoreSettingsPage: FC = () => {
 		[warpDomains],
 	);
 
-	const warpDomainHelper = useColorModeValue("text-gray-600", "text-gray-300");
+	const warpDomainHelper = "text-gray-600 dark:text-gray-300";
 
 	const handleWarpSave = (outbound: OutboundJson) => {
 		const outbounds = getOutbounds();

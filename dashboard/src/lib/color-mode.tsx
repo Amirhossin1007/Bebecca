@@ -79,7 +79,3 @@ export function useColorMode(): ColorModeContextValue {
 	return context;
 }
 
-/** Picks a value for the current color mode, like Chakra's useColorModeValue. */
-export function useColorModeValue<T>(light: T, dark: T): T {
-	return useColorMode().colorMode === "dark" ? dark : light;
-}

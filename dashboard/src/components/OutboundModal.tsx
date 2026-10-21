@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { useToast } from "components/shadcn/toast";
 import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
 import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
@@ -571,7 +570,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 	const { t } = useTranslation();
 	const toast = useToast();
 	const [targetIds, setTargetIds] = useState<string[]>([]);
-	const bgSubtle = useColorModeValue("bg-gray-50", "bg-whiteAlpha-100");
+	const bgSubtle = "bg-gray-50 dark:bg-whiteAlpha-100";
 	const {
 		control,
 		register,

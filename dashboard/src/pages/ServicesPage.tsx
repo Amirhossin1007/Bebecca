@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { useToast } from "components/shadcn/toast";
 import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
 import { Badge } from "components/shadcn/badge";
@@ -178,7 +177,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 }) => {
 	const { t } = useTranslation();
 	const borderColor = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
-	const selectedBg = useColorModeValue("bg-primary-50", "bg-whiteAlpha-100");
+	const selectedBg = "bg-primary-50 dark:bg-whiteAlpha-100";
 	const labelColor = "text-gray-500 dark:text-gray-400";
 	const [name, setName] = useState(initialService?.name ?? "");
 	const [description, setDescription] = useState(

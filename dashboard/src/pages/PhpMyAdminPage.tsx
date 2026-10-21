@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { useColorMode } from "lib/color-mode";
 import { Spinner } from "components/shadcn/feedback";
 import { cn } from "lib/cn";
@@ -31,10 +30,10 @@ export const PhpMyAdminPage = () => {
 	const { userData } = useGetUser();
 	const isFullAccess = userData.role === AdminRole.FullAccess;
 	const [preparedTheme, setPreparedTheme] = useState<string | null>(null);
-	const panelBg = useColorModeValue("bg-panel-elevated", "bg-panel-elevated");
-	const borderColor = useColorModeValue("border-panel-border!", "border-panel-border!");
-	const mutedColor = useColorModeValue("text-panel-text-secondary", "text-panel-text-secondary");
-	const frameBg = useColorModeValue("bg-white", "bg-gray-950");
+	const panelBg = "bg-panel-elevated";
+	const borderColor = "border-panel-border!";
+	const mutedColor = "text-panel-text-secondary";
+	const frameBg = "bg-white dark:bg-gray-950";
 
 	const statusQuery = useQuery("phpmyadmin-status", getPHPMyAdminStatus, {
 		refetchOnWindowFocus: false,

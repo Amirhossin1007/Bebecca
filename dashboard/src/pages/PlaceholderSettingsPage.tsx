@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { useToast } from "components/shadcn/toast";
 import { Alert, AlertIcon } from "components/shadcn/alert";
 import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
@@ -28,9 +27,9 @@ const keyFor = (
 const PlaceholderSettingsPage = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
-	const panelBg = useColorModeValue("bg-whiteAlpha-800", "bg-whiteAlpha-50");
-	const subtleBg = useColorModeValue("bg-blackAlpha-50", "bg-whiteAlpha-50");
-	const borderColor = useColorModeValue("border-blackAlpha-200!", "border-whiteAlpha-200!");
+	const panelBg = "bg-whiteAlpha-800 dark:bg-whiteAlpha-50";
+	const subtleBg = "bg-blackAlpha-50 dark:bg-whiteAlpha-50";
+	const borderColor = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
 	const query = useQuery(
 		"subscription-placeholder-settings",
 		getSubscriptionPlaceholderSettings,

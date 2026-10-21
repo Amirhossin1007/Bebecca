@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { FormControl, FormLabel } from "components/shadcn/field";
 import { Input } from "components/shadcn/input";
 import { Tooltip } from "components/shadcn/tooltip";
@@ -123,7 +122,7 @@ export const GeoUpdateDialog = ({
 		}
 	}, [templates]);
 
-	const manualBg = useColorModeValue("bg-gray-50", "bg-whiteAlpha-50");
+	const manualBg = "bg-gray-50 dark:bg-whiteAlpha-50";
 
 	const addManualFile = () => {
 		setManualFiles((prev) => [...prev, createGeoFile("", "")]);

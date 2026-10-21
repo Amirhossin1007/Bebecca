@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
 import { Tag, TagCloseButton, TagLabel } from "components/shadcn/badge";
 import { Input } from "components/shadcn/input";
@@ -332,12 +331,12 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 		const focusRing = "focus-within:[box-shadow:0_0_0_1px_var(--primary-500)] dark:focus-within:[box-shadow:0_0_0_1px_var(--primary-300)]";
 		const hoverBorder = "hover:border-primary-500! dark:hover:border-primary-300!";
 		const controlBg = "bg-white dark:bg-whiteAlpha-50";
-		const menuBg = useColorModeValue("bg-white", "bg-surface-dark");
+		const menuBg = "bg-white dark:bg-surface-dark";
 		const hoverBg = "hover:bg-blackAlpha-50 dark:hover:bg-whiteAlpha-100";
 		const selectedBg = "bg-primary-50 dark:bg-whiteAlpha-100";
-		const tagBg = useColorModeValue("bg-primary-50", "bg-whiteAlpha-100");
-		const tagColor = useColorModeValue("text-primary-700", "text-primary-200");
-		const mutedColor = useColorModeValue("text-gray-500", "text-gray-400");
+		const tagBg = "bg-primary-50 dark:bg-whiteAlpha-100";
+		const tagColor = "text-primary-700 dark:text-primary-200";
+		const mutedColor = "text-gray-500 dark:text-gray-400";
 		const invalidBorderColor = "border-red-500! dark:border-red-300!";
 		const controlHeight = size === "md" ? "min-h-[40px]" : "min-h-[36px]";
 		const disabledState = isDisabled || Boolean(disabled);

@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { cn } from "lib/cn";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,8 +9,8 @@ export const TutorialsPage = () => {
 	const dashboardRoot = useHref("/");
 	const [searchParams] = useSearchParams();
 	const [isLoaded, setIsLoaded] = useState(false);
-	const borderColor = useColorModeValue("border-panel-border!", "border-panel-border!");
-	const frameBg = useColorModeValue("bg-panel-surface", "bg-panel-surface");
+	const borderColor = "border-panel-border!";
+	const frameBg = "bg-panel-surface";
 	const frameSrc = getTutorialsUrl(
 		dashboardRoot,
 		i18n.language,

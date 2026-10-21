@@ -1,4 +1,4 @@
-import { useColorMode, useColorModeValue } from "lib/color-mode";
+import { useColorMode } from "lib/color-mode";
 import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
 import { Button } from "components/shadcn/button";
 import { Spinner } from "components/shadcn/feedback";
@@ -342,8 +342,8 @@ const HistoryModal: FC<{
 	const [isSwitchingInterval, setIsSwitchingInterval] = useState(false);
 	const tabRefs = useRef<(HTMLDivElement | null)[]>([]);
 	const [pillStyle, setPillStyle] = useState<{ left: number; width: number }>({ left: 4, width: 0 });
-	const gridColor = useColorModeValue("rgba(0,0,0,0.06)", "rgba(255,255,255,0.06)");
-	const mutedTextColor = useColorModeValue("#64748b", "#94a3b8");
+	const gridColor = colorMode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+	const mutedTextColor = colorMode === "dark" ? "#94a3b8" : "#64748b";
 
 	const activeIntervalIndex = HISTORY_INTERVALS.findIndex((i) => i.seconds === intervalSeconds);
 

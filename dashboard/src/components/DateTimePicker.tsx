@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { useDisclosure } from "hooks/useDisclosure";
 import { useBreakpointValue } from "hooks/useBreakpointValue";
 import { Button, IconButton } from "components/shadcn/button";
@@ -44,18 +43,18 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 		hour: value ? dayjs(value).hour() : 12,
 		minute: value ? dayjs(value).minute() : 0,
 	});
-	const popoverBg = useColorModeValue("bg-white", "bg-gray-900");
-	const popoverText = useColorModeValue("text-gray-900", "text-white");
-	const popoverBorderColor = useColorModeValue("border-gray-200!", "border-gray-700!");
-	const quickSelectBg = useColorModeValue("bg-gray-50", "bg-gray-800");
-	const quickSelectBorderColor = useColorModeValue("border-gray-100!", "border-gray-700!");
-	const quickSelectHoverBg = useColorModeValue("hover:bg-gray-100", "hover:bg-gray-700");
-	const dayNameColor = useColorModeValue("text-gray-500", "text-gray-400");
-	const disabledDayColor = useColorModeValue("text-gray-400", "text-gray-500");
-	const dayHoverBg = useColorModeValue("hover:bg-gray-100", "hover:bg-gray-700");
-	const timeDividerColor = useColorModeValue("border-gray-200!", "border-gray-700!");
-	const timeLabelColor = useColorModeValue("text-gray-600", "text-gray-400");
-	const todayBorderColor = useColorModeValue("border-primary-500!", "border-primary-400!");
+	const popoverBg = "bg-white dark:bg-gray-900";
+	const popoverText = "text-gray-900 dark:text-white";
+	const popoverBorderColor = "border-gray-200! dark:border-gray-700!";
+	const quickSelectBg = "bg-gray-50 dark:bg-gray-800";
+	const quickSelectBorderColor = "border-gray-100! dark:border-gray-700!";
+	const quickSelectHoverBg = "hover:bg-gray-100 dark:hover:bg-gray-700";
+	const dayNameColor = "text-gray-500 dark:text-gray-400";
+	const disabledDayColor = "text-gray-400 dark:text-gray-500";
+	const dayHoverBg = "hover:bg-gray-100 dark:hover:bg-gray-700";
+	const timeDividerColor = "border-gray-200! dark:border-gray-700!";
+	const timeLabelColor = "text-gray-600 dark:text-gray-400";
+	const todayBorderColor = "border-primary-500! dark:border-primary-400!";
 
 	useEffect(() => {
 		if (value) {

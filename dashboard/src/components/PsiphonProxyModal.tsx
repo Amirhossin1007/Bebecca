@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
 import { Alert, AlertIcon } from "components/shadcn/alert";
 import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
@@ -59,7 +58,7 @@ export const PsiphonProxyModal: FC<Props> = ({
 }) => {
 	const { t, i18n } = useTranslation();
 	const form = useForm<PsiphonProxyFormValues>({ defaultValues: defaults });
-	const borderColor = useColorModeValue("border-gray-200!", "border-whiteAlpha-200!");
+	const borderColor = "border-gray-200! dark:border-whiteAlpha-200!";
 	const [isLoadingLocations, setIsLoadingLocations] = useState(false);
 	const [availableLocations, setAvailableLocations] = useState<string[]>([]);
 	const [loadedConfig, setLoadedConfig] = useState("");

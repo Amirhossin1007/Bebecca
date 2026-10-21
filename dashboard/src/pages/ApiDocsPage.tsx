@@ -1,5 +1,4 @@
 import { buttonVariants } from "components/shadcn/button";
-import { useColorModeValue } from "lib/color-mode";
 import { cn } from "lib/cn";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,10 +9,10 @@ type DocsStatus = "checking" | "enabled" | "disabled";
 export const ApiDocsPage = () => {
 	const { t } = useTranslation();
 	const [status, setStatus] = useState<DocsStatus>("checking");
-	const panelBg = useColorModeValue("bg-white", "bg-gray-950");
-	const borderColor = useColorModeValue("border-blackAlpha-200!", "border-whiteAlpha-200!");
-	const mutedColor = useColorModeValue("text-gray-600", "text-gray-400");
-	const frameBg = useColorModeValue("bg-gray-50", "bg-blackAlpha-300");
+	const panelBg = "bg-white dark:bg-gray-950";
+	const borderColor = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
+	const mutedColor = "text-gray-600 dark:text-gray-400";
+	const frameBg = "bg-gray-50 dark:bg-blackAlpha-300";
 
 	useEffect(() => {
 		let cancelled = false;

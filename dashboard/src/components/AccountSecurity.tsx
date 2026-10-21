@@ -76,7 +76,7 @@ const parseSessionClient = (userAgent = ""): SessionClient => {
 	let os: AgentDetail = {
 		name: "Unknown OS",
 		icon: FiMonitor,
-		color: "gray.400",
+		color: "var(--color-gray-400)",
 	};
 	if (/windows/i.test(ua)) {
 		os = { name: "Windows", icon: FaWindows, color: "#0078D4" };
@@ -84,7 +84,7 @@ const parseSessionClient = (userAgent = ""): SessionClient => {
 		os = {
 			name: /ipad/i.test(ua) ? "iPadOS" : "iOS",
 			icon: FaApple,
-			color: "panel.text",
+			color: "var(--rb-panel-text)",
 		};
 	} else if (/android/i.test(ua)) {
 		os = {
@@ -96,7 +96,7 @@ const parseSessionClient = (userAgent = ""): SessionClient => {
 		os = {
 			name: "macOS",
 			icon: FaApple,
-			color: "panel.text",
+			color: "var(--rb-panel-text)",
 		};
 	} else if (/linux/i.test(ua)) {
 		os = { name: "Linux", icon: FaLinux, color: "#FCC624" };
@@ -105,7 +105,7 @@ const parseSessionClient = (userAgent = ""): SessionClient => {
 	let browser: AgentDetail = {
 		name: "Unknown browser",
 		icon: FiGlobe,
-		color: "gray.400",
+		color: "var(--color-gray-400)",
 	};
 	if (/Edg(?:A|iOS)?\//i.test(ua) || /\bEdge\b/i.test(ua)) {
 		browser = {
@@ -333,12 +333,12 @@ export const AccountSecurity = ({
 								<article key={session.id} className="border border-panel-border! rounded-[6px] p-3">
 									<div className="flex-col sm:flex-row flex justify-between items-stretch sm:items-center gap-3">
 										<div className="flex flex-row min-w-0! gap-3 items-start">
-											<div color={client.os.color} aria-hidden="true" className="flex items-center justify-center w-10 h-10 shrink-0 rounded-[6px] bg-panel-elevated">
+											<div style={{ color: client.os.color }} aria-hidden="true" className="flex items-center justify-center w-10 h-10 shrink-0 rounded-[6px] bg-panel-elevated">
 												<Icon as={iconAs(client.os.icon)} className="size-5" />
 											</div>
 											<div className="min-w-0!">
 												<div className="flex flex-row items-center gap-2 flex-wrap">
-													<Icon as={iconAs(client.browser.icon)} color={client.browser.color} aria-hidden="true" className="size-4" />
+													<Icon as={iconAs(client.browser.icon)} style={{ color: client.browser.color }} aria-hidden="true" className="size-4" />
 													<p className="font-bold text-[1rem]">
 														{browserLabel}
 													</p>

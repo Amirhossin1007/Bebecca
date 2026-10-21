@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { useToast } from "components/shadcn/toast";
 import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
 import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
@@ -272,7 +271,7 @@ const formatBytes = (value?: number): string => {
 };
 
 const InfoItem: FC<{ label: string; value: string }> = ({ label, value }) => {
-	const muted = useColorModeValue("text-gray-500", "text-gray-400");
+	const muted = "text-gray-500 dark:text-gray-400";
 	return (
 		<div>
 			<p className={cn("text-[0.75rem] uppercase tracking-wide", muted)}>
@@ -359,8 +358,8 @@ export const WarpModal: FC<WarpModalProps> = ({
 		setForm((prev) => ({ ...prev, [key]: value }));
 	};
 
-	const helperColor = useColorModeValue("text-gray-600", "text-gray-300");
-	const cardBorder = useColorModeValue("border-gray-200!", "border-whiteAlpha-200!");
+	const helperColor = "text-gray-600 dark:text-gray-300";
+	const cardBorder = "border-gray-200! dark:border-whiteAlpha-200!";
 
 	const handleGenerateKeys = () => {
 		const keys = generateWireguardKeypair();

@@ -2,7 +2,6 @@ import { Input as ChakraInput, Select, Textarea as ChakraTextarea } from "compon
 import { useToast } from "components/shadcn/toast";
 import { FormControl, FormErrorMessage, FormLabel } from "components/shadcn/field";
 import { Tooltip } from "components/shadcn/tooltip";
-import { useColorModeValue } from "lib/color-mode";
 import { Checkbox, CheckboxGroup, Radio, RadioGroup, Switch } from "components/shadcn/selection";
 import { Button, IconButton } from "components/shadcn/button";
 import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
@@ -1028,7 +1027,7 @@ export const InboundFormModal: FC<Props> = ({
 	const supportsFallback =
 		currentProtocol === "vless" || currentProtocol === "trojan";
 
-	const sectionBorder = useColorModeValue("border-gray-200!", "border-gray-700!");
+	const sectionBorder = "border-gray-200! dark:border-gray-700!";
 
 	const submitForm = async (values: InboundFormValues) => {
 		const errors = validateInboundFormValues(values);

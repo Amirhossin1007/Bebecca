@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay } from "components/shadcn/dialog";
 import { Button } from "components/shadcn/button";
 import { useDisclosure } from "hooks/useDisclosure";
@@ -44,9 +43,9 @@ export const ConfirmDialog = ({
 }: ConfirmDialogProps) => {
 	const { t } = useTranslation();
 	const cancelRef = useRef<HTMLButtonElement | null>(null);
-	const dialogBg = useColorModeValue("bg-surface-light", "bg-surface-dark");
-	const dialogBorder = useColorModeValue("border-light-border!", "border-gray-700!");
-	const mutedText = useColorModeValue("text-gray-600", "text-gray-300");
+	const dialogBg = "bg-surface-light dark:bg-surface-dark";
+	const dialogBorder = "border-light-border! dark:border-gray-700!";
+	const mutedText = "text-gray-600 dark:text-gray-300";
 	const iconBg = `bg-${colorScheme}-50 dark:bg-${colorScheme}-900`;
 	const iconColor = `text-${colorScheme}-600 dark:text-${colorScheme}-200`;
 

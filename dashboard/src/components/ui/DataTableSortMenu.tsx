@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { Popover, PopoverBody, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
 import { Button, IconButton } from "components/shadcn/button";
 import { Icon } from "components/shadcn/icon";
@@ -73,8 +72,8 @@ export const DataTableSortMenu = ({
 	onSortingChange,
 }: DataTableSortMenuProps) => {
 	const { t } = useTranslation();
-	const mutedColor = useColorModeValue("text-gray-500", "text-gray-400");
-	const hoverBg = useColorModeValue("hover:bg-gray-100", "hover:bg-whiteAlpha-100");
+	const mutedColor = "text-gray-500 dark:text-gray-400";
+	const hoverBg = "hover:bg-gray-100 dark:hover:bg-whiteAlpha-100";
 	const activeSort = sorting[0];
 
 	const directionLabels = (type: DataTableSortType): [string, string] => {

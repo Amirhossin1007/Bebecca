@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { useToast } from "components/shadcn/toast";
 import { Popover, PopoverBody, PopoverContent, PopoverHeader, PopoverTrigger } from "components/shadcn/popover";
 import { Button, IconButton } from "components/shadcn/button";
@@ -108,8 +107,8 @@ export const DashboardMaintenanceControls = ({
 		(userData.role === AdminRole.FullAccess ||
 			(userData.role === AdminRole.Sudo &&
 				Boolean(userData.permissions?.sudo.backups)));
-	const outputBg = useColorModeValue("bg-gray-50", "bg-blackAlpha-400");
-	const outputBorder = useColorModeValue("border-gray-200!", "border-whiteAlpha-200!");
+	const outputBg = "bg-gray-50 dark:bg-blackAlpha-400";
+	const outputBorder = "border-gray-200! dark:border-whiteAlpha-200!";
 	const [selectedChannel, setSelectedChannel] =
 		useState<UpdateChannel>("current");
 	const [selectedVersion, setSelectedVersion] = useState("");

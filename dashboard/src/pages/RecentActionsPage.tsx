@@ -170,22 +170,22 @@ const actionOperationVisual = (
 	actionType: string,
 ) => {
 	if (nodeRuntimeActionTypes.has(actionType))
-		return { color: "blue.400", icon: <ArrowPathIcon className="w-18" /> };
+		return { color: "var(--color-blue-400)", icon: <ArrowPathIcon className="w-18" /> };
 	switch (operation) {
 		case "created":
-			return { color: "green.400", icon: <PlusCircleIcon className="w-18" /> };
+			return { color: "var(--color-green-400)", icon: <PlusCircleIcon className="w-18" /> };
 		case "deleted":
-			return { color: "red.400", icon: <TrashIcon className="w-18" /> };
+			return { color: "var(--color-red-400)", icon: <TrashIcon className="w-18" /> };
 		case "disabled":
-			return { color: "orange.400", icon: <NoSymbolIcon className="w-18" /> };
+			return { color: "var(--color-orange-400)", icon: <NoSymbolIcon className="w-18" /> };
 		case "enabled":
-			return { color: "green.400", icon: <CheckCircleIcon className="w-18" /> };
+			return { color: "var(--color-green-400)", icon: <CheckCircleIcon className="w-18" /> };
 		case "reset":
-			return { color: "orange.400", icon: <ArrowPathIcon className="w-18" /> };
+			return { color: "var(--color-orange-400)", icon: <ArrowPathIcon className="w-18" /> };
 		case "regenerated":
-			return { color: "blue.400", icon: <KeyIcon className="w-18" /> };
+			return { color: "var(--color-blue-400)", icon: <KeyIcon className="w-18" /> };
 		default:
-			return { color: "blue.400", icon: <PencilSquareIcon className="w-18" /> };
+			return { color: "var(--color-blue-400)", icon: <PencilSquareIcon className="w-18" /> };
 	}
 };
 
@@ -611,7 +611,7 @@ export const RecentActionsPage: FC = () => {
 							: actionTypeLabel(action.action_type);
 					return (
 						<div className="flex flex-row items-start gap-2.5 min-w-0!">
-							<div color={visual.color} className="mt-0.5 shrink-0">
+							<div style={{ color: visual.color }} className="mt-0.5 shrink-0">
 								{visual.icon}
 							</div>
 							<div className="flex flex-col items-start gap-0 min-w-0!">

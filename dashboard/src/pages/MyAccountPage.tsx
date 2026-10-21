@@ -1,4 +1,4 @@
-import { useColorMode, useColorModeValue } from "lib/color-mode";
+import { useColorMode } from "lib/color-mode";
 import { Badge } from "components/shadcn/badge";
 import { useToast } from "components/shadcn/toast";
 import { Button, IconButton } from "components/shadcn/button";
@@ -185,7 +185,7 @@ type StatsCardProps = {
 };
 
 const StatsCard: React.FC<StatsCardProps> = ({ label, value }) => {
-	const labelColor = useColorModeValue("text-panel-text-muted", "text-panel-text-muted");
+	const labelColor = "text-panel-text-muted";
 
 	return (
 		<div className="min-w-0! py-1">
@@ -203,7 +203,7 @@ const MiniMetric: React.FC<{ label: string; value: string }> = ({
 	label,
 	value,
 }) => {
-	const labelColor = useColorModeValue("text-gray-500", "text-gray-400");
+	const labelColor = "text-gray-500 dark:text-gray-400";
 	return (
 		<div>
 			<p className={cn("text-[0.75rem] font-semibold", labelColor)}>
@@ -252,10 +252,10 @@ const ServiceLimitPanel: React.FC<{
 	t: (key: string, fallback?: string) => string;
 	expiryText: string | null;
 }> = ({ service, colorMode, t, expiryText }) => {
-	const borderColor = useColorModeValue("border-blackAlpha-200! border-t-blackAlpha-200!", "border-whiteAlpha-200! border-t-whiteAlpha-200!");
-	const bg = useColorModeValue("bg-white", "bg-whiteAlpha-50");
-	const subBg = useColorModeValue("bg-gray-50", "bg-whiteAlpha-100");
-	const labelColor = useColorModeValue("text-gray-500", "text-gray-400");
+	const borderColor = "border-blackAlpha-200! border-t-blackAlpha-200! dark:border-whiteAlpha-200! dark:border-t-whiteAlpha-200!";
+	const bg = "bg-white dark:bg-whiteAlpha-50";
+	const subBg = "bg-gray-50 dark:bg-whiteAlpha-100";
+	const labelColor = "text-gray-500 dark:text-gray-400";
 	const labels = getTrafficLabels(t, service.traffic_basis);
 	const dailyPoints = service.daily_usage ?? [];
 	const dailyTotal = dailyPoints.reduce(
@@ -371,9 +371,9 @@ const ServiceBalanceCard: React.FC<{
 	t: (key: string, fallback?: string) => string;
 	expiryText: string | null;
 }> = ({ service, t, expiryText }) => {
-	const borderColor = useColorModeValue("border-blackAlpha-200! border-t-blackAlpha-200!", "border-whiteAlpha-200! border-t-whiteAlpha-200!");
-	const bg = useColorModeValue("bg-white", "bg-whiteAlpha-50");
-	const labelColor = useColorModeValue("text-gray-500", "text-gray-400");
+	const borderColor = "border-blackAlpha-200! border-t-blackAlpha-200! dark:border-whiteAlpha-200! dark:border-t-whiteAlpha-200!";
+	const bg = "bg-white dark:bg-whiteAlpha-50";
+	const labelColor = "text-gray-500 dark:text-gray-400";
 	const labels = getTrafficLabels(t, service.traffic_basis);
 	const limit = service.data_limit ?? 0;
 	const remaining =
@@ -558,9 +558,9 @@ export const MyAccountPage: React.FC = () => {
 	const apiKeyModal = useDisclosure();
 	const queryClient = useQueryClient();
 	const { colorMode } = useColorMode();
-	const panelBg = useColorModeValue("bg-gray-50", "bg-whiteAlpha-50");
-	const borderColor = useColorModeValue("border-blackAlpha-200! border-t-blackAlpha-200!", "border-whiteAlpha-200! border-t-whiteAlpha-200!");
-	const labelColor = useColorModeValue("text-gray-500", "text-gray-400");
+	const panelBg = "bg-gray-50 dark:bg-whiteAlpha-50";
+	const borderColor = "border-blackAlpha-200! border-t-blackAlpha-200! dark:border-whiteAlpha-200! dark:border-t-whiteAlpha-200!";
+	const labelColor = "text-gray-500 dark:text-gray-400";
 	const { userData, getUserIsSuccess } = useGetUser();
 	const { onCopy, setValue: setClipboardValue } = useClipboard("");
 	const [range, setRange] = useState<DateRangeValue>(() => {

@@ -1,5 +1,4 @@
 import { useToast } from "components/shadcn/toast";
-import { useColorModeValue } from "lib/color-mode";
 import { Badge } from "components/shadcn/badge";
 import { Alert, AlertIcon } from "components/shadcn/alert";
 import { Checkbox } from "components/shadcn/selection";
@@ -77,12 +76,9 @@ export const ExternalAppsPage = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
 	const queryClient = useQueryClient();
-	const panelBg = useColorModeValue("bg-panel-elevated", "bg-panel-elevated");
-	const borderColor = useColorModeValue("border-panel-border!", "border-panel-border!");
-	const mutedColor = useColorModeValue(
-		"panel.textSecondary",
-		"panel.textSecondary",
-	);
+	const panelBg = "bg-panel-elevated";
+	const borderColor = "border-panel-border!";
+	const mutedColor = "panel.textSecondary";
 	const [template, setTemplate] = useState<TemplateID>("mirzabot");
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [domain, setDomain] = useState("");
@@ -375,7 +371,7 @@ export const ExternalAppsPage = () => {
 									? "Faoxima"
 									: app.name}
 						</p>
-						<p color={mutedColor} className="text-[0.75rem] truncate">
+						<p className={cn(mutedColor, "text-[0.75rem] truncate")}>
 							{app.bot_username
 								? `@${app.bot_username.replace(/^@/, "")}`
 								: app.id}
@@ -453,7 +449,7 @@ export const ExternalAppsPage = () => {
 				),
 			},
 		],
-		[mutedColor, t],
+		[t],
 	);
 
 	const appRowActions = (
@@ -561,7 +557,7 @@ export const ExternalAppsPage = () => {
 			<div className="flex flex-col gap-5">
 				<div>
 					<h2 className="font-heading font-bold text-[1.5rem] leading-[1.33] md:text-[1.875rem] md:leading-[1.2]">{t("externalApps.title")}</h2>
-					<p color={mutedColor} className="mt-2">
+					<p className={cn(mutedColor, "mt-2")}>
 						{t("externalApps.description")}
 					</p>
 				</div>
@@ -644,7 +640,7 @@ export const ExternalAppsPage = () => {
 							<Checkbox isChecked={fallbackToIndex} onChange={(event) => setFallbackToIndex(event.target.checked)}>
 								<div className="flex flex-col gap-0">
 									<p>{t("externalApps.fallbackToIndex")}</p>
-									<p color={mutedColor} className="text-[0.875rem]">
+									<p className={cn(mutedColor, "text-[0.875rem]")}>
 										{t("externalApps.fallbackToIndexHint")}
 									</p>
 								</div>
@@ -709,7 +705,7 @@ export const ExternalAppsPage = () => {
 			</Modal>
 			<div>
 				<h2 className="font-heading font-bold text-[1.5rem] leading-[1.33] md:text-[1.875rem] md:leading-[1.2]">{t("externalApps.title")}</h2>
-				<p color={mutedColor} className="mt-2">
+				<p className={cn(mutedColor, "mt-2")}>
 					{t("externalApps.description")}
 				</p>
 			</div>
@@ -894,7 +890,7 @@ export const ExternalAppsPage = () => {
 													} />
 											</FormControl>
 										</div>
-										<p color={mutedColor} className="text-[0.875rem] mt-3">
+										<p className={cn(mutedColor, "text-[0.875rem] mt-3")}>
 											{t("externalApps.databaseCredentialsHint")}
 										</p>
 									</div>
@@ -946,7 +942,7 @@ export const ExternalAppsPage = () => {
 					columns={appColumns}
 					getRowId={(app) => app.id}
 					isLoading={appsQuery.isLoading}
-					emptyState={<p color={mutedColor}>{t("externalApps.empty")}</p>}
+					emptyState={<p className={mutedColor}>{t("externalApps.empty")}</p>}
 					rowActions={appRowActions}
 					actionsDisplay="menu"
 					actionsPlacement="end"

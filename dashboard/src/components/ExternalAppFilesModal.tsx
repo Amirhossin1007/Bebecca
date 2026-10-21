@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { useColorMode } from "lib/color-mode";
 import { useToast } from "components/shadcn/toast";
 import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
@@ -116,7 +115,7 @@ export const ExternalAppFilesModal = ({
 }: Props) => {
 	const { t, i18n } = useTranslation();
 	const { colorMode } = useColorMode();
-	const modalBg = useColorModeValue("bg-white", "bg-gray-900");
+	const modalBg = "bg-white dark:bg-gray-900";
 	const toast = useToast();
 	const [folder, setFolder] = useState("/");
 	const [document, setDocument] = useState<EditorDocument | null>(null);

@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { useColorMode } from "lib/color-mode";
 import { useToast } from "components/shadcn/toast";
 import { Tooltip } from "components/shadcn/tooltip";
@@ -561,11 +560,11 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 			}
 		}, [validation, validationLabel]);
 
-		const borderColor = useColorModeValue("border-[var(--rb-panel-border)]!", "border-[var(--rb-panel-border)]!");
-		const bg = useColorModeValue("bg-[var(--rb-panel-surface)]", "bg-[var(--rb-panel-surface)]");
-		const elevatedBg = useColorModeValue("bg-[var(--rb-panel-elevated)]", "bg-[var(--rb-panel-elevated)]");
-		const textColor = useColorModeValue("text-[var(--rb-panel-text)]", "text-[var(--rb-panel-text)]");
-		const mutedColor = useColorModeValue("text-[var(--rb-panel-text-muted)]", "text-[var(--rb-panel-text-muted)]");
+		const borderColor = "border-[var(--rb-panel-border)]!";
+		const bg = "bg-[var(--rb-panel-surface)]";
+		const elevatedBg = "bg-[var(--rb-panel-elevated)]";
+		const textColor = "text-[var(--rb-panel-text)]";
+		const mutedColor = "text-[var(--rb-panel-text-muted)]";
 
 		return (
 			<div ref={ref} style={{ minHeight: minHeight }} className={cn(cn("flex flex-col items-stretch border rounded-[10px] h-full overflow-hidden gap-0", bg, borderColor, textColor, "rebecca-json-editor"))}>

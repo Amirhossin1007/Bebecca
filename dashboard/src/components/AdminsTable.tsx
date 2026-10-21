@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { useToast } from "components/shadcn/toast";
 import { useDisclosure } from "hooks/useDisclosure";
 import { Button, IconButton } from "components/shadcn/button";
@@ -177,9 +176,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	const locale = i18n.language || "en";
 	const toast = useToast();
 	const { userData } = useGetUser();
-	const dialogBg = useColorModeValue("bg-surface-light", "bg-surface-dark");
-	const dialogBorderColor = useColorModeValue("border-light-border!", "border-gray-700!");
-	const inlineMenuBg = useColorModeValue("bg-blackAlpha-50", "bg-whiteAlpha-50");
+	const dialogBg = "bg-surface-light dark:bg-surface-dark";
+	const dialogBorderColor = "border-light-border! dark:border-gray-700!";
+	const inlineMenuBg = "bg-blackAlpha-50 dark:bg-whiteAlpha-50";
 	const adminOptions = useAdminsStore((state) => state.adminOptions);
 	const admins = useAdminsStore((state) => state.admins);
 	const loading = useAdminsStore((state) => state.loading);

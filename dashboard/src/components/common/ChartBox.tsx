@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "lib/cn";
 import type { FC, ReactNode } from "react";
@@ -15,9 +14,9 @@ export const ChartBox: FC<ChartBoxProps> = ({
 	headerActions,
 	...props
 }) => {
-	const borderColor = useColorModeValue("border-panel-border! border-b-panel-border!", "border-panel-border! border-b-panel-border!");
-	const bg = useColorModeValue("bg-panel-surface", "bg-panel-surface");
-	const headerBg = useColorModeValue("bg-transparent", "bg-transparent");
+	const borderColor = "border-panel-border! border-b-panel-border!";
+	const bg = "bg-panel-surface";
+	const headerBg = "bg-transparent";
 
 	return (
 		<div {...props} className={cn(borderColor, cn("hover:md:shadow-sm hover:md:border-panel-border-strong!", cn("border rounded-xl overflow-hidden [transition:box-shadow_0.2s_ease,_border-color_0.2s_ease]", bg)))}>

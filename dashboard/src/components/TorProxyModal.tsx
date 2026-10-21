@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
 import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
 import { Input } from "components/shadcn/input";
@@ -63,7 +62,7 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 	onSubmit,
 }) => {
 	const { t, i18n } = useTranslation();
-	const borderColor = useColorModeValue("border-gray-200!", "border-whiteAlpha-200!");
+	const borderColor = "border-gray-200! dark:border-whiteAlpha-200!";
 	const form = useForm<TorProxyFormValues>({ defaultValues: defaults });
 	const locationsValue = useWatch({ control: form.control, name: "locations" });
 	const startPort = useWatch({ control: form.control, name: "startPort" });

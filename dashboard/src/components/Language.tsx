@@ -1,4 +1,3 @@
-import { useColorModeValue } from "lib/color-mode";
 import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
 import { IconButton } from "components/shadcn/button";
 import { Portal } from "components/shadcn/portal";
@@ -25,9 +24,9 @@ export const Language: FC<HeaderProps> = ({
 	triggerVariant = "outline",
 }) => {
 	const { i18n } = useTranslation();
-	const menuBg = useColorModeValue("bg-surface-light", "bg-surface-dark");
-	const borderColor = useColorModeValue("border-blackAlpha-200!", "border-whiteAlpha-200!");
-	const textColor = useColorModeValue("text-gray-800", "text-gray-100");
+	const menuBg = "bg-surface-light dark:bg-surface-dark";
+	const borderColor = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
+	const textColor = "text-gray-800 dark:text-gray-100";
 
 	const changeLanguage = (lang: string) => {
 		i18n.changeLanguage(lang);
