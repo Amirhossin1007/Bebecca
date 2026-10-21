@@ -29,6 +29,7 @@
 		"i18next-http-backend": "^3.0.6",
 		"jsoneditor": "^9.10.5",
 		"lodash.debounce": "^4.0.8",
+		"lucide-react": "^1.60.0",
 		"ofetch": "^1.3.3",
 		"qrcode.react": "^4.2.0",
 		"radix-ui": "^1.8.1",

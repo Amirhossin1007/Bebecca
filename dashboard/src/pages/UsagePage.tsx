@@ -2,6 +2,12 @@ import AdminsUsage from "components/AdminsUsage";
 import NodesUsageAnalytics from "components/NodesUsageAnalytics";
 import ServiceUsageAnalytics from "components/ServiceUsageAnalytics";
 import { PageLoadingSkeleton, TabSystem } from "components/ui";
+import {
+	Card,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "components/ui/card";
 import { useServicesStore } from "contexts/ServicesContext";
 import useGetUser from "hooks/useGetUser";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
@@ -102,14 +108,17 @@ export const UsagePage: FC = () => {
 	}
 
 	if (!recordNodeUsage && !recordNodeUserUsages) {
+		// First surface on a stock shadcn block: the tokens come from the alias
+		// layer in tailwind.css, so no class here is panel-specific.
 		return (
 			<div className="flex flex-col gap-4 items-stretch">
-				<h1 className="font-semibold text-[1.5rem]">
-					{t("usage.title")}
-				</h1>
-				<p className="text-[0.875rem] text-gray-500 dark:text-gray-400">
-					{t("usage.recordingDisabled")}
-				</p>
+				<h1 className="font-semibold text-[1.5rem]">{t("usage.title")}</h1>
+				<Card className="py-5">
+					<CardHeader>
+						<CardTitle>{t("usage.title")}</CardTitle>
+						<CardDescription>{t("usage.recordingDisabled")}</CardDescription>
+					</CardHeader>
+				</Card>
 			</div>
 		);
 	}

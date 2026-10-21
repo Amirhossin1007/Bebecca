@@ -165,6 +165,17 @@
   --color-light-border: #d2d2d4;
 }
 
+@layer base {
+  /* shadcn/ui's own base rule. Blocks use a bare `border` and expect the
+     border token, not currentColor. Component CSS in index.scss is unlayered
+     and still wins wherever it sets a border colour explicitly. */
+  *,
+  ::after,
+  ::before {
+    border-color: var(--color-border);
+  }
+}
+
 @theme inline {
   --font-sans: var(--rb-font-stack);
 
@@ -185,6 +196,38 @@
   --color-panel-warning: #f59e0b;
   --color-panel-danger: #ef4444;
   --color-panel-info: #38bdf8;
+
+  /* ---------------------------------------------------------------- */
+  /* shadcn aliases                                                     */
+  /*                                                                    */
+  /* Stock shadcn/ui blocks style themselves with bg-background,        */
+  /* text-muted-foreground, border-border, bg-primary… Mapping those    */
+  /* names onto the panel tokens lets a block be pasted in unchanged    */
+  /* and still look like this dashboard.                                */
+  /* ---------------------------------------------------------------- */
+  --color-background: var(--rb-panel-main);
+  --color-foreground: var(--rb-panel-text);
+  --color-card: var(--rb-panel-surface);
+  --color-card-foreground: var(--rb-panel-text);
+  --color-popover: var(--rb-panel-surface);
+  --color-popover-foreground: var(--rb-panel-text);
+  --color-primary: var(--rb-panel-accent);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--rb-panel-elevated);
+  --color-secondary-foreground: var(--rb-panel-text);
+  --color-muted: var(--rb-panel-elevated);
+  --color-muted-foreground: var(--rb-panel-text-muted);
+  --color-accent: var(--rb-panel-elevated);
+  --color-accent-foreground: var(--rb-panel-text);
+  --color-destructive: var(--rb-panel-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--rb-panel-border);
+  --color-input: var(--rb-panel-border);
+  --color-ring: var(--rb-panel-accent);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
 
   /* The accent palette is set per accent by ThemeSelector on :root. */
   --color-primary-50: var(--primary-50);
