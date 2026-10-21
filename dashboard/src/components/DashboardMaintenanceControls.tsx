@@ -19,7 +19,7 @@ import { motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { fetch } from "service/http";
 import { AdminRole } from "types/Admin";
 import {
@@ -122,30 +122,18 @@ export const DashboardMaintenanceControls = ({
 	const panelReturnSawOfflineRef = useRef(false);
 	const devUpdateTimerRef = useRef<number | null>(null);
 
-	const info = useQuery<MaintenanceInfo>(
-		["dashboard-maintenance-info"],
-		() => fetch<MaintenanceInfo>("/maintenance/info", { timeout: 8000 }),
-		{
-			enabled: canMaintain || canBackUp,
+	const info = useQuery<MaintenanceInfo>({ queryKey: ["dashboard-maintenance-info"], queryFn: () => fetch<MaintenanceInfo>("/maintenance/info", { timeout: 8000 }), enabled: canMaintain || canBackUp,
 			refetchOnWindowFocus: false,
 			staleTime: 5 * 60 * 1000,
-			retry: false,
-		},
-	);
+			retry: false, });
 	const panel = info.data?.panel;
 	const update = panel?.update;
 	const installMode = panel?.mode || panel?.install_mode;
 	const hostActionsAvailable = installMode === "binary";
-	const builds = useQuery<BuildCatalog>(
-		["maintenance-builds", "panel"],
-		() => fetch<BuildCatalog>("/maintenance/builds?target=panel", { timeout: 12000 }),
-		{
-			enabled: canMaintain && hostActionsAvailable,
+	const builds = useQuery<BuildCatalog>({ queryKey: ["maintenance-builds", "panel"], queryFn: () => fetch<BuildCatalog>("/maintenance/builds?target=panel", { timeout: 12000 }), enabled: canMaintain && hostActionsAvailable,
 			refetchOnWindowFocus: false,
 			staleTime: 10 * 60 * 1000,
-			retry: false,
-		},
-	);
+			retry: false, });
 	const fallbackVersion = channel?.toLowerCase() === "dev" ? "dev" : version;
 	const currentVersion =
 		panel?.tag || update?.current || fallbackVersion || "-";
@@ -293,35 +281,26 @@ export const DashboardMaintenanceControls = ({
 		window.setTimeout(() => info.refetch(), 6000);
 	};
 
-	const updateMutation = useMutation(
-		() =>
+	const updateMutation = useMutation({ mutationFn: () =>
 			triggerAction("update", {
 				channel: selectedChannel,
 				...(selectedVersion ? { version: selectedVersion } : {}),
-			}),
-		{
-			retry: false,
+			}), retry: false,
 			onSuccess: (result) => handleSuccess("update", result),
 			onError: (error) => {
 				setUpdateDialogOpen(false);
 				generateErrorMessage(error, toast);
-			},
-		},
-	);
-	const restartMutation = useMutation(() => triggerAction("restart"), {
-		retry: false,
+			}, });
+	const restartMutation = useMutation({ mutationFn: () => triggerAction("restart"), retry: false,
 		onSuccess: (result) => handleSuccess("restart", result),
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-		},
-	});
-	const reloadMutation = useMutation(() => triggerAction("soft-reload"), {
-		retry: false,
+		}, });
+	const reloadMutation = useMutation({ mutationFn: () => triggerAction("soft-reload"), retry: false,
 		onSuccess: (result) => handleSuccess("soft-reload", result),
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-		},
-	});
+		}, });
 
 	const executeUpdate = () => {
 		setOperation(null);
@@ -467,10 +446,10 @@ export const DashboardMaintenanceControls = ({
 							</Alert>
 						)}
 						<div className="flex gap-2 flex-wrap justify-end pt-2 border-t border-panel-border!">
-							<Button size="xs" variant="outline" onClick={() => setConfirmAction("soft-reload")} loading={reloadMutation.isLoading} disabled={!hostActionsAvailable} className="h-[30px] px-3.5 rounded-full border-panel-border! text-panel-text hover:bg-panel-elevated hover:border-panel-border-strong! text-[12px] font-semibold">
+							<Button size="xs" variant="outline" onClick={() => setConfirmAction("soft-reload")} loading={reloadMutation.isPending} disabled={!hostActionsAvailable} className="h-[30px] px-3.5 rounded-full border-panel-border! text-panel-text hover:bg-panel-elevated hover:border-panel-border-strong! text-[12px] font-semibold">
 								{t("dashboard.maintenance.softReloadAction")}
 							</Button>
-							<Button size="xs" colorScheme={update?.available ? "primary" : "gray"} onClick={startUpdate} loading={updateMutation.isLoading} disabled={!hostActionsAvailable} className="h-[30px] px-4 rounded-full text-[12px] font-semibold">
+							<Button size="xs" colorScheme={update?.available ? "primary" : "gray"} onClick={startUpdate} loading={updateMutation.isPending} disabled={!hostActionsAvailable} className="h-[30px] px-4 rounded-full text-[12px] font-semibold">
 								{t("dashboard.maintenance.updateAction")}
 							</Button>
 						</div>
@@ -495,7 +474,7 @@ export const DashboardMaintenanceControls = ({
 				)}
 
 				{canMaintain && (
-					<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} loading={restartMutation.isLoading} disabled={info.isLoading || !hostActionsAvailable} className="h-[32px] px-3.5 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
+					<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} loading={restartMutation.isPending} disabled={info.isPending || !hostActionsAvailable} className="h-[32px] px-3.5 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
 						<div className="flex flex-row gap-1.5 items-center justify-center">
 							<span className="inline-flex items-center justify-center shrink-0">
 								<ArrowsRightLeftIcon className="w-[15px] h-[15px]" />
@@ -515,7 +494,7 @@ export const DashboardMaintenanceControls = ({
 					</div>
 
 					<div className="flex gap-2 w-full items-center">
-						<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} loading={restartMutation.isLoading} disabled={info.isLoading || !hostActionsAvailable} className="flex-[1_1_50%] h-[32px] px-3 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
+						<Button size="xs" colorScheme="red" variant="outline" onClick={() => setConfirmAction("restart")} loading={restartMutation.isPending} disabled={info.isPending || !hostActionsAvailable} className="flex-[1_1_50%] h-[32px] px-3 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap">
 							<div className="flex flex-row gap-1.5 items-center justify-center w-full">
 								<span className="inline-flex items-center justify-center shrink-0">
 									<ArrowsRightLeftIcon className="w-[15px] h-[15px]" />
@@ -687,7 +666,7 @@ export const DashboardMaintenanceControls = ({
 						<Button variant="ghost" size="sm" onClick={() => setConfirmAction(null)} className="rounded-full text-panel-text-muted">
 							{t("cancel")}
 						</Button>
-						<Button colorScheme={confirmAction === "restart" ? "red" : selectedChannel === "dev" && confirmAction === "update" ? "orange" : "primary"} size="sm" loading={restartMutation.isLoading || reloadMutation.isLoading || updateMutation.isLoading} onClick={() => {
+						<Button colorScheme={confirmAction === "restart" ? "red" : selectedChannel === "dev" && confirmAction === "update" ? "orange" : "primary"} size="sm" loading={restartMutation.isPending || reloadMutation.isPending || updateMutation.isPending} onClick={() => {
 								const act = confirmAction;
 								setConfirmAction(null);
 								if (act === "restart") restartMutation.mutate();

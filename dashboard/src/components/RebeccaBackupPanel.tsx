@@ -14,7 +14,7 @@ import {
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation } from "react-query";
+import { useMutation } from "@tanstack/react-query";
 import {
 	exportRebeccaBackup,
 	importRebeccaBackup,
@@ -52,8 +52,7 @@ export const DashboardBackupControls = ({
 	const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 	const backupActionsAvailable = isBinaryRuntime && !runtimeLoading;
 
-	const exportMutation = useMutation(exportRebeccaBackup, {
-		onSuccess: (blob, scope) => {
+	const exportMutation = useMutation({ mutationFn: exportRebeccaBackup, onSuccess: (blob, scope) => {
 			const url = URL.createObjectURL(blob);
 			const anchor = document.createElement("a");
 			anchor.href = url;
@@ -67,13 +66,9 @@ export const DashboardBackupControls = ({
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-		},
-	});
+		}, });
 
-	const importMutation = useMutation(
-		(files: File[]) => importRebeccaBackup(files, setUploadProgress),
-		{
-			onMutate: () => setUploadProgress(0),
+	const importMutation = useMutation({ mutationFn: (files: File[]) => importRebeccaBackup(files, setUploadProgress), onMutate: () => setUploadProgress(0),
 			onSuccess: (result) => {
 				generateSuccessMessage(
 					t("dashboard.backup.importDone", {
@@ -97,9 +92,7 @@ export const DashboardBackupControls = ({
 			onError: (error) => {
 				generateErrorMessage(error, toast);
 			},
-			onSettled: () => setUploadProgress(null),
-		},
-	);
+			onSettled: () => setUploadProgress(null), });
 
 	const openDialog = (nextDialog: Exclude<BackupDialog, null>) => {
 		setMenuOpen(false);
@@ -185,11 +178,11 @@ export const DashboardBackupControls = ({
 				</PopoverContent>
 			</Popover>
 
-			<Modal open={dialog === "import"} onClose={() => setDialog(null)} isCentered size="xl" closeOnOverlayClick={!importMutation.isLoading}>
+			<Modal open={dialog === "import"} onClose={() => setDialog(null)} isCentered size="xl" closeOnOverlayClick={!importMutation.isPending}>
 				<ModalOverlay className="bg-blackAlpha-700 [backdrop-filter:blur(8px)]" />
 				<ModalContent className="border border-panel-border! rounded-2xl shadow-[0_32px_80px_rgba(0,0,0,0.5)] bg-panel-surface mx-4 sm:mx-0">
 					<ModalHeader className="text-[1rem] font-bold text-panel-text">{t("dashboard.backup.import")}</ModalHeader>
-					<ModalCloseButton disabled={importMutation.isLoading} />
+					<ModalCloseButton disabled={importMutation.isPending} />
 					<ModalBody className="py-4">
 						<div className="flex flex-col gap-4">
 							<p className="text-[13px] text-panel-text-muted">
@@ -206,7 +199,7 @@ export const DashboardBackupControls = ({
 								<FileDropzone
 									accept=".rbbackup,.tar.gz,.tgz,.zip,application/vnd.rebecca.backup,application/gzip,application/x-gzip,application/zip,application/x-tar,application/octet-stream"
 									disabled={
-										!backupActionsAvailable || importMutation.isLoading
+										!backupActionsAvailable || importMutation.isPending
 									}
 									multiple
 								selectedFiles={selectedFiles}
@@ -241,7 +234,7 @@ export const DashboardBackupControls = ({
 									</Button>
 								</div>
 							)}
-							{importMutation.isLoading && uploadProgress !== null && (
+							{importMutation.isPending && uploadProgress !== null && (
 								<div aria-live="polite" className="flex flex-col gap-2">
 									<p className="text-[12px] font-semibold">
 										{uploadProgress < 100
@@ -256,21 +249,21 @@ export const DashboardBackupControls = ({
 						</div>
 					</ModalBody>
 					<ModalFooter className="gap-2 border-t border-panel-border!">
-						<Button variant="ghost" size="sm" onClick={() => setDialog(null)} disabled={importMutation.isLoading} className="rounded-full">
+						<Button variant="ghost" size="sm" onClick={() => setDialog(null)} disabled={importMutation.isPending} className="rounded-full">
 							{t("cancel")}
 						</Button>
-						<Button colorScheme="red" size="sm" onClick={handleImport} disabled={!canImport} loading={importMutation.isLoading} className="rounded-full px-5">{<ArrowUpTrayIcon className="w-[15px] h-[15px]" />}
+						<Button colorScheme="red" size="sm" onClick={handleImport} disabled={!canImport} loading={importMutation.isPending} className="rounded-full px-5">{<ArrowUpTrayIcon className="w-[15px] h-[15px]" />}
 							{t("dashboard.backup.import")}
 						</Button>
 					</ModalFooter>
 				</ModalContent>
 			</Modal>
 
-			<Modal open={dialog === "export"} onClose={() => setDialog(null)} isCentered size="md" closeOnOverlayClick={!exportMutation.isLoading}>
+			<Modal open={dialog === "export"} onClose={() => setDialog(null)} isCentered size="md" closeOnOverlayClick={!exportMutation.isPending}>
 				<ModalOverlay className="bg-blackAlpha-700 [backdrop-filter:blur(8px)]" />
 				<ModalContent className="border border-panel-border! rounded-2xl shadow-[0_32px_80px_rgba(0,0,0,0.5)] bg-panel-surface mx-4 sm:mx-0">
 					<ModalHeader className="text-[1rem] font-bold text-panel-text">{t("dashboard.backup.exportTitle")}</ModalHeader>
-					<ModalCloseButton disabled={exportMutation.isLoading} />
+					<ModalCloseButton disabled={exportMutation.isPending} />
 					<ModalBody className="py-4">
 						<div className="flex flex-col gap-4">
 							<p className="text-[13px] text-panel-text-muted">
@@ -294,10 +287,10 @@ export const DashboardBackupControls = ({
 						</div>
 					</ModalBody>
 					<ModalFooter className="gap-2 border-t border-panel-border!">
-						<Button variant="ghost" size="sm" onClick={() => setDialog(null)} disabled={exportMutation.isLoading} className="rounded-full">
+						<Button variant="ghost" size="sm" onClick={() => setDialog(null)} disabled={exportMutation.isPending} className="rounded-full">
 							{t("cancel")}
 						</Button>
-						<Button colorScheme="primary" size="sm" onClick={() => exportMutation.mutate(exportScope)} loading={exportMutation.isLoading} className="rounded-full px-5">{<ArrowDownTrayIcon className="w-[15px] h-[15px]" />}
+						<Button colorScheme="primary" size="sm" onClick={() => exportMutation.mutate(exportScope)} loading={exportMutation.isPending} className="rounded-full px-5">{<ArrowDownTrayIcon className="w-[15px] h-[15px]" />}
 							{t("dashboard.backup.download")}
 						</Button>
 					</ModalFooter>

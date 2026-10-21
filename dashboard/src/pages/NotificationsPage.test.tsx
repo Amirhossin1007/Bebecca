@@ -15,9 +15,9 @@ vi.mock("react-i18next", () => ({
 	}),
 }));
 vi.mock("hooks/useGetUser", () => ({ default: vi.fn() }));
-vi.mock("react-query", () => ({
+vi.mock("@tanstack/react-query", () => ({
 	useQuery: vi.fn(() => ({ data: undefined })),
-	useMutation: vi.fn(() => ({ mutate: vi.fn(), isLoading: false })),
+	useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 	useQueryClient: vi.fn(() => ({ invalidateQueries: vi.fn() })),
 }));
 

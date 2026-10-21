@@ -49,7 +49,7 @@ import utc from "dayjs/plugin/utc";
 import useGetUser from "hooks/useGetUser";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { fetch as apiFetch } from "service/http";
 import { formatBytes } from "utils/formatByte";
@@ -621,24 +621,12 @@ export const NodesPage: FC = () => {
 		setNodesPerPageLimitSize(String(pageSize));
 	}, [pageSize]);
 
-	const { data: maintenanceInfo } = useQuery<MaintenanceInfo>(
-		["maintenance-info"],
-		() => apiFetch<MaintenanceInfo>("/maintenance/info"),
-		{
-			refetchOnWindowFocus: false,
-			enabled: canManageNodes,
-		},
-	);
-	const { data: buildCatalog } = useQuery<BuildCatalog>(
-		["maintenance-builds", "node"],
-		() => apiFetch<BuildCatalog>("/maintenance/builds?target=node"),
-		{
-			enabled: canManageNodes,
+	const { data: maintenanceInfo } = useQuery<MaintenanceInfo>({ queryKey: ["maintenance-info"], queryFn: () => apiFetch<MaintenanceInfo>("/maintenance/info"), refetchOnWindowFocus: false,
+			enabled: canManageNodes, });
+	const { data: buildCatalog } = useQuery<BuildCatalog>({ queryKey: ["maintenance-builds", "node"], queryFn: () => apiFetch<BuildCatalog>("/maintenance/builds?target=node"), enabled: canManageNodes,
 			refetchOnWindowFocus: false,
 			staleTime: 10 * 60 * 1000,
-			retry: false,
-		},
-	);
+			retry: false, });
 	const detectedNodeUpdateChannel =
 		nodes?.find((nodeItem) => nodeItem.node_update_channel)
 			?.node_update_channel || maintenanceInfo?.node_update?.channel;
@@ -661,48 +649,38 @@ export const NodesPage: FC = () => {
 		};
 	}, [canManageNodes, onEditingNodes]);
 
-	const { isLoading: isAdding, mutate: addNodeMutate } = useMutation(addNode, {
-		onSuccess: (createdNode: NodeType) => {
+	const { isPending: isAdding, mutate: addNodeMutate } = useMutation({ mutationFn: addNode, onSuccess: (createdNode: NodeType) => {
 			generateSuccessMessage(
 				t("nodes.addNodeSuccess", {
 					name: createdNode.name ?? t("nodes.unnamedNode"),
 				}),
 				toast,
 			);
-			queryClient.invalidateQueries(FetchNodesQueryKey);
+			queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 			refetchNodes();
 		},
 		onError: (err) => {
 			generateErrorMessage(err, toast);
-		},
-	});
+		}, });
 
-	const { isLoading: isUpdating, mutate: updateNodeMutate } = useMutation(
-		updateNode,
-		{
-			onSuccess: () => {
+	const { isPending: isUpdating, mutate: updateNodeMutate } = useMutation({ mutationFn: updateNode, onSuccess: () => {
 				generateSuccessMessage(t("nodes.nodeUpdated"), toast);
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 				refetchNodes();
 			},
 			onError: (err) => {
 				generateErrorMessage(err, toast);
-			},
-		},
-	);
+			}, });
 
-	const { isLoading: isDeletingNode, mutate: deleteNodeMutate } = useMutation(
-		async (node: NodeType) => {
+	const { isPending: isDeletingNode, mutate: deleteNodeMutate } = useMutation({ mutationFn: async (node: NodeType) => {
 			setDeletingNode(node);
 			return deleteNode();
-		},
-		{
-			onSuccess: (_result, node) => {
+		}, onSuccess: (_result, node) => {
 				generateSuccessMessage(
 					t("deleteNode.deleteSuccess", { name: node.name }),
 					toast,
 				);
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 				refetchNodes();
 				closeDeleteConfirm();
 				setDeleteCandidate(null);
@@ -712,18 +690,15 @@ export const NodesPage: FC = () => {
 			},
 			onSettled: () => {
 				setDeletingNode(null);
-			},
-		},
-	);
+			}, });
 
-	const { mutate: regenerateNodeCertMutate, isLoading: isRegenerating } =
-		useMutation(regenerateNodeCertificate, {
-			onMutate: (node: NodeType) => {
+	const { mutate: regenerateNodeCertMutate, isPending: isRegenerating } =
+		useMutation({ mutationFn: regenerateNodeCertificate, onMutate: (node: NodeType) => {
 				setRegeneratingNodeId(node.id ?? null);
 			},
 			onSuccess: (updatedNode: NodeType) => {
 				generateSuccessMessage(t("nodes.regenerateCertSuccess"), toast);
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 				if (updatedNode?.node_certificate) {
 					setNewNodeCertificate({
 						certificate: updatedNode.node_certificate,
@@ -738,23 +713,14 @@ export const NodesPage: FC = () => {
 			},
 			onSettled: () => {
 				setRegeneratingNodeId(null);
-			},
-		});
+			}, });
 
-	const { isLoading: isReconnecting, mutate: reconnect } = useMutation(
-		reconnectNode,
-		{
-			onSuccess: () => {
-				queryClient.invalidateQueries(FetchNodesQueryKey);
-			},
-		},
-	);
+	const { isPending: isReconnecting, mutate: reconnect } = useMutation({ mutationFn: reconnectNode, onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
+			}, });
 
-	const { mutate: toggleNodeStatus, isLoading: isToggling } = useMutation(
-		updateNode,
-		{
-			onSuccess: () => {
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+	const { mutate: toggleNodeStatus, isPending: isToggling } = useMutation({ mutationFn: updateNode, onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 			},
 			onError: (err) => {
 				generateErrorMessage(err, toast);
@@ -768,9 +734,7 @@ export const NodesPage: FC = () => {
 					});
 				}
 				setTogglingNodeId(null);
-			},
-		},
-	);
+			}, });
 
 	const loadNodeHostImpact = async (nodesForAction: NodeType[]) => {
 		const currentHosts = await apiFetch<HostsSchema>("/hosts");
@@ -832,12 +796,9 @@ export const NodesPage: FC = () => {
 		);
 	};
 
-	const { isLoading: isResettingUsage, mutate: resetUsageMutate } = useMutation(
-		resetNodeUsage,
-		{
-			onSuccess: () => {
+	const { isPending: isResettingUsage, mutate: resetUsageMutate } = useMutation({ mutationFn: resetNodeUsage, onSuccess: () => {
 				generateSuccessMessage(t("nodes.resetUsageSuccess"), toast);
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 			},
 			onError: (err) => {
 				generateErrorMessage(err, toast);
@@ -845,62 +806,51 @@ export const NodesPage: FC = () => {
 			onSettled: () => {
 				setResetCandidate(null);
 				closeResetConfirm();
-			},
-		},
-	);
+			}, });
 
-	const { mutate: restartServiceMutate, isLoading: isRestartingService } =
-		useMutation(restartNodeService, {
-			onMutate: (node: NodeType) => {
+	const { mutate: restartServiceMutate, isPending: isRestartingService } =
+		useMutation({ mutationFn: restartNodeService, onMutate: (node: NodeType) => {
 				setRestartingServiceNodeId(node.id ?? null);
 			},
 			onSuccess: () => {
 				generateSuccessMessage(t("nodes.restartServiceTriggered"), toast);
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 			},
 			onError: (err) => {
 				generateErrorMessage(err, toast);
 			},
 			onSettled: () => {
 				setRestartingServiceNodeId(null);
-			},
-		});
+			}, });
 
-	const { mutate: updateServiceMutate, isLoading: isUpdatingService } =
-		useMutation(updateNodeService, {
-			onMutate: (node: NodeType) => {
+	const { mutate: updateServiceMutate, isPending: isUpdatingService } =
+		useMutation({ mutationFn: updateNodeService, onMutate: (node) => {
 				setUpdatingServiceNodeId(node.id ?? null);
 			},
 			onSuccess: () => {
 				generateSuccessMessage(t("nodes.updateServiceTriggered"), toast);
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 			},
 			onError: (err) => {
 				generateErrorMessage(err, toast);
 			},
 			onSettled: () => {
 				setUpdatingServiceNodeId(null);
-			},
-		});
+			}, });
 
-	const { mutate: rebootHostMutate, isLoading: isRebootingHost } = useMutation(
-		rebootNodeHost,
-		{
-			onMutate: (node: NodeType) => {
+	const { mutate: rebootHostMutate, isPending: isRebootingHost } = useMutation({ mutationFn: rebootNodeHost, onMutate: (node: NodeType) => {
 				setRebootingHostNodeId(node.id ?? null);
 			},
 			onSuccess: () => {
 				generateSuccessMessage(t("nodes.rebootHostTriggered"), toast);
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 			},
 			onError: (err) => {
 				generateErrorMessage(err, toast);
 			},
 			onSettled: () => {
 				setRebootingHostNodeId(null);
-			},
-		},
-	);
+			}, });
 
 	const runToggleNodeStatus = (node: NodeType) => {
 		if (!node?.id) return;
@@ -995,8 +945,8 @@ export const NodesPage: FC = () => {
 					body: { channel, version },
 				});
 				generateSuccessMessage(t("nodes.updateServiceTriggered"), toast);
-				queryClient.invalidateQueries(FetchNodesQueryKey);
-				queryClient.invalidateQueries(["maintenance-info"]);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
+				queryClient.invalidateQueries({ queryKey: ["maintenance-info"] });
 				setServiceUpdateTarget(null);
 			} catch (err) {
 				generateErrorMessage(err, toast);
@@ -1024,8 +974,8 @@ export const NodesPage: FC = () => {
 				}),
 				toast,
 			);
-			queryClient.invalidateQueries(FetchNodesQueryKey);
-			queryClient.invalidateQueries(["maintenance-info"]);
+			queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
+			queryClient.invalidateQueries({ queryKey: ["maintenance-info"] });
 			setServiceUpdateTarget(null);
 		} catch (err) {
 			generateErrorMessage(err, toast);
@@ -1251,7 +1201,7 @@ export const NodesPage: FC = () => {
 					}
 				}
 			setBulkNodeActionLoading(null);
-			queryClient.invalidateQueries(FetchNodesQueryKey);
+			queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 			refetchNodes();
 			if (actionType === "bulk-delete") {
 				setSelectedNodeIds((current) =>
@@ -1303,7 +1253,7 @@ export const NodesPage: FC = () => {
 			generateErrorMessage(err, toast);
 		}
 		setUpdatingBulkService(false);
-		queryClient.invalidateQueries(FetchNodesQueryKey);
+		queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 		refetchNodes();
 		if (successCount > 0) {
 			generateSuccessMessage(
@@ -1398,7 +1348,7 @@ export const NodesPage: FC = () => {
 					});
 				}
 
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 				closeVersionDialog();
 			} finally {
 				setUpdatingBulkCore(false);
@@ -1424,7 +1374,7 @@ export const NodesPage: FC = () => {
 					}),
 					toast,
 				);
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 				closeVersionDialog();
 			} catch (err) {
 				generateErrorMessage(err, toast);
@@ -1471,7 +1421,7 @@ export const NodesPage: FC = () => {
 					}),
 					toast,
 				);
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 				closeGeoDialog();
 			} catch (err) {
 				generateErrorMessage(err, toast);
@@ -1527,7 +1477,7 @@ export const NodesPage: FC = () => {
 						position: "top",
 					});
 				}
-				queryClient.invalidateQueries(FetchNodesQueryKey);
+				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 				closeGeoDialog();
 			} finally {
 				setBulkNodeActionLoading(null);

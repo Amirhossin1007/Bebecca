@@ -37,7 +37,7 @@ import "ace-builds/src-noconflict/theme-github";
 import "ace-builds/src-noconflict/theme-monokai";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	createExternalAppFolder,
 	deleteExternalAppFiles,
@@ -124,14 +124,8 @@ export const ExternalAppFilesModal = ({
 	const domain = app?.domain || "";
 	const appID = app?.id || "";
 	const isPHPConfigView = initialView === "php-config";
-	const filesQuery = useQuery(
-		["external-app-files", appID],
-		() => getExternalAppFiles(appID),
-		{
-			enabled: Boolean(appID) && !isPHPConfigView,
-			refetchOnWindowFocus: false,
-		},
-	);
+	const filesQuery = useQuery({ queryKey: ["external-app-files", appID], queryFn: () => getExternalAppFiles(appID), enabled: Boolean(appID) && !isPHPConfigView,
+			refetchOnWindowFocus: false, });
 	const isDirty = document !== null && draft !== document.content;
 
 	const showError = useCallback(
@@ -159,10 +153,7 @@ export const ExternalAppFilesModal = ({
 		await filesQuery.refetch();
 	}, [filesQuery.refetch]);
 
-	const fileMutation = useMutation(
-		(action: () => Promise<unknown>) => action(),
-		{ onSettled: refreshFiles, onError: showError },
-	);
+	const fileMutation = useMutation({ mutationFn: (action: () => Promise<unknown>) => action(), onSettled: refreshFiles, onError: showError });
 
 	const openFile = useCallback(
 		async (path: string, discardConfirmed = false) => {
@@ -222,8 +213,7 @@ export const ExternalAppFilesModal = ({
 		};
 	}, [app?.runtime, appID, initialView, showError]);
 
-	const saveMutation = useMutation(
-		async () => {
+	const saveMutation = useMutation({ mutationFn: async () => {
 			if (!app || !document) return;
 			if (document.kind === "php-config") {
 				await saveExternalAppPHPConfig({ domain: app.id, content: draft });
@@ -234,18 +224,14 @@ export const ExternalAppFilesModal = ({
 					content: draft,
 				});
 			}
-		},
-		{
-			onSuccess: async () => {
+		}, onSuccess: async () => {
 				setDocument((current) =>
 					current ? { ...current, content: draft } : current,
 				);
 				if (document?.kind === "file") await refreshFiles();
 				toast({ title: t("externalApps.files.saved"), status: "success" });
 			},
-			onError: showError,
-		},
-	);
+			onError: showError, });
 
 	const close = () => {
 		if (isDirty && !window.confirm(t("externalApps.files.discardConfirm")))
@@ -317,7 +303,7 @@ export const ExternalAppFilesModal = ({
 						{!isPHPConfigView ? (
 							<div className={cn("flex-1 min-w-0! min-h-0 lg:flex flex-col", document ? "hidden" : "flex")}>
 								<div className="flex-1 min-h-0 min-w-0! external-app-files-shell">
-									<Button size="sm" variant="ghost" title={t("externalApps.files.newFile")} aria-label={t("externalApps.files.newFile")} disabled={fileMutation.isLoading} onClick={createFile} className="external-app-files-new-file">{<DocumentPlusIcon className="w-[18px]" />}
+									<Button size="sm" variant="ghost" title={t("externalApps.files.newFile")} aria-label={t("externalApps.files.newFile")} disabled={fileMutation.isPending} onClick={createFile} className="external-app-files-new-file">{<DocumentPlusIcon className="w-[18px]" />}
 										<span className="external-app-files-new-file-label">
 											{t("externalApps.files.newFile")}
 										</span>
@@ -326,7 +312,7 @@ export const ExternalAppFilesModal = ({
 											url: externalAppFileUploadURL(appID),
 											method: "POST",
 											withCredentials: true,
-										}} loading={filesQuery.isLoading || fileMutation.isLoading} language={
+										}} loading={filesQuery.isPending || fileMutation.isPending} language={
 											i18n.language.startsWith("fa") ? "fa-IR" : "en-US"
 										} layout="list" maxFileSize={32 << 20} onCreateFolder={(name, parent) =>
 											fileMutation.mutate(() =>
@@ -392,7 +378,7 @@ export const ExternalAppFilesModal = ({
 								<p className="flex-1 min-w-0! text-[0.875rem] text-panel-text-secondary truncate">
 									{document?.path || t("externalApps.files.openHint")}
 								</p>
-								<Button size="sm" colorScheme="blue" disabled={!document || !isDirty} loading={saveMutation.isLoading} onClick={() => saveMutation.mutate()}>
+								<Button size="sm" colorScheme="blue" disabled={!document || !isDirty} loading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
 									{t("externalApps.files.save")}
 								</Button>
 							</div>

@@ -45,7 +45,7 @@ import {
 	getVlessEncAuthBlocks,
 	type VlessEncAuthBlock,
 } from "service/xray";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
 	getSubscriptionSettings,
 	type SubscriptionSettingsBundle,
@@ -423,11 +423,7 @@ export const InboundFormModal: FC<Props> = ({
 		useWatch({ control, name: "streamSecurity" }) || watch("streamSecurity");
 	const sniffingEnabled =
 		useWatch({ control, name: "sniffingEnabled" }) ?? watch("sniffingEnabled");
-	const { data: subscriptionBundle } = useQuery<SubscriptionSettingsBundle>(
-		"subscription-settings",
-		getSubscriptionSettings,
-		{ refetchOnWindowFocus: false },
-	);
+	const { data: subscriptionBundle } = useQuery<SubscriptionSettingsBundle>({ queryKey: ["subscription-settings"], queryFn: getSubscriptionSettings, refetchOnWindowFocus: false });
 	const tlsCertificates =
 		useWatch({ control, name: "tlsCertificates" }) ||
 		watch("tlsCertificates") ||

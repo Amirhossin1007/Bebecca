@@ -34,7 +34,7 @@ import {
 } from "components/ui";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink } from "react-router-dom";
 import {
 	deleteExternalApp,
@@ -110,17 +110,9 @@ export const ExternalAppsPage = () => {
 	const [managedApp, setManagedApp] = useState<ExternalAppRecord | null>(null);
 	const [managerView, setManagerView] = useState<"file" | "php-config">("file");
 
-	const appsQuery = useQuery("external-apps", getExternalApps, {
-		refetchOnWindowFocus: false,
-	});
-	const certificatesQuery = useQuery(
-		"subscription-settings",
-		getSubscriptionSettings,
-		{
-			refetchOnWindowFocus: false,
-			enabled: appsQuery.data?.supported === true,
-		},
-	);
+	const appsQuery = useQuery({ queryKey: ["external-apps"], queryFn: getExternalApps, refetchOnWindowFocus: false, });
+	const certificatesQuery = useQuery({ queryKey: ["subscription-settings"], queryFn: getSubscriptionSettings, refetchOnWindowFocus: false,
+			enabled: appsQuery.data?.supported === true, });
 	const apps = appsQuery.data?.apps ?? [];
 	const usedRootDomains = useMemo(
 		() => new Set(apps.filter((app) => !app.path).map((app) => app.domain)),
@@ -167,8 +159,7 @@ export const ExternalAppsPage = () => {
 		setDatabasePassword(password);
 	};
 
-	const installMutation = useMutation(
-		async () => {
+	const installMutation = useMutation({ mutationFn: async () => {
 			if (!domain) throw new Error(t("externalApps.errors.domainRequired"));
 			if (template === "archive") {
 				if (!name.trim())
@@ -205,9 +196,7 @@ export const ExternalAppsPage = () => {
 					? (databaseBackup ?? undefined)
 					: undefined,
 			});
-		},
-		{
-			onSuccess: async () => {
+		}, onSuccess: async () => {
 				toast({
 					title: t("externalApps.installSuccess"),
 					status: "success",
@@ -228,7 +217,7 @@ export const ExternalAppsPage = () => {
 				setHasDatabaseBackup(false);
 				setDatabaseBackup(null);
 				setCreateDialogOpen(false);
-				await queryClient.invalidateQueries("external-apps");
+				await queryClient.invalidateQueries({ queryKey: ["external-apps"] });
 			},
 			onError: (error) => {
 				toast({
@@ -237,12 +226,9 @@ export const ExternalAppsPage = () => {
 					status: "error",
 					isClosable: true,
 				});
-			},
-		},
-	);
+			}, });
 
-	const toggleMutation = useMutation(setExternalAppEnabled, {
-		onSuccess: () => queryClient.invalidateQueries("external-apps"),
+	const toggleMutation = useMutation({ mutationFn: setExternalAppEnabled, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["external-apps"] }),
 		onError: (error) => {
 			toast({
 				title: t("externalApps.actionFailed"),
@@ -250,14 +236,12 @@ export const ExternalAppsPage = () => {
 				status: "error",
 				isClosable: true,
 			});
-		},
-	});
+		}, });
 
-	const deleteMutation = useMutation(deleteExternalApp, {
-		onSuccess: () => {
+	const deleteMutation = useMutation({ mutationFn: deleteExternalApp, onSuccess: () => {
 			toast({ title: t("externalApps.deleteSuccess"), status: "success" });
 			setDeleteTarget(null);
-			queryClient.invalidateQueries("external-apps");
+			queryClient.invalidateQueries({ queryKey: ["external-apps"] });
 		},
 		onError: (error) => {
 			toast({
@@ -266,17 +250,15 @@ export const ExternalAppsPage = () => {
 				status: "error",
 				isClosable: true,
 			});
-		},
-	});
+		}, });
 
-	const updateMutation = useMutation(updateExternalMirzaBot, {
-		onSuccess: (app) => {
+	const updateMutation = useMutation({ mutationFn: updateExternalMirzaBot, onSuccess: (app) => {
 			toast({
 				title: t("externalApps.updateSuccess", { version: app.version }),
 				status: "success",
 			});
 			setUpdateTarget(null);
-			queryClient.invalidateQueries("external-apps");
+			queryClient.invalidateQueries({ queryKey: ["external-apps"] });
 		},
 		onError: (error) => {
 			toast({
@@ -285,13 +267,9 @@ export const ExternalAppsPage = () => {
 				status: "error",
 				isClosable: true,
 			});
-		},
-	});
+		}, });
 
-	const databaseBackupMutation = useMutation(
-		(app: ExternalAppRecord) => exportExternalAppDatabase(app.id),
-		{
-			onSuccess: (blob, app) => {
+	const databaseBackupMutation = useMutation({ mutationFn: (app: ExternalAppRecord) => exportExternalAppDatabase(app.id), onSuccess: (blob, app) => {
 				const url = URL.createObjectURL(blob);
 				const anchor = document.createElement("a");
 				const label = (app.bot_username || app.id).replace(
@@ -316,15 +294,12 @@ export const ExternalAppsPage = () => {
 					status: "error",
 					isClosable: true,
 				});
-			},
-		},
-	);
+			}, });
 
-	const settingsMutation = useMutation(updateExternalAppSettings, {
-		onSuccess: () => {
+	const settingsMutation = useMutation({ mutationFn: updateExternalAppSettings, onSuccess: () => {
 			toast({ title: t("externalApps.settingsSaved"), status: "success" });
 			setSettingsTarget(null);
-			queryClient.invalidateQueries("external-apps");
+			queryClient.invalidateQueries({ queryKey: ["external-apps"] });
 		},
 		onError: (error) => {
 			toast({
@@ -333,8 +308,7 @@ export const ExternalAppsPage = () => {
 				status: "error",
 				isClosable: true,
 			});
-		},
-	});
+		}, });
 
 	const confirmDelete = (app: ExternalAppRecord) => {
 		setKeepDatabase(app.has_database);
@@ -471,7 +445,7 @@ export const ExternalAppsPage = () => {
 				label: t("externalApps.downloadDatabaseBackup"),
 				icon: <ArrowDownTrayIcon className="w-[16px]" />,
 				onClick: () => databaseBackupMutation.mutate(app),
-				disabled: databaseBackupMutation.isLoading,
+				disabled: databaseBackupMutation.isPending,
 			});
 		}
 		actions.push(
@@ -535,14 +509,14 @@ export const ExternalAppsPage = () => {
 				),
 				onClick: () =>
 					toggleMutation.mutate({ id: app.id, enabled: !app.enabled }),
-				disabled: toggleMutation.isLoading,
+				disabled: toggleMutation.isPending,
 			},
 			{
 				id: "delete",
 				label: t("externalApps.delete"),
 				icon: <TrashIcon className="w-[16px]" />,
 				onClick: () => confirmDelete(app),
-				disabled: deleteMutation.isLoading,
+				disabled: deleteMutation.isPending,
 				isDanger: true,
 			},
 		);
@@ -578,7 +552,7 @@ export const ExternalAppsPage = () => {
 					version: updateTarget?.latest_version,
 				})}
 				confirmLabel={t("externalApps.update")}
-				loading={updateMutation.isLoading}
+				loading={updateMutation.isPending}
 				onClose={() => setUpdateTarget(null)}
 				onConfirm={async () => {
 					if (updateTarget) await updateMutation.mutateAsync(updateTarget.id);
@@ -603,7 +577,7 @@ export const ExternalAppsPage = () => {
 				}
 				confirmLabel={t("externalApps.delete")}
 				colorScheme="red"
-				loading={deleteMutation.isLoading}
+				loading={deleteMutation.isPending}
 				onClose={() => setDeleteTarget(null)}
 				onConfirm={async () => {
 					if (!deleteTarget) return;
@@ -681,7 +655,7 @@ export const ExternalAppsPage = () => {
 						<Button size="md" variant="ghost" onClick={() => setSettingsTarget(null)}>
 							{t("close")}
 						</Button>
-						<Button size="md" colorScheme="blue" loading={settingsMutation.isLoading} disabled={
+						<Button size="md" colorScheme="blue" loading={settingsMutation.isPending} disabled={
 								!indexFile.trim() ||
 								maxRequestBodyMB < 1 ||
 								maxRequestBodyMB > 32 ||
@@ -715,10 +689,10 @@ export const ExternalAppsPage = () => {
 				<p className="text-[0.875rem]">{t("externalApps.resourceHint")}</p>
 			</Alert>
 
-			<Modal open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} size="3xl" isCentered scrollBehavior="inside" closeOnOverlayClick={!installMutation.isLoading}>
+			<Modal open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} size="3xl" isCentered scrollBehavior="inside" closeOnOverlayClick={!installMutation.isPending}>
 				<ModalOverlay className="bg-blackAlpha-500" />
 				<ModalContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0", panelBg, borderColor)}>
-					<ModalCloseButton disabled={installMutation.isLoading} />
+					<ModalCloseButton disabled={installMutation.isPending} />
 					<div className="p-5 md:p-6">
 						<h2 className="font-heading font-bold text-[1.25rem] leading-[1.2] mb-4">
 							{t("externalApps.newApp")}
@@ -898,7 +872,7 @@ export const ExternalAppsPage = () => {
 							</div>
 						)}
 
-						<Button size="md" colorScheme="blue" loading={installMutation.isLoading} disabled={
+						<Button size="md" colorScheme="blue" loading={installMutation.isPending} disabled={
 								!appsQuery.data?.supported ||
 								selectedTemplate?.supported === false ||
 								!domain ||

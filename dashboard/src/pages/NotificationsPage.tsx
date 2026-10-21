@@ -11,7 +11,7 @@ import { PageHeader } from "components/ui";
 import useGetUser from "hooks/useGetUser";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getAPIErrorMessage } from "service/http";
 import {
 	getNotificationRecipients,
@@ -31,18 +31,10 @@ const formatTime = (unix: number) =>
 const InboxPanel = () => {
 	const { t } = useTranslation();
 	const queryClient = useQueryClient();
-	const inbox = useQuery(["notifications", "inbox"], () =>
-		getNotifications({ limit: 100 }),
-	);
-	const markAll = useMutation(() => markNotificationsRead({ all: true }), {
-		onSuccess: () => queryClient.invalidateQueries("notifications"),
-	});
-	const markOne = useMutation(
-		(id: number) => markNotificationsRead({ ids: [id] }),
-		{
-			onSuccess: () => queryClient.invalidateQueries("notifications"),
-		},
-	);
+	const inbox = useQuery({ queryKey: ["notifications", "inbox"], queryFn: () =>
+		getNotifications({ limit: 100 }) });
+	const markAll = useMutation({ mutationFn: () => markNotificationsRead({ all: true }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }), });
+	const markOne = useMutation({ mutationFn: (id: number) => markNotificationsRead({ ids: [id] }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }), });
 	const items = inbox.data?.items ?? [];
 
 	return (
@@ -54,7 +46,7 @@ const InboxPanel = () => {
 						total: inbox.data?.total ?? 0,
 					})}
 				</p>
-				<Button size="sm" variant="outline" disabled={!inbox.data?.unread} loading={markAll.isLoading} onClick={() => markAll.mutate()}>
+				<Button size="sm" variant="outline" disabled={!inbox.data?.unread} loading={markAll.isPending} onClick={() => markAll.mutate()}>
 					{t("notifications.inbox.markAllRead")}
 				</Button>
 			</div>
@@ -101,18 +93,15 @@ const SendPanel = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
 	const queryClient = useQueryClient();
-	const recipients = useQuery(["notifications", "recipients"], () =>
-		getNotificationRecipients(),
-	);
-	const sent = useQuery(["notifications", "sent"], () =>
-		getSentNotifications(),
-	);
+	const recipients = useQuery({ queryKey: ["notifications", "recipients"], queryFn: () =>
+		getNotificationRecipients() });
+	const sent = useQuery({ queryKey: ["notifications", "sent"], queryFn: () =>
+		getSentNotifications() });
 	const [title, setTitle] = useState("");
 	const [body, setBody] = useState("");
 	const [audience, setAudience] = useState<"all" | "selected">("all");
 	const [selected, setSelected] = useState<number[]>([]);
-	const mutation = useMutation(sendNotification, {
-		onSuccess: (result) => {
+	const mutation = useMutation({ mutationFn: sendNotification, onSuccess: (result) => {
 			toast({
 				status: "success",
 				title: t("notifications.send.sent", { count: result.recipients }),
@@ -120,15 +109,14 @@ const SendPanel = () => {
 			setTitle("");
 			setBody("");
 			setSelected([]);
-			queryClient.invalidateQueries("notifications");
+			queryClient.invalidateQueries({ queryKey: ["notifications"] });
 		},
 		onError: (error) => {
 			toast({
 				status: "error",
 				title: getAPIErrorMessage(error) ?? t("notifications.send.failed"),
 			});
-		},
-	});
+		}, });
 
 	const toggle = (id: number) => {
 		setSelected((current) =>
@@ -173,7 +161,7 @@ const SendPanel = () => {
 					</div>
 				)}
 				<div className="flex flex-row items-center gap-2">
-					<Button size="md" colorScheme="blue" loading={mutation.isLoading} disabled={
+					<Button size="md" colorScheme="blue" loading={mutation.isPending} disabled={
 							!title.trim() ||
 							!body.trim() ||
 							(audience === "selected" && selected.length === 0)
@@ -229,26 +217,21 @@ const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 	const [threshold, setThreshold] = useState(String(rule.threshold));
 	const [title, setTitle] = useState(rule.title);
 	const [body, setBody] = useState(rule.body);
-	const save = useMutation(
-		(payload: {
+	const save = useMutation({ mutationFn: (payload: {
 			enabled: boolean;
 			threshold: number;
 			title: string;
 			body: string;
-		}) => updateNotificationRule(rule.key, payload),
-		{
-			onSuccess: () => {
+		}) => updateNotificationRule(rule.key, payload), onSuccess: () => {
 				toast({ status: "success", title: t("notifications.rules.saved") });
-				queryClient.invalidateQueries(["notifications", "rules"]);
+				queryClient.invalidateQueries({ queryKey: ["notifications", "rules"] });
 			},
 			onError: (error) => {
 				toast({
 					status: "error",
 					title: getAPIErrorMessage(error) ?? t("notifications.rules.failed"),
 				});
-			},
-		},
-	);
+			}, });
 
 	const submit = () =>
 		save.mutate({
@@ -316,7 +299,7 @@ const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 					)}
 				</p>
 				<div className="flex flex-row items-center gap-2">
-					<Button size="sm" colorScheme="blue" loading={save.isLoading} onClick={submit}>
+					<Button size="sm" colorScheme="blue" loading={save.isPending} onClick={submit}>
 						{t("notifications.rules.save")}
 					</Button>
 					<Button size="sm" variant="outline" onClick={resetToDefaults}>
@@ -330,9 +313,8 @@ const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 
 const RulesPanel = () => {
 	const { t } = useTranslation();
-	const rules = useQuery(["notifications", "rules"], () =>
-		getNotificationRules(),
-	);
+	const rules = useQuery({ queryKey: ["notifications", "rules"], queryFn: () =>
+		getNotificationRules() });
 	return (
 		<div className="flex flex-col gap-4">
 			<p className="text-gray-500 text-[0.875rem]">

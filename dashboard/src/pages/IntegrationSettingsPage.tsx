@@ -37,7 +37,7 @@ import {
 import { Controller, useForm, useFieldArray } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useNodesQuery } from "contexts/NodesContext";
-import { useMutation, useQuery, useQueryClient } from "react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link as RouterLink, useLocation } from "react-router-dom";
 import { fetch as apiFetch } from "service/http";
 import {
@@ -768,67 +768,39 @@ export const IntegrationSettingsPage = () => {
 		() => readSettingsHash().index,
 	);
 
-	const { data, isLoading, refetch } = useQuery(
-		"telegram-settings",
-		getTelegramSettings,
-		{
-			refetchOnWindowFocus: false,
-			enabled: canManageIntegrations && activeIntegrationTab === 1,
-		},
-	);
+	const { data, isLoading, refetch } = useQuery({ queryKey: ["telegram-settings"], queryFn: getTelegramSettings, refetchOnWindowFocus: false,
+			enabled: canManageIntegrations && activeIntegrationTab === 1, });
 
 	const {
 		data: panelData,
 		isLoading: isPanelLoading,
 		refetch: refetchPanelSettings,
-	} = useQuery<PanelSettingsResponse>("panel-settings", getPanelSettings, {
-		refetchOnWindowFocus: false,
-		enabled: canManageIntegrations && activeIntegrationTab === 0,
-	});
+	} = useQuery<PanelSettingsResponse>({ queryKey: ["panel-settings"], queryFn: getPanelSettings, refetchOnWindowFocus: false,
+		enabled: canManageIntegrations && activeIntegrationTab === 0, });
 
 	const {
 		data: runtimeSettings,
 		isLoading: isRuntimeSettingsLoading,
 		refetch: refetchRuntimeSettings,
-	} = useQuery<RuntimeSettingsResponse>(
-		"runtime-settings",
-		getRuntimeSettings,
-		{
-			refetchOnWindowFocus: false,
-			enabled: canManageIntegrations && activeIntegrationTab === 0,
-		},
-	);
+	} = useQuery<RuntimeSettingsResponse>({ queryKey: ["runtime-settings"], queryFn: getRuntimeSettings, refetchOnWindowFocus: false,
+			enabled: canManageIntegrations && activeIntegrationTab === 0, });
 
 	const {
 		data: phpMyAdminStatus,
 		isLoading: isPHPMyAdminStatusLoading,
 		refetch: refetchPHPMyAdminStatus,
-	} = useQuery("phpmyadmin-status", getPHPMyAdminStatus, {
-		refetchOnWindowFocus: false,
-		enabled: canManageIntegrations && activeIntegrationTab === 0,
-	});
+	} = useQuery({ queryKey: ["phpmyadmin-status"], queryFn: getPHPMyAdminStatus, refetchOnWindowFocus: false,
+		enabled: canManageIntegrations && activeIntegrationTab === 0, });
 
 	const {
 		data: subscriptionBundle,
 		isLoading: isSubscriptionLoading,
 		refetch: refetchSubscriptionSettings,
-	} = useQuery<SubscriptionSettingsBundle>(
-		"subscription-settings",
-		getSubscriptionSettings,
-		{
-			refetchOnWindowFocus: false,
-			enabled: canManageIntegrations && activeIntegrationTab >= 2,
-		},
-	);
+	} = useQuery<SubscriptionSettingsBundle>({ queryKey: ["subscription-settings"], queryFn: getSubscriptionSettings, refetchOnWindowFocus: false,
+			enabled: canManageIntegrations && activeIntegrationTab >= 2, });
 
-	const maintenanceInfoQuery = useQuery<RuntimeMaintenanceInfo>(
-		"maintenance-info",
-		() => apiFetch<RuntimeMaintenanceInfo>("/maintenance/info"),
-		{
-			refetchOnWindowFocus: false,
-			enabled: canReadMaintenance && activeIntegrationTab === 0,
-		},
-	);
+	const maintenanceInfoQuery = useQuery<RuntimeMaintenanceInfo>({ queryKey: ["maintenance-info"], queryFn: () => apiFetch<RuntimeMaintenanceInfo>("/maintenance/info"), refetchOnWindowFocus: false,
+			enabled: canReadMaintenance && activeIntegrationTab === 0, });
 	const hostActionsAvailable =
 		(maintenanceInfoQuery.data?.panel?.mode ||
 			maintenanceInfoQuery.data?.panel?.install_mode) === "binary";
@@ -1033,26 +1005,24 @@ export const IntegrationSettingsPage = () => {
 		return () => window.clearTimeout(timer);
 	}, [location.hash, activeIntegrationTab, data, isLoading]);
 
-	const saveAllMutation = useMutation(updateAllSettings, {
-		onSuccess: (updated) => {
+	const saveAllMutation = useMutation({ mutationFn: updateAllSettings, onSuccess: (updated) => {
 			if (updated.telegram) {
 				reset(buildDefaultValues(updated.telegram));
-				queryClient.setQueryData("telegram-settings", updated.telegram);
+				queryClient.setQueryData(["telegram-settings"], updated.telegram);
 			}
 			if (updated.panel) {
 				setPanelDefaultSubType(
 					updated.panel.default_subscription_type ?? "key",
 				);
-				queryClient.setQueryData("panel-settings", updated.panel);
+				queryClient.setQueryData(["panel-settings"], updated.panel);
 			}
 			if (updated.runtime) {
 				setRuntimeSettingsForm(updated.runtime);
-				queryClient.setQueryData("runtime-settings", updated.runtime);
+				queryClient.setQueryData(["runtime-settings"], updated.runtime);
 			}
 			if (updated.subscriptions) {
 				resetSubscription(buildSubscriptionDefaults(updated.subscriptions));
-				queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(
-					"subscription-settings",
+				queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(["subscription-settings"],
 					(prev) =>
 						prev ? { ...prev, settings: updated.subscriptions! } : prev,
 				);
@@ -1065,8 +1035,7 @@ export const IntegrationSettingsPage = () => {
 					});
 					return next;
 				});
-				queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(
-					"subscription-settings",
+				queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(["subscription-settings"],
 					(prev) =>
 						prev
 							? {
@@ -1089,12 +1058,10 @@ export const IntegrationSettingsPage = () => {
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-		},
-	});
+		}, });
 
-	const telegramBackupMutation = useMutation(sendTelegramBackup, {
-		onSuccess: (result) => {
-			queryClient.invalidateQueries("telegram-settings");
+	const telegramBackupMutation = useMutation({ mutationFn: sendTelegramBackup, onSuccess: (result) => {
+			queryClient.invalidateQueries({ queryKey: ["telegram-settings"] });
 			toast({
 				title: t("settings.telegram.backupSendSuccess"),
 				description: result.filename,
@@ -1104,12 +1071,10 @@ export const IntegrationSettingsPage = () => {
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-		},
-	});
+		}, });
 
-	const telegramTestMutation = useMutation(testTelegramSettings, {
-		onSuccess: (result) => {
-			queryClient.invalidateQueries("telegram-settings");
+	const telegramTestMutation = useMutation({ mutationFn: testTelegramSettings, onSuccess: (result) => {
+			queryClient.invalidateQueries({ queryKey: ["telegram-settings"] });
 			toast({
 				title: t("settings.telegram.testMessageSuccess"),
 				description: result.detail,
@@ -1119,18 +1084,14 @@ export const IntegrationSettingsPage = () => {
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-			queryClient.invalidateQueries("telegram-settings");
-		},
-	});
+			queryClient.invalidateQueries({ queryKey: ["telegram-settings"] });
+		}, });
 
-	const phpMyAdminEnableMutation = useMutation(
-		() =>
+	const phpMyAdminEnableMutation = useMutation({ mutationFn: () =>
 			enablePHPMyAdmin({
 				port: 8080,
 				path: runtimeSettingsForm.phpmyadmin_path || "/phpmyadmin/",
-			}),
-		{
-			onSuccess: (result) => {
+			}), onSuccess: (result) => {
 				setRuntimeSettingsForm((prev) => ({
 					...prev,
 					phpmyadmin_enabled: result.status.enabled,
@@ -1144,12 +1105,9 @@ export const IntegrationSettingsPage = () => {
 			},
 			onError: (error) => {
 				generateErrorMessage(error, toast);
-			},
-		},
-	);
+			}, });
 
-	const phpMyAdminDisableMutation = useMutation(disablePHPMyAdmin, {
-		onSuccess: (result) => {
+	const phpMyAdminDisableMutation = useMutation({ mutationFn: disablePHPMyAdmin, onSuccess: (result) => {
 			setRuntimeSettingsForm((prev) => ({
 				...prev,
 				phpmyadmin_enabled: result.status.enabled,
@@ -1160,8 +1118,7 @@ export const IntegrationSettingsPage = () => {
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-		},
-	});
+		}, });
 
 	const openPHPMyAdminExternal = async () => {
 		try {
@@ -1182,8 +1139,7 @@ export const IntegrationSettingsPage = () => {
 	};
 
 	const updateCertificateCache = (cert: SubscriptionCertificate) => {
-		queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(
-			"subscription-settings",
+		queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(["subscription-settings"],
 			(prev) =>
 				prev
 					? {
@@ -1199,8 +1155,7 @@ export const IntegrationSettingsPage = () => {
 		);
 	};
 
-	const issueCertificateMutation = useMutation(issueSubscriptionCertificate, {
-		onSuccess: (cert) => {
+	const issueCertificateMutation = useMutation({ mutationFn: issueSubscriptionCertificate, onSuccess: (cert) => {
 			updateCertificateCache(cert);
 			setCertificateDialogOpen(false);
 			setCertificateForm((prev) => ({
@@ -1215,13 +1170,11 @@ export const IntegrationSettingsPage = () => {
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-		},
-	});
+		}, });
 	const { data: nodeList = [] } = useNodesQuery({
 		enabled: isCertificateDialogOpen,
 	});
-	const issueNodeCertificateMutation = useMutation(issueNodeSubscriptionCertificate, {
-		onSuccess: (cert) => {
+	const issueNodeCertificateMutation = useMutation({ mutationFn: issueNodeSubscriptionCertificate, onSuccess: (cert) => {
 			updateCertificateCache(cert);
 			setCertificateDialogOpen(false);
 			setCertificateForm((prev) => ({
@@ -1237,10 +1190,8 @@ export const IntegrationSettingsPage = () => {
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-		},
-	});
-	const importCertificateMutation = useMutation(importSubscriptionCertificate, {
-		onSuccess: (cert) => {
+		}, });
+	const importCertificateMutation = useMutation({ mutationFn: importSubscriptionCertificate, onSuccess: (cert) => {
 			updateCertificateCache(cert);
 			setCertificateDialogOpen(false);
 			setCertificateForm((prev) => ({
@@ -1257,11 +1208,9 @@ export const IntegrationSettingsPage = () => {
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-		},
-	});
+		}, });
 
-	const renewCertificateMutation = useMutation(renewSubscriptionCertificate, {
-		onMutate: (payload) => setRenewingDomain(payload?.domain || null),
+	const renewCertificateMutation = useMutation({ mutationFn: renewSubscriptionCertificate, onMutate: (payload) => setRenewingDomain(payload?.domain || null),
 		onSuccess: (cert) => {
 			if (cert) {
 				updateCertificateCache(cert);
@@ -1275,10 +1224,8 @@ export const IntegrationSettingsPage = () => {
 		onError: (error) => {
 			generateErrorMessage(error, toast);
 		},
-		onSettled: () => setRenewingDomain(null),
-	});
-	const revokeCertificateMutation = useMutation(revokeSubscriptionCertificate, {
-		onSuccess: (cert) => {
+		onSettled: () => setRenewingDomain(null), });
+	const revokeCertificateMutation = useMutation({ mutationFn: revokeSubscriptionCertificate, onSuccess: (cert) => {
 			updateCertificateCache(cert);
 			setCertificateAction(null);
 			toast({
@@ -1289,12 +1236,9 @@ export const IntegrationSettingsPage = () => {
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-		},
-	});
-	const deleteCertificateMutation = useMutation(deleteSubscriptionCertificate, {
-		onSuccess: (_, domain) => {
-			queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(
-				"subscription-settings",
+		}, });
+	const deleteCertificateMutation = useMutation({ mutationFn: deleteSubscriptionCertificate, onSuccess: (_, domain) => {
+			queryClient.setQueryData<SubscriptionSettingsBundle | undefined>(["subscription-settings"],
 				(prev) =>
 					prev
 						? {
@@ -1314,13 +1258,9 @@ export const IntegrationSettingsPage = () => {
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
-		},
-	});
-	const certificateServingMutation = useMutation(
-		({ domain, enabled }: { domain: string; enabled: boolean }) =>
-			updateSubscriptionCertificateServing(domain, enabled),
-		{
-			onSuccess: (cert) => {
+		}, });
+	const certificateServingMutation = useMutation({ mutationFn: ({ domain, enabled }: { domain: string; enabled: boolean }) =>
+			updateSubscriptionCertificateServing(domain, enabled), onSuccess: (cert) => {
 				updateCertificateCache(cert);
 				toast({
 					title: t("settings.subscriptions.certificateServingUpdated"),
@@ -1330,9 +1270,7 @@ export const IntegrationSettingsPage = () => {
 			},
 			onError: (error) => {
 				generateErrorMessage(error, toast);
-			},
-		},
-	);
+			}, });
 
 	const handleAdminFieldChange = (
 		adminId: number,
@@ -1674,7 +1612,7 @@ export const IntegrationSettingsPage = () => {
 				cell: (certificate) => (
 					<div className="flex flex-row items-center gap-2">
 						<Switch aria-label={t("settings.subscriptions.serveTLS")} checked={certificate.serve_tls !== false} disabled={
-								certificateServingMutation.isLoading ||
+								certificateServingMutation.isPending ||
 								(certificate.serve_tls === false &&
 									certificate.status !== "active" &&
 									certificate.status !== "expiring")
@@ -1706,7 +1644,7 @@ export const IntegrationSettingsPage = () => {
 				icon: <ArrowPathIcon className="w-[16px] h-[16px]" />,
 				onClick: () => handleRenewCertificate(certificate.domain),
 				disabled:
-					renewCertificateMutation.isLoading &&
+					renewCertificateMutation.isPending &&
 					renewingDomain === certificate.domain,
 			});
 		}
@@ -1731,9 +1669,9 @@ export const IntegrationSettingsPage = () => {
 		return actions;
 	};
 	const isCertificateMutationLoading =
-		issueCertificateMutation.isLoading ||
-		issueNodeCertificateMutation.isLoading ||
-		importCertificateMutation.isLoading;
+		issueCertificateMutation.isPending ||
+		issueNodeCertificateMutation.isPending ||
+		importCertificateMutation.isPending;
 	const certificateManager = (
 		<div className="flex flex-col gap-3">
 			<ResourceListCard
@@ -1870,7 +1808,7 @@ export const IntegrationSettingsPage = () => {
 							label: t("settings.ssl.tabTitle"),
 						},
 					]} className="overflow-x-auto overflow-y-hidden max-w-full flex-1 master-settings-tabs" />
-				<Button size="md" colorScheme="primary" onClick={handleSaveAll} loading={saveAllMutation.isLoading} disabled={!hasUnsavedChanges || saveAllMutation.isLoading} className="shrink-0 self-end md:self-center">{<SaveIcon />}
+				<Button size="md" colorScheme="primary" onClick={handleSaveAll} loading={saveAllMutation.isPending} disabled={!hasUnsavedChanges || saveAllMutation.isPending} className="shrink-0 self-end md:self-center">{<SaveIcon />}
 					{t("settings.save")}
 				</Button>
 			</div>
@@ -1916,7 +1854,7 @@ export const IntegrationSettingsPage = () => {
 													| "key-username",
 											)
 										}
-										disabled={saveAllMutation.isLoading || isPanelLoading}
+										disabled={saveAllMutation.isPending || isPanelLoading}
 									>
 										<option value="username-key">
 											{t("settings.panel.link.usernameKey")}
@@ -1948,7 +1886,7 @@ export const IntegrationSettingsPage = () => {
 												dashboard_path: event.target.value,
 											}))
 										}
-										disabled={saveAllMutation.isLoading}
+										disabled={saveAllMutation.isPending}
 									/>
 									<FormHelperText>
 										{t("settings.runtime.dashboardPathHint")}
@@ -1963,7 +1901,7 @@ export const IntegrationSettingsPage = () => {
 													...prev,
 													subscription_read_only: event.target.checked,
 												}))
-											} disabled={saveAllMutation.isLoading} />
+											} disabled={saveAllMutation.isPending} />
 									}
 								/>
 								<TelegramSwitchRow
@@ -1975,7 +1913,7 @@ export const IntegrationSettingsPage = () => {
 													...prev,
 													record_node_usage: event.target.checked,
 												}))
-											} disabled={saveAllMutation.isLoading} />
+											} disabled={saveAllMutation.isPending} />
 									}
 								/>
 								<TelegramSwitchRow
@@ -1987,7 +1925,7 @@ export const IntegrationSettingsPage = () => {
 													...prev,
 													record_node_user_usages: event.target.checked,
 												}))
-											} disabled={saveAllMutation.isLoading} />
+											} disabled={saveAllMutation.isPending} />
 									}
 								/>
 								<TelegramSwitchRow
@@ -1999,7 +1937,7 @@ export const IntegrationSettingsPage = () => {
 													...prev,
 													user_speed_limit_enabled: event.target.checked,
 												}))
-											} disabled={saveAllMutation.isLoading} />
+											} disabled={saveAllMutation.isPending} />
 									}
 								/>
 								<TelegramSwitchRow
@@ -2011,7 +1949,7 @@ export const IntegrationSettingsPage = () => {
 													...prev,
 													api_docs_enabled: event.target.checked,
 												}))
-											} disabled={saveAllMutation.isLoading} />
+											} disabled={saveAllMutation.isPending} />
 									}
 								/>
 								<div className="border border-whiteAlpha-200! rounded-md p-4 [grid-column:auto] md:[grid-column:1_/_-1]">
@@ -2046,8 +1984,8 @@ export const IntegrationSettingsPage = () => {
 														? phpMyAdminDisableMutation.mutate()
 														: phpMyAdminEnableMutation.mutate()
 												} loading={
-													phpMyAdminEnableMutation.isLoading ||
-													phpMyAdminDisableMutation.isLoading
+													phpMyAdminEnableMutation.isPending ||
+													phpMyAdminDisableMutation.isPending
 												} disabled={
 													isPHPMyAdminStatusLoading ||
 													(!runtimeSettingsForm.phpmyadmin_enabled &&
@@ -2078,8 +2016,8 @@ export const IntegrationSettingsPage = () => {
 													}))
 												}
 												disabled={
-													phpMyAdminEnableMutation.isLoading ||
-													phpMyAdminDisableMutation.isLoading
+													phpMyAdminEnableMutation.isPending ||
+													phpMyAdminDisableMutation.isPending
 												}
 											/>
 											<FormHelperText>
@@ -2101,8 +2039,8 @@ export const IntegrationSettingsPage = () => {
 													}))
 												}
 												disabled={
-													phpMyAdminEnableMutation.isLoading ||
-													phpMyAdminDisableMutation.isLoading
+													phpMyAdminEnableMutation.isPending ||
+													phpMyAdminDisableMutation.isPending
 												}
 											>
 												<option value="rebecca">
@@ -2119,8 +2057,8 @@ export const IntegrationSettingsPage = () => {
 										<FormControl disabled={
 												runtimeSettingsForm.phpmyadmin_login_mode !==
 													"custom" ||
-												phpMyAdminEnableMutation.isLoading ||
-												phpMyAdminDisableMutation.isLoading
+												phpMyAdminEnableMutation.isPending ||
+												phpMyAdminDisableMutation.isPending
 											}>
 											<FormLabel className="text-[0.875rem]">
 												{t("phpmyadmin.username")}
@@ -2139,8 +2077,8 @@ export const IntegrationSettingsPage = () => {
 										<FormControl disabled={
 												runtimeSettingsForm.phpmyadmin_login_mode !==
 													"custom" ||
-												phpMyAdminEnableMutation.isLoading ||
-												phpMyAdminDisableMutation.isLoading
+												phpMyAdminEnableMutation.isPending ||
+												phpMyAdminDisableMutation.isPending
 											}>
 											<FormLabel className="text-[0.875rem]">
 												{t("phpmyadmin.password")}
@@ -2271,7 +2209,7 @@ export const IntegrationSettingsPage = () => {
 										</FormControl>
 									</div>
 									<div className="flex mt-4 master-settings-action-row">
-										<Button size="sm" variant="outline" loading={telegramTestMutation.isLoading} onClick={() => telegramTestMutation.mutate()}>{<SaveIcon />}
+										<Button size="sm" variant="outline" loading={telegramTestMutation.isPending} onClick={() => telegramTestMutation.mutate()}>{<SaveIcon />}
 											{t("settings.telegram.testMessage")}
 										</Button>
 									</div>
@@ -2413,7 +2351,7 @@ export const IntegrationSettingsPage = () => {
 										)}
 									</div>
 									<div className="flex mt-4 master-settings-action-row">
-										<Button size="sm" variant="outline" loading={telegramBackupMutation.isLoading} onClick={() =>
+										<Button size="sm" variant="outline" loading={telegramBackupMutation.isPending} onClick={() =>
 												telegramBackupMutation.mutate(telegramBackupScope)
 											}>{<ArrowUpTrayIcon className="w-[16px]" />}
 											{t("settings.telegram.backupSendNow")}
@@ -2538,7 +2476,7 @@ export const IntegrationSettingsPage = () => {
 							</DisabledCard>
 
 							<div className="flex master-settings-action-row">
-								<Button size="md" variant="outline" onClick={() => refetch()} disabled={saveAllMutation.isLoading}>{<RefreshIcon />}
+								<Button size="md" variant="outline" onClick={() => refetch()} disabled={saveAllMutation.isPending}>{<RefreshIcon />}
 									{t("refresh")}
 								</Button>
 							</div>
@@ -2567,7 +2505,7 @@ export const IntegrationSettingsPage = () => {
 										</p>
 									</div>
 									<div className="flex flex-row items-center gap-2">
-										<Button variant="outline" size="sm" type="button" onClick={() => refetchSubscriptionSettings()} disabled={saveAllMutation.isLoading}>{<RefreshIcon />}
+										<Button variant="outline" size="sm" type="button" onClick={() => refetchSubscriptionSettings()} disabled={saveAllMutation.isPending}>{<RefreshIcon />}
 											{t("refresh")}
 										</Button>
 									</div>
@@ -2915,7 +2853,7 @@ export const IntegrationSettingsPage = () => {
 																			{admin.subscription_domain}
 																		</Badge>
 																	) : null}
-																	<Button size="sm" variant="ghost" onClick={() => handleAdminReset(admin.id)} disabled={saveAllMutation.isLoading}>
+																	<Button size="sm" variant="ghost" onClick={() => handleAdminReset(admin.id)} disabled={saveAllMutation.isPending}>
 																		{t("reset")}
 																	</Button>
 																</div>
@@ -3262,7 +3200,7 @@ export const IntegrationSettingsPage = () => {
 															<hr className="my-4 w-full border-0 border-b border-panel-border! opacity-60" />
 
 															<div className="flex mt-4 master-settings-action-row">
-																<Button size="md" variant="outline" onClick={() => handleAdminReset(admin.id)} disabled={saveAllMutation.isLoading}>{<RefreshIcon />}
+																<Button size="md" variant="outline" onClick={() => handleAdminReset(admin.id)} disabled={saveAllMutation.isPending}>{<RefreshIcon />}
 																	{t("settings.subscriptions.resetOverrides")}
 																</Button>
 															</div>
@@ -3473,8 +3411,8 @@ export const IntegrationSettingsPage = () => {
 				}
 				colorScheme={certificateAction?.type === "revoke" ? "orange" : "red"}
 				loading={
-					revokeCertificateMutation.isLoading ||
-					deleteCertificateMutation.isLoading
+					revokeCertificateMutation.isPending ||
+					deleteCertificateMutation.isPending
 				}
 			/>
 		</div>

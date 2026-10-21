@@ -2,9 +2,9 @@ import { useColorMode } from "lib/color-mode";
 import { Spinner } from "components/shadcn/feedback";
 import { cn } from "lib/cn";
 import useGetUser from "hooks/useGetUser";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
 	getPHPMyAdminEmbedHTML,
 	getPHPMyAdminStatus,
@@ -35,22 +35,18 @@ export const PhpMyAdminPage = () => {
 	const mutedColor = "text-panel-text-secondary";
 	const frameBg = "bg-white dark:bg-gray-950";
 
-	const statusQuery = useQuery("phpmyadmin-status", getPHPMyAdminStatus, {
-		refetchOnWindowFocus: false,
-	});
+	const statusQuery = useQuery({ queryKey: ["phpmyadmin-status"], queryFn: getPHPMyAdminStatus, refetchOnWindowFocus: false, });
 	const status = statusQuery.data ?? defaultStatus;
 
 	const phpMyAdminTheme = colorMode === "dark" ? "blueberry" : "";
-	const embedQuery = useQuery(
-		["phpmyadmin-embed-session", phpMyAdminTheme || "default"],
-		() => getPHPMyAdminEmbedHTML(phpMyAdminTheme || undefined),
-		{
-			enabled: Boolean(status.enabled && status.supported && isFullAccess),
+	const embedQuery = useQuery({ queryKey: ["phpmyadmin-embed-session", phpMyAdminTheme || "default"], queryFn: () => getPHPMyAdminEmbedHTML(phpMyAdminTheme || undefined), enabled: Boolean(status.enabled && status.supported && isFullAccess),
 			refetchOnWindowFocus: false,
-			retry: false,
-			onSuccess: () => setPreparedTheme(phpMyAdminTheme || "default"),
-		},
-	);
+			retry: false });
+
+	// v5 removed onSuccess from useQuery.
+	useEffect(() => {
+		if (embedQuery.isSuccess) setPreparedTheme(phpMyAdminTheme || "default");
+	}, [embedQuery.isSuccess, phpMyAdminTheme]);
 	const frameReady =
 		preparedTheme === (phpMyAdminTheme || "default") && embedQuery.isSuccess;
 

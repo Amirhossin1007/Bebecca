@@ -4,7 +4,7 @@ import { Badge } from "components/shadcn/badge";
 import { cn } from "lib/cn";
 import { BellIcon } from "@heroicons/react/24/outline";
 import dayjs from "dayjs";
-import { useMutation, useQuery, useQueryClient } from "react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import type { NotificationItem } from "types/Notification";
@@ -14,20 +14,9 @@ export const NotificationBell = () => {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const inbox = useQuery(
-		["notifications", "bell"],
-		() => getNotifications({ limit: 6 }),
-		{ refetchInterval: 30000 },
-	);
-	const markAll = useMutation(() => markNotificationsRead({ all: true }), {
-		onSuccess: () => queryClient.invalidateQueries("notifications"),
-	});
-	const markOne = useMutation(
-		(id: number) => markNotificationsRead({ ids: [id] }),
-		{
-			onSuccess: () => queryClient.invalidateQueries("notifications"),
-		},
-	);
+	const inbox = useQuery({ queryKey: ["notifications", "bell"], queryFn: () => getNotifications({ limit: 6 }), refetchInterval: 30000 });
+	const markAll = useMutation({ mutationFn: () => markNotificationsRead({ all: true }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }), });
+	const markOne = useMutation({ mutationFn: (id: number) => markNotificationsRead({ ids: [id] }), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }), });
 	const unread = inbox.data?.unread ?? 0;
 	const items = inbox.data?.items ?? [];
 
@@ -55,7 +44,7 @@ export const NotificationBell = () => {
 					<div className="flex flex-row items-center gap-2 justify-between mb-2">
 						<p className="font-semibold">{t("notifications.bell.label")}</p>
 						{unread > 0 && (
-							<Button size="xs" variant="ghost" onClick={() => markAll.mutate()} loading={markAll.isLoading}>
+							<Button size="xs" variant="ghost" onClick={() => markAll.mutate()} loading={markAll.isPending}>
 								{t("notifications.inbox.markAllRead")}
 							</Button>
 						)}

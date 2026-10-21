@@ -8,7 +8,7 @@ import { PanelSelect as Select } from "components/common/PanelSelect";
 import { AppDialog } from "components/dialogs/AppDialog";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import { fetch as apiFetch } from "service/http";
 
 type CoreVersionDialogProps = {
@@ -39,17 +39,11 @@ export const CoreVersionDialog = ({
 	const [persist, setPersist] = useState(false);
 	const [submissionError, setSubmissionError] = useState<string | null>(null);
 
-	const releasesQuery = useQuery(
-		["core-xray-releases"],
-		() =>
+	const releasesQuery = useQuery({ queryKey: ["core-xray-releases"], queryFn: () =>
 			apiFetch<{ tags: string[] }>("/core/xray/releases", {
 				query: { limit: RELEASE_LIMIT },
-			}),
-		{
-			enabled: isOpen,
-			staleTime: 5 * 60 * 1000,
-		},
-	);
+			}), enabled: isOpen,
+			staleTime: 5 * 60 * 1000, });
 
 	useEffect(() => {
 		if (isOpen) {

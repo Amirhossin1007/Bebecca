@@ -32,7 +32,7 @@ import {
 } from "components/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
 	cloneHAProxyTargetForNode,
@@ -142,15 +142,10 @@ export default function HAProxyPage() {
 	const dialog = useDisclosure();
 	const [draft, setDraft] = useState<HAProxyConfig>(emptyConfig);
 	const [deleteArmed, setDeleteArmed] = useState(0);
-	const overview = useQuery("haproxy-overview", getHAProxyOverview, {
-		refetchOnWindowFocus: false,
-	});
-	const save = useMutation(
-		(config: HAProxyConfig) =>
-			config.id ? updateHAProxyConfig(config) : createHAProxyConfig(config),
-		{
-			onSuccess: async () => {
-				await queryClient.invalidateQueries("haproxy-overview");
+	const overview = useQuery({ queryKey: ["haproxy-overview"], queryFn: getHAProxyOverview, refetchOnWindowFocus: false, });
+	const save = useMutation({ mutationFn: (config: HAProxyConfig) =>
+			config.id ? updateHAProxyConfig(config) : createHAProxyConfig(config), onSuccess: async () => {
+				await queryClient.invalidateQueries({ queryKey: ["haproxy-overview"] });
 				dialog.onClose();
 				toast({ title: t("haproxy.saved"), status: "success" });
 			},
@@ -160,24 +155,17 @@ export default function HAProxyPage() {
 					description: errorText(error),
 					status: "error",
 				});
-			},
-		},
-	);
-	const remove = useMutation(deleteHAProxyConfig, {
-		onSuccess: async () => {
+			}, });
+	const remove = useMutation({ mutationFn: deleteHAProxyConfig, onSuccess: async () => {
 			setDeleteArmed(0);
-			await queryClient.invalidateQueries("haproxy-overview");
+			await queryClient.invalidateQueries({ queryKey: ["haproxy-overview"] });
 		},
 		onError: (error) => {
 			toast({ title: errorText(error), status: "error" });
-		},
-	});
-	const toggleEnabled = useMutation(
-		({ config, enabled }: { config: HAProxyConfig; enabled: boolean }) =>
-			updateHAProxyConfig({ ...cloneConfig(config), enabled }),
-		{
-			onSuccess: async (_config, variables) => {
-				await queryClient.invalidateQueries("haproxy-overview");
+		}, });
+	const toggleEnabled = useMutation({ mutationFn: ({ config, enabled }: { config: HAProxyConfig; enabled: boolean }) =>
+			updateHAProxyConfig({ ...cloneConfig(config), enabled }), onSuccess: async (_config, variables) => {
+				await queryClient.invalidateQueries({ queryKey: ["haproxy-overview"] });
 				toast({
 					title: t("haproxy.toggleSaved", {
 						status: t(variables.enabled ? "haproxy.enabled" : "disabled"),
@@ -191,9 +179,7 @@ export default function HAProxyPage() {
 					description: errorText(error),
 					status: "error",
 				});
-			},
-		},
-	);
+			}, });
 
 	const openCreate = () => {
 		setDraft(emptyConfig());
@@ -221,7 +207,7 @@ export default function HAProxyPage() {
 			mobilePriority: 1,
 			cell: (config) => {
 				const isToggling =
-					toggleEnabled.isLoading &&
+					toggleEnabled.isPending &&
 					toggleEnabled.variables?.config.id === config.id;
 				const enabled = isToggling
 					? Boolean(toggleEnabled.variables?.enabled)
@@ -279,7 +265,7 @@ export default function HAProxyPage() {
 				config.enabled ? "haproxy.disableAction" : "haproxy.enableAction",
 			),
 			icon: <PowerIcon className="w-[16px]" />,
-			disabled: toggleEnabled.isLoading,
+			disabled: toggleEnabled.isPending,
 			onClick: () => toggleEnabled.mutate({ config, enabled: !config.enabled }),
 		},
 		{
@@ -294,7 +280,7 @@ export default function HAProxyPage() {
 				deleteArmed === config.id ? t("haproxy.confirmDelete") : t("delete"),
 			icon: <TrashIcon className="w-[16px]" />,
 			isDanger: true,
-			disabled: remove.isLoading,
+			disabled: remove.isPending,
 			onClick: () =>
 				deleteArmed === config.id
 					? remove.mutate(config.id)
@@ -367,7 +353,7 @@ export default function HAProxyPage() {
 					uploadedTemplates={overview.data.uploaded_templates}
 					certificates={overview.data.certificates}
 					onSave={() => save.mutate(draft)}
-					isSaving={save.isLoading}
+					isSaving={save.isPending}
 				/>
 			)}
 		</div>
@@ -414,30 +400,23 @@ function HAProxyDialog({
 	const [cloneAllNodes, setCloneAllNodes] = useState(true);
 	const [cloneNodeIDs, setCloneNodeIDs] = useState<Set<number>>(new Set());
 	const [randomizeTemplates, setRandomizeTemplates] = useState(false);
-	const previewMutation = useMutation(previewHAProxyConfig, {
-		onSuccess: setPreview,
+	const previewMutation = useMutation({ mutationFn: previewHAProxyConfig, onSuccess: setPreview,
 		onError: (error) => {
 			toast({ title: errorText(error), status: "error" });
-		},
-	});
-	const upload = useMutation(
-		() =>
+		}, });
+	const upload = useMutation({ mutationFn: () =>
 			uploadHAProxyTemplate(
 				archiveName || archive?.name || "template",
 				archive as File,
-			),
-		{
-			onSuccess: async () => {
+			), onSuccess: async () => {
 				setArchive(null);
 				setArchiveName("");
-				await queryClient.invalidateQueries("haproxy-overview");
+				await queryClient.invalidateQueries({ queryKey: ["haproxy-overview"] });
 				toast({ title: t("haproxy.templateUploaded"), status: "success" });
 			},
 			onError: (error) => {
 				toast({ title: errorText(error), status: "error" });
-			},
-		},
-	);
+			}, });
 	const availableNodes = nodes.filter(
 		(node) =>
 			!draft.targets.some((target) => target.node_id === node.id) &&
@@ -685,7 +664,7 @@ function HAProxyDialog({
 															setArchive(event.target.files?.[0] ?? null)
 														} className="p-1" />
 												</FormControl>
-												<Button variant="solid" size="md" disabled={!archive} loading={upload.isLoading} onClick={() => upload.mutate()}>{<ArrowUpTrayIcon className="w-[16px]" />}
+												<Button variant="solid" size="md" disabled={!archive} loading={upload.isPending} onClick={() => upload.mutate()}>{<ArrowUpTrayIcon className="w-[16px]" />}
 													{t("upload")}
 												</Button>
 											</div>
@@ -707,7 +686,7 @@ function HAProxyDialog({
 											<p className="text-panel-text-secondary">
 												{t("haproxy.editorHelp")}
 											</p>
-											<Button variant="solid" size="sm" onClick={() => previewMutation.mutate(draft)} loading={previewMutation.isLoading}>
+											<Button variant="solid" size="sm" onClick={() => previewMutation.mutate(draft)} loading={previewMutation.isPending}>
 												{t("refresh")}
 											</Button>
 										</div>
@@ -720,7 +699,7 @@ function HAProxyDialog({
 												<Textarea value={target.generated_config || ""} readOnly className="min-h-[420px] font-mono text-[0.875rem] whitespace-pre" />
 											</div>
 										))}
-										{!preview && !previewMutation.isLoading && (
+										{!preview && !previewMutation.isPending && (
 											<p className="text-center text-panel-text-secondary py-12">
 												{t("haproxy.previewEmpty")}
 											</p>
@@ -844,11 +823,7 @@ function TargetEditor({
 	onRemove: () => void;
 }) {
 	const { t } = useTranslation();
-	const candidates = useQuery(
-		["haproxy-candidates", target.node_id],
-		() => getHAProxyCandidates(target.node_id),
-		{ refetchOnWindowFocus: false, enabled: expanded },
-	);
+	const candidates = useQuery({ queryKey: ["haproxy-candidates", target.node_id], queryFn: () => getHAProxyCandidates(target.node_id), refetchOnWindowFocus: false, enabled: expanded });
 	return (
 		<div className="border border-panel-border! rounded-2xl p-3 md:p-4">
 			<div className={cn("flex flex-col lg:flex-row justify-between lg:items-center gap-3", expanded ? "mb-4" : "mb-0")}>

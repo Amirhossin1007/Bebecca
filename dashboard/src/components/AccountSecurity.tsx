@@ -30,7 +30,7 @@ import {
 } from "react-icons/fa";
 import { FiGlobe, FiMonitor, FiSmartphone, FiTablet } from "react-icons/fi";
 import { SiOpera, SiSamsung } from "react-icons/si";
-import { useMutation, useQuery, useQueryClient } from "react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
 	confirm2FASetup,
 	disable2FA,
@@ -180,11 +180,8 @@ export const AccountSecurity = ({
 	const [code, setCode] = useState("");
 	const [password, setPassword] = useState("");
 	const [twoFactorLoading, setTwoFactorLoading] = useState(false);
-	const sessions = useQuery(["admin-sessions"], listSessions, {
-		enabled: canManageSessions,
-	});
-	const revoke = useMutation(revokeSession, {
-		onSuccess: (_, id) => {
+	const sessions = useQuery({ queryKey: ["admin-sessions"], queryFn: listSessions, enabled: canManageSessions, });
+	const revoke = useMutation({ mutationFn: revokeSession, onSuccess: (_, id) => {
 			const current = sessions.data?.find(
 				(session) => session.id === id,
 			)?.current;
@@ -194,8 +191,7 @@ export const AccountSecurity = ({
 				return;
 			}
 			sessions.refetch();
-		},
-	});
+		}, });
 
 	const beginSetup = async () => {
 		setTwoFactorLoading(true);
@@ -217,7 +213,7 @@ export const AccountSecurity = ({
 			setupDialog.onClose();
 			setSetup(null);
 			setCode("");
-			queryClient.invalidateQueries("current-admin");
+			queryClient.invalidateQueries({ queryKey: ["current-admin"] });
 			toast({
 				title: t("myaccount.twoFactorEnabled"),
 				status: "success",
@@ -241,7 +237,7 @@ export const AccountSecurity = ({
 				window.location.reload();
 				return;
 			}
-			queryClient.invalidateQueries("current-admin");
+			queryClient.invalidateQueries({ queryKey: ["current-admin"] });
 			toast({
 				title: t("myaccount.twoFactorDisabled"),
 				status: "success",
@@ -369,7 +365,7 @@ export const AccountSecurity = ({
 											</div>
 										</div>
 										<Button colorScheme="red" loading={
-												revoke.isLoading && revoke.variables === session.id
+												revoke.isPending && revoke.variables === session.id
 											} onClick={() => revoke.mutate(session.id)} size="sm" variant="ghost" aria-label={`${t("header.logout")} ${browserLabel}`} className="self-end sm:self-center">{<ArrowRightStartOnRectangleIcon className="w-[16px]" />}
 											{t("header.logout")}
 										</Button>

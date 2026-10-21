@@ -31,7 +31,7 @@ import useGetUser from "hooks/useGetUser";
 import debounce from "lodash.debounce";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { fetch } from "service/http";
 import { AdminRole, AdminSudoScope } from "types/Admin";
 import { buildJsonDiff } from "utils/jsonDiff";
@@ -510,36 +510,21 @@ export const RecentActionsPage: FC = () => {
 		searchMatch,
 		statusesFilter,
 	]);
-	const actionsQuery = useQuery(
-		["recent-actions", actionsQueryString],
-		() =>
+	const actionsQuery = useQuery({ queryKey: ["recent-actions", actionsQueryString], queryFn: () =>
 			fetch<RecentActionsResponse>(
 				`/core/recent-actions?${actionsQueryString}`,
-			),
-		{
-			enabled: canView,
+			), enabled: canView,
 			staleTime: 15_000,
 			refetchOnWindowFocus: false,
-			keepPreviousData: true,
-		},
-	);
-	const detailQuery = useQuery(
-		["recent-action", selectedID],
-		() => fetch<RecentActionDetail>(`/core/recent-actions/${selectedID}`),
-		{ enabled: canView && selectedID !== null, refetchOnWindowFocus: false },
-	);
-	const rollbackMutation = useMutation(
-		(id: number) =>
-			fetch(`/core/recent-actions/${id}/rollback`, { method: "POST" }),
-		{
-			onSuccess: async () => {
-				await queryClient.invalidateQueries("recent-actions");
+			placeholderData: keepPreviousData, });
+	const detailQuery = useQuery({ queryKey: ["recent-action", selectedID], queryFn: () => fetch<RecentActionDetail>(`/core/recent-actions/${selectedID}`), enabled: canView && selectedID !== null, refetchOnWindowFocus: false });
+	const rollbackMutation = useMutation({ mutationFn: (id: number) =>
+			fetch(`/core/recent-actions/${id}/rollback`, { method: "POST" }), onSuccess: async () => {
+				await queryClient.invalidateQueries({ queryKey: ["recent-actions"] });
 				if (selectedID !== null) {
-					await queryClient.invalidateQueries(["recent-action", selectedID]);
+					await queryClient.invalidateQueries({ queryKey: ["recent-action", selectedID] });
 				}
-			},
-		},
-	);
+			}, });
 
 	const actions = actionsQuery.data?.actions ?? [];
 	const totalActions = actionsQuery.data?.total ?? actions.length;
@@ -983,7 +968,7 @@ export const RecentActionsPage: FC = () => {
 						</Button>
 						{action.rollback_status === "available" && (
 							<Button size="sm" colorScheme="orange" onClick={() => rollback(action)} loading={
-									rollbackMutation.isLoading &&
+									rollbackMutation.isPending &&
 									rollbackMutation.variables === action.id
 								}>{<ArrowUturnLeftIcon className="w-[16px]" />}
 								{t("recentActions.rollback")}

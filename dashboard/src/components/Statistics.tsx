@@ -31,7 +31,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery, useQueryClient } from "react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetch, reportAPIError, useAPIRequestErrors } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
@@ -43,7 +43,7 @@ import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 import { SystemDiagnostics, useSystemDiagnostics } from "./SystemDiagnostics";
 
-export const StatisticsQueryKey = "statistics-query-key";
+export const StatisticsQueryKey = ["statistics-query-key"] as const;
 
 const HistoryChart = lazy(() => import("react-apexcharts"));
 
@@ -1047,36 +1047,26 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 	const { data: rawSystemData } = useQuery<SystemStats>({
 		queryKey: StatisticsQueryKey,
 		queryFn: () => fetch("/system"),
-		onSuccess: (stats) => {
-			const currentVersion = stats?.version;
-			if (currentVersion && version !== currentVersion) {
-				useDashboard.setState({ version: currentVersion });
-			}
-		},
 	});
 
-	const { data: maintenanceInfo } = useQuery<MaintenanceInfo>(
-		["dashboard-maintenance-info"],
-		() => fetch<MaintenanceInfo>("/maintenance/info", { timeout: 8000 }),
-		{
-			refetchOnWindowFocus: false,
-			staleTime: 5 * 60 * 1000,
-			retry: false,
-		},
-	);
+	// v5 removed onSuccess from useQuery: the side effect follows the data.
+	const fetchedVersion = rawSystemData?.version;
+	useEffect(() => {
+		if (fetchedVersion && version !== fetchedVersion) {
+			useDashboard.setState({ version: fetchedVersion });
+		}
+	}, [fetchedVersion, version]);
 
-	const { data: myUsersData } = useQuery<UsersListResponse>(
-		["dashboard-my-users-stats", userData.username],
-		() =>
+	const { data: maintenanceInfo } = useQuery<MaintenanceInfo>({ queryKey: ["dashboard-maintenance-info"], queryFn: () => fetch<MaintenanceInfo>("/maintenance/info", { timeout: 8000 }), refetchOnWindowFocus: false,
+			staleTime: 5 * 60 * 1000,
+			retry: false, });
+
+	const { data: myUsersData } = useQuery<UsersListResponse>({ queryKey: ["dashboard-my-users-stats", userData.username], queryFn: () =>
 			fetch<UsersListResponse>("/users", {
 				query: { admin: userData.username, limit: 1000 },
-			}),
-		{
-			enabled: Boolean(userData.username),
+			}), enabled: Boolean(userData.username),
 			staleTime: 10_000,
-			refetchInterval: 15_000,
-		},
-	);
+			refetchInterval: 15_000, });
 
 	const systemData = useMemo(() => sanitizeSystemStats(rawSystemData), [rawSystemData]);
 	useSystemMetricsStream(true);

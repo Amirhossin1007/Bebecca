@@ -15,7 +15,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import { fetch as apiFetch } from "service/http";
 
 type GeoFile = { id: string; name: string; url: string };
@@ -99,17 +99,11 @@ export const GeoUpdateDialog = ({
 		}
 	}, [isOpen, defaultTemplateIndexUrl]);
 
-	const templatesQuery = useQuery(
-		["geo-templates", templateIndexUrl],
-		() =>
+	const templatesQuery = useQuery({ queryKey: ["geo-templates", templateIndexUrl], queryFn: () =>
 			apiFetch<{ templates: GeoTemplate[] }>("/core/geo/templates", {
 				query: templateIndexUrl ? { index_url: templateIndexUrl } : undefined,
-			}),
-		{
-			enabled: isOpen && mode === "template" && Boolean(templateIndexUrl),
-			staleTime: 10 * 60 * 1000,
-		},
-	);
+			}), enabled: isOpen && mode === "template" && Boolean(templateIndexUrl),
+			staleTime: 10 * 60 * 1000, });
 
 	const templates = useMemo(
 		() => templatesQuery.data?.templates ?? [],

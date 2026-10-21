@@ -13,7 +13,7 @@ import { PanelSelect } from "components/common/PanelSelect";
 import { PageLoadingSkeleton } from "components/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	getSubscriptionPlaceholderSettings,
 	type SubscriptionPlaceholderSetting,
@@ -30,11 +30,7 @@ const PlaceholderSettingsPage = () => {
 	const panelBg = "bg-whiteAlpha-800 dark:bg-whiteAlpha-50";
 	const subtleBg = "bg-blackAlpha-50 dark:bg-whiteAlpha-50";
 	const borderColor = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
-	const query = useQuery(
-		"subscription-placeholder-settings",
-		getSubscriptionPlaceholderSettings,
-		{ refetchOnWindowFocus: false },
-	);
+	const query = useQuery({ queryKey: ["subscription-placeholder-settings"], queryFn: getSubscriptionPlaceholderSettings, refetchOnWindowFocus: false });
 	const [selectedKey, setSelectedKey] = useState("");
 	const [draft, setDraft] = useState<SubscriptionPlaceholderSetting | null>(
 		null,
@@ -69,8 +65,7 @@ const PlaceholderSettingsPage = () => {
 		? items.filter((item) => item.admin_id === selected.admin_id)
 		: [];
 
-	const save = useMutation(updateSubscriptionPlaceholderSetting, {
-		onSuccess: async (updated) => {
+	const save = useMutation({ mutationFn: updateSubscriptionPlaceholderSetting, onSuccess: async (updated) => {
 			setDraft(updated);
 			setSelectedKey(keyFor(updated));
 			await query.refetch();
@@ -87,8 +82,7 @@ const PlaceholderSettingsPage = () => {
 				status: "error",
 				duration: 5000,
 			});
-		},
-	});
+		}, });
 
 	const selectAdmin = (value: string | string[]) => {
 		const raw = Array.isArray(value) ? value[0] : value;
@@ -236,7 +230,7 @@ const PlaceholderSettingsPage = () => {
 										</div>
 
 										<div className="flex flex-row items-center gap-2 justify-end">
-											<Button size="md" colorScheme="pink" loading={save.isLoading} onClick={() => save.mutate({ ...draft, inherit_default: draft.inherited })}>
+											<Button size="md" colorScheme="pink" loading={save.isPending} onClick={() => save.mutate({ ...draft, inherit_default: draft.inherited })}>
 												{t("placeholders.save")}
 											</Button>
 										</div>

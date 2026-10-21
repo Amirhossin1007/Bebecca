@@ -1,7 +1,7 @@
 import { Alert, AlertIcon } from "components/shadcn/alert";
 import { Tag } from "components/shadcn/badge";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { fetch, getAPIErrorMessage } from "service/http";
 import {
@@ -12,11 +12,7 @@ import {
 } from "utils/diagnostics";
 
 export const useSystemDiagnostics = (enabled: boolean) =>
-	useQuery<Diagnostic[]>(
-		["system-diagnostics"],
-		() => fetch("/system/diagnostics"),
-		{ enabled, refetchInterval: 15000, staleTime: 10000, retry: false },
-	);
+	useQuery<Diagnostic[]>({ queryKey: ["system-diagnostics"], queryFn: () => fetch("/system/diagnostics"), enabled, refetchInterval: 15000, staleTime: 10000, retry: false });
 
 export const SystemDiagnostics = ({
 	issues,

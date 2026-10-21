@@ -36,7 +36,7 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import ReactApexChart from "react-apexcharts";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
 	changeMyAccountPassword,
 	createApiKey,
@@ -652,62 +652,41 @@ export const MyAccountPage: React.FC = () => {
 		if (window.location.hash !== `#${hash}`) window.location.hash = hash;
 	};
 
-	const { data, isLoading, isFetching } = useQuery<MyAccountResponse>(
-		["myaccount", range.start, range.end],
-		() =>
+	const { data, isLoading, isFetching } = useQuery<MyAccountResponse>({ queryKey: ["myaccount", range.start, range.end], queryFn: () =>
 			getMyAccount({
 				start: `${dayjs(range.start).utc().format("YYYY-MM-DDTHH:mm:ss")}Z`,
 				end: `${dayjs(range.end).utc().format("YYYY-MM-DDTHH:mm:ss")}Z`,
-			}),
-		{
-			keepPreviousData: true,
-			enabled: selfPermissions.self_myaccount && getUserIsSuccess,
-		},
-	);
+			}), placeholderData: keepPreviousData,
+			enabled: selfPermissions.self_myaccount && getUserIsSuccess, });
 	const trafficBasis = data?.traffic_basis ?? "used_traffic";
 	const isCreatedTrafficBasis = trafficBasis === "created_traffic";
 	const isPerServiceLimits = Boolean(data?.use_service_traffic_limits);
-	const { data: nodesData } = useQuery(
-		["myaccount-nodes", username, range.start, range.end],
-		() =>
+	const { data: nodesData } = useQuery({ queryKey: ["myaccount-nodes", username, range.start, range.end], queryFn: () =>
 			username
 				? getAdminNodesUsage(username, {
 						start: `${dayjs(range.start).utc().format("YYYY-MM-DDTHH:mm:ss")}Z`,
 						end: `${dayjs(range.end).utc().format("YYYY-MM-DDTHH:mm:ss")}Z`,
 					})
-				: Promise.resolve({ usages: [] }),
-		{
-			keepPreviousData: true,
+				: Promise.resolve({ usages: [] }), placeholderData: keepPreviousData,
 			enabled:
 				selfPermissions.self_myaccount &&
 				Boolean(username) &&
 				getUserIsSuccess &&
 				data?.traffic_basis === "used_traffic" &&
-				!data?.use_service_traffic_limits,
-		},
-	);
-	const mutation = useMutation(changeMyAccountPassword, {
-		onSuccess: () => {
-			queryClient.invalidateQueries("myaccount");
-		},
-	});
-	const apiKeysQuery = useQuery<AdminApiKey[]>(
-		["myaccount-api-keys"],
-		listApiKeys,
-		{
-			enabled:
+				!data?.use_service_traffic_limits, });
+	const mutation = useMutation({ mutationFn: changeMyAccountPassword, onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["myaccount"] });
+		}, });
+	const apiKeysQuery = useQuery<AdminApiKey[]>({ queryKey: ["myaccount-api-keys"], queryFn: listApiKeys, enabled:
 				selfPermissions.self_api_keys &&
 				getUserIsSuccess &&
-				activeSection === "api_keys",
-		},
-	);
+				activeSection === "api_keys", });
 	const apiKeys = useMemo(
 		() => normalizeApiKeys(apiKeysQuery.data),
 		[apiKeysQuery.data],
 	);
-	const createKeyMutation = useMutation(createApiKey, {
-		onSuccess: (data) => {
-			queryClient.invalidateQueries("myaccount-api-keys");
+	const createKeyMutation = useMutation({ mutationFn: createApiKey, onSuccess: (data) => {
+			queryClient.invalidateQueries({ queryKey: ["myaccount-api-keys"] });
 			if (data?.api_key) {
 				setClipboardValue(data.api_key);
 			}
@@ -716,8 +695,7 @@ export const MyAccountPage: React.FC = () => {
 				status: "success",
 			});
 			setGeneratedKey(data?.api_key ?? "");
-		},
-	});
+		}, });
 	const [selectedLifetime, setSelectedLifetime] = useState<string>("1m");
 	const [generatedKey, setGeneratedKey] = useState<string>("");
 	const hasGeneratedKey = Boolean(generatedKey);
@@ -735,20 +713,15 @@ export const MyAccountPage: React.FC = () => {
 		setDeletePassword("");
 		setShowDeletePassword(false);
 	};
-	const deleteKeyMutation = useMutation(
-		({ id, current_password }: { id: number; current_password: string }) =>
-			deleteApiKey(id, current_password),
-		{
-			onSuccess: () => {
-				queryClient.invalidateQueries("myaccount-api-keys");
+	const deleteKeyMutation = useMutation({ mutationFn: ({ id, current_password }: { id: number; current_password: string }) =>
+			deleteApiKey(id, current_password), onSuccess: () => {
+				queryClient.invalidateQueries({ queryKey: ["myaccount-api-keys"] });
 				toast({
 					title: t("myaccount.apiKeyDeleted"),
 					status: "success",
 				});
 				closeDeleteKeyDialog();
-			},
-		},
-	);
+			}, });
 	const handlePasswordChange = async (current: string, next: string) => {
 		await mutation.mutateAsync({
 			current_password: current,
@@ -1122,7 +1095,7 @@ export const MyAccountPage: React.FC = () => {
 														</div>
 													</div>
 													<IconButton aria-label={`${t("delete")} ${key.masked_key ?? "API key"}`} size="sm" variant="ghost" colorScheme="red" loading={
-															deleteKeyMutation.isLoading &&
+															deleteKeyMutation.isPending &&
 															deleteKeyMutation.variables?.id === key.id
 														} onClick={() => {
 															setDeleteKeyId(key.id);
@@ -1157,7 +1130,7 @@ export const MyAccountPage: React.FC = () => {
 								<Button size="md" variant="ghost" onClick={closeApiKeyDialog} className="mr-3">
 									{t("cancel")}
 								</Button>
-								<Button size="md" colorScheme="primary" loading={createKeyMutation.isLoading} onClick={() => createKeyMutation.mutate(selectedLifetime)} disabled={hasGeneratedKey}>
+								<Button size="md" colorScheme="primary" loading={createKeyMutation.isPending} onClick={() => createKeyMutation.mutate(selectedLifetime)} disabled={hasGeneratedKey}>
 									{t("create")}
 								</Button>
 							</>
@@ -1227,7 +1200,7 @@ export const MyAccountPage: React.FC = () => {
 							<Button size="md" variant="ghost" onClick={closeDeleteKeyDialog} className="mr-3">
 								{t("cancel")}
 							</Button>
-							<Button size="md" colorScheme="red" loading={deleteKeyMutation.isLoading} disabled={!deletePassword || deleteKeyId === null} onClick={() => {
+							<Button size="md" colorScheme="red" loading={deleteKeyMutation.isPending} disabled={!deletePassword || deleteKeyId === null} onClick={() => {
 									if (deleteKeyId !== null) {
 										deleteKeyMutation.mutate({
 											id: deleteKeyId,

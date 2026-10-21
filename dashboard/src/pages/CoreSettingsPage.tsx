@@ -73,7 +73,7 @@ import {
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { SiMullvad, SiNordvpn, SiTorproject } from "react-icons/si";
-import { useMutation, useQuery } from "react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { fetch as apiFetch, getAPIErrorMessage } from "service/http";
 import psiphonIconUrl from "../assets/brands/psiphon.png";
@@ -847,17 +847,11 @@ export const CoreSettingsPage: FC = () => {
 	const [warpOptionValue, setWarpOptionValue] = useState<string>("");
 	const [warpCustomDomain, setWarpCustomDomain] = useState<string>("");
 	const [activeTab, setActiveTab] = useState<number>(0);
-	const { data: serverIPs } = useQuery(
-		["server-ips", selectedTarget],
-		() =>
+	const { data: serverIPs } = useQuery({ queryKey: ["server-ips", selectedTarget], queryFn: () =>
 			apiFetch<{ ipv4: string; ipv6: string }>("/core/ips", {
 				query: { target: selectedTarget },
-			}),
-		{
-			staleTime: 5 * 60 * 1000, // 5 minutes
-			enabled: canManageXraySettings && activeTab === 0,
-		},
-	);
+			}), staleTime: 5 * 60 * 1000, // 5 minutes
+			enabled: canManageXraySettings && activeTab === 0, });
 	const [isChangingTargetMode, setIsChangingTargetMode] = useState(false);
 	const selectedTargetInfo = useMemo(
 		() => configTargets.find((target) => target.id === selectedTarget),
@@ -1141,10 +1135,7 @@ export const CoreSettingsPage: FC = () => {
 		watchedConfig?.burstObservatory,
 	]);
 
-	const { mutate: handleRestartCore, isLoading: isRestarting } = useMutation(
-		restartCore,
-		{
-			onSuccess: () => {
+	const { mutate: handleRestartCore, isPending: isRestarting } = useMutation({ mutationFn: restartCore, onSuccess: () => {
 				toast({
 					title: t("core.restartSuccess"),
 					status: "success",
@@ -1162,9 +1153,7 @@ export const CoreSettingsPage: FC = () => {
 					position: "top",
 					duration: 3000,
 				});
-			},
-		},
-	);
+			}, });
 
 	const propagationBaseFor = (section: PropagationSection, current: unknown) => {
 		if (current == null) return null;

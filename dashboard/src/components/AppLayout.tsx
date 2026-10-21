@@ -34,7 +34,7 @@ import {
 } from "@heroicons/react/24/solid";
 import { motion, useReducedMotion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
 	type CSSProperties,
 	type ElementType,
@@ -143,12 +143,10 @@ export function AppLayout() {
 	const canSeeSponsors =
 		getUserIsSuccess &&
 		(userData.role === AdminRole.FullAccess || userData.role === AdminRole.Sudo);
-	const sponsorsQuery = useQuery("sponsors", getSponsors, {
-		staleTime: 5 * 60 * 1000,
-		cacheTime: 30 * 60 * 1000,
+	const sponsorsQuery = useQuery({ queryKey: ["sponsors"], queryFn: getSponsors, staleTime: 5 * 60 * 1000,
+		gcTime: 30 * 60 * 1000,
 		retry: false,
-		enabled: canSeeSponsors,
-	});
+		enabled: canSeeSponsors, });
 	const sponsorData = canSeeSponsors ? sponsorsQuery.data : undefined;
 	const sponsorHeaderItems = (sponsorData?.header ?? []).slice(0, 3).map(
 		(asset: SponsorAsset) => ({

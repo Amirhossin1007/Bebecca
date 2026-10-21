@@ -6,7 +6,7 @@ import { useServicesStore } from "contexts/ServicesContext";
 import useGetUser from "hooks/useGetUser";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "react-query";
+import { useQuery } from "@tanstack/react-query";
 import { getRuntimeSettings } from "service/settings";
 
 export const UsagePage: FC = () => {
@@ -16,10 +16,8 @@ export const UsagePage: FC = () => {
 		getUserIsSuccess && userData.permissions?.sections.usage,
 	);
 	const { data: runtimeSettings, isLoading: isRuntimeSettingsLoading } =
-		useQuery("runtime-settings", getRuntimeSettings, {
-			refetchOnWindowFocus: false,
-			enabled: canViewUsage,
-		});
+		useQuery({ queryKey: ["runtime-settings"], queryFn: getRuntimeSettings, refetchOnWindowFocus: false,
+			enabled: canViewUsage, });
 	const recordNodeUsage = runtimeSettings?.record_node_usage ?? true;
 	const recordNodeUserUsages = runtimeSettings?.record_node_user_usages ?? true;
 

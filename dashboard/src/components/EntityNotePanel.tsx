@@ -4,7 +4,7 @@ import { Textarea } from "components/shadcn/input";
 import { Button } from "components/shadcn/button";
 import { type FC, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery, useQueryClient } from "react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import useGetUser from "hooks/useGetUser";
 import { fetch as apiFetch, getAPIErrorMessage } from "service/http";
 import { AdminRole } from "types/Admin";
@@ -33,23 +33,16 @@ export const EntityNotePanel: FC<{
 	const key = String(entityKey);
 	const path = `/notes/${entityType}/${encodeURIComponent(key)}`;
 	const queryKey = ["entity-note", entityType, key];
-	const { data, isLoading } = useQuery<EntityNote>(
-		queryKey,
-		() => apiFetch<EntityNote>(path),
-		{ enabled: canView },
-	);
+	const { data, isLoading } = useQuery<EntityNote>({ queryKey: [queryKey], queryFn: () => apiFetch<EntityNote>(path), enabled: canView });
 	const [draft, setDraft] = useState("");
 
 	useEffect(() => {
 		setDraft(data?.note ?? "");
 	}, [data]);
 
-	const { mutate: save, isLoading: isSaving } = useMutation(
-		(note: string) =>
-			apiFetch<EntityNote>(path, { method: "PUT", body: { note } }),
-		{
-			onSuccess: (saved) => {
-				queryClient.setQueryData(queryKey, saved);
+	const { mutate: save, isPending: isSaving } = useMutation({ mutationFn: (note: string) =>
+			apiFetch<EntityNote>(path, { method: "PUT", body: { note } }), onSuccess: (saved) => {
+				queryClient.setQueryData([queryKey], saved);
 				toast({
 					status: "success",
 					title: t("entityNote.saved"),
@@ -62,9 +55,7 @@ export const EntityNotePanel: FC<{
 					title: getAPIErrorMessage(error) ?? t("entityNote.saveFailed"),
 					isClosable: true,
 				});
-			},
-		},
-	);
+			}, });
 
 	if (!canView) {
 		return null;
