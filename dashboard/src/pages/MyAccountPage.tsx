@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { useColorMode } from "lib/color-mode";
 import { Badge } from "components/shadcn/badge";
 import { useToast } from "components/shadcn/toast";
@@ -217,7 +218,9 @@ const MiniMetric: React.FC<{ label: string; value: string }> = ({
 };
 
 const getTrafficLabels = (
-	t: (key: string, fallback?: string) => string,
+	// i18next 25 types t as an overloaded function; the helper only needs the
+	// simple call signature, so accept the real one and narrow at the boundary.
+	t: TFunction,
 	basis: MyAccountTrafficBasis,
 ) => {
 	const isCreated = basis === "created_traffic";
@@ -249,7 +252,7 @@ const getTrafficLabels = (
 const ServiceLimitPanel: React.FC<{
 	service: MyAccountServiceLimit;
 	colorMode: string;
-	t: (key: string, fallback?: string) => string;
+	t: TFunction;
 	expiryText: string | null;
 }> = ({ service, colorMode, t, expiryText }) => {
 	const borderColor = "border-blackAlpha-200! border-t-blackAlpha-200! dark:border-whiteAlpha-200! dark:border-t-whiteAlpha-200!";
@@ -368,7 +371,7 @@ const ServiceLimitPanel: React.FC<{
 
 const ServiceBalanceCard: React.FC<{
 	service: MyAccountServiceLimit;
-	t: (key: string, fallback?: string) => string;
+	t: TFunction;
 	expiryText: string | null;
 }> = ({ service, t, expiryText }) => {
 	const borderColor = "border-blackAlpha-200! border-t-blackAlpha-200! dark:border-whiteAlpha-200! dark:border-t-whiteAlpha-200!";

@@ -926,7 +926,7 @@ type HostFormProps = {
 	inboundTag: string;
 	inboundOptions: InboundOption[];
 	nodes?: NodeType[];
-	initialFocusRef?: RefObject<HTMLInputElement>;
+	initialFocusRef?: RefObject<HTMLInputElement | null>;
 	onChange: <Key extends keyof HostData>(
 		key: Key,
 		value: HostData[Key],
