@@ -1,5 +1,6 @@
 import { Button } from "components/shadcn/button";
 import { RequestErrors } from "components/RequestErrors";
+import { DiagnosticsTable } from "components/diagnostics/DiagnosticsTable";
 import {
 	SystemDiagnostics,
 	useSystemDiagnostics,
@@ -76,10 +77,19 @@ export default function ErrorsPage() {
 				<PageLoadingSkeleton />
 			) : (
 				<>
-					<SystemDiagnostics
-						issues={visibleIssues}
-						error={canSeeGlobal ? query.error : undefined}
-					/>
+					{/* Global diagnostics now render as a stock shadcn table; the
+					    per-request alert list is not a diagnostics source and stays as it is. */}
+					{visibleIssues.length ? (
+						<section className="flex flex-col gap-3">
+							<h2 className="text-[0.95rem] font-semibold">
+								{t("diagnostics.title")}{" "}
+								<span className="text-panel-text-muted">({visibleIssues.length})</span>
+							</h2>
+							<DiagnosticsTable issues={visibleIssues} />
+						</section>
+					) : canSeeGlobal && query.error ? (
+						<SystemDiagnostics issues={[]} error={query.error} />
+					) : null}
 					{showRequests && <RequestErrors />}
 					{empty && !(canSeeGlobal && query.error) && (
 						<div className="p-6 bg-panel-surface rounded-2xl">

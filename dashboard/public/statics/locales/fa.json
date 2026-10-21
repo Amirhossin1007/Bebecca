@@ -3787,5 +3787,10 @@
 	"admins.filters.statusDisabled": "غیرفعال",
 	"admins.filters.statusExpired": "منقضی",
 	"admins.filters.statusLimited": "محدود",
-	"next.table.toggleColumns": "ستون‌ها"
+	"next.table.toggleColumns": "ستون‌ها",
+	"diagnostics.levelTitle": "سطح",
+	"diagnostics.sourceTitle": "منبع",
+	"diagnostics.resourceTitle": "منبع خرابی",
+	"diagnostics.detailTitle": "جزئیات",
+	"diagnostics.sectionTitle": "بخش"
 }

@@ -912,5 +912,10 @@
 	"total": "Всего",
 	"loadAverage": "Средняя загрузка",
 	"sponsors.sponsoredBy": "При поддержке",
-	"next.table.toggleColumns": "Столбцы"
+	"next.table.toggleColumns": "Столбцы",
+	"diagnostics.levelTitle": "Уровень",
+	"diagnostics.sourceTitle": "Источник",
+	"diagnostics.resourceTitle": "Ресурс",
+	"diagnostics.detailTitle": "Детали",
+	"diagnostics.sectionTitle": "Раздел"
 }

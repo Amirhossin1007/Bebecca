@@ -913,5 +913,10 @@
 	"total": "总计",
 	"loadAverage": "平均负载",
 	"sponsors.sponsoredBy": "赞助商",
-	"next.table.toggleColumns": "列"
+	"next.table.toggleColumns": "列",
+	"diagnostics.levelTitle": "级别",
+	"diagnostics.sourceTitle": "来源",
+	"diagnostics.resourceTitle": "资源",
+	"diagnostics.detailTitle": "详情",
+	"diagnostics.sectionTitle": "分区"
 }

@@ -3788,5 +3788,10 @@
 	"admins.filters.statusDisabled": "Disabled",
 	"admins.filters.statusExpired": "Expired",
 	"admins.filters.statusLimited": "Limited",
-	"next.table.toggleColumns": "Columns"
+	"next.table.toggleColumns": "Columns",
+	"diagnostics.levelTitle": "Level",
+	"diagnostics.sourceTitle": "Source",
+	"diagnostics.resourceTitle": "Resource",
+	"diagnostics.detailTitle": "Detail",
+	"diagnostics.sectionTitle": "Section"
 }
