@@ -32,6 +32,14 @@ import {
 	UserGroupIcon as UserGroupSolidIcon,
 	UserIcon as UserSolidIcon,
 } from "@heroicons/react/24/solid";
+import {
+	Breadcrumb,
+	BreadcrumbItem,
+	BreadcrumbLink,
+	BreadcrumbList,
+	BreadcrumbPage,
+	BreadcrumbSeparator,
+} from "components/ui/breadcrumb";
 import { motion, useReducedMotion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import { useQuery } from "@tanstack/react-query";
@@ -849,36 +857,48 @@ export function AppLayout() {
 								<MenuIcon className="size-4" />
 							</Button>
 
-							<nav
-								aria-label="Current location"
-								dir="ltr"
-								className="hidden min-w-0 shrink items-center gap-1 overflow-hidden md:flex"
-							>
-								<button
-									type="button"
-									onClick={() => navigate("/")}
-									className="shrink-0 text-xs font-semibold text-panel-text-secondary transition-colors hover:text-panel-text md:text-sm"
-								>
-									dashboard
-								</button>
-								{locationTrail.length > 1 && (
-									<>
-										<span className="text-panel-text-secondary">→</span>
-										<button
-											type="button"
-											onClick={openCurrentPage}
-											className="shrink-0 text-xs font-semibold text-panel-text-secondary transition-colors hover:text-panel-text md:text-sm"
-										>
-											{locationTrail[1]}
-										</button>
-									</>
-								)}
-								{locationTrail.length > 2 && (
-									<span className="truncate whitespace-nowrap text-xs font-semibold text-panel-text-secondary md:text-sm">
-										→ {locationTrail.slice(2).join(" → ")}
-									</span>
-								)}
-							</nav>
+							{/* Stock shadcn Breadcrumb: the trail is the same, the markup is the kit's. */}
+							<Breadcrumb dir="ltr" className="hidden min-w-0 shrink md:block">
+								<BreadcrumbList className="flex-nowrap items-center gap-1 overflow-hidden text-xs whitespace-nowrap md:text-sm">
+									<BreadcrumbItem className="shrink-0">
+										<BreadcrumbLink asChild>
+											<button
+												type="button"
+												onClick={() => navigate("/")}
+												className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
+											>
+												dashboard
+											</button>
+										</BreadcrumbLink>
+									</BreadcrumbItem>
+									{locationTrail.length > 1 && (
+										<>
+											<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
+											<BreadcrumbItem>
+												<BreadcrumbLink asChild>
+													<button
+														type="button"
+														onClick={openCurrentPage}
+														className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
+													>
+														{locationTrail[1]}
+													</button>
+												</BreadcrumbLink>
+											</BreadcrumbItem>
+										</>
+									)}
+									{locationTrail.length > 2 && (
+										<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
+									)}
+									{locationTrail.length > 2 && (
+										<BreadcrumbItem className="min-w-0">
+											<BreadcrumbPage className="truncate text-xs font-semibold text-panel-text-secondary md:text-sm">
+												{locationTrail.slice(2).join(" → ")}
+											</BreadcrumbPage>
+										</BreadcrumbItem>
+									)}
+								</BreadcrumbList>
+							</Breadcrumb>
 							{mobileHeaderItems.length > 0 && (
 								<div className="block w-[160px] min-w-0 shrink sm:w-[220px] md:hidden md:w-[360px]">
 									<SponsorCarousel items={mobileHeaderItems} variant="banner" />

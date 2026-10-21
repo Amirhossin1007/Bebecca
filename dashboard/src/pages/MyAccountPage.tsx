@@ -7,7 +7,7 @@ import { Input, InputGroup, InputRightElement } from "components/shadcn/input";
 import { useDisclosure } from "hooks/useDisclosure";
 import { useClipboard } from "hooks/useClipboard";
 import { Spinner } from "components/shadcn/feedback";
-import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
 import { Icon, withClass } from "components/shadcn/icon";
 import { cn } from "lib/cn";
 import {
@@ -853,19 +853,31 @@ export const MyAccountPage: React.FC = () => {
 				}
 			/>
 
-			<Tabs index={activeSectionIndex} onChange={handleAccountSectionChange} isLazy lazyBehavior="keepMounted" variant="unstyled">
-				<div className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden overflow-x-auto overflow-y-hidden max-w-full">
-					<TabList className="gap-6 min-h-10 px-2 md:px-3 w-max min-w-full!">
-						{accountSections.map((section) => (
-							<Tab key={section.id} className="flex-[0_0_auto] h-10 px-0 rounded-[0px] border-b-2 border-transparent! font-bold text-panel-text aria-selected:border-panel-accent! aria-selected:text-panel-accent hover:bg-transparent hover:text-panel-accent-hover focus-visible:[outline:2px_solid] focus-visible:outline-panel-accent focus-visible:[outline-offset:2px]">
-								{section.label}
-							</Tab>
-						))}
-					</TabList>
-				</div>
+			{/* Stock shadcn Tabs (line variant): the section list is the trigger list. */}
+			<Tabs
+				value={accountSections[activeSectionIndex]?.id ?? accountSections[0].id}
+				onValueChange={(next) => {
+					const index = accountSections.findIndex((section) => section.id === next);
+					if (index >= 0) handleAccountSectionChange(index);
+				}}
+				className="gap-0"
+			>
+				<TabsList
+					variant="line"
+					className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden w-full justify-start gap-6 overflow-x-auto border-b border-panel-border! pb-0!"
+				>
+					{accountSections.map((section) => (
+						<TabsTrigger
+							key={section.id}
+							value={section.id}
+							className="h-10 min-w-[64px] flex-none items-center justify-center rounded-none border-b-2 border-transparent px-3 font-bold text-panel-text-muted data-[state=active]:border-panel-accent! data-[state=active]:bg-transparent! data-[state=active]:text-panel-accent! data-[state=active]:shadow-none!"
+						>
+							{section.label}
+						</TabsTrigger>
+					))}
+				</TabsList>
 
-				<TabPanels className="mt-3 px-0 md:px-2">
-					<TabPanel className="p-0">
+				<TabsContent value={accountSections[activeSectionIndex]?.id ?? accountSections[0].id} className="mt-3 px-0 md:px-2">
 						<div className="flex flex-col gap-4 items-stretch w-full max-w-[1200px] mx-auto">
 							<ChartBox
 								title={t("myaccount.accountOverview")}
@@ -1027,10 +1039,10 @@ export const MyAccountPage: React.FC = () => {
 								</ChartBox>
 							)}
 						</div>
-					</TabPanel>
+				</TabsContent>
 
 					{canViewSecurity && (
-						<TabPanel className="p-0">
+						<TabsContent value="security" className="p-0 mt-3 px-0 md:px-2">
 							<AccountSecurity
 								totpEnabled={Boolean(userData.totp_enabled)}
 								canChangePassword={Boolean(
@@ -1040,11 +1052,11 @@ export const MyAccountPage: React.FC = () => {
 								canManage2FA={Boolean(selfPermissions.self_2fa)}
 								onChangePassword={modal.onOpen}
 							/>
-						</TabPanel>
+						</TabsContent>
 					)}
 
 					{selfPermissions.self_api_keys && (
-						<TabPanel className="p-0">
+						<TabsContent value="api_keys" className="p-0 mt-3 px-0 md:px-2">
 							<div className="flex flex-col gap-2 w-full max-w-[960px] mx-auto">
 								<ChartBox
 									title={t("myaccount.apiKeys")}
@@ -1112,9 +1124,8 @@ export const MyAccountPage: React.FC = () => {
 									)}
 								</ChartBox>
 							</div>
-						</TabPanel>
+						</TabsContent>
 					)}
-				</TabPanels>
 			</Tabs>
 
 			{selfPermissions.self_api_keys && (

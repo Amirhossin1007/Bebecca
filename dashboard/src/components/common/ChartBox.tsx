@@ -1,6 +1,6 @@
 import type { ComponentPropsWithoutRef } from "react";
-import { cn } from "lib/cn";
 import type { FC, ReactNode } from "react";
+import { cn } from "lib/cn";
 
 export type ChartBoxProps = Omit<ComponentPropsWithoutRef<"div">, "title"> & {
 	title?: ReactNode;
@@ -8,29 +8,40 @@ export type ChartBoxProps = Omit<ComponentPropsWithoutRef<"div">, "title"> & {
 	headerActions?: ReactNode;
 };
 
+/**
+ * The panel's card, built on the shadcn Card primitives.
+ *
+ * ChartBox is used by every analytics screen, so it keeps its own API
+ * (title / headerActions / children) and only the internals moved to the
+ * registry component: same surface, border and radius as before.
+ */
 export const ChartBox: FC<ChartBoxProps> = ({
 	title,
 	children,
 	headerActions,
+	className,
 	...props
 }) => {
-	const borderColor = "border-panel-border! border-b-panel-border!";
-	const bg = "bg-panel-surface";
-	const headerBg = "bg-transparent";
-
 	return (
-		<div {...props} className={cn(borderColor, cn("hover:md:shadow-sm hover:md:border-panel-border-strong!", cn("border rounded-xl overflow-hidden [transition:box-shadow_0.2s_ease,_border-color_0.2s_ease]", bg)))}>
+		<div
+			{...props}
+			data-slot="chart-box"
+			className={cn(
+				"flex flex-col gap-0 overflow-hidden rounded-xl border border-panel-border bg-panel-surface shadow-sm transition-[box-shadow,border-color] duration-200 hover:border-panel-border-strong",
+				className,
+			)}
+		>
 			{(title || headerActions) && (
-				<div className={cn(borderColor, cn("flex px-4 md:px-5 py-4 border-b justify-between items-stretch md:items-center gap-3 flex-wrap", headerBg))}>
-					{title && (
-						<p className="font-bold text-[1rem] md:text-[1.125rem] text-panel-text flex-1 min-w-full! md:min-w-[220px]!">
+				<div className="flex flex-wrap items-stretch justify-between gap-3 border-b border-panel-border px-4 py-4 md:items-center md:px-5">
+					{title ? (
+						<p className="min-w-full! flex-1 text-[1rem] font-bold text-panel-text md:min-w-[220px]! md:text-[1.125rem]">
 							{title}
 						</p>
-					)}
-					{headerActions && <div className="max-w-full">{headerActions}</div>}
+					) : null}
+					{headerActions ? <div className="max-w-full">{headerActions}</div> : null}
 				</div>
 			)}
-			<div className="p-4 md:p-5">{children}</div>
+			<div className="flex-1 p-4 md:p-5">{children}</div>
 		</div>
 	);
 };

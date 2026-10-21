@@ -1,7 +1,13 @@
-import { AlertDialog, AlertDialogBody, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay } from "components/shadcn/dialog";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogTitle,
+} from "components/ui/dialog";
 import { Button } from "components/shadcn/button";
-import { useDisclosure } from "hooks/useDisclosure";
 import { withClass } from "components/shadcn/icon";
+import { useDisclosure } from "hooks/useDisclosure";
 import { cn } from "lib/cn";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import {
@@ -43,52 +49,64 @@ export const ConfirmDialog = ({
 }: ConfirmDialogProps) => {
 	const { t } = useTranslation();
 	const cancelRef = useRef<HTMLButtonElement | null>(null);
-	const dialogBg = "bg-surface-light dark:bg-surface-dark";
-	const dialogBorder = "border-light-border! dark:border-gray-700!";
-	const mutedText = "text-gray-600 dark:text-gray-300";
-	const iconBg = `bg-${colorScheme}-50 dark:bg-${colorScheme}-900`;
+	const mutedText = "text-panel-text-muted";
+	const iconBg = `bg-${colorScheme}-50 dark:bg-${colorScheme}-200/16`;
 	const iconColor = `text-${colorScheme}-600 dark:text-${colorScheme}-200`;
 
 	return (
-		<AlertDialog open={isOpen} leastDestructiveRef={cancelRef} onClose={onClose} isCentered>
-			<AlertDialogOverlay className="bg-blackAlpha-500">
-				<AlertDialogContent onKeyDown={(event) => {
-						if (event.key !== "Enter" || isLoading || isConfirmDisabled) {
-							return;
-						}
-						event.preventDefault();
-						void onConfirm();
-					}} className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 w-[calc(100vw_-_32px)] sm:w-auto max-w-[calc(100vw_-_32px)] sm:max-w-[520px] px-4 sm:px-4.5 py-3.5 sm:py-4", dialogBg, dialogBorder, "rb-confirm-dialog-content")}>
-					<div className="flex items-start gap-2.5">
-						<div className={cn(iconBg, iconColor, "flex items-center justify-center flex-[0_0_auto] w-9 h-9 rounded-full")}>
-							<WarningIcon />
-						</div>
-						<div className="flex-1 min-w-0!">
-							<AlertDialogHeader className="p-0 text-[1.125rem] font-extrabold leading-[1.375] mb-0.5">
-								{title}
-							</AlertDialogHeader>
-							<AlertDialogBody className="p-0 mt-1.5">
+		<Dialog open={isOpen} onOpenChange={(next) => { if (!next) onClose(); }}>
+			<DialogContent
+				showCloseButton={false}
+				onKeyDown={(event) => {
+					if (event.key !== "Enter" || isLoading || isConfirmDisabled) return;
+					event.preventDefault();
+					void onConfirm();
+				}}
+				className="mx-4 max-w-[calc(100vw_-_32px)] gap-0 overflow-hidden rounded-2xl px-4 py-3.5 shadow-2xl sm:mx-0 sm:max-w-[520px] sm:px-4.5 sm:py-4"
+			>
+				<div className="flex items-start gap-2.5">
+					<div className={cn(iconBg, iconColor, "flex size-9 shrink-0 items-center justify-center rounded-full")}>
+						<WarningIcon />
+					</div>
+					<div className="min-w-0! flex-1">
+						<DialogTitle className="mb-0.5 text-[1.125rem] font-extrabold leading-[1.375] rb-confirm-dialog-content">
+							{title}
+						</DialogTitle>
+						<DialogDescription asChild className="mt-1.5">
+							<div>
 								{typeof description === "string" ? (
-									<p className={cn("text-[0.875rem] leading-[1.45]", mutedText)}>
-										{description}
-									</p>
+									<p className={cn("text-[0.875rem] leading-[1.45]", mutedText)}>{description}</p>
 								) : (
 									description
 								)}
-							</AlertDialogBody>
-						</div>
+							</div>
+						</DialogDescription>
 					</div>
-					<AlertDialogFooter className="p-0 pt-1.5 sm:pt-2 gap-1.5 flex-wrap justify-end rb-confirm-dialog-actions">
-						<Button variant="solid" ref={cancelRef} onClick={onClose} disabled={isLoading} size="sm" className="min-w-[76px]! h-[34px] min-h-[34px] px-3 text-[0.875rem]">
-							{cancelLabel ?? t("cancel")}
-						</Button>
-						<Button colorScheme={colorScheme} onClick={onConfirm} loading={isLoading} disabled={isConfirmDisabled} size="sm" className="min-w-[76px]! h-[34px] min-h-[34px] px-3 text-[0.875rem]">
-							{confirmLabel ?? t("confirm")}
-						</Button>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialogOverlay>
-		</AlertDialog>
+				</div>
+				<DialogFooter className="mt-2 flex-wrap justify-end gap-1.5 rb-confirm-dialog-actions">
+					<Button
+						ref={cancelRef}
+						variant="solid"
+						size="sm"
+						onClick={onClose}
+						disabled={isLoading}
+						className="h-[34px] min-h-[34px] min-w-[76px]! px-3 text-[0.875rem]"
+					>
+						{cancelLabel ?? t("cancel")}
+					</Button>
+					<Button
+						colorScheme={colorScheme}
+						loading={isLoading}
+						disabled={isConfirmDisabled}
+						size="sm"
+						onClick={onConfirm}
+						className="h-[34px] min-h-[34px] min-w-[76px]! px-3 text-[0.875rem]"
+					>
+						{confirmLabel ?? t("confirm")}
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 };
 
