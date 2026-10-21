@@ -677,6 +677,11 @@ const ServicesPage: FC = () => {
 		ServiceListParams & { limit: number; offset: number; name: string }
 	>({ limit: 20, offset: 0, name: "" });
 	const [serviceSearch, setServiceSearch] = useState("");
+	// Matching is done server-side through the name filter, so the toggles only
+	// affect the local highlight; kept for a consistent search field.
+	const [serviceMatchOptions, setServiceMatchOptions] = useState(
+		DEFAULT_SEARCH_MATCH_OPTIONS,
+	);
 	const serviceDetail = useServicesStore((state) => state.serviceDetail);
 	const isServicesLoading = useServicesStore((state) => state.loading);
 	const isServiceSaving = useServicesStore((state) => state.isSaving);
@@ -1757,13 +1762,27 @@ const ServicesPage: FC = () => {
 				title={t("services.listHeader")}
 				summaryItems={serviceSummaryItems}
 				actions={
-					<Button colorScheme="primary" onClick={openCreateDialog} size="sm" className="h-[36px] px-3 rounded-[4px]">{<PlusIcon className="w-[18px]" />}
+					<Button colorScheme="primary" onClick={openCreateDialog} size="sm" className="h-[36px] px-3 rounded-[4px]">
+						<PlusIcon className="w-[18px]" />
 						{t("services.addService")}
 					</Button>
 				}
-			/>
-
-			<Input value={serviceSearch} onChange={(event) => setServiceSearch(event.target.value)} placeholder={t("services.searchServices")} className="max-w-[320px]" />
+			>
+				{/* Search sits in the card toolbar, like the users list, instead of
+				    floating between the card and the table. */}
+				<div className="flex flex-wrap items-center gap-2">
+					<SearchInput
+						containerProps={{ className: "w-full max-w-[360px]" }}
+						placeholder={t("services.searchServices")}
+						value={serviceSearch}
+						onChange={(event) => setServiceSearch(event.target.value)}
+						matchOptions={serviceMatchOptions}
+						onMatchOptionsChange={setServiceMatchOptions}
+						loading={isServicesLoading}
+						onClear={() => setServiceSearch("")}
+					/>
+				</div>
+			</ResourceListCard>
 
 			<DataTable
 				ariaLabel={t("services.title")}

@@ -191,6 +191,10 @@ body {
   direction: inherit;
   table-layout: auto;
   width: 100%;
+  /* Columns keep their content width and the wrapper scrolls instead: with a
+     plain `width: 100%` the auto layout squeezed the last columns and the
+     truncating cells cut off tag lists and numbers. */
+  min-width: max-content;
 }
 
 .rb-data-table tr {
