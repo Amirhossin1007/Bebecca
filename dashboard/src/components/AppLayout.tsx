@@ -2441,22 +2441,26 @@ function AppLayoutContent() {
 												</VStack>
 											</Flex>
 
-											<HeaderCalendar
-												inMenu={true}
-												placement={languagePlacement}
-												isOpen={activeProfileSubmenu === "calendar"}
-												onToggle={() => {
-													languageMenu.onClose();
-													setActiveProfileSubmenu((prev) =>
-														prev === "calendar" ? null : "calendar",
-													);
-												}}
-												onClose={() => {
-													if (activeProfileSubmenu === "calendar") {
-														setActiveProfileSubmenu(null);
-													}
-												}}
-											/>
+											{isMobile && (
+												<Box display={{ base: "block", md: "none" }} w="full">
+													<HeaderCalendar
+														inMenu={true}
+														placement={languagePlacement}
+														isOpen={activeProfileSubmenu === "calendar"}
+														onToggle={() => {
+															languageMenu.onClose();
+															setActiveProfileSubmenu((prev) =>
+																prev === "calendar" ? null : "calendar",
+															);
+														}}
+														onClose={() => {
+															if (activeProfileSubmenu === "calendar") {
+																setActiveProfileSubmenu(null);
+															}
+														}}
+													/>
+												</Box>
+											)}
 
 											<NotificationMenuItem
 												placement={languagePlacement}
