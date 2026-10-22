@@ -933,45 +933,36 @@ export const DashboardMaintenanceControls = ({
 					maxH="88dvh"
 					overflow="hidden"
 				>
-					<ModalHeader py={3} px={4} borderBottomWidth="1px" borderColor="panel.border">
+					<ModalHeader
+						data-no-extra-padding="true"
+						py={3}
+						px={4}
+						pe="4 !important"
+						ps="4 !important"
+						borderBottomWidth="1px"
+						borderColor="panel.border"
+					>
 						<Flex justify="space-between" align="center" gap={3}>
 							<Text fontSize="13px" fontWeight="700" color="panel.text">
 								{t("dashboard.maintenance.title")}
 							</Text>
-							<Flex align="center" gap={2}>
-								<Button
-									size="xs"
-									variant="ghost"
-									borderRadius="8px"
-									color="panel.textMuted"
-									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-									_hover={{ md: { color: "panel.text", bg: "panel.elevated" } }}
-									_active={{ transform: "scale(0.96)" }}
-									leftIcon={<ArrowPathIcon width={13} height={13} />}
-									onClick={(e) => {
-										e.stopPropagation();
-										info.refetch();
-									}}
-									isLoading={info.isFetching}
-								>
-									{t("refresh")}
-								</Button>
-								<IconButton
-									aria-label="Close"
-									icon={<XMarkIcon width={16} height={16} />}
-									className="chakra-modal__close-btn"
-									size="xs"
-									variant="ghost"
-									borderRadius="8px"
-									w="28px"
-									h="28px"
-									minW="28px"
-									onClick={() => setIsMobileMaintenanceOpen(false)}
-									color="panel.textMuted"
-									_hover={{ md: { color: "panel.text", bg: "panel.elevated" } }}
-									_active={{ transform: "scale(0.96)" }}
-								/>
-							</Flex>
+							<IconButton
+								aria-label="Close"
+								icon={<XMarkIcon width={16} height={16} />}
+								size="xs"
+								variant="ghost"
+								borderRadius="8px"
+								w="28px"
+								h="28px"
+								minW="28px"
+								position="static"
+								m={0}
+								marginInlineEnd="-4px"
+								onClick={() => setIsMobileMaintenanceOpen(false)}
+								color="panel.textMuted"
+								_hover={{ md: { color: "panel.text", bg: "panel.elevated" } }}
+								_active={{ transform: "scale(0.96)" }}
+							/>
 						</Flex>
 					</ModalHeader>
 					<ModalBody p={4} overflowY="auto">

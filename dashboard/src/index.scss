@@ -960,7 +960,7 @@ body {
     box-shadow: none !important;
   }
 
-  .chakra-modal__header {
+  .chakra-modal__header:not([data-no-extra-padding="true"]) {
     flex-shrink: 0;
     padding-inline-end: 3.25rem;
   }
