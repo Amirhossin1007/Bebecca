@@ -487,7 +487,7 @@ func TestV2rayNGSubscriptionsKeepAddressAndPort(t *testing.T) {
 	}
 }
 
-func TestAutomaticCustomJSONRefreshesCurrentCustomNodeHostFinalMask(t *testing.T) {
+func TestCustomJSONRefreshesCurrentCustomNodeHostFinalMask(t *testing.T) {
 	service, key := newSubscriptionClientTestService(t)
 	ctx := context.Background()
 	rules := `[{"pattern": "(?i)^v2rayNG", "result": "v2ray-json"}]`
@@ -539,8 +539,8 @@ func TestAutomaticCustomJSONRefreshesCurrentCustomNodeHostFinalMask(t *testing.T
 	if len(lengths) != 2 || lengths[0] != "3-5" || lengths[1] != "6-8" {
 		t.Fatalf("current fragment ranges were not refreshed: %#v", finalMask)
 	}
-	if _, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray-json", ReadOnly: true}); err == nil {
-		t.Fatal("explicit stable v2ray-json unexpectedly accepted current-only FinalMask")
+	if _, err := service.RenderSubscription(ctx, SubscriptionRenderRequest{Identifier: key, ClientType: "v2ray-json", ReadOnly: true}); err != nil {
+		t.Fatalf("explicit v2ray-json rejected current-only FinalMask: %v", err)
 	}
 }
 

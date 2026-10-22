@@ -396,12 +396,12 @@ func TestBuildConfigLinksKeepsXHTTPPaddingJSONCompact(t *testing.T) {
 	settings := mapValue(stream["xhttpSettings"])
 	extraSettings := mapValue(settings["extra"])
 
-	if extraSettings["sessionPlacement"] != "header" || extraSettings["sessionKey"] != "X-Session" {
-		t.Fatalf("stable Xray session aliases did not survive client link round-trip in extra block: %#v", settings)
+	if extraSettings["sessionIDPlacement"] != "header" || extraSettings["sessionIDKey"] != "X-Session" {
+		t.Fatalf("Xray session ids did not survive client link round-trip in extra block: %#v", settings)
 	}
 
-	if settings["sessionIDPlacement"] != nil || settings["sessionIDKey"] != nil || extraSettings["sessionIDPlacement"] != nil || extraSettings["sessionIDKey"] != nil {
-		t.Fatalf("post-v26.6.22 session aliases leaked into generic stable Xray JSON: %#v", settings)
+	if settings["sessionPlacement"] != nil || settings["sessionKey"] != nil || extraSettings["sessionPlacement"] != nil || extraSettings["sessionKey"] != nil {
+		t.Fatalf("legacy Xray session aliases leaked into v2ray-json output: %#v", settings)
 	}
 }
 
@@ -966,14 +966,16 @@ func TestV2RayJSONSubscriptionAppliesHostFragmentAndNoiseFinalMask(t *testing.T)
 		t.Fatalf("tcp mask type = %v, want fragment", tcp["type"])
 	}
 	fragmentSettings := tcp["settings"].(map[string]any)
-	if fragmentSettings["length"] != "10-100" || fragmentSettings["delay"] != "100-200" || fragmentSettings["packets"] != "tlshello" || fragmentSettings["maxSplit"] != "3" {
+	lengths, _ := fragmentSettings["lengths"].([]any)
+	delays, _ := fragmentSettings["delays"].([]any)
+	if len(lengths) != 1 || lengths[0] != "10-100" || len(delays) != 1 || delays[0] != "100-200" || fragmentSettings["packets"] != "tlshello" || fragmentSettings["maxSplit"] != "3" {
 		t.Fatalf("fragment finalmask mismatch: %#v", fragmentSettings)
 	}
-	if _, exists := fragmentSettings["lengths"]; exists {
-		t.Fatalf("post-v26.6.22 plural fragment lengths leaked into stable Xray JSON: %#v", fragmentSettings)
+	if _, exists := fragmentSettings["length"]; exists {
+		t.Fatalf("legacy singular fragment length leaked into v2ray-json output: %#v", fragmentSettings)
 	}
-	if _, exists := fragmentSettings["delays"]; exists {
-		t.Fatalf("post-v26.6.22 plural fragment delays leaked into stable Xray JSON: %#v", fragmentSettings)
+	if _, exists := fragmentSettings["delay"]; exists {
+		t.Fatalf("legacy singular fragment delay leaked into v2ray-json output: %#v", fragmentSettings)
 	}
 	udp := finalmask["udp"].([]any)[0].(map[string]any)
 	if udp["type"] != "noise" {

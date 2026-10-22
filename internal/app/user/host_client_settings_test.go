@@ -88,7 +88,7 @@ func TestHostClientSettingsAreIsolatedAndPreservedInSubscriptions(t *testing.T) 
 			t.Fatal("nonstandard client_settings URI parameter emitted")
 		}
 	}
-	content, err := renderXrayJSONSubscriptionWithMetadata(response.Links, response.Metadata, false, "", "", true)
+	content, err := renderXrayJSONSubscriptionWithMetadata(response.Links, response.Metadata, false, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
