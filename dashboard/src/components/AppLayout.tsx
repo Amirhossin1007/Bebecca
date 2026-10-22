@@ -447,6 +447,15 @@ function AppLayoutContent() {
 		observability: false,
 	});
 	const dockSettingsScrollRef = useRef<HTMLDivElement | null>(null);
+	const dockSettingsScrollAnimRef = useRef<number | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (dockSettingsScrollAnimRef.current !== null) {
+				cancelAnimationFrame(dockSettingsScrollAnimRef.current);
+			}
+		};
+	}, []);
 
 	useEffect(() => {
 		const dir = i18n.dir(i18n.language);
@@ -3085,7 +3094,7 @@ function AppLayoutContent() {
 																	</Box>
 																	<VStack align="stretch" spacing={2.5}>
 																		{mobileDockSections.map((sec) => (
-																			<Box key={sec.id}>
+																			<Box key={sec.id} data-dock-section={sec.id}>
 																				<Text
 																					px={2}
 																					py={0.5}
@@ -3176,7 +3185,7 @@ function AppLayoutContent() {
 																							);
 
 																						return (
-																							<Box key={entry.id}>
+																							<Box key={entry.id} data-dock-group={entry.id}>
 																								<Flex
 																									align="center"
 																									justify="space-between"
@@ -3209,24 +3218,110 @@ function AppLayoutContent() {
 																											: "0px"
 																									}
 																									borderInlineStartColor="var(--rb-panel-accent)"
-																									onClick={() => {
-																										const willOpen = !mobileDockOpenGroups[entry.id];
-																										if (willOpen && dockSettingsScrollRef.current) {
-																											const scrollEl = dockSettingsScrollRef.current;
-																											const addedHeight = entry.subItems.length * 36 + 6;
-																											setMobileDockOpenGroups((prev) => ({
-																												...prev,
-																												[entry.id]: true,
-																											}));
-																											requestAnimationFrame(() => {
-																												scrollEl.scrollBy({ top: addedHeight, behavior: "smooth" });
-																											});
-																										} else {
-																											setMobileDockOpenGroups((prev) => ({
+																									onClick={(e: ReactMouseEvent) => {
+																										const willOpen =
+																											!mobileDockOpenGroups[
+																												entry.id
+																											];
+																										if (
+																											willOpen &&
+																											dockSettingsScrollRef.current
+																										) {
+																											const triggerEl =
+																												e.currentTarget as HTMLElement;
+																											const groupWrapper =
+																												triggerEl.closest(
+																													"[data-dock-group]",
+																												);
+																											let anchorEl: HTMLElement | null =
+																												null;
+																											if (groupWrapper) {
+																												const nextSibling =
+																													groupWrapper.nextElementSibling as HTMLElement | null;
+																												if (nextSibling) {
+																													anchorEl = nextSibling;
+																												} else {
+																													const section =
+																														groupWrapper.closest(
+																															"[data-dock-section]",
+																														);
+																													if (section) {
+																														anchorEl =
+																															section.nextElementSibling as HTMLElement | null;
+																													}
+																												}
+																											}
+
+																											if (anchorEl) {
+																												if (
+																													dockSettingsScrollAnimRef.current !==
+																													null
+																												) {
+																													cancelAnimationFrame(
+																														dockSettingsScrollAnimRef.current,
+																													);
+																													dockSettingsScrollAnimRef.current =
+																														null;
+																												}
+																												const initialTop =
+																													anchorEl.getBoundingClientRect()
+																														.top;
+																												const startTime =
+																													performance.now();
+																												setMobileDockOpenGroups(
+																													(prev) => ({
+																														...prev,
+																														[entry.id]: true,
+																													}),
+																												);
+																												const adjustScroll = (
+																													now: number,
+																												) => {
+																													if (
+																														!dockSettingsScrollRef.current ||
+																														!anchorEl
+																													)
+																														return;
+																													const currentTop =
+																														anchorEl.getBoundingClientRect()
+																															.top;
+																													const delta =
+																														currentTop -
+																														initialTop;
+																													if (
+																														Math.abs(delta) >=
+																														0.5
+																													) {
+																														dockSettingsScrollRef.current
+																															.scrollTop +=
+																															delta;
+																													}
+																													if (
+																														now - startTime <
+																														320
+																													) {
+																														dockSettingsScrollAnimRef.current =
+																															requestAnimationFrame(
+																																adjustScroll,
+																															);
+																													} else {
+																														dockSettingsScrollAnimRef.current =
+																															null;
+																													}
+																												};
+																												dockSettingsScrollAnimRef.current =
+																													requestAnimationFrame(
+																														adjustScroll,
+																													);
+																												return;
+																											}
+																										}
+																										setMobileDockOpenGroups(
+																											(prev) => ({
 																												...prev,
 																												[entry.id]: willOpen,
-																											}));
-																										}
+																											}),
+																										);
 																									}}
 																									_hover={{
 																										md: {

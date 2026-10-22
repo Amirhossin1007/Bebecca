@@ -936,20 +936,62 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 	}, [location.pathname]);
 
 	const navScrollRef = useRef<HTMLDivElement | null>(null);
+	const scrollAnimRef = useRef<number | null>(null);
 
-	const handleGroupClick = (group: GroupNavItem) => {
-		const isCurrentlyOpen = Boolean(openGroups[group.id]);
-		if (!isCurrentlyOpen && navScrollRef.current) {
-			const scrollEl = navScrollRef.current;
-			const subCount = group.subItems.filter((s) => s.visible).length;
-			const addedHeight = subCount * (inDrawer ? 36 : 32) + 6;
-			setOpenGroups((prev) => ({ ...prev, [group.id]: true }));
-			requestAnimationFrame(() => {
-				scrollEl.scrollBy({ top: addedHeight, behavior: "smooth" });
-			});
-		} else {
-			setOpenGroups((prev) => ({ ...prev, [group.id]: !isCurrentlyOpen }));
+	useEffect(() => {
+		return () => {
+			if (scrollAnimRef.current !== null) {
+				cancelAnimationFrame(scrollAnimRef.current);
+			}
+		};
+	}, []);
+
+	const handleGroupClick = (group: GroupNavItem, triggerEl?: HTMLElement | null) => {
+		if (scrollAnimRef.current !== null) {
+			cancelAnimationFrame(scrollAnimRef.current);
+			scrollAnimRef.current = null;
 		}
+
+		const isCurrentlyOpen = Boolean(openGroups[group.id]);
+		if (!isCurrentlyOpen && navScrollRef.current && triggerEl) {
+			const groupWrapper = triggerEl.closest("[data-nav-group]");
+			let anchorEl: HTMLElement | null = null;
+			if (groupWrapper) {
+				const nextSibling = groupWrapper.nextElementSibling as HTMLElement | null;
+				if (nextSibling) {
+					anchorEl = nextSibling;
+				} else {
+					const section = groupWrapper.closest("[data-nav-section]");
+					if (section) {
+						anchorEl = section.nextElementSibling as HTMLElement | null;
+					}
+				}
+			}
+
+			if (anchorEl) {
+				const initialTop = anchorEl.getBoundingClientRect().top;
+				const startTime = performance.now();
+				setOpenGroups((prev) => ({ ...prev, [group.id]: true }));
+
+				const adjustScroll = (now: number) => {
+					if (!navScrollRef.current || !anchorEl) return;
+					const currentTop = anchorEl.getBoundingClientRect().top;
+					const delta = currentTop - initialTop;
+					if (Math.abs(delta) >= 0.5) {
+						navScrollRef.current.scrollTop += delta;
+					}
+					if (now - startTime < 360) {
+						scrollAnimRef.current = requestAnimationFrame(adjustScroll);
+					} else {
+						scrollAnimRef.current = null;
+					}
+				};
+				scrollAnimRef.current = requestAnimationFrame(adjustScroll);
+				return;
+			}
+		}
+
+		setOpenGroups((prev) => ({ ...prev, [group.id]: !isCurrentlyOpen }));
 	};
 
 	const dynamicSidebarWidth = useMemo(() => {
@@ -1077,7 +1119,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 							if (visibleItems.length === 0) return null;
 
 							return (
-								<Box key={section.id}>
+								<Box key={section.id} data-nav-section={section.id}>
 									{secIdx > 0 && (
 										<Box
 											h="1px"
@@ -1316,9 +1358,9 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 													borderInlineEnd={
 														collapsed ? "3px solid transparent" : "none"
 													}
-													onClick={() => {
+													onClick={(e: ReactMouseEvent) => {
 														if (!collapsed) {
-															handleGroupClick(entry);
+															handleGroupClick(entry, e.currentTarget as HTMLElement);
 														}
 													}}
 													_hover={{
@@ -1413,7 +1455,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 											);
 
 											return (
-												<Box key={entry.id}>
+												<Box key={entry.id} data-nav-group={entry.id}>
 													{collapsed ? (
 														<Popover
 															trigger={popoverTrigger}
