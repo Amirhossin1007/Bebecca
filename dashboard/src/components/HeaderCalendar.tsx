@@ -111,6 +111,7 @@ export interface HeaderCalendarProps {
 	inMenu?: boolean;
 	placement?: PlacementWithLogical;
 	isOpen?: boolean;
+	isPressing?: boolean;
 	onToggle?: () => void;
 	onClose?: () => void;
 }
@@ -120,6 +121,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
 	inMenu = false,
 	placement,
 	isOpen: controlledIsOpen,
+	isPressing = false,
 	onToggle: controlledOnToggle,
 	onClose: controlledOnClose,
 }) => {
@@ -541,11 +543,12 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
 					fontSize="13px"
 					borderRadius="12px"
 					px={3}
-					bg="transparent"
+					bg={isPressing || isMenuOpen ? "panel.elevated" : "transparent"}
 					color="panel.text"
-					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+					transform={isPressing ? "scale(0.96)" : undefined}
+					transition="all 0.12s cubic-bezier(0.2, 0, 0, 1)"
 					_hover={{ md: { bg: "panel.elevated" } }}
-					_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
+					_active={{ bg: "panel.elevated", transform: "scale(0.96)" }}
 					_focusVisible={{ bg: "panel.elevated" }}
 					onClick={(e: ReactMouseEvent) => {
 						e.stopPropagation();

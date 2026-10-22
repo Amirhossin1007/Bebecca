@@ -270,6 +270,45 @@ function AppLayoutContent() {
 	const [activeProfileSubmenu, setActiveProfileSubmenu] = useState<
 		"notifications" | "language" | "theme" | "calendar" | null
 	>(null);
+	const [pressingProfileSubmenu, setPressingProfileSubmenu] = useState<
+		"notifications" | "language" | "theme" | "calendar" | null
+	>(null);
+	const profileSubmenuTimerRef = useRef<number | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (profileSubmenuTimerRef.current) {
+				window.clearTimeout(profileSubmenuTimerRef.current);
+			}
+		};
+	}, []);
+
+	const toggleProfileSubmenu = useCallback(
+		(target: "notifications" | "language" | "theme" | "calendar") => {
+			if (profileSubmenuTimerRef.current) {
+				window.clearTimeout(profileSubmenuTimerRef.current);
+				profileSubmenuTimerRef.current = null;
+			}
+
+			if (activeProfileSubmenu === target) {
+				languageMenu.onClose();
+				setActiveProfileSubmenu(null);
+				setPressingProfileSubmenu(null);
+				return;
+			}
+
+			languageMenu.onClose();
+			setPressingProfileSubmenu(target);
+			profileSubmenuTimerRef.current = window.setTimeout(() => {
+				setPressingProfileSubmenu(null);
+				setActiveProfileSubmenu(target);
+				if (target === "language") {
+					languageMenu.onOpen();
+				}
+			}, 100);
+		},
+		[activeProfileSubmenu, languageMenu],
+	);
 	const { t, i18n } = useTranslation();
 	const { userData, getUserIsSuccess } = useGetUser();
 	const cachedRole = useMemo(() => {
@@ -565,9 +604,14 @@ function AppLayoutContent() {
 
 	const closeUserMenu = useCallback(() => {
 		if (isChangingLanguageRef.current) return;
+		if (profileSubmenuTimerRef.current) {
+			window.clearTimeout(profileSubmenuTimerRef.current);
+			profileSubmenuTimerRef.current = null;
+		}
 		userMenu.onClose();
 		languageMenu.onClose();
 		setActiveProfileSubmenu(null);
+		setPressingProfileSubmenu(null);
 	}, [userMenu.onClose, languageMenu.onClose]);
 
 	const isAnyProfileMenuOpen =
@@ -621,8 +665,13 @@ function AppLayoutContent() {
 
 			if (clickedInUserMenu && !clickedInSubmenu && !clickedInSubmenuTrigger) {
 				if (activeProfileSubmenu !== null) {
+					if (profileSubmenuTimerRef.current) {
+						window.clearTimeout(profileSubmenuTimerRef.current);
+						profileSubmenuTimerRef.current = null;
+					}
 					languageMenu.onClose();
 					setActiveProfileSubmenu(null);
+					setPressingProfileSubmenu(null);
 				}
 				return;
 			}
@@ -2265,8 +2314,13 @@ function AppLayoutContent() {
 										onClick={() => {
 											if (userMenu.isOpen) {
 												if (activeProfileSubmenu !== null) {
+													if (profileSubmenuTimerRef.current) {
+														window.clearTimeout(profileSubmenuTimerRef.current);
+														profileSubmenuTimerRef.current = null;
+													}
 													languageMenu.onClose();
 													setActiveProfileSubmenu(null);
+													setPressingProfileSubmenu(null);
 													return;
 												}
 												closeUserMenu();
@@ -2447,12 +2501,8 @@ function AppLayoutContent() {
 														inMenu={true}
 														placement={languagePlacement}
 														isOpen={activeProfileSubmenu === "calendar"}
-														onToggle={() => {
-															languageMenu.onClose();
-															setActiveProfileSubmenu((prev) =>
-																prev === "calendar" ? null : "calendar",
-															);
-														}}
+														isPressing={pressingProfileSubmenu === "calendar"}
+														onToggle={() => toggleProfileSubmenu("calendar")}
 														onClose={() => {
 															if (activeProfileSubmenu === "calendar") {
 																setActiveProfileSubmenu(null);
@@ -2466,12 +2516,8 @@ function AppLayoutContent() {
 												placement={languagePlacement}
 												onNavigate={closeUserMenu}
 												isOpen={activeProfileSubmenu === "notifications"}
-												onToggle={() => {
-													languageMenu.onClose();
-													setActiveProfileSubmenu((prev) =>
-														prev === "notifications" ? null : "notifications",
-													);
-												}}
+												isPressing={pressingProfileSubmenu === "notifications"}
+												onToggle={() => toggleProfileSubmenu("notifications")}
 												onClose={() => {}}
 											/>
 
@@ -2504,27 +2550,29 @@ function AppLayoutContent() {
 													fontSize="13px"
 													borderRadius="12px"
 													px={3}
-													bg="transparent"
+													bg={
+														pressingProfileSubmenu === "language" ||
+														activeProfileSubmenu === "language" ||
+														languageMenu.isOpen
+															? "panel.elevated"
+															: "transparent"
+													}
 													color="panel.text"
-													transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+													transform={
+														pressingProfileSubmenu === "language"
+															? "scale(0.96)"
+															: undefined
+													}
+													transition="all 0.12s cubic-bezier(0.2, 0, 0, 1)"
 													_hover={{ md: { bg: "panel.elevated" } }}
 													_active={{
 														bg: "panel.elevated",
-														transform: "scale(0.98)",
+														transform: "scale(0.96)",
 													}}
 													_focusVisible={{ bg: "panel.elevated" }}
 													onClick={(e: ReactMouseEvent) => {
 														e.stopPropagation();
-														const isCurrentlyOpen =
-															activeProfileSubmenu === "language" ||
-															languageMenu.isOpen;
-														if (isCurrentlyOpen) {
-															languageMenu.onClose();
-															setActiveProfileSubmenu(null);
-														} else {
-															setActiveProfileSubmenu("language");
-															languageMenu.onOpen();
-														}
+														toggleProfileSubmenu("language");
 													}}
 												>
 													<HStack justify="space-between" w="full" minW={0}>
@@ -2636,12 +2684,8 @@ function AppLayoutContent() {
 												trigger="menuItem"
 												triggerLabel={t("header.theme")}
 												isOpen={activeProfileSubmenu === "theme"}
-												onToggle={() => {
-													languageMenu.onClose();
-													setActiveProfileSubmenu((prev) =>
-														prev === "theme" ? null : "theme",
-													);
-												}}
+												isPressing={pressingProfileSubmenu === "theme"}
+												onToggle={() => toggleProfileSubmenu("theme")}
 												onClose={() => {}}
 											/>
 

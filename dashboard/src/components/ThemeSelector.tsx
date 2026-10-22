@@ -53,6 +53,7 @@ type ThemeSelectorProps = {
 	trigger?: "icon" | "menu" | "menuItem";
 	triggerLabel?: string;
 	isOpen?: boolean;
+	isPressing?: boolean;
 	onToggle?: () => void;
 	onClose?: () => void;
 	onModalOpen?: () => void;
@@ -277,6 +278,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	trigger = "menu",
 	triggerLabel,
 	isOpen: controlledIsOpen,
+	isPressing = false,
 	onToggle: controlledOnToggle,
 	onClose: _controlledOnClose,
 	onModalOpen,
@@ -573,13 +575,14 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 					fontSize="13px"
 					borderRadius="12px"
 					px={3}
-					bg="transparent"
+					bg={isPressing || isMenuOpen ? menuHover : "transparent"}
 					color={textColor}
-					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
+					transform={isPressing ? "scale(0.96)" : undefined}
+					transition="all 0.12s cubic-bezier(0.2, 0, 0, 1)"
 					_hover={{
 						md: { bg: menuHover },
 					}}
-					_active={{ bg: menuHover, transform: "scale(0.98)" }}
+					_active={{ bg: menuHover, transform: "scale(0.96)" }}
 					_focusVisible={{ bg: menuHover }}
 					onClick={(event: ReactMouseEvent) => {
 						event.stopPropagation();
