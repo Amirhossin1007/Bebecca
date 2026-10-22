@@ -299,6 +299,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 		"panel.textSecondary",
 		"panel.textSecondary",
 	);
+	const selectedAccentBorder = useColorModeValue("panel.text", "white");
 
 	const popperModifiers = useMemo(
 		() => [
@@ -500,7 +501,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 									minW="36px"
 									borderRadius="full"
 									borderWidth="2px"
-									borderColor={selected ? "white" : "transparent"}
+									borderColor={selected ? selectedAccentBorder : "transparent"}
 									bg={accent.color}
 									boxShadow={
 										selected
