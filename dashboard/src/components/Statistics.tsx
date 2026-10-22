@@ -2710,14 +2710,21 @@ export const Statistics: FC<BoxProps> = (props) => {
 				gap={3}
 				px={1}
 				sx={{
+					"@media screen and (max-width: 767.98px)": {
+						flexWrap: "wrap !important",
+						alignItems: "flex-start !important",
+					},
 					"@media screen and (min-width: 768px) and (max-width: 939.98px)": {
-						"body:has([data-sidebar-collapsed='true']) &": {
-							flexWrap: "nowrap !important",
-							alignItems: "center !important",
-						},
-						"body:not(:has([data-sidebar-collapsed='true'])) &": {
-							flexWrap: "wrap !important",
-						},
+						"body:has([data-sidebar-collapsed='true']) &, body[data-sidebar-collapsed='true'] &":
+							{
+								flexWrap: "nowrap !important",
+								alignItems: "center !important",
+							},
+						"body:not([data-sidebar-collapsed='true']):not(:has([data-sidebar-collapsed='true'])) &":
+							{
+								flexWrap: "wrap !important",
+								alignItems: "flex-start !important",
+							},
 					},
 					"@media screen and (min-width: 940px)": {
 						flexWrap: "nowrap !important",
@@ -2730,13 +2737,39 @@ export const Statistics: FC<BoxProps> = (props) => {
 					sx={{
 						flexDirection: "column",
 						alignItems: "flex-start",
-						"@media screen and (max-width: 750px)": {
+						"@media screen and (max-width: 599.98px)": {
 							flexDirection: "column !important",
 							alignItems: "flex-start !important",
+							width: "100% !important",
+							gap: "6px !important",
 						},
-						"@media screen and (min-width: 750.02px)": {
+						"@media screen and (min-width: 600px) and (max-width: 767.98px)": {
 							flexDirection: "row !important",
 							alignItems: "center !important",
+							width: "100% !important",
+							gap: "12px !important",
+						},
+						"@media screen and (min-width: 768px) and (max-width: 939.98px)": {
+							"body:has([data-sidebar-collapsed='true']) &, body[data-sidebar-collapsed='true'] &":
+								{
+									flexDirection: "column !important",
+									alignItems: "flex-start !important",
+									width: "auto !important",
+									gap: "6px !important",
+								},
+							"body:not([data-sidebar-collapsed='true']):not(:has([data-sidebar-collapsed='true'])) &":
+								{
+									flexDirection: "row !important",
+									alignItems: "center !important",
+									width: "100% !important",
+									gap: "12px !important",
+								},
+						},
+						"@media screen and (min-width: 940px)": {
+							flexDirection: "column !important",
+							alignItems: "flex-start !important",
+							width: "auto !important",
+							gap: "6px !important",
 						},
 					}}
 				>

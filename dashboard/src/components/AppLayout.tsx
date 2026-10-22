@@ -257,6 +257,18 @@ function AppLayoutContent() {
 		return () => mq.removeEventListener("change", update);
 	}, []);
 
+	useEffect(() => {
+		if (typeof document === "undefined" || !document.body) return;
+		if (sidebarCollapsed && !isMobile) {
+			document.body.setAttribute("data-sidebar-collapsed", "true");
+		} else {
+			document.body.removeAttribute("data-sidebar-collapsed");
+		}
+		return () => {
+			document.body?.removeAttribute("data-sidebar-collapsed");
+		};
+	}, [sidebarCollapsed, isMobile]);
+
 	const sidebarDrawer = useDisclosure();
 	const handleDrawerClose = useCallback(
 		() => sidebarDrawer.onClose(),
@@ -1718,6 +1730,7 @@ function AppLayoutContent() {
 					<Box
 						className="rb-desktop-sidebar"
 						display={{ base: "none", md: "block" }}
+						data-sidebar-collapsed={sidebarCollapsed ? "true" : undefined}
 					>
 						<AppSidebar
 							collapsed={sidebarCollapsed}
