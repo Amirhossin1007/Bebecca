@@ -1081,6 +1081,7 @@
 	"inbounds.shadowsocks.network": "شبکه‌های مجاز",
 	"inbounds.shortIdsHint": "شناسه‌ها را با ویرگول جدا کنید.",
 	"inbounds.sniffing": "Sniffing",
+	"inbounds.note": "یادداشت",
 	"inbounds.sniffingDestinations": "پروتکل‌های اسنیف",
 	"inbounds.sniffingDisabled": "Sniffing غیرفعال است",
 	"inbounds.sniffingEnabled": "Sniffing فعال است",

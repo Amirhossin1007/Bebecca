@@ -2706,3 +2706,13 @@ input[type="number"] {
   border-bottom-width: 2px;
   border-color: var(--rb-panel-text-muted);
 }
+
+.inbound-form-modal [data-form-section] [data-form-section] {
+  border-top: 1px dashed var(--rb-panel-border);
+  border-bottom: 0;
+  padding-block: 0.75rem;
+}
+.inbound-form-modal [data-form-section] [data-form-section][data-active="true"] {
+  border-top: 2px solid var(--rb-panel-text-muted);
+  border-bottom: 0;
+}

@@ -14,13 +14,17 @@ import { AdminRole } from "types/Admin";
 
 export type EntityNoteType = "admin" | "host" | "inbound";
 
-type EntityNote = {
+export type EntityNote = {
 	note: string;
 	updated_by: string;
 	updated_at: number;
 };
 
 const NOTE_MAX_LENGTH = 4000;
+
+export const canViewEntityNotes = (userData: ReturnType<typeof useGetUser>["userData"]) =>
+	(userData?.role === AdminRole.Sudo && Boolean(userData?.permissions?.sudo?.notes)) ||
+	userData?.role === AdminRole.FullAccess;
 
 export const EntityNotePanel: FC<{
 	entityType: EntityNoteType;
@@ -30,9 +34,7 @@ export const EntityNotePanel: FC<{
 	
 	const queryClient = useQueryClient();
 	const { userData } = useGetUser();
-	const canView =
-		(userData?.role === AdminRole.Sudo && Boolean(userData?.permissions?.sudo?.notes)) ||
-		userData?.role === AdminRole.FullAccess;
+	const canView = canViewEntityNotes(userData);
 	const key = String(entityKey);
 	const path = `/notes/${entityType}/${encodeURIComponent(key)}`;
 	const queryKey = ["entity-note", entityType, key];

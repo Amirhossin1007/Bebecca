@@ -177,6 +177,7 @@ export const InboundsManager: FC = () => {
 		},
 	) => {
 		const { mode, initial, onSuccess } = options;
+		const { note: nextNote, ...inboundValues } = values;
 		setIsMutating(true);
 		try {
 			const normalizedTag = (values.tag || "").trim().toLowerCase();
@@ -211,7 +212,7 @@ export const InboundsManager: FC = () => {
 			}
 
 			const payload = {
-				...buildInboundPayload(values, { initial: initial ?? null }),
+				...buildInboundPayload(inboundValues, { initial: initial ?? null }),
 				targets: values.targetIds?.length ? values.targetIds : ["master"],
 			};
 			const url =
@@ -227,6 +228,16 @@ export const InboundsManager: FC = () => {
 						: t("inbounds.success.updated"));
 			refreshInboundsStore();
 			await loadInbounds();
+			if (nextNote !== undefined) {
+				try {
+					await fetch(`/notes/inbound/${encodeURIComponent(payload.tag)}`, {
+						method: "PUT",
+						body: { note: nextNote },
+					});
+				} catch {
+					toast.error(t("entityNote.saveFailed"));
+				}
+			}
 			onSuccess();
 		} catch (err: unknown) {
 			let description: string | undefined;

@@ -1082,6 +1082,7 @@
 	"inbounds.shadowsocks.network": "Allowed networks",
 	"inbounds.shortIdsHint": "Separate entries with commas.",
 	"inbounds.sniffing": "Sniffing",
+	"inbounds.note": "Note",
 	"inbounds.sniffingDestinations": "Protocols to sniff",
 	"inbounds.sniffingDisabled": "Sniffing disabled",
 	"inbounds.sniffingEnabled": "Sniffing enabled",

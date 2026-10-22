@@ -1,4 +1,4 @@
-import { Field, FieldError, FieldLabel } from "components/ui/field";
+import { Field, FieldDescription, FieldError, FieldLabel } from "components/ui/field";
 import { Input } from "components/ui/input";
 import { Textarea } from "components/ui/textarea";
 import { Switch } from "components/ui/switch";
@@ -40,7 +40,9 @@ import {
 } from "react";
 import { type Control, Controller, type Path, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { EntityNotePanel } from "components/EntityNotePanel";
+import { canViewEntityNotes, type EntityNote } from "components/EntityNotePanel";
+import useGetUser from "hooks/useGetUser";
+import { fetch as apiFetch } from "service/http";
 import {
 	generateAnyConnectSelfSigned,
 	generateEchCert,
@@ -1060,6 +1062,22 @@ export const InboundFormModal: FC<Props> = ({
 
 	const sectionBorder = "border-gray-200! dark:border-gray-700!";
 
+	const { userData } = useGetUser();
+	const canViewNote = canViewEntityNotes(userData);
+	const noteTag = initialValue?.tag ?? "";
+	const noteQuery = useQuery<EntityNote>({
+		queryKey: ["entity-note", "inbound", noteTag],
+		queryFn: () => apiFetch<EntityNote>(`/notes/inbound/${encodeURIComponent(noteTag)}`),
+		enabled: isOpen && isEditMode && canViewNote && Boolean(noteTag),
+	});
+	const [noteDraft, setNoteDraft] = useState("");
+	useEffect(() => {
+		setNoteDraft(noteQuery.data?.note ?? "");
+	}, [noteQuery.data]);
+	useEffect(() => {
+		if (isOpen && !isEditMode) setNoteDraft("");
+	}, [isOpen, isEditMode]);
+
 	const submitForm = async (values: InboundFormValues) => {
 		const errors = validateInboundFormValues(values);
 		if (errors.length) {
@@ -1067,7 +1085,9 @@ export const InboundFormModal: FC<Props> = ({
 			toast.error(t("inbounds.error.invalidConfig"), { description: errors[0] });
 			return;
 		}
-		await onSubmit(values);
+		const nextNote = noteDraft.trim();
+		const originalNote = isEditMode ? (noteQuery.data?.note ?? "") : "";
+		await onSubmit({ ...values, note: canViewNote && nextNote !== originalNote ? nextNote : undefined });
 	};
 
 	const handleGenerateRealityKeypair = useCallback(async () => {
@@ -4539,7 +4559,7 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 														</FormControl>
 													</div>
-													<div className="flex flex-col gap-3 xray-dialog-section">
+													<div className="flex flex-col gap-3 xray-dialog-section" data-form-section="xhttp-session" data-form-section-title={"Session and XMUX"}>
 														<p className="text-[0.875rem] font-semibold">
 															Session and XMUX
 														</p>
@@ -4658,7 +4678,7 @@ export const InboundFormModal: FC<Props> = ({
 														<FormLabel className="mb-0" helpKey="inbounds.xhttp.paddingObfsModeHelp">{t("inbounds.xhttp.paddingObfsMode")}</FormLabel>
 														<Controller control={control} name={"xhttpPaddingObfsMode"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
-														<div className="flex flex-col gap-3 mt-2 xray-dialog-section">
+														<div className="flex flex-col gap-3 mt-2 xray-dialog-section" data-form-section="xhttp-obfs" data-form-section-title={t("inbounds.xhttp.obfsOptions")}>
 															<p className="text-[0.875rem] font-semibold">
 																{t("inbounds.xhttp.obfsOptions")}
 															</p>
@@ -5205,7 +5225,7 @@ export const InboundFormModal: FC<Props> = ({
 														</div>
 													</CollapsibleContent></Collapsible>
 
-													<div className="flex flex-col gap-3 xray-dialog-section">
+													<div className="flex flex-col gap-3 xray-dialog-section" data-form-section="hysteria-udp-masks" data-form-section-title={t("inbounds.hysteria.udpMasks")}>
 														<div className="flex justify-between items-center gap-3">
 															<div>
 																<div className="flex min-w-0 items-center gap-1.5"><p className="text-[0.875rem] font-semibold">{t("inbounds.hysteria.udpMasks")}</p><FieldHint>{t("inbounds.hysteria.udpMasksHint")}</FieldHint></div>
@@ -5335,7 +5355,7 @@ export const InboundFormModal: FC<Props> = ({
 														})}
 													</div>
 
-													<div className="flex flex-col gap-3 xray-dialog-section">
+													<div className="flex flex-col gap-3 xray-dialog-section" data-form-section="hysteria-quic" data-form-section-title={t("inbounds.hysteria.quicParams")}>
 														<FormControl className="flex items-center">
 															<FormLabel className="mb-0" helpKey="inbounds.hysteria.quicParamsHelp">{t("inbounds.hysteria.quicParams")}</FormLabel>
 															<Controller control={control} name={"hysteriaQuicParams.enabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
@@ -5480,7 +5500,7 @@ export const InboundFormModal: FC<Props> = ({
 													</div>
 												</div>
 											)}
-											<div className="col-span-full flex flex-col xray-dialog-section"><FormControl className="flex items-center">
+											<div className="col-span-full flex flex-col xray-dialog-section" data-form-section="sockopt" data-form-section-title={t("hostsDialog.sockopt")}><FormControl className="flex items-center">
 												<FormLabel className="mb-0" helpKey="inbounds.sockopt.enableHelp">{t("inbounds.sockopt.enable")}</FormLabel>
 												<Controller
 													control={control}
@@ -6388,6 +6408,15 @@ export const InboundFormModal: FC<Props> = ({
 												)}
 											</div>
 										)}
+									{canViewNote ? (
+										<div data-form-section="note" data-form-section-title={t("inbounds.note")} className="flex flex-col gap-3">
+											<FormControl>
+												<FormLabel>{t("inbounds.note")}</FormLabel>
+												<Textarea rows={3} maxLength={4000} value={noteDraft} disabled={noteQuery.isLoading} onChange={(event) => setNoteDraft(event.target.value)} />
+												<FieldDescription>{t("entityNote.hint")}</FieldDescription>
+											</FormControl>
+										</div>
+									) : null}
 								</div>
 							</TabsContent>
 							<TabsContent value="1" forceMount className="mt-0 data-[state=inactive]:hidden">
@@ -6459,9 +6488,6 @@ export const InboundFormModal: FC<Props> = ({
 									}}
 								/>
 							</TabsContent>
-					{isEditMode && initialValue?.tag ? (
-						<EntityNotePanel entityType="inbound" entityKey={initialValue.tag} />
-					) : null}
 					</div>
 				</Tabs>
 				<DialogFooter className="flex-row flex-wrap items-center justify-between gap-2 border-t px-5 py-3">
