@@ -486,7 +486,7 @@ function AppLayoutContent() {
 		useBreakpointValue<PlacementWithLogical>({
 			base: "bottom-start",
 			md: isRTL ? "right-start" : "left-start",
-		}) ?? "bottom-start";
+		}) ?? (isRTL ? "right-start" : "left-start");
 
 	const menuBg = useColorModeValue("panel.surface", "panel.surface");
 	const menuBorder = useColorModeValue("panel.border", "panel.border");
@@ -580,14 +580,15 @@ function AppLayoutContent() {
 
 	const changeLanguage = async (lang: string) => {
 		isChangingLanguageRef.current = true;
+		setSuppressDockTransition(true);
 		const nextDir = i18n.dir(lang);
 
 		const userMenuEl = document.getElementById("rb-user-menu");
 		const langMenuEl = document.querySelector(
 			'[data-language-menu-list="true"]',
 		) as HTMLElement | null;
-		if (userMenuEl) userMenuEl.style.opacity = "0";
-		if (langMenuEl) langMenuEl.style.opacity = "0";
+		if (userMenuEl) userMenuEl.style.display = "none";
+		if (langMenuEl) langMenuEl.style.display = "none";
 
 		document.documentElement.dir = nextDir;
 		document.documentElement.lang = lang;
@@ -603,11 +604,7 @@ function AppLayoutContent() {
 
 		requestAnimationFrame(() => {
 			window.dispatchEvent(new Event("resize"));
-			requestAnimationFrame(() => {
-				if (userMenuEl) userMenuEl.style.opacity = "1";
-				if (langMenuEl) langMenuEl.style.opacity = "1";
-				isChangingLanguageRef.current = false;
-			});
+			isChangingLanguageRef.current = false;
 		});
 	};
 
@@ -738,16 +735,19 @@ function AppLayoutContent() {
 	const prevRTLRef = useRef(isRTL);
 	const [suppressDockTransition, setSuppressDockTransition] = useState(false);
 
+	if (prevRTLRef.current !== isRTL) {
+		prevRTLRef.current = isRTL;
+		setSuppressDockTransition(true);
+	}
+
 	useEffect(() => {
-		if (prevRTLRef.current !== isRTL) {
-			prevRTLRef.current = isRTL;
-			setSuppressDockTransition(true);
+		if (suppressDockTransition) {
 			const timer = setTimeout(() => {
 				setSuppressDockTransition(false);
 			}, 350);
 			return () => clearTimeout(timer);
 		}
-	}, [isRTL]);
+	}, [suppressDockTransition]);
 
 	useEffect(() => {
 		if (!isMobile) return;
@@ -1751,7 +1751,11 @@ function AppLayoutContent() {
 								? "88px"
 								: "calc(var(--rb-sidebar-width, 240px) + 20px)",
 					}}
-					transition="margin 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+					transition={
+						suppressDockTransition
+							? "none"
+							: "margin 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+					}
 					bg="panel.main"
 					position="relative"
 					sx={{
@@ -2281,7 +2285,8 @@ function AppLayoutContent() {
 
 							{getUserIsSuccess && userData.username && (
 								<Menu
-									placement="bottom-end"
+									key={`user-menu-${isRTL ? "rtl" : "ltr"}`}
+									placement={isRTL ? "bottom-start" : "bottom-end"}
 									strategy="fixed"
 									gutter={8}
 									computePositionOnMount
@@ -2507,6 +2512,7 @@ function AppLayoutContent() {
 											{isMobile && (
 												<Box display={{ base: "block", md: "none" }} w="full">
 													<HeaderCalendar
+														key={`cal-menu-${isRTL ? "rtl" : "ltr"}`}
 														inMenu={true}
 														placement={languagePlacement}
 														isOpen={activeProfileSubmenu === "calendar"}
@@ -2522,6 +2528,7 @@ function AppLayoutContent() {
 											)}
 
 											<NotificationMenuItem
+												key={`notif-menu-${isRTL ? "rtl" : "ltr"}`}
 												placement={languagePlacement}
 												onNavigate={closeUserMenu}
 												isOpen={activeProfileSubmenu === "notifications"}
@@ -2531,6 +2538,7 @@ function AppLayoutContent() {
 											/>
 
 											<Menu
+												key={`lang-menu-${isRTL ? "rtl" : "ltr"}`}
 												placement={languagePlacement}
 												strategy="fixed"
 												isOpen={
@@ -2690,6 +2698,7 @@ function AppLayoutContent() {
 											</Menu>
 
 											<ThemeSelector
+												key={`theme-menu-${isRTL ? "rtl" : "ltr"}`}
 												trigger="menuItem"
 												triggerLabel={t("header.theme")}
 												isOpen={activeProfileSubmenu === "theme"}
