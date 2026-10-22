@@ -1,6 +1,5 @@
 import { Badge } from "components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
-import { DropdownMenuItem } from "components/ui/dropdown-menu";
 import { Button } from "components/ui/button";
 import { Alert } from "components/ui/alert";
 import { toast } from "components/ui/sonner";
@@ -93,6 +92,7 @@ export const InboundsManager: FC = () => {
 	const resetDialog = useDisclosure();
 	const [drawerMode, setDrawerMode] = useState<"create" | "edit">("create");
 	const [resetTarget, setResetTarget] = useState<RawInbound | null>(null);
+	const [deleteTarget, setDeleteTarget] = useState<RawInbound | null>(null);
 
 	const loadInbounds = useCallback(() => {
 		setIsLoading(true);
@@ -749,22 +749,7 @@ export const InboundsManager: FC = () => {
 			label: t("delete"),
 			icon: <Trash2 className="w-[16px]" />,
 			isDanger: true,
-			render: (_row, onMenuClose) => (
-				<DeleteConfirmDialog
-					description={t("inbounds.confirmDelete", {
-						tag: inbound.tag,
-					})}
-					loading={isMutating}
-					onConfirm={async () => {
-						await handleDelete(inbound);
-						onMenuClose();
-					}}
-				>
-					<DropdownMenuItem disabled={isMutating} onSelect={(event) => event.stopPropagation()} className="text-red-400">
-						{t("delete")}
-					</DropdownMenuItem>
-				</DeleteConfirmDialog>
-			),
+			onClick: () => setDeleteTarget(inbound),
 		},
 	];
 
@@ -920,6 +905,23 @@ export const InboundsManager: FC = () => {
 				colorScheme="red"
 				loading={isMutating}
 				isConfirmDisabled={!resetTarget}
+			/>
+			<ConfirmDialog
+				open={Boolean(deleteTarget)}
+				onClose={() => {
+					if (isMutating) return;
+					setDeleteTarget(null);
+				}}
+				onConfirm={async () => {
+					if (!deleteTarget) return;
+					await handleDelete(deleteTarget);
+					setDeleteTarget(null);
+				}}
+				title={t("common.confirmAction")}
+				description={t("inbounds.confirmDelete", { tag: deleteTarget?.tag ?? "" })}
+				confirmLabel={t("delete")}
+				colorScheme="red"
+				loading={isMutating}
 			/>
 		</div>
 	);

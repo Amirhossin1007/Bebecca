@@ -1,4 +1,4 @@
-import { Fragment, useState, type FC, type MouseEvent as ReactMouseEvent, type ReactElement, type ReactNode } from "react";
+import { type FC, type MouseEvent as ReactMouseEvent, type ReactElement, type ReactNode, useState } from "react";
 import { Ellipsis } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
 import { RowActionButton } from "./row-actions";
@@ -11,7 +11,6 @@ export type RowActionItem = {
 	label: ReactNode;
 	icon?: ReactElement;
 	onClick?: () => void;
-	render?: (onClose: () => void) => ReactNode;
 	disabled?: boolean;
 	disabledReason?: string;
 	isDanger?: boolean;
@@ -48,7 +47,7 @@ export const RowActionsMenu: FC<RowActionsMenuProps> = ({ actions, label = "Acti
 	const [open, setOpen] = useState(false);
 	if (actions.length === 0) return null;
 	const orderedActions = orderRowActions(actions);
-	const onClose = () => setOpen(false);
+	const isRtl = document.documentElement.dir === "rtl";
 
 	return (
 		<DropdownMenu open={open} onOpenChange={setOpen}>
@@ -60,27 +59,26 @@ export const RowActionsMenu: FC<RowActionsMenuProps> = ({ actions, label = "Acti
 				/>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
-				align="end"
-				className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto overflow-x-hidden overscroll-contain z-[2500] rounded-lg shadow-2xl"
+				align={isRtl ? "start" : "end"}
+				collisionPadding={8}
+				sideOffset={6}
+				onClick={(event) => event.stopPropagation()}
+				className="min-w-[200px]! max-w-[calc(100vw_-_16px)] max-h-[min(50vh,_360px)] overflow-y-auto overflow-x-hidden overscroll-contain z-[2500] rounded-lg shadow-2xl"
 			>
-				{orderedActions.map((action) =>
-					action.render ? (
-						<Fragment key={action.id}>{action.render(onClose)}</Fragment>
-					) : (
-						<DropdownMenuItem
-							key={action.id}
-							disabled={action.disabled}
-							className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))}
-							onSelect={(event) => {
-								event.stopPropagation();
-								action.onClick?.();
-							}}
-						>
-							{action.icon}
-							{action.label}
-						</DropdownMenuItem>
-					),
-				)}
+				{orderedActions.map((action) => (
+					<DropdownMenuItem
+						key={action.id}
+						disabled={action.disabled}
+						className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))}
+						onSelect={() => {
+							setOpen(false);
+							action.onClick?.();
+						}}
+					>
+						{action.icon}
+						{action.label}
+					</DropdownMenuItem>
+				))}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

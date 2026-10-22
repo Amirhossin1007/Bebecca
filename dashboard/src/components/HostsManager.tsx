@@ -5,7 +5,6 @@ import { Input } from "components/ui/input";
 import { Button } from "components/ui/button";
 import { Spinner } from "components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
-import { DropdownMenuItem } from "components/ui/dropdown-menu";
 import { Checkbox } from "components/ui/checkbox";
 import { toast } from "components/ui/sonner";
 import { CircleAlert, TriangleAlert } from "lucide-react";
@@ -76,7 +75,7 @@ import {
 import { NumericInput } from "./common/NumericInput";
 import { SearchableTagSelect } from "./common/SearchableTagSelect";
 import { SearchInput } from "./common/SearchInput";
-import { DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
+import { ConfirmDialog, DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
 import {
 	DataTable,
 	type DataTableColumn,
@@ -1767,6 +1766,7 @@ export const HostsManager: FC = () => {
 	const [createOpen, setCreateOpen] = useState(false);
 	const [savingHostUid, setSavingHostUid] = useState<string | null>(null);
 	const [deletingUid, setDeletingUid] = useState<string | null>(null);
+	const [hostPendingDelete, setHostPendingDelete] = useState<HostState | null>(null);
 	const [bulkAction, setBulkAction] = useState<
 		"enable" | "disable" | "delete" | null
 	>(null);
@@ -2544,26 +2544,30 @@ export const HostsManager: FC = () => {
 				label: t("delete"),
 				icon: <Trash2 className="w-[16px]" />,
 				isDanger: true,
-				render: (_row, onMenuClose) => (
-					<DeleteConfirmDialog
-						description={t("hostsPage.deleteConfirmation")}
-						loading={deletingUid === host.uid && isPostLoading}
-						onConfirm={async () => {
-							await handleDeleteHost(host.uid);
-							onMenuClose();
-						}}
-					>
-						<DropdownMenuItem disabled={isPostLoading} onSelect={(event) => event.stopPropagation()} className="text-red-400">
-							{t("delete")}
-						</DropdownMenuItem>
-					</DeleteConfirmDialog>
-				),
+				onClick: () => setHostPendingDelete(host),
 			},
 		];
 	};
 
 	return (
 		<div className="flex flex-col items-stretch gap-4">
+			<ConfirmDialog
+				open={Boolean(hostPendingDelete)}
+				onClose={() => {
+					if (isPostLoading) return;
+					setHostPendingDelete(null);
+				}}
+				onConfirm={async () => {
+					if (!hostPendingDelete) return;
+					await handleDeleteHost(hostPendingDelete.uid);
+					setHostPendingDelete(null);
+				}}
+				title={t("common.confirmAction")}
+				description={t("hostsPage.deleteConfirmation")}
+				confirmLabel={t("delete")}
+				colorScheme="red"
+				loading={isPostLoading}
+			/>
 			<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden">
 				<OverviewBand
 					total={hostOverview.total}

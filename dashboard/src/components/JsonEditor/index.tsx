@@ -139,6 +139,7 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 		const editorId = useId();
 
 		const aceRef = useRef<AceEditor>(null);
+		const isTouch = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 		const [text, setText] = useState(() => getJsonText(json));
 		const lastTextRef = useRef(text);
 		const latestOnChangeRef = useRef(onChange);
@@ -359,7 +360,7 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 						</div>
 					</div>
 				)}
-				<div className="flex-1 min-h-0 relative">
+				<div className="flex-1 min-h-[260px] md:min-h-0 relative">
 					<AceEditor
 						ref={aceRef}
 						name={`json-editor-${editorId}`}
@@ -370,12 +371,12 @@ export const JsonEditor = forwardRef<HTMLDivElement, JSONEditorProps>(
 						readOnly={readOnly}
 						width="100%"
 						height="100%"
-						fontSize={13}
+						fontSize={isTouch ? 12 : 13}
 						tabSize={2}
-						wrapEnabled={false}
+						wrapEnabled={isTouch}
 						showPrintMargin={false}
 						highlightActiveLine
-						enableBasicAutocompletion
+						enableBasicAutocompletion={!isTouch}
 						enableLiveAutocompletion={false}
 						enableSnippets={false}
 						setOptions={{ highlightSelectedWord: true, useSoftTabs: true }}

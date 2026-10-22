@@ -58,7 +58,6 @@ export type DataTableRowAction<TData> = {
 	label: ReactNode;
 	icon?: ReactElement;
 	onClick?: (row: TData) => void;
-	render?: (row: TData, onClose: () => void) => ReactNode;
 	disabled?: boolean | ((row: TData) => boolean);
 	disabledReason?: string | ((row: TData) => string | undefined);
 	isDanger?: boolean;

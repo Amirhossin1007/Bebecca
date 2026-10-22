@@ -21,6 +21,9 @@ const SEVERITY_TONE: Record<string, string> = {
 	warning: "bg-panel-warning/12 text-panel-warning",
 };
 
+const issueKey = (issue: Diagnostic) =>
+	`${issue.target_id}-${issue.resource_type}-${issue.message}`;
+
 /**
  * The diagnostic list on a stock shadcn Table.
  *
@@ -32,26 +35,17 @@ export function DiagnosticsTable({ issues }: { issues: Diagnostic[] }) {
 	const { t } = useTranslation();
 
 	return (
-		<div className="overflow-hidden rounded-lg border border-panel-border bg-panel-surface">
-			<Table>
-			<TableHeader>
-				<TableRow>
-					<TableHead className="w-[110px]">{t("diagnostics.levelTitle")}</TableHead>
-					<TableHead className="w-[160px]">{t("diagnostics.sourceTitle")}</TableHead>
-					<TableHead className="w-[220px]">{t("diagnostics.resourceTitle")}</TableHead>
-					<TableHead>{t("diagnostics.detailTitle")}</TableHead>
-					<TableHead className="w-[90px] text-end">
-						{t("diagnostics.sectionTitle")}
-					</TableHead>
-				</TableRow>
-			</TableHeader>
-			<TableBody>
+		<>
+			<div className="flex flex-col gap-2 md:hidden">
 				{issues.map((issue) => {
 					const severity = diagnosticSeverity(issue);
 					const href = diagnosticHref(issue);
 					return (
-						<TableRow key={`${issue.target_id}-${issue.resource_type}-${issue.message}`}>
-							<TableCell>
+						<article
+							key={issueKey(issue)}
+							className="flex flex-col gap-2 rounded-lg border border-panel-border bg-panel-surface p-3"
+						>
+							<div className="flex items-center justify-between gap-2">
 								<span
 									className={cn(
 										"inline-flex items-center rounded-full px-2 py-0.5 text-[0.7rem] font-semibold",
@@ -60,31 +54,80 @@ export function DiagnosticsTable({ issues }: { issues: Diagnostic[] }) {
 								>
 									{t(`diagnostics.level.${severity}`)}
 								</span>
-							</TableCell>
-							<TableCell className="text-panel-text-secondary">
-								{t(`diagnostics.source.${issue.resource_type}`)}
-							</TableCell>
-							<TableCell className="font-semibold">{issue.resource}</TableCell>
-							<TableCell>
-								<span dir="auto" className="whitespace-pre-wrap break-words font-mono text-[0.78rem]">
-									{issue.message}
-								</span>
-							</TableCell>
-							<TableCell className="text-end">
 								{href ? (
 									<Link
 										to={href}
-										className="text-panel-accent underline-offset-2 hover:underline"
+										className="shrink-0 text-[0.8rem] text-panel-accent underline-offset-2 hover:underline"
 									>
 										{t("diagnostics.openSection")}
 									</Link>
 								) : null}
-							</TableCell>
-						</TableRow>
+							</div>
+							<p className="break-words font-semibold">{issue.resource}</p>
+							<p className="text-[0.8rem] text-panel-text-secondary">
+								{t(`diagnostics.source.${issue.resource_type}`)}
+							</p>
+							<span dir="auto" className="whitespace-pre-wrap break-words font-mono text-[0.78rem]">
+								{issue.message}
+							</span>
+						</article>
 					);
 				})}
-				</TableBody>
-			</Table>
-		</div>
+			</div>
+			<div className="hidden overflow-hidden rounded-lg border border-panel-border bg-panel-surface md:block">
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead className="w-[110px]">{t("diagnostics.levelTitle")}</TableHead>
+							<TableHead className="w-[160px]">{t("diagnostics.sourceTitle")}</TableHead>
+							<TableHead className="w-[220px]">{t("diagnostics.resourceTitle")}</TableHead>
+							<TableHead>{t("diagnostics.detailTitle")}</TableHead>
+							<TableHead className="w-[90px] text-end">
+								{t("diagnostics.sectionTitle")}
+							</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{issues.map((issue) => {
+							const severity = diagnosticSeverity(issue);
+							const href = diagnosticHref(issue);
+							return (
+								<TableRow key={issueKey(issue)}>
+									<TableCell>
+										<span
+											className={cn(
+												"inline-flex items-center rounded-full px-2 py-0.5 text-[0.7rem] font-semibold",
+												SEVERITY_TONE[severity],
+											)}
+										>
+											{t(`diagnostics.level.${severity}`)}
+										</span>
+									</TableCell>
+									<TableCell className="text-panel-text-secondary">
+										{t(`diagnostics.source.${issue.resource_type}`)}
+									</TableCell>
+									<TableCell className="font-semibold">{issue.resource}</TableCell>
+									<TableCell>
+										<span dir="auto" className="whitespace-pre-wrap break-words font-mono text-[0.78rem]">
+											{issue.message}
+										</span>
+									</TableCell>
+									<TableCell className="text-end">
+										{href ? (
+											<Link
+												to={href}
+												className="text-panel-accent underline-offset-2 hover:underline"
+											>
+												{t("diagnostics.openSection")}
+											</Link>
+										) : null}
+									</TableCell>
+								</TableRow>
+							);
+						})}
+					</TableBody>
+				</Table>
+			</div>
+		</>
 	);
 }

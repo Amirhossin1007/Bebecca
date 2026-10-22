@@ -581,13 +581,12 @@ const removeReverseFromConfig = (config: any, reverse: ReverseRow) => {
 const SettingsSection: FC<{
 	title: string;
 	children: ReactNode;
-	defaultOpen?: boolean;
-}> = ({ title, children, defaultOpen = false }) => {
+}> = ({ title, children }) => {
 	const headerBg = "bg-gray-50 dark:bg-whiteAlpha-100";
 	const panelBg = "bg-white dark:bg-surface-dark";
 	const borderColor = "border-gray-200! dark:border-whiteAlpha-300!";
 	return (
-		<Accordion type="single" collapsible defaultValue={defaultOpen ? "section" : undefined}>
+		<Accordion type="single" collapsible>
 			<AccordionItem value="section" className={cn("border rounded-md overflow-hidden", borderColor, panelBg)}>
 					<AccordionTrigger className={cn("px-3 md:px-4 py-2.5", headerBg)}>
 						<div className="flex-1 text-start">
@@ -597,7 +596,7 @@ const SettingsSection: FC<{
 						</div>
 						
 					</AccordionTrigger>
-				<AccordionContent forceMount className="p-0">
+				<AccordionContent className="p-0">
 					<div className="flex flex-col items-stretch gap-0">
 						{children}
 					</div>
@@ -4253,7 +4252,7 @@ export const CoreSettingsPage: FC = () => {
 					<div className="p-0 mt-3">
 						<div className="flex flex-col gap-4 items-stretch">
 							<div className="flex flex-col gap-3 items-stretch">
-								<SettingsSection title={t("pages.xray.serverIPs")} defaultOpen>
+								<SettingsSection title={t("pages.xray.serverIPs")}>
 									<SettingRow label="IPv4" controlId="server-ipv4">
 										{(_controlId) => (
 											<CompactTextWithCopy

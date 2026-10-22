@@ -391,10 +391,15 @@ body {
 }
 
 .rb-cell-content[data-truncate="true"] .rb-cell-value,
-.rb-resource-primary .rb-cell-content:not([data-multiline="true"]) .rb-cell-value,
-.rb-resource-meta-value .rb-cell-content:not([data-multiline="true"]) .rb-cell-value {
+.rb-resource-primary .rb-cell-content:not([data-multiline="true"]) .rb-cell-value {
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.rb-resource-meta-value .rb-cell-value {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
 }
 
 .rb-cell-content[data-multiline="true"] {

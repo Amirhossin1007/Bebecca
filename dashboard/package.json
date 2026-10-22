@@ -21,6 +21,7 @@
 		"clsx": "^2.1.1",
 		"date-fns": "^4.4.0",
 		"dayjs": "^1.11.23",
+		"flag-icons": "7.5.0",
 		"framer-motion": "^14.5.0",
 		"i18next": "^26.5.4",
 		"i18next-browser-languagedetector": "^8.2.1",

@@ -919,11 +919,6 @@ export const RecentActionsPage: FC = () => {
 							label: actionTypeLabel(type),
 							value: type,
 						}))} placeholder={t("recentActions.filters.allActions")} aria-label={t("recentActions.filters.action")} className="w-full xl:w-[240px]" />
-					<DataTableSortMenu
-						options={buildSortOptions(columns, actions)}
-						sorting={recentSorting}
-						onSortingChange={setRecentSorting}
-					/>
 					<Select mode="multiple" size="sm" value={resourceTypesFilter} onValueChange={(value) => {
 							setResourceTypesFilter(Array.isArray(value) ? value : [value]);
 							resetPagination();
@@ -950,6 +945,7 @@ export const RecentActionsPage: FC = () => {
 						}} aria-label={t("recentActions.filters.day")} className="w-full xl:w-[170px]" />
 				</div></div>
 						<div className="flex shrink-0 items-center justify-end gap-1.5">
+							<DataTableSortMenu options={buildSortOptions(columns, actions)} sorting={recentSorting} onSortingChange={setRecentSorting} />
 							<Button onClick={() => void actionsQuery.refetch()} variant="outline" loading={actionsQuery.isFetching}>{<RefreshCw className="w-[16px]" />}
 								{t("recentActions.refresh")}
 							</Button>

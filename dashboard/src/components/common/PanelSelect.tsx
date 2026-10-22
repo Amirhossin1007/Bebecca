@@ -219,7 +219,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 			portalled = true,
 			rightElement,
 			searchPlaceholder,
-			showSearch = true,
+			showSearch,
 			size = "sm",
 			value,
 			className,
@@ -311,6 +311,8 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 				),
 			);
 		}, [mergedOptions, search, searchMatch]);
+		const searchable = showSearch ?? mergedOptions.length > 10;
+		const coarsePointer = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 		const customTerm = customInput.trim();
 		const canCreateCustom =
 			allowCustom &&
@@ -645,13 +647,13 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 			<PopoverContent
 				align={isRTL ? "end" : "start"}
 				onOpenAutoFocus={(event) => {
-					event.preventDefault(); (event.target as HTMLElement).querySelector<HTMLElement>(showSearch ? "input" : "[data-option]:not(:disabled)")?.focus();
+					event.preventDefault(); (event.target as HTMLElement).querySelector<HTMLElement>(searchable && !coarsePointer ? "input" : "[data-option]:not(:disabled)")?.focus();
 				}}
 				onKeyDown={handleSingleListKeyDown}
 				className={cn(borderColor, "[scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", cn("w-[max(var(--radix-popover-trigger-width),240px)] max-w-[min(420px,_calc(100vw_-_24px))] max-h-[260px] overflow-y-auto p-1 rounded-md shadow-xl z-[16050]", menuBg))}
 			>
-				{showSearch && (
-					<SearchInput id={`${inputId}-search`} name={`${inputId}-search-${mode}`} size="sm" containerProps={{ className: "mb-1" }} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={searchPlaceholder ?? t("search")} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} role="combobox" aria-autocomplete="list" data-lpignore="true" data-1p-ignore="true" data-form-type="other" inputMode="text" list={`${inputId}-empty-list`} autoFocus matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} className="h-[30px] text-[0.875rem] bg-transparent" />
+				{searchable && (
+					<SearchInput id={`${inputId}-search`} name={`${inputId}-search-${mode}`} size="sm" containerProps={{ className: "mb-1" }} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={searchPlaceholder ?? t("search")} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} role="combobox" aria-autocomplete="list" data-lpignore="true" data-1p-ignore="true" data-form-type="other" inputMode="text" list={`${inputId}-empty-list`} autoFocus={!coarsePointer} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} className="h-[30px] text-[0.875rem] bg-transparent" />
 				)}
 				<datalist id={`${inputId}-empty-list`} />
 				{optionList}

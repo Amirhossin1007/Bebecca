@@ -23,7 +23,7 @@ import {
 	type SortingState,
 	useReactTable,
 } from "@tanstack/react-table";
-import { Children, Fragment, type KeyboardEvent as ReactKeyboardEvent, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, ReactElement } from "react";
+import { Children, Fragment, type KeyboardEvent as ReactKeyboardEvent, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { copyTextToClipboard } from "utils/clipboard";
 import { createStableCellRegistry } from "utils/stableCell";
@@ -294,41 +294,9 @@ const getActionLabelText = (label: RowActionItem["label"]) =>
 /** Inline actions show as icons up to this count; the rest move into the overflow menu. */
 const INLINE_ROW_ACTIONS = 4;
 
-const RenderActionMenu = ({
-	icon,
-	label,
-	danger,
-	className,
-	render,
-}: {
-	icon: ReactElement;
-	label: string;
-	danger?: boolean;
-	className?: string;
-	render: (onClose: () => void) => ReactNode;
-}) => {
-	const [open, setOpen] = useState(false);
-	return (
-		<DropdownMenu open={open} onOpenChange={setOpen}>
-			<DropdownMenuTrigger asChild>
-				<RowActionButton label={label} icon={icon} danger={danger} className={className} />
-			</DropdownMenuTrigger>
-			<DropdownMenuContent
-				align="end"
-				className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto z-[2500] rounded-lg shadow-2xl"
-			>
-				{render(() => setOpen(false))}
-			</DropdownMenuContent>
-		</DropdownMenu>
-	);
-};
-
 const InlineRowAction = ({ action }: { action: RowActionItem }) => {
 	const label = getActionLabelText(action.label) || "Action";
 	const icon = action.icon ?? <Copy />;
-	if (action.render) {
-		return <RenderActionMenu icon={icon} label={label} danger={action.isDanger} className={toneClass(action.color)} render={action.render} />;
-	}
 	return (
 		<RowActionButton
 			label={label}
@@ -352,6 +320,7 @@ const InlineRowActions = ({ actions }: { actions: RowActionItem[] }) => {
 	const hasPinned = pinnedActions.length > 0;
 	const hasOverflow = hasPinned ? orderedActions.length > pinnedActions.length : orderedActions.length > INLINE_ROW_ACTIONS;
 	const inlineActions = hasPinned ? pinnedActions : hasOverflow ? orderedActions.slice(0, INLINE_ROW_ACTIONS - 1) : orderedActions;
+	const menuActions = inlineActions.length === orderedActions.length ? orderedActions : orderedActions.filter((action) => !inlineActions.includes(action));
 
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops row clicks, it is not a control
@@ -360,7 +329,7 @@ const InlineRowActions = ({ actions }: { actions: RowActionItem[] }) => {
 			{inlineActions.map((action) => (
 				<InlineRowAction key={action.id} action={action} />
 			))}
-			<RowActionsMenu actions={orderedActions} label="More actions" />
+			{menuActions.length > 0 && <RowActionsMenu actions={menuActions} label="More actions" />}
 		</div>
 	);
 };
@@ -488,9 +457,6 @@ export function DataTable<TData>({
 			rowActionsRef.current?.(row).map((action) => ({
 				...action,
 				onClick: () => action.onClick?.(row),
-				render: action.render
-					? (onClose: () => void) => action.render?.(row, onClose)
-					: undefined,
 				disabled:
 					typeof action.disabled === "function"
 						? action.disabled(row)
@@ -940,16 +906,6 @@ export function DataTable<TData>({
 															<DataTableCell row={row} column={summary} />
 														</div>
 													)}
-													{hasActions && (
-														<div className="shrink-0 rb-mobile-actions">
-															{resolvedRowActions.length > 0 ? (
-																<RowActionsMenu
-																	actions={resolvedRowActions}
-																	label={actionsLabel}
-																/>
-															) : null}
-														</div>
-													)}
 												</div>
 											</div>
 										</div>
@@ -1203,22 +1159,16 @@ export function DataTable<TData>({
 						<DropdownMenuContent data-rb-context-menu="" onClick={(event) => event.stopPropagation()} onContextMenu={(event) => {
 								event.preventDefault();
 								event.stopPropagation();
-							}} className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto overflow-x-hidden overscroll-contain z-[2500]">
-							{orderRowActions(contextMenuActions).map((action) =>
-								action.render ? (
-									<Fragment key={action.id}>
-										{action.render(closeContextMenu)}
-									</Fragment>
-								) : (
-									<DropdownMenuItem key={action.id} disabled={action.disabled} onSelect={(event) => {
+							}} className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(50vh,_360px)] overflow-y-auto overflow-x-hidden overscroll-contain z-[2500]">
+							{orderRowActions(contextMenuActions).map((action) => (
+								<DropdownMenuItem key={action.id} disabled={action.disabled} onSelect={(event) => {
 											event.stopPropagation();
 											closeContextMenu();
 											action.onClick?.();
 										}} className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))}>
 										{action.icon}{action.label}
 									</DropdownMenuItem>
-								),
-							)}
+							))}
 						</DropdownMenuContent>
 					
 				</DropdownMenu>

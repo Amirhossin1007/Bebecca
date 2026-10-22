@@ -2532,7 +2532,6 @@ export const NodesPage: FC = () => {
 					</div>
 						</div>
 						<div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:shrink-0">
-						<div className="flex flex-wrap items-center gap-1.5">
 						<Button onClick={() =>
 								navigate(
 									`/tutorials?doc=${encodeURIComponent(
@@ -2550,7 +2549,6 @@ export const NodesPage: FC = () => {
 							} variant="outline" size="sm" loading={updatingBulkService} className="h-[36px] px-3">{<DownloadIconStyled />}
 							{t("nodes.toolbarUpdateServices")}
 						</Button>
-						</div>
 						<div className="ms-auto flex items-center gap-1.5">
 						<Tooltip>
 <TooltipTrigger asChild>

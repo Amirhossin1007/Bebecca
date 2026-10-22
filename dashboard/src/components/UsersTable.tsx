@@ -1,4 +1,3 @@
-import { DropdownMenuItem } from "components/ui/dropdown-menu";
 import { Button } from "components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { Spinner } from "components/ui/spinner";
@@ -264,9 +263,6 @@ const toMenuItems = (
 				? action.disabled(row)
 				: action.disabled,
 		onClick: action.onClick ? () => action.onClick?.(row) : undefined,
-		render: action.render
-			? (onClose: () => void) => action.render?.(row, onClose)
-			: undefined,
 	}));
 
 type UsersTableProps = ComponentPropsWithoutRef<"div"> & {
@@ -377,6 +373,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const [selectedUsernames, setSelectedUsernames] = useState<string[]>([]);
 	const [bulkAction, setBulkAction] = useState<string | null>(null);
 	const [isBulkResetOpen, setIsBulkResetOpen] = useState(false);
+	const [userPendingDelete, setUserPendingDelete] = useState<UserListItem | null>(null);
 	const [ipDialog, setIPDialog] = useState<{
 		username: string;
 		records: UserIPRecord[];
@@ -1133,19 +1130,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				label: t("deleteUser.title"),
 				icon: <DeleteIcon />,
 				isDanger: true,
-				render: (_row, onClose) => (
-					<DeleteConfirmDialog
-						description={t("deleteUser.prompt", { username: user.username })}
-						onConfirm={async () => {
-							onClose();
-							await handleDeleteUser(user);
-						}}
-					>
-						<DropdownMenuItem onSelect={(event) => event.stopPropagation()} className="text-red-400">
-							{t("deleteUser.title")}
-						</DropdownMenuItem>
-					</DeleteConfirmDialog>
-				),
+				onClick: () => setUserPendingDelete(user),
 			});
 		}
 
@@ -1554,6 +1539,19 @@ export const UsersTable: FC<UsersTableProps> = ({
 					)}
 				</div>
 			</AppDialog>
+			<ConfirmDialog
+				open={Boolean(userPendingDelete)}
+				onClose={() => setUserPendingDelete(null)}
+				onConfirm={async () => {
+					if (!userPendingDelete) return;
+					await handleDeleteUser(userPendingDelete);
+					setUserPendingDelete(null);
+				}}
+				title={t("common.confirmAction")}
+				description={t("deleteUser.prompt", { username: userPendingDelete?.username ?? "" })}
+				confirmLabel={t("delete")}
+				colorScheme="red"
+			/>
 			<ConfirmDialog
 				open={isBulkResetOpen}
 				onClose={() => setIsBulkResetOpen(false)}
