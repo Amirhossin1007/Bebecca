@@ -1802,13 +1802,13 @@ const ServicesPage: FC = () => {
 					</div>
 				}
 				rowActions={serviceRowActions}
-				actionsDisplay="menu"
+
 				actionsPlacement="end"
 				actionsColumnWidth="60px"
 				// Two services, sorted client-side: the floating sort control above the
 				// table added noise without a toolbar to sit in.
 				showSortMenu={false}
-				showActionsOnHover
+
 				onRowClick={(service) => {
 					void openServiceDetail(service.id, "admins");
 				}}
@@ -1879,7 +1879,7 @@ const ServicesPage: FC = () => {
 								<p className="text-[0.875rem] text-panel-text-muted text-center">
 									{t("services.noAdmins")}
 								</p>
-							} rowActions={serviceAdminRowActions} actionsDisplay="menu" actionsPlacement="end" actionsColumnWidth="60px" showActionsOnHover mobileBreakpoint="md" tableProps={{ className: "w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5" }} />
+							} rowActions={serviceAdminRowActions} actionsPlacement="end" actionsColumnWidth="60px" mobileBreakpoint="md" tableProps={{ className: "w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5" }} />
 					) : (
 						<DataTable containerProps={{ className: "mt-3" }} ariaLabel={t("services.hosts")} data={selectedService.hosts} columns={serviceHostColumns} getRowId={(host) => String(host.id)} emptyState={
 								<p className="text-[0.875rem] text-panel-text-muted text-center">

@@ -1755,10 +1755,10 @@ export const IntegrationSettingsPage = () => {
 						</p>
 					}
 					rowActions={certificateRowActions}
-					actionsDisplay="menu"
+
 					actionsPlacement="end"
 					actionsColumnWidth="60px"
-					showActionsOnHover
+
 					mobileBreakpoint="md"
 			/>
 		</div>

@@ -3793,5 +3793,8 @@
 	"diagnostics.sourceTitle": "Source",
 	"diagnostics.resourceTitle": "Resource",
 	"diagnostics.detailTitle": "Detail",
-	"diagnostics.sectionTitle": "Section"
+	"diagnostics.sectionTitle": "Section",
+  "admins.leaders.usage": "Top usage",
+  "admins.leaders.users": "Most users",
+  "admins.leaders.online": "Most online"
 }

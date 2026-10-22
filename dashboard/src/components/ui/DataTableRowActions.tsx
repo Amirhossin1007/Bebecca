@@ -1,12 +1,11 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
-import { IconButton } from "components/shadcn/button";
+import { RowActionButton } from "./row-actions";
 import { Portal } from "components/shadcn/portal";
-import { withClass } from "components/shadcn/icon";
-import { EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
+import { Ellipsis } from "lucide-react";
 import { Fragment, type FC, type ReactElement, type ReactNode } from "react";
 
-const EllipsisIcon = withClass(EllipsisHorizontalIcon, "w-5 h-5");
+const EllipsisIcon = () => <Ellipsis />;
 
 // Chakra colour token ("red.400") to a text class. The palette is safelisted in tailwind.css.
 const toneClass = (color?: string) => (color ? `text-${color.replace(".", "-")}` : undefined);
@@ -62,7 +61,7 @@ export const RowActionsMenu: FC<RowActionsMenuProps> = ({
 		<Menu placement="auto-end" strategy="fixed" autoSelect={false} isLazy>
 			{({ onClose }) => (
 				<>
-					<MenuButton as={IconButton} aria-label={label} icon={<EllipsisIcon />} size="sm" variant="ghost" onClick={(event: ReactMouseEvent<HTMLElement>) => event.stopPropagation()} className="min-w-[32px]! h-[32px] rb-row-action" />
+					<MenuButton as={RowActionButton} label={label} icon={<EllipsisIcon />} onClick={(event: ReactMouseEvent<HTMLElement>) => event.stopPropagation()} />
 					<Portal>
 						<MenuList className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto overflow-x-hidden overscroll-contain z-[2500] rounded-lg shadow-2xl">
 							{orderedActions.map((action) =>

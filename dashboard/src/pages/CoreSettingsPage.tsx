@@ -4849,7 +4849,7 @@ export const CoreSettingsPage: FC = () => {
 								columns={routingRuleColumns}
 								getRowId={(row) => String(row.originalIndex)}
 								rowActions={routingRuleActions}
-								actionsDisplay="menu"
+
 								actionsColumnWidth="52px"
 								emptyState={t("pages.xray.rules.empty")}
 								ariaLabel={t("pages.xray.Routings")}
@@ -4999,7 +4999,7 @@ export const CoreSettingsPage: FC = () => {
 								onSelectionChange={(ids) => setSelectedOutboundIds(ids)}
 								bulkActions={outboundBulkActions}
 								rowActions={outboundActions}
-								actionsDisplay="menu"
+
 								actionsColumnWidth="52px"
 								emptyState={t("pages.xray.outbound.empty")}
 								ariaLabel={t("pages.xray.Outbounds")}
@@ -5030,7 +5030,7 @@ export const CoreSettingsPage: FC = () => {
 										columns={outboundColumns}
 										getRowId={(row) => String(row.originalIndex)}
 										rowActions={outboundActions}
-										actionsDisplay="menu"
+
 										actionsColumnWidth="52px"
 										emptyState={t("pages.xray.outbound.empty")}
 										ariaLabel={t("pages.xray.outboundManaged.title")}
@@ -5076,7 +5076,7 @@ export const CoreSettingsPage: FC = () => {
 								columns={reverseColumns}
 								getRowId={(row) => row.key}
 								rowActions={reverseActions}
-								actionsDisplay="menu"
+
 								actionsColumnWidth="52px"
 								emptyState={t("pages.xray.reverse.empty")}
 								ariaLabel={t("pages.xray.reverse.title")}
@@ -5114,7 +5114,7 @@ export const CoreSettingsPage: FC = () => {
 								columns={balancerColumns}
 								getRowId={(row) => String(row.key)}
 								rowActions={balancerActions}
-								actionsDisplay="menu"
+
 								actionsColumnWidth="52px"
 								emptyState={t("emptyBalancersDesc")}
 								ariaLabel={t("pages.xray.Balancers")}
@@ -5375,7 +5375,7 @@ export const CoreSettingsPage: FC = () => {
 										columns={dnsColumns}
 										getRowId={(row) => String(row.index)}
 										rowActions={dnsActions}
-										actionsDisplay="menu"
+
 										actionsColumnWidth="52px"
 										emptyState={t("emptyDnsDesc")}
 										ariaLabel={t("DNS")}
@@ -5403,7 +5403,7 @@ export const CoreSettingsPage: FC = () => {
 										columns={fakeDnsColumns}
 										getRowId={(row) => String(row.index)}
 										rowActions={fakeDnsActions}
-										actionsDisplay="menu"
+
 										actionsColumnWidth="52px"
 										emptyState={t("emptyFakeDnsDesc")}
 										ariaLabel={t("pages.xray.fakedns.title")}

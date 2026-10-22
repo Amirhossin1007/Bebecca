@@ -335,10 +335,10 @@ export default function HAProxyPage() {
 					</p>
 				}
 				rowActions={tableRowActions}
-				actionsDisplay="menu"
+
 				actionsPlacement="end"
 				actionsColumnWidth="60px"
-				showActionsOnHover
+
 				mobileBreakpoint="md"
 			/>
 

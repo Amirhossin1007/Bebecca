@@ -4,6 +4,7 @@ import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
 import { Portal } from "components/shadcn/portal";
 import { useBreakpointValue } from "hooks/useBreakpointValue";
 import { Checkbox } from "components/shadcn/selection";
+import { RowActionButton } from "./row-actions";
 import { Skeleton, SkeletonText } from "components/shadcn/feedback";
 import { cn } from "lib/cn";
 import {
@@ -301,51 +302,59 @@ const getActionLabelText = (label: RowActionItem["label"]) =>
 		? String(label)
 		: "Row action";
 
+/** Inline actions show as icons up to this count; the rest move into the overflow menu. */
+const INLINE_ROW_ACTIONS = 4;
+
+const InlineRowAction = ({ action }: { action: RowActionItem }) => {
+	const label = getActionLabelText(action.label) || "Action";
+	const icon = action.icon ?? <DocumentDuplicateIcon />;
+	if (action.render) {
+		const renderAction = action.render;
+		return (
+			<Menu placement="auto-end" strategy="fixed" autoSelect={false} isLazy>
+				{({ onClose }) => (
+					<>
+						<MenuButton as={RowActionButton} label={label} icon={icon} danger={action.isDanger} className={toneClass(action.color)} />
+						<Portal>
+							<MenuList className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto z-[2500] rounded-lg shadow-2xl">
+								{renderAction(onClose)}
+							</MenuList>
+						</Portal>
+					</>
+				)}
+			</Menu>
+		);
+	}
+	return (
+		<RowActionButton
+			label={label}
+			icon={icon}
+			danger={action.isDanger}
+			disabled={action.disabled}
+			className={toneClass(action.color)}
+			onClick={(event) => {
+				event.stopPropagation();
+				action.onClick?.();
+			}}
+		/>
+	);
+};
+
 const InlineRowActions = ({ actions }: { actions: RowActionItem[] }) => {
 	if (actions.length === 0) return null;
 	const orderedActions = orderRowActions(actions);
+	const hasOverflow = orderedActions.length > INLINE_ROW_ACTIONS;
+	const inlineActions = hasOverflow ? orderedActions.slice(0, INLINE_ROW_ACTIONS - 1) : orderedActions;
+	const overflowActions = hasOverflow ? orderedActions.slice(INLINE_ROW_ACTIONS - 1) : [];
 
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops row clicks, it is not a control
 		// biome-ignore lint/a11y/useKeyWithClickEvents: wrapper only stops row clicks, it is not a control
-		<div onClick={(event) => event.stopPropagation()} className="flex flex-row items-center gap-1 justify-start rb-inline-actions">
-			{orderedActions.map((action) => {
-				const label = getActionLabelText(action.label);
-				if (action.render) {
-					const renderAction = action.render;
-					return (
-						<Menu key={action.id} placement="auto-end" strategy="fixed" autoSelect={false} isLazy>
-							{({ onClose }) => (
-								<>
-									<Tooltip label={action.label}>
-										<MenuButton as={IconButton} aria-label={label} icon={action.icon ?? <DocumentDuplicateIcon />} size="sm" variant="ghost" colorScheme={action.isDanger ? "red" : undefined} disabled={action.disabled} onClick={(event: ReactMouseEvent<HTMLElement>) => event.stopPropagation()} className={cn(toneClass(action.color), "rb-inline-action")} />
-									</Tooltip>
-									<Portal>
-										<MenuList className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto z-[2500] rounded-lg shadow-2xl">
-											{renderAction(onClose)}
-										</MenuList>
-									</Portal>
-								</>
-							)}
-						</Menu>
-					);
-				}
-				return action.icon ? (
-					<Tooltip key={action.id} label={action.label}>
-						<IconButton aria-label={label} size="sm" variant="ghost" colorScheme={action.isDanger ? "red" : undefined} disabled={action.disabled} onClick={(event) => {
-								event.stopPropagation();
-								action.onClick?.();
-							}} className={cn(toneClass(action.color), "rb-inline-action")} >{action.icon}</IconButton>
-					</Tooltip>
-				) : (
-					<Button key={action.id} size="sm" variant="ghost" colorScheme={action.isDanger ? "red" : undefined} disabled={action.disabled} onClick={(event) => {
-							event.stopPropagation();
-							action.onClick?.();
-						}} className={cn(toneClass(action.color), "rb-inline-action")}>
-						{action.label}
-					</Button>
-				);
-			})}
+		<div onClick={(event) => event.stopPropagation()} className="flex flex-row items-center gap-1 rb-inline-actions">
+			{inlineActions.map((action) => (
+				<InlineRowAction key={action.id} action={action} />
+			))}
+			{overflowActions.length > 0 ? <RowActionsMenu actions={overflowActions} label="More actions" /> : null}
 		</div>
 	);
 };
@@ -434,8 +443,11 @@ export function DataTable<TData>({
 	}>({ row: null, x: 0, y: 0 });
 	const resolvedActionsDisplay =
 		actionsDisplay ??
-		(rowActions ? "menu" : renderRowActions ? "inline" : "none");
+		(rowActions || renderRowActions ? "inline" : "none");
 	const hasActions = resolvedActionsDisplay !== "none" && Boolean(rowActions || renderRowActions);
+	// Inline icons need the column to fit them, so the column sizes to its content.
+	const resolvedActionsColumnWidth = resolvedActionsDisplay === "inline" ? "max-content" : actionsColumnWidth;
+	const alwaysShowActions = actionsAlwaysVisible || resolvedActionsDisplay === "inline";
 	const activeBreakpoint =
 		useBreakpointValue<DataTableBreakpoint>({
 			base: "base",
@@ -816,12 +828,12 @@ export function DataTable<TData>({
 					rootRef.current?.focus({ preventScroll: true });
 				}
 				containerOnMouseDown?.(event);
-			}} data-actions-display={resolvedActionsDisplay} data-actions-placement={actionsPlacement} data-actions-hover={showActionsOnHover && !actionsAlwaysVisible ? "true" : undefined} data-actions-always={actionsAlwaysVisible ? "true" : undefined} style={
+			}} data-actions-display={resolvedActionsDisplay} data-actions-placement={actionsPlacement} data-actions-hover={showActionsOnHover && !alwaysShowActions ? "true" : undefined} data-actions-always={alwaysShowActions ? "true" : undefined} style={
 				{
 					"--rb-actions-column-width":
-						typeof actionsColumnWidth === "number"
-							? `${actionsColumnWidth}px`
-							: actionsColumnWidth,
+						typeof resolvedActionsColumnWidth === "number"
+							? `${resolvedActionsColumnWidth}px`
+							: resolvedActionsColumnWidth,
 				} as CSSProperties
 			} {...rootContainerProps} className={cn("w-full focus-visible:outline-none", bulkChildren && selectedCount > 0 ? "pb-32" + " " + "md:pb-24" : "", rootClassName)}>
 			{showSortMenu && sortOptions.length > 0 && (
@@ -1006,15 +1018,15 @@ export function DataTable<TData>({
 											<th key={header.id} style={{ width: isSelectColumn
 														? selectionColumnWidth
 														: isActionsColumn
-															? actionsColumnWidth
+															? resolvedActionsColumnWidth
 															: columnWidth, minWidth: isSelectColumn
 														? selectionColumnWidth
 														: isActionsColumn
-															? actionsColumnWidth
+															? resolvedActionsColumnWidth
 															: columnMinWidth, maxWidth: isSelectColumn
 														? selectionColumnWidth
 														: isActionsColumn
-															? actionsColumnWidth
+															? resolvedActionsColumnWidth
 															: columnMaxWidth, textAlign: isActionsColumn
 														? "end"
 														: isSelectColumn
@@ -1106,15 +1118,15 @@ export function DataTable<TData>({
 																	: alignToTextAlign(cellAlign), width: isSelectColumn
 																? selectionColumnWidth
 																: isActionsColumn
-																	? actionsColumnWidth
+																	? resolvedActionsColumnWidth
 																	: columnWidth, minWidth: isSelectColumn
 																? selectionColumnWidth
 																: isActionsColumn
-																	? actionsColumnWidth
+																	? resolvedActionsColumnWidth
 																	: columnMinWidth, maxWidth: isSelectColumn
 																? selectionColumnWidth
 																: isActionsColumn
-																	? actionsColumnWidth
+																	? resolvedActionsColumnWidth
 																	: columnMaxWidth }}  data-actions={isActionsColumn ? "true" : undefined} data-col={config?.id} data-center={
 															isSelectColumn || cellAlign === "center"
 																? "true"

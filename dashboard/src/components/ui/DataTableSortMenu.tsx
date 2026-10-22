@@ -98,7 +98,7 @@ export const DataTableSortMenu = ({
 		<Popover placement="bottom-end" isLazy>
 			<PopoverTrigger>
 				<div className="relative inline-flex shrink-0">
-					<IconButton aria-label={t("dataTable.sortOptions", "Sort options")} variant="outline" size="sm" className="rounded-lg" >{<Icon as={ArrowsUpDownIcon} className="size-4" />}</IconButton>
+					<IconButton aria-label={t("dataTable.sortOptions", "Sort options")} variant="outline" size="sm" className="h-9 w-9 rounded-full" >{<Icon as={ArrowsUpDownIcon} className="size-4" />}</IconButton>
 					{activeSort ? (
 						<div className="top-[-2px] absolute end-[-2px] w-[8px] h-[8px] rounded-full bg-primary-400 pointer-events-none" />
 					) : null}

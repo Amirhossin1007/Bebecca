@@ -1,8 +1,8 @@
 import { AdminDialog } from "components/AdminDialog";
 import { AdminsTable } from "components/AdminsTable";
-import { Filters, ReloadIcon } from "components/Filters";
+import { AdminsFilterBar } from "components/admins/AdminsFilterBar";
 import { Pagination } from "components/Pagination";
-import { PageHeader, ResourceRefreshButton } from "components/ui";
+import { PageHeader } from "components/ui";
 import { useAdminsStore } from "contexts/AdminsContext";
 import useGetUser from "hooks/useGetUser";
 import { type FC, useEffect } from "react";
@@ -11,7 +11,6 @@ import { useTranslation } from "react-i18next";
 export const AdminsPage: FC = () => {
 	const { t } = useTranslation();
 	const fetchAdmins = useAdminsStore((s) => s.fetchAdmins);
-	const adminsLoading = useAdminsStore((s) => s.loading);
 	const openAdminDialog = useAdminsStore((s) => s.openAdminDialog);
 	const { userData, getUserIsSuccess } = useGetUser();
 	const canViewAdmins =
@@ -48,16 +47,7 @@ export const AdminsPage: FC = () => {
 	return (
 		<div className="flex flex-col gap-4 items-stretch">
 			<AdminsTable
-				toolbar={<Filters for="admins" showRefresh={false} className="py-0" />}
-				footerActions={
-					<ResourceRefreshButton
-						aria-label={t("refresh")}
-						label={t("refresh")}
-						icon={<ReloadIcon />}
-						onClick={() => fetchAdmins(undefined, { force: true })}
-						loading={adminsLoading}
-					/>
-				}
+				toolbar={<AdminsFilterBar />}
 			/>
 			<Pagination for="admins" />
 			<AdminDialog />

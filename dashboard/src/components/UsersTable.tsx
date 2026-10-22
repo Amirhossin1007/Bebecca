@@ -4,7 +4,6 @@ import { useBreakpointValue } from "hooks/useBreakpointValue";
 import { useToast } from "components/shadcn/toast";
 import { Button as KitButton, IconButton } from "components/shadcn/button";
 import { Tooltip as KitTooltip } from "components/shadcn/tooltip";
-import { Button } from "components/ui/button";
 import {
 	Tooltip,
 	TooltipContent,
@@ -14,14 +13,7 @@ import { Spinner } from "components/shadcn/feedback";
 import { withClass } from "components/shadcn/icon";
 import type { ComponentPropsWithoutRef, MouseEvent as ReactMouseEvent } from "react";
 import { cn } from "lib/cn";
-import {
-	Check,
-	Clipboard,
-	Pencil,
-	Plus,
-	QrCode,
-	Trash2,
-} from "lucide-react";
+import { Check, Copy, Link2, Pencil, QrCode, Trash2 } from "lucide-react";
 import {
 	ArrowPathIcon,
 	CalendarDaysIcon,
@@ -29,18 +21,14 @@ import {
 	CheckIcon,
 	ChevronRightIcon,
 	CircleStackIcon,
-	ClipboardIcon,
 	ClockIcon,
 	GlobeAltIcon,
 	LinkIcon,
 	LinkSlashIcon,
 	NoSymbolIcon,
-	PencilIcon,
 	PlusCircleIcon,
-	QrCodeIcon,
 	ServerStackIcon,
 	SignalIcon,
-	TrashIcon,
 } from "@heroicons/react/24/outline";
 import { LockClosedIcon } from "@heroicons/react/24/solid";
 import type { SortingState } from "@tanstack/react-table";
@@ -67,6 +55,7 @@ import {
 	isUserManagementLocked,
 } from "utils/adminTraffic";
 import { copyTextToClipboard } from "utils/clipboard";
+import { RowActionButton } from "components/ui/row-actions";
 import { formatBytes } from "utils/formatByte";
 import { DataTableColumnMenu } from "components/ui/DataTableColumnMenu";
 import { UsersOverviewBand } from "components/users/UsersOverviewBand";
@@ -140,12 +129,12 @@ const MobileUserOnlineDot: FC<{ user: UserListItem }> = ({ user }) => {
 	);
 };
 
-const CopyIcon = () => <Clipboard className="size-4 md:size-[18px]" />;
-const SubscriptionLinkIcon = withClass(LinkIcon, "w-4 md:w-5 h-4 md:h-5");
-const QRIcon = () => <QrCode className="size-4 md:size-[18px]" />;
-const CopiedIcon = withClass(CheckIcon, "w-4 md:w-5 h-4 md:h-5");
-const EditIcon = () => <Pencil className="size-4 md:size-[18px]" />;
-const DeleteIcon = () => <Trash2 className="size-[18px]" />;
+const CopyIcon = () => <Copy />;
+const SubscriptionLinkIcon = () => <Link2 />;
+const QRIcon = () => <QrCode />;
+const CopiedIcon = () => <Check />;
+const EditIcon = () => <Pencil />;
+const DeleteIcon = () => <Trash2 />;
 const LockOverlayIcon = withClass(LockClosedIcon, "w-16 md:w-20 h-16 md:h-20");
 const ResetIcon = withClass(ArrowPathIcon, "w-4 md:w-5 h-4 md:h-5");
 const DisableIcon = withClass(NoSymbolIcon, "w-4 md:w-5 h-4 md:h-5");
@@ -1391,7 +1380,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				    auto-refresh and the column chooser on the end side. */}
 				<div className="border-t border-panel-border! p-3 rb-users-toolbar">
 					<div className="flex-wrap flex items-center gap-2">
-						<div className="flex-[1_1_240px] min-w-0!">
+						<div className="max-sm:contents sm:flex-[1_1_240px] min-w-0!">
 							{toolbar}
 						</div>
 						<div className="flex flex-row items-center gap-1 shrink-0">
@@ -1451,7 +1440,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 						)}
 						actionsDisplay={compactRowActions ? "menu" : "inline"}
 						actionsPlacement="end"
-						actionsColumnWidth={compactRowActions ? "64px" : "156px"}
+						actionsColumnWidth={compactRowActions ? "64px" : "max-content"}
 						actionsAlwaysVisible
 						onRowClick={
 							isDesktop
@@ -1759,94 +1748,44 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 				e.preventDefault();
 				e.stopPropagation();
 			}} className={cn("flex flex-row items-center gap-1 flex-nowrap", isRTL ? "justify-start" : "justify-end")}>
-			{/* Row actions: stock shadcn Button + Tooltip, same size and colours as before. */}
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						aria-label={t("usersTable.copyLink")}
-						variant="ghost"
-						size="icon-sm"
-						disabled={!subscriptionLink}
-						className="size-[30px] text-panel-text-secondary hover:bg-whiteAlpha-100 hover:text-panel-text"
-						onClick={() => {
-							void copyTextToClipboard(subscriptionLink)
-								.then(() => {
-									setCopied(true);
-								})
-								.catch(() => undefined);
-						}}
-					>
-						{copied ? <CopiedIcon /> : <SubscriptionLinkIcon />}
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>{copied ? t("copied") : t("usersTable.copyLink")}</TooltipContent>
-			</Tooltip>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						aria-label={t("usersTable.copyConfigs")}
-						variant="ghost"
-						size="icon-sm"
-						disabled={!hasConfigLinks}
-						className="size-[30px] text-panel-text-secondary hover:bg-whiteAlpha-100 hover:text-panel-text"
-						onClick={() => {
-							void copyTextToClipboard(configLinksText)
-								.then(() => setCopiedConfigs(true))
-								.catch(() => undefined);
-						}}
-					>
-						{copiedConfigs ? <CopiedIcon /> : <CopyIcon />}
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>{copiedConfigs ? t("copied") : t("usersTable.copyConfigs")}</TooltipContent>
-			</Tooltip>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Button
-						aria-label={t("usersTable.qrCode")}
-						variant="ghost"
-						size="icon-sm"
-						className="size-[30px] text-panel-text-secondary hover:bg-whiteAlpha-100 hover:text-panel-text"
-						onClick={() => {
-							const links = generateUserLinks(user, linkTemplates);
-							setQRCode(links, user.username);
-							setSubLink(subscriptionLink);
-						}}
-					>
-						<QRIcon />
-					</Button>
-				</TooltipTrigger>
-				<TooltipContent>{t("usersTable.qrCode")}</TooltipContent>
-			</Tooltip>
-			{onEdit && (
-				<Tooltip>
-					<TooltipTrigger asChild>
-						<Button
-							aria-label={t("userDialog.editUser")}
-							variant="ghost"
-							size="icon-sm"
-							className="size-[30px] text-panel-text-secondary hover:bg-whiteAlpha-100 hover:text-panel-text"
-							onClick={onEdit}
-						>
-							<EditIcon />
-						</Button>
-					</TooltipTrigger>
-					<TooltipContent>{t("userDialog.editUser")}</TooltipContent>
-				</Tooltip>
-			)}
+			<RowActionButton
+				label={copied ? t("copied") : t("usersTable.copyLink")}
+				icon={copied ? <CopiedIcon /> : <SubscriptionLinkIcon />}
+				disabled={!subscriptionLink}
+				onClick={() => {
+					void copyTextToClipboard(subscriptionLink)
+						.then(() => {
+							setCopied(true);
+						})
+						.catch(() => undefined);
+				}}
+			/>
+			<RowActionButton
+				label={copiedConfigs ? t("copied") : t("usersTable.copyConfigs")}
+				icon={copiedConfigs ? <CopiedIcon /> : <CopyIcon />}
+				disabled={!hasConfigLinks}
+				onClick={() => {
+					void copyTextToClipboard(configLinksText)
+						.then(() => setCopiedConfigs(true))
+						.catch(() => undefined);
+				}}
+			/>
+			<RowActionButton
+				label={t("usersTable.qrCode")}
+				icon={<QRIcon />}
+				onClick={() => {
+					const links = generateUserLinks(user, linkTemplates);
+					setQRCode(links, user.username);
+					setSubLink(subscriptionLink);
+				}}
+			/>
+			{onEdit && <RowActionButton label={t("userDialog.editUser")} icon={<EditIcon />} onClick={onEdit} />}
 			{onDelete && (
 				<DeleteConfirmDialog
 					description={t("deleteUser.prompt", { username: user.username })}
 					onConfirm={onDelete}
 				>
-					<Button
-						aria-label={t("deleteUser.title")}
-						variant="ghost"
-						size="icon-sm"
-						className="size-[30px] text-panel-danger hover:bg-panel-danger/10 hover:text-panel-danger"
-					>
-						<DeleteIcon />
-					</Button>
+					<RowActionButton label={t("deleteUser.title")} icon={<DeleteIcon />} danger />
 				</DeleteConfirmDialog>
 			)}
 			{menuActions && menuActions.length > 0 && (

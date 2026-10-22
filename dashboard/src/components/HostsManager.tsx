@@ -2704,10 +2704,10 @@ export const HostsManager: FC = () => {
 					</div>
 				}
 				rowActions={hostRowActions}
-				actionsDisplay="menu"
+
 				actionsPlacement="end"
 				actionsColumnWidth="60px"
-				showActionsOnHover
+
 				enableSelection
 				selectedRowIds={selectedHostUids}
 				selectedCount={selectedHostUids.length}

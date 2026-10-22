@@ -3792,5 +3792,8 @@
 	"diagnostics.sourceTitle": "منبع",
 	"diagnostics.resourceTitle": "منبع خرابی",
 	"diagnostics.detailTitle": "جزئیات",
-	"diagnostics.sectionTitle": "بخش"
+	"diagnostics.sectionTitle": "بخش",
+  "admins.leaders.usage": "بیشترین مصرف",
+  "admins.leaders.users": "بیشترین کاربر",
+  "admins.leaders.online": "بیشترین آنلاین"
 }

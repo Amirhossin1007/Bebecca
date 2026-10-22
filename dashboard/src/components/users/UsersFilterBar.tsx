@@ -4,10 +4,12 @@ import { Popover, PopoverArrow, PopoverBody, PopoverCloseButton, PopoverContent,
 import { Button, IconButton } from "components/shadcn/button";
 import { Badge } from "components/shadcn/badge";
 import { Checkbox } from "components/shadcn/selection";
+import { buttonVariants } from "components/ui/button";
+import { Plus } from "lucide-react";
+import { cn } from "lib/cn";
 import { withClass } from "components/shadcn/icon";
 import {
 	FunnelIcon,
-	PlusIcon,
 	QuestionMarkCircleIcon,
 } from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
@@ -27,7 +29,6 @@ import { AdminRole, AdminStatus, UserPermissionToggle } from "types/Admin";
 import { canViewUserTraffic, isUserManagementLocked } from "utils/adminTraffic";
 
 const FilterIcon = withClass(FunnelIcon, "w-4 h-4");
-const PlusIconStyled = withClass(PlusIcon, "w-4 h-4");
 const HelpIcon = withClass(QuestionMarkCircleIcon, "w-4 h-4");
 
 const formatChipCount = (value: number, locale: string) =>
@@ -206,8 +207,8 @@ export const UsersFilterBar: FC = () => {
 	const hasClearableFilters = activeFilterTotal > 0;
 
 	return (
-		<div className="flex items-center gap-2 w-full min-w-0!">
-			<SearchInput containerProps={{ className: "flex-[1_1_auto] min-w-0! max-w-[100%] sm:max-w-[380px]" }} placeholder={t("search")} value={search} onChange={onSearchChange} matchOptions={matchOptions} onMatchOptionsChange={(options) =>
+		<div className="max-sm:contents sm:flex items-center gap-2 w-full min-w-0!">
+			<SearchInput containerProps={{ className: "max-sm:basis-full sm:flex-[1_1_auto] min-w-0! max-w-[100%] sm:max-w-[380px]" }} placeholder={t("search")} value={search} onChange={onSearchChange} matchOptions={matchOptions} onMatchOptionsChange={(options) =>
 					onFilterChange({
 						matchCase: options.matchCase,
 						matchWholeWord: options.matchWholeWord,
@@ -230,7 +231,7 @@ export const UsersFilterBar: FC = () => {
 			<Popover placement="bottom-end">
 				<PopoverTrigger>
 					<div className="relative shrink-0">
-						<IconButton size="md" aria-label={t("filters.advancedButton")} variant="outline" className="rounded-full w-[40px] h-[40px]" >{<FilterIcon />}</IconButton>
+						<IconButton size="md" aria-label={t("filters.advancedButton")} variant="outline" className="rounded-full w-9 h-9" >{<FilterIcon />}</IconButton>
 						{hasClearableFilters && (
 							<Badge colorScheme="primary" variant="solid" className="top-[-4px] rounded-full absolute end-[-4px] text-[0.6rem] px-1.5 pointer-events-none rb-users-filter-badge">
 								{formatChipCount(activeFilterTotal, locale)}
@@ -307,14 +308,21 @@ export const UsersFilterBar: FC = () => {
 			{/* On desktop the bulk/create actions sit at the end of the row;
 				on mobile they stay compact next to the search field. */}
 			{!isMobile && <div className="flex-[1_1_auto] min-w-0!" />}
-			{showCreateButton &&
-				(isMobile ? (
-					<IconButton size="md" aria-label={t("createUser")} colorScheme="primary" onClick={handleCreate} className="rounded-full w-[40px] h-[40px] shrink-0 rb-users-create-btn" >{<PlusIconStyled className="w-5 h-5" />}</IconButton>
-				) : (
-					<Button size="md" colorScheme="primary" onClick={handleCreate} className="rounded-full h-[40px] px-5 text-[0.875rem] font-semibold whitespace-nowrap shrink-0 rb-users-create-btn">{<PlusIconStyled />}
-						{t("createUser")}
-					</Button>
-				))}
+			{showCreateButton && (
+				<button
+					type="button"
+					aria-label={t("createUser")}
+					onClick={handleCreate}
+					className={cn(
+						buttonVariants({ size: isMobile ? "icon" : "default" }),
+						"shrink-0 bg-panel-accent text-white shadow-xs hover:bg-panel-accent-hover rb-users-create-btn",
+						!isMobile && "gap-2 px-4 font-semibold",
+					)}
+				>
+					<Plus className="size-4" />
+					{!isMobile && t("createUser")}
+				</button>
+			)}
 		</div>
 	);
 };

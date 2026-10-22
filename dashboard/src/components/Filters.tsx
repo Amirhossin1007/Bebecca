@@ -343,7 +343,7 @@ export const Filters: FC<FilterProps> = ({
 
 	return (
 		<div id="filters" {...props} className="grid lg:grid-cols-[repeat(3,_1fr)] md:grid-cols-[repeat(2,_1fr)] grid-cols-[1fr] mx-0 lg:gap-4 md:gap-4 gap-4 py-4">
-			<div className="col-span-1 md:col-span-1 lg:col-span-1 order-2 md:order-1">
+			<div className="col-span-1 md:col-span-1 lg:col-span-1 order-1 md:order-1">
 				<div className="flex flex-col gap-2 items-stretch w-full">
 					{isUserFilters && (
 						<div className="flex flex-row gap-1 items-center">
@@ -578,7 +578,7 @@ export const Filters: FC<FilterProps> = ({
 						)}
 				</div>
 			</div>
-			<div className="col-span-1 md:col-span-1 lg:col-span-2 order-1 md:order-2">
+			<div className="col-span-1 md:col-span-1 lg:col-span-2 order-2 md:order-2">
 				<div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-start md:justify-end items-stretch sm:items-center w-full flex-wrap">
 					{actionsSlot}
 					{showCreateButton && (

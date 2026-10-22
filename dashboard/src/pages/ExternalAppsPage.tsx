@@ -918,10 +918,10 @@ export const ExternalAppsPage = () => {
 					loading={appsQuery.isLoading}
 					emptyState={<p className={mutedColor}>{t("externalApps.empty")}</p>}
 					rowActions={appRowActions}
-					actionsDisplay="menu"
+
 					actionsPlacement="end"
 					actionsColumnWidth="60px"
-					showActionsOnHover
+
 					mobileBreakpoint="md"
 				/>
 			</div>

@@ -854,10 +854,10 @@ export const InboundsManager: FC = () => {
 					</div>
 				}
 				rowActions={inboundRowActions}
-				actionsDisplay="menu"
+
 				actionsPlacement="end"
 				actionsColumnWidth="60px"
-				showActionsOnHover
+
 				enableSelection
 				selectedRowIds={selectedInboundTags}
 				selectedCount={selectedInboundTags.length}

@@ -24,6 +24,9 @@ import { NoSymbolIcon } from "@heroicons/react/24/solid";
 import type { SortingState } from "@tanstack/react-table";
 import classNames from "classnames";
 import { useAdminsStore } from "contexts/AdminsContext";
+import { AdminsOverviewBand } from "components/admins/AdminsOverviewBand";
+import { DataTableColumnMenu } from "components/ui/DataTableColumnMenu";
+import { RefreshSplitButton } from "components/users/RefreshSplitButton";
 import { useContainerMinWidths } from "hooks/useContainerMinWidths";
 import useGetUser from "hooks/useGetUser";
 import {
@@ -59,7 +62,6 @@ import { ConfirmDialog } from "./dialogs/ConfirmDialog";
 import { UserExpiryCountdown, UserUsageBar } from "./users";
 import {
 	DataTable,
-	ResourceListCard,
 	type DataTableColumn,
 	type DataTableRowAction,
 } from "./ui";
@@ -75,19 +77,11 @@ const ADMIN_TRAFFIC_OPTIONS = [
 ];
 
 const QUICK_ACTIONS_MIN_TABLE_WIDTH = 1250;
-const SPEED_MIN_TABLE_WIDTH = 1100;
+const SPEED_MIN_TABLE_WIDTH = 1280;
 type AdminSpeedMap = Record<
 	string,
 	{ upload_speed: number; download_speed: number }
 >;
-
-const QUICK_ACTION_IDS = [
-	"edit",
-	"permissions",
-	"enable",
-	"disable",
-	"delete",
-];
 
 const ResetIcon = withClass(ArrowPathIcon, "[stroke-width:2px] w-3 h-3");
 const DisableIcon = withClass(NoSymbolIcon, "[stroke-width:2px] w-3 h-3");
@@ -140,6 +134,17 @@ const AdminRoleBadge: FC<{ role: AdminRole }> = ({ role }) => {
 	);
 };
 
+const AUTO_REFRESH_INTERVALS = [3_000, 5_000, 10_000, 30_000] as const;
+
+const pickLeader = (list: Admin[], value: (admin: Admin) => number) => {
+	let best: { username: string; value: number } | null = null;
+	for (const admin of list) {
+		const current = value(admin);
+		if (current > 0 && (!best || current > best.value)) best = { username: admin.username, value: current };
+	}
+	return best;
+};
+
 const formatCount = (value: number | null | undefined, locale: string) =>
 	new Intl.NumberFormat(locale || "en").format(value ?? 0);
 
@@ -163,12 +168,10 @@ const getAdminIsLimited = (admin: Admin) =>
 
 type AdminsTableProps = ComponentPropsWithoutRef<"table"> & {
 	toolbar?: ReactNode;
-	footerActions?: ReactNode;
 };
 
 export const AdminsTable: FC<AdminsTableProps> = ({
 	toolbar,
-	footerActions,
 	...props
 }) => {
 	const { t, i18n } = useTranslation();
@@ -185,6 +188,13 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	const total = useAdminsStore((state) => state.total);
 	const filters = useAdminsStore((state) => state.filters);
 	const fetchAdmins = useAdminsStore((state) => state.fetchAdmins);
+	const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
+	const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(5_000);
+	useEffect(() => {
+		if (!autoRefreshInterval) return;
+		const timer = window.setInterval(() => void fetchAdmins(undefined, { force: true }), autoRefreshInterval);
+		return () => window.clearInterval(timer);
+	}, [autoRefreshInterval, fetchAdmins]);
 	const deleteAdmin = useAdminsStore((state) => state.deleteAdmin);
 	const resetUsage = useAdminsStore((state) => state.resetUsage);
 	const resetDeletedUsersUsage = useAdminsStore(
@@ -651,6 +661,9 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		const totals = hasCompleteSummary ? summarizeAdmins(summaryAdmins) : null;
 		return {
 			totalCount: adminOptions.length || total,
+			topUsage: totals ? pickLeader(summaryAdmins, getAdminEffectiveUsage) : null,
+			topUsers: totals ? pickLeader(summaryAdmins, (admin) => admin.users_count ?? 0) : null,
+			topOnline: totals ? pickLeader(summaryAdmins, (admin) => admin.online_users ?? 0) : null,
 			usersTotal: totals ? totals.users : null,
 			onlineUsersTotal: totals ? totals.online : null,
 			usageTotal: totals ? totals.usage : null,
@@ -689,73 +702,6 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				: null,
 		};
 	}, [adminOptions, admins, total]);
-	const formatSummaryCount = (value: number | null) =>
-		value === null ? "-" : formatCount(value, locale);
-	const adminSummaryItems = [
-		{
-			label: t("total"),
-			value: formatCount(summaryData.totalCount, locale),
-			colorScheme: "gray",
-		},
-		{
-			label: t("admins.roles.fullAccess"),
-			value: formatSummaryCount(summaryData.fullAccessCount),
-			colorScheme: "yellow",
-		},
-		{
-			label: t("admins.roles.sudo"),
-			value: formatSummaryCount(summaryData.sudoCount),
-			colorScheme: "purple",
-		},
-		{
-			label: t("admins.roles.reseller"),
-			value: formatSummaryCount(summaryData.resellerCount),
-			colorScheme: "blue",
-		},
-		{
-			label: t("admins.roles.standard"),
-			value: formatSummaryCount(summaryData.standardCount),
-			colorScheme: "gray",
-		},
-		{
-			label: t("status.active"),
-			value: formatSummaryCount(summaryData.activeCount),
-			colorScheme: "green",
-		},
-		{
-			label: t("status.expired"),
-			value: formatSummaryCount(summaryData.expiredCount),
-			colorScheme: "orange",
-		},
-		{
-			label: t("status.limited"),
-			value: formatSummaryCount(summaryData.limitedCount),
-			colorScheme: "red",
-		},
-		{
-			label: t("status.disabled"),
-			value: formatSummaryCount(summaryData.disabledCount),
-			colorScheme: "gray",
-		},
-		{
-			label: t("users"),
-			value: formatSummaryCount(summaryData.usersTotal),
-			colorScheme: "orange",
-		},
-		{
-			label: t("onlineStatus.online"),
-			value: formatSummaryCount(summaryData.onlineUsersTotal),
-			colorScheme: "teal",
-		},
-		{
-			label: t("summary.usage"),
-			value:
-				summaryData.usageTotal === null
-					? "-"
-					: formatBytes(summaryData.usageTotal),
-			colorScheme: "blue",
-		},
-	];
 
 	const skeletonCount = filters.limit || 5;
 	const adminSorting = useMemo<SortingState>(() => {
@@ -783,7 +729,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			window.clearInterval(timer);
 		};
 	}, []);
-	const [tableSectionRef, [showQuickActions, showSpeed]] =
+	const [tableSectionRef, [, showSpeed]] =
 		useContainerMinWidths(QUICK_ACTIONS_MIN_TABLE_WIDTH, SPEED_MIN_TABLE_WIDTH);
 	const rowActionsRef = useRef<(admin: Admin) => DataTableRowAction<Admin>[]>(
 		() => [],
@@ -793,12 +739,15 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		() => [
 			{
 				id: "username",
+				width: "140px",
+				minWidth: "136px",
+				maxWidth: "176px",
 				header: t("username"),
+				menuLabel: t("username"),
 				accessor: "username",
 				sortable: true,
 				isPrimary: true,
 				priority: "primary",
-				width: "1%",
 				truncate: true,
 				tooltip: true,
 				cellAlign: "start",
@@ -812,9 +761,12 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			},
 			{
 				id: "status",
+				width: "104px",
+				minWidth: "96px",
+				maxWidth: "120px",
 				header: t("status"),
+				menuLabel: t("status"),
 				priority: "high",
-				width: "1%",
 				headerAlign: "center",
 				mobilePriority: 1,
 				mobileMetaLabel: t("status"),
@@ -822,19 +774,25 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			},
 			{
 				id: "role",
+				width: "104px",
+				minWidth: "92px",
+				maxWidth: "120px",
 				header: t("core.role"),
+				menuLabel: t("core.role"),
 				priority: "medium",
-				width: "1%",
 				mobilePriority: 2,
 				mobileMetaLabel: t("core.role"),
 				cell: (admin) => <AdminRoleBadge role={admin.role} />,
 			},
 			{
 				id: "users_count",
+				width: "92px",
+				minWidth: "84px",
+				maxWidth: "112px",
 				header: t("admins.details.activeLabel"),
+				menuLabel: t("admins.details.activeLabel"),
 				sortable: true,
 				priority: "high",
-				width: "1%",
 				headerAlign: "center",
 				mobilePriority: 3,
 				mobileMetaLabel: t("admins.details.activeLabel"),
@@ -849,9 +807,12 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			},
 			{
 				id: "online",
+				width: "72px",
+				minWidth: "68px",
+				maxWidth: "80px",
 				header: t("admins.details.onlineLabel"),
+				menuLabel: t("admins.details.onlineLabel"),
 				priority: "medium",
-				width: "1%",
 				headerAlign: "center",
 				mobilePriority: 4,
 				mobileMetaLabel: t("admins.details.onlineLabel"),
@@ -863,10 +824,13 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			},
 			{
 				id: "services",
+				width: "104px",
+				minWidth: "92px",
+				maxWidth: "116px",
 				header: t("services.title"),
+				menuLabel: t("services.title"),
 				priority: "medium",
 				desktopVisible: isWide,
-				width: "1%",
 				mobilePriority: 5,
 				mobileMetaLabel: t("services.title"),
 				cell: (admin) => (
@@ -879,16 +843,19 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			},
 			{
 				id: "data_usage",
+				width: "clamp(180px, 14vw, 220px)",
+				minWidth: "180px",
+				maxWidth: "220px",
 				header: t("usersTable.traffic"),
+				menuLabel: t("usersTable.traffic"),
 				sortable: true,
 				priority: "high",
-				minWidth: "120px",
 				cellAlign: "start",
 				mobilePriority: 6,
 				mobileSummary: true,
 				mobileMetaLabel: t("usersTable.traffic"),
 				cell: (admin) => (
-					<div className="max-w-[32rem]">
+					<div className="w-full min-w-0">
 						<UserUsageBar
 							variant="stacked"
 							used={getAdminEffectiveUsage(admin)}
@@ -899,9 +866,12 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			},
 			{
 				id: "speed",
+				width: "112px",
+				minWidth: "104px",
+				maxWidth: "128px",
 				header: t("summary.speed"),
+				menuLabel: t("summary.speed"),
 				priority: "medium",
-				width: "1%",
 				desktopVisible: showSpeed,
 				hideOnMobile: true,
 				cell: (admin) => {
@@ -920,10 +890,13 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			},
 			{
 				id: "remaining_traffic",
+				width: "120px",
+				minWidth: "108px",
+				maxWidth: "132px",
 				header: t("usersTable.remainingTraffic"),
+				menuLabel: t("usersTable.remainingTraffic"),
 				priority: "medium",
 				desktopVisible: isWide,
-				width: "1%",
 				mobilePriority: 7,
 				mobileMetaLabel: t("usersTable.remainingTraffic"),
 				cell: (admin) => (
@@ -938,44 +911,18 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			},
 			{
 				id: "expire",
+				width: "120px",
+				minWidth: "108px",
+				maxWidth: "132px",
 				header: t("expire"),
+				menuLabel: t("expire"),
 				priority: "medium",
-				width: "1%",
-				minWidth: "88px",
 				mobilePriority: 8,
 				mobileMetaLabel: t("expire"),
 				cell: (admin) => <UserExpiryCountdown expire={admin.expire} />,
 			},
-			{
-				id: "quick_actions",
-				header: "",
-				priority: "medium",
-				width: "1%",
-				desktopVisible: showQuickActions,
-				hideOnMobile: true,
-				cell: (admin) => (
-					// biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops row clicks, it is not a control
-						// biome-ignore lint/a11y/useKeyWithClickEvents: same wrapper, no key action
-						<div onClick={(event) => event.stopPropagation()} className="flex flex-row items-center gap-0.5">
-						{rowActionsRef
-							.current(admin)
-							.filter((action) => QUICK_ACTION_IDS.includes(action.id))
-							.map((action) => (
-								<Tooltip key={action.id} label={action.label}>
-									<span>
-										<IconButton aria-label={String(action.label)} variant="ghost" size="sm" disabled={
-												typeof action.disabled === "function"
-													? action.disabled(admin)
-													: action.disabled
-											} onClick={() => action.onClick?.(admin)} className={cn("min-w-[28px]! h-[28px] rb-row-action", action.isDanger && "hover:text-red-400!")} >{action.icon}</IconButton>
-									</span>
-								</Tooltip>
-							))}
-					</div>
-				),
-			},
 		],
-		[adminSpeeds, isWide, showQuickActions, showSpeed, locale, t],
+		[adminSpeeds, isWide, showSpeed, locale, t],
 	);
 
 	const adminRowActions = (admin: Admin): DataTableRowAction<Admin>[] => {
@@ -1134,19 +1081,51 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	return (
 		<>
 			<div className="flex flex-col gap-3">
-				<ResourceListCard
-					title={t("admins.listHeader")}
-					summaryItems={adminSummaryItems}
-					footerActions={footerActions}
-				>
-					{toolbar}
-				</ResourceListCard>
+				<div className="overflow-hidden rounded-xl border border-panel-border! bg-panel-surface">
+					<AdminsOverviewBand
+						total={summaryData.totalCount}
+						topUsage={summaryData.topUsage}
+						topUsers={summaryData.topUsers}
+						topOnline={summaryData.topOnline}
+						active={summaryData.activeCount}
+						expired={summaryData.expiredCount}
+						limited={summaryData.limitedCount}
+						disabled={summaryData.disabledCount}
+						fullAccess={summaryData.fullAccessCount}
+						sudo={summaryData.sudoCount}
+						reseller={summaryData.resellerCount}
+						standard={summaryData.standardCount}
+						locale={locale}
+					/>
+					<div className="border-t border-panel-border! p-3">
+						<div className="flex flex-wrap items-center gap-2">
+							<div className="max-sm:contents sm:flex-[1_1_240px] min-w-0!">{toolbar}</div>
+							<div className="flex flex-row items-center gap-1 shrink-0">
+								<RefreshSplitButton
+									onRefresh={() => void fetchAdmins(undefined, { force: true })}
+									loading={loading}
+									interval={autoRefreshInterval}
+									onIntervalChange={setAutoRefreshInterval}
+									intervals={AUTO_REFRESH_INTERVALS}
+									labels={{
+										refresh: t("refresh"),
+										autoRefresh: t("usersTable.autoRefresh"),
+										off: t("usersTable.autoRefreshOff"),
+										every: (seconds: number) => t("usersTable.autoRefreshEvery", { seconds }),
+									}}
+								/>
+								<DataTableColumnMenu columns={adminColumns} visibility={columnVisibility} onChange={setColumnVisibility} />
+							</div>
+						</div>
+					</div>
+				</div>
 
 				<div ref={tableSectionRef} className="rb-admins-section">
 				<DataTable
 					ariaLabel={t("admins")}
 					data={admins}
 					columns={adminColumns}
+					columnVisibility={columnVisibility}
 					getRowId={(admin) => admin.username}
 					loading={loading}
 					loadingRows={skeletonCount}
@@ -1164,10 +1143,11 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 						count: selectedAdminUsernames.length,
 					})}
 					rowActions={adminRowActions}
-					actionsDisplay="menu"
+
 					actionsPlacement="end"
-					actionsColumnWidth={showQuickActions ? "40px" : "60px"}
-					showActionsOnHover
+					actionsColumnWidth="max-content"
+					actionsAlwaysVisible
+
 									onRowClick={isDesktop ? (admin) => setExpandedAdminUsername((current) => (current === admin.username ? null : admin.username)) : undefined}
 									isRowExpanded={isDesktop ? (admin) => expandedAdminUsername === admin.username : undefined}
 									renderExpandedRow={isDesktop ? renderExpandedAdmin : undefined}
