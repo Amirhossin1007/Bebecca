@@ -1498,7 +1498,7 @@ func shadowsocksClientFinalMask(inbound ResolvedInbound) map[string]any {
 	header := normalizeShareMKCPHeader(jsonvalue.String(inbound["header_type"]))
 	headerFound := header == "none" || header == "invalid"
 	for index, item := range udp {
-		transport, role := v2rayMKCPMaskRole(mapValue(item))
+		transport, role := v2rayMKCPMaskRole(mapValue(item), true)
 		if transport && transportIndex < 0 {
 			transportIndex = index
 		}
@@ -2026,9 +2026,6 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		jsonvalue.CopyOptional(resolved, "sessionIDLength", networkSettings, "sessionLength")
 		copyOptional(resolved, "headers", networkSettings)
 		copyOptional(resolved, "downloadSettings", networkSettings)
-		if download, ok := resolved["downloadSettings"]; ok {
-			resolved["downloadSettings"] = xhttpCurrentDownloadSettings(download)
-		}
 		copyOptional(resolved, "seqPlacement", networkSettings)
 		copyOptional(resolved, "seqKey", networkSettings)
 		copyOptional(resolved, "uplinkDataPlacement", networkSettings)

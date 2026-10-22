@@ -202,7 +202,7 @@ func TestShadowsocksMuxKeepsStandardShareLink(t *testing.T) {
 	if err != nil || shadowsocksHasNativeStreamSettings(parsed) {
 		t.Fatalf("Shadowsocks mux link is not a plain SIP002 link: parsed=%#v err=%v", parsed, err)
 	}
-	body, err := renderXrayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{{MuxEnabled: true}}, false, "", "")
+	body, err := renderXrayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{{MuxEnabled: true}}, false, "", "", true)
 	if err != nil || !strings.Contains(body, `"mux"`) || !strings.Contains(body, `"enabled": true`) {
 		t.Fatalf("xray-json lost standalone Shadowsocks mux: body=%s err=%v", body, err)
 	}
@@ -544,7 +544,7 @@ func TestRenderV2RayJSONSubscriptionBuildsImportableConfig(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected stream settings: %#v", firstOutbound["streamSettings"])
 	}
-	if stream["method"] != "ws" {
+	if stream["network"] != "ws" {
 		t.Fatalf("expected ws stream settings, got %#v", stream)
 	}
 	if configs[0]["remarks"] != "edge" {
@@ -633,8 +633,8 @@ func TestV2RayJSONMetadataAppliesFinalMaskAndMuxWithoutChangingRawLinks(t *testi
 	ssOutbound := configs[0]["outbounds"].([]any)[0].(map[string]any)
 	ssFinalMask := ssOutbound["streamSettings"].(map[string]any)["finalmask"].(map[string]any)
 	fragment := ssFinalMask["tcp"].([]any)[0].(map[string]any)["settings"].(map[string]any)
-	if fragment["lengths"] == nil || fragment["delays"] == nil || fragment["length"] != nil || fragment["delay"] != nil {
-		t.Fatalf("current fragment ranges were not kept as plural arrays: %#v", fragment)
+	if fragment["length"] != "3-5" || fragment["delay"] != "10-20" || fragment["lengths"] != nil || fragment["delays"] != nil {
+		t.Fatalf("legacy single fragment ranges were not normalized: %#v", fragment)
 	}
 	mux := ssOutbound["mux"].(map[string]any)
 	if mux["enabled"] != true || mux["concurrency"] != float64(23) || mux["xudpProxyUDP443"] != "allow" {
@@ -661,19 +661,21 @@ func TestXrayJSONPreservesTLSCipherSuites(t *testing.T) {
 		shadowsocksShareLink("ss", "example.com", inbound, map[string]any{"method": "aes-256-gcm", "password": "secret"}),
 		vmessShareLink("vmess", "example.com", "", inbound, map[string]any{"id": "11111111-1111-4111-8111-111111111111"}),
 	}
-	body, err := renderXrayJSONSubscriptionWithMetadata(links, nil, false, "", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	configs := []map[string]any{}
-	if err := json.Unmarshal([]byte(body), &configs); err != nil {
-		t.Fatal(err)
-	}
-	for _, config := range configs {
-		outbound := config["outbounds"].([]any)[0].(map[string]any)
-		tls := mapValue(mapValue(outbound["streamSettings"])["tlsSettings"])
-		if tls["cipherSuites"] != suites || tls["fingerprint"] != "unsafe" {
-			t.Fatalf("lost cipherSuites: %#v", tls)
+	for _, current := range []bool{false, true} {
+		body, err := renderXrayJSONSubscriptionWithMetadata(links, nil, false, "", "", current)
+		if err != nil {
+			t.Fatal(err)
+		}
+		configs := []map[string]any{}
+		if err := json.Unmarshal([]byte(body), &configs); err != nil {
+			t.Fatal(err)
+		}
+		for _, config := range configs {
+			outbound := config["outbounds"].([]any)[0].(map[string]any)
+			tls := mapValue(mapValue(outbound["streamSettings"])["tlsSettings"])
+			if tls["cipherSuites"] != suites || tls["fingerprint"] != "unsafe" {
+				t.Fatalf("current=%t lost cipherSuites: %#v", current, tls)
+			}
 		}
 	}
 
@@ -698,6 +700,21 @@ func TestXrayJSONPreservesTLSCipherSuites(t *testing.T) {
 	}
 	if _, ok := tls["utls"]; ok {
 		t.Fatalf("sing-box kept uTLS enabled with custom cipher suites: %#v", tls)
+	}
+}
+
+func TestAutomaticCustomJSONUpgradesOnlyCurrentFinalMask(t *testing.T) {
+	stable := ConfigLinksResponse{Metadata: []ConfigLinkMetadata{{FinalMask: map[string]any{
+		"tcp": []any{map[string]any{"type": "fragment", "settings": map[string]any{"length": "3-5", "delay": "10-20"}}},
+	}}}}
+	if configLinksRequireCurrentFinalMask(stable) {
+		t.Fatal("stable FinalMask unexpectedly selected the current dialect")
+	}
+	current := ConfigLinksResponse{Metadata: []ConfigLinkMetadata{{FinalMask: map[string]any{
+		"tcp": []any{map[string]any{"type": "fragment", "settings": map[string]any{"lengths": []any{"3-5", "6-8"}, "delays": []any{"10-20"}}}},
+	}}}}
+	if !configLinksRequireCurrentFinalMask(current) {
+		t.Fatal("current-only FinalMask did not select the current dialect")
 	}
 }
 
@@ -740,7 +757,7 @@ func TestV2RayJSONMetadataPreservesMKCPMasksDerivedFromShareLink(t *testing.T) {
 	}
 	stream := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)
 	udp := stream["finalmask"].(map[string]any)["udp"].([]any)
-	if len(udp) != 2 || udp[0].(map[string]any)["type"] != "mkcp-legacy" || udp[1].(map[string]any)["type"] != "mkcp-legacy" || udp[1].(map[string]any)["settings"].(map[string]any)["header"] != "dns" {
+	if len(udp) != 2 || udp[0].(map[string]any)["type"] != "mkcp-aes128gcm" || udp[1].(map[string]any)["type"] != "header-dns" {
 		t.Fatalf("metadata replaced mKCP-derived masks: %#v", stream["finalmask"])
 	}
 }
@@ -758,7 +775,7 @@ func TestV2RayJSONMKCPFinalMaskDoesNotAddLegacyTransport(t *testing.T) {
 	}
 	stream := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)
 	udp := stream["finalmask"].(map[string]any)["udp"].([]any)
-	if len(udp) != 1 || udp[0].(map[string]any)["type"] != "mkcp-legacy" {
+	if len(udp) != 1 || udp[0].(map[string]any)["type"] != "mkcp-aes128gcm" {
 		t.Fatalf("modern mKCP FinalMask gained a legacy transport layer: %#v", udp)
 	}
 }
@@ -780,8 +797,38 @@ func TestV2RayJSONMetadataPreservesLegacyMKCPTransport(t *testing.T) {
 	}
 	finalMask := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)["finalmask"].(map[string]any)
 	udp := finalMask["udp"].([]any)
-	if len(udp) != 3 || udp[0].(map[string]any)["type"] != "mkcp-legacy" || udp[1].(map[string]any)["type"] != "mkcp-legacy" || udp[1].(map[string]any)["settings"].(map[string]any)["header"] != "dns" || udp[2].(map[string]any)["type"] != "noise" || len(finalMask["tcp"].([]any)) != 1 {
+	if len(udp) != 3 || udp[0].(map[string]any)["type"] != "mkcp-aes128gcm" || udp[1].(map[string]any)["type"] != "header-dns" || udp[2].(map[string]any)["type"] != "noise" || len(finalMask["tcp"].([]any)) != 1 {
 		t.Fatalf("metadata replaced legacy mKCP transport masks: %#v", finalMask)
+	}
+}
+
+func TestV2RayJSONMetadataUsesStableFinalMaskCompatibilityGate(t *testing.T) {
+	const pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	for name, item := range map[string]struct {
+		link string
+		mask map[string]any
+	}{
+		"shadowsocks realm": {
+			link: "ss://YWVzLTI1Ni1nY206c2VjcmV0@ss.example.com:8388#ss",
+			mask: map[string]any{"udp": []any{map[string]any{"type": "realm", "settings": map[string]any{"url": "realm://token@example.com/id"}}}},
+		},
+		"hysteria bbrProfile": {
+			link: "hysteria2://secret@hy.example.com:443/?pinSHA256=" + pin + "#hy",
+			mask: map[string]any{"quicParams": map[string]any{"bbrProfile": "standard"}},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			body, err := renderV2RayJSONSubscriptionWithMetadata(
+				[]string{item.link},
+				[]ConfigLinkMetadata{{FinalMask: item.mask}},
+				false,
+				"",
+				"",
+			)
+			if err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") {
+				t.Fatalf("metadata bypassed stable compatibility: body=%q err=%v", body, err)
+			}
+		})
 	}
 }
 
@@ -823,7 +870,7 @@ func TestXrayJSONPreservesCompleteCurrentFinalMaskAndMux(t *testing.T) {
 	link := "ss://YWVzLTI1Ni1nY206c2VjcmV0@ss.example.com:8388#ss"
 	for _, fixture := range fixtures {
 		t.Run(fixture.name, func(t *testing.T) {
-			body, err := renderXrayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{{FinalMask: fixture.mask, MuxEnabled: fixture.mux}}, false, "", "")
+			body, err := renderXrayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{{FinalMask: fixture.mask, MuxEnabled: fixture.mux}}, false, "", "", true)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1315,14 +1362,28 @@ func TestVMessXHTTPStructuredOutputsPreserveModeAndClientExtra(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{`"mode": "stream-up"`, `"sessionIDPlacement": "query"`, `"sessionIDKey": "sid"`, `"sessionIDTable": "0123456789abcdef"`, `"sessionIDLength": 12`, `"X-Client": "value"`, `"xPaddingBytes": "100-1000"`, `"downloadSettings"`, `"down.example.com"`} {
+	for _, expected := range []string{`"mode": "stream-up"`, `"sessionPlacement": "query"`, `"sessionKey": "sid"`, `"sessionTable": "0123456789abcdef"`, `"sessionLength": 12`, `"X-Client": "value"`, `"xPaddingBytes": "100-1000"`, `"downloadSettings"`, `"down.example.com"`} {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("Xray VMess output lost %s: %s", expected, body)
 		}
 	}
-	for _, legacy := range []string{`"sessionPlacement"`, `"sessionKey"`, `"sessionTable"`, `"sessionLength"`} {
-		if strings.Contains(body, legacy) {
-			t.Fatalf("Xray VMess output leaked legacy alias %s: %s", legacy, body)
+	for _, currentOnly := range []string{`"sessionIDPlacement"`, `"sessionIDKey"`, `"sessionIDTable"`, `"sessionIDLength"`} {
+		if strings.Contains(body, currentOnly) {
+			t.Fatalf("generic stable Xray JSON leaked post-v26.6.22 alias %s: %s", currentOnly, body)
+		}
+	}
+	currentBody, err := renderXrayJSONSubscription([]string{link}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`"sessionIDPlacement": "query"`, `"sessionIDKey": "sid"`, `"sessionIDTable": "0123456789abcdef"`, `"sessionIDLength": 12`} {
+		if !strings.Contains(currentBody, expected) {
+			t.Fatalf("current xray-json lost %s: %s", expected, currentBody)
+		}
+	}
+	for _, stableOnly := range []string{`"sessionPlacement"`, `"sessionKey"`, `"sessionTable"`, `"sessionLength"`} {
+		if strings.Contains(currentBody, stableOnly) {
+			t.Fatalf("current xray-json leaked stable alias %s: %s", stableOnly, currentBody)
 		}
 	}
 	if strings.Contains(body, "must-not-survive") {
@@ -1354,8 +1415,8 @@ func TestXHTTPStructuredOutputsRejectUnsupportedDownloadSemanticsVisibly(t *test
 		t.Fatal(err)
 	}
 	link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=xhttp&security=none&encryption=none&extra=" + url.QueryEscape(string(extra))
-	if body, err := renderClashLikeYAML("alice", []string{link}, true); err != nil || strings.Contains(body, "alice-1") {
-		t.Fatalf("Mihomo emitted a host with unsupported download semantics: body=%q err=%v", body, err)
+	if body, err := renderClashLikeYAML("alice", []string{link}, true); err == nil || body != "" || !strings.Contains(err.Error(), "downloadSettings.finalmask") {
+		t.Fatalf("Mihomo silently lost unsupported download semantics: body=%q err=%v", body, err)
 	}
 	if body, err := renderSingBoxJSON([]string{link}); err == nil || body != "" || !strings.Contains(err.Error(), "does not support XHTTP") {
 		t.Fatalf("sing-box silently dropped XHTTP: body=%q err=%v", body, err)
@@ -1369,7 +1430,7 @@ func TestHysteria2StructuredOutputsPreserveEssentialClientFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{`"protocol": "hysteria"`, `"version": 2`, `"pinnedPeerCertSha256"`, pin, `"password": "mask+key"`, `"remotePorts": "443,20000-30000"`} {
+	for _, expected := range []string{`"protocol": "hysteria"`, `"version": 2`, `"pinnedPeerCertSha256"`, pin, `"password": "mask+key"`, `"ports": "443,20000-30000"`} {
 		if !strings.Contains(v2rayBody, expected) {
 			t.Fatalf("Xray Hysteria2 output lost %s: %s", expected, v2rayBody)
 		}
@@ -1563,7 +1624,7 @@ func TestMKCPAndFinalMaskRoundTripThroughRawAndXrayJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{`"mtu": 1350`, `"tti": 20`, `"lengths"`, `"3-5"`, `"delays"`, `"10-20"`} {
+	for _, expected := range []string{`"mtu": 1350`, `"tti": 20`, `"length": "3-5"`, `"delay": "10-20"`} {
 		if !strings.Contains(body, expected) {
 			t.Fatalf("Xray JSON lost KCP/FinalMask %s: %s", expected, body)
 		}
@@ -1584,14 +1645,13 @@ func TestMKCPAndFinalMaskRoundTripThroughRawAndXrayJSON(t *testing.T) {
 
 func TestHysteria2GeckoUsesNativeDefaultsAcrossOutputs(t *testing.T) {
 	link := "hysteria2://secret@example.com:443/?sni=example.com&obfs=gecko&obfs-password=mask#gecko"
-	for name, render := range map[string]func([]string, bool) (string, error){
-		"v2ray-json": renderV2RayJSONSubscription,
-		"xray-json":  renderXrayJSONSubscription,
-	} {
-		body, err := render([]string{link}, false)
-		if err != nil || !strings.Contains(body, `"type": "salamander"`) || !strings.Contains(body, `"packetSize": "512-1200"`) {
-			t.Fatalf("%s did not preserve Gecko defaults: body=%q err=%v", name, body, err)
-		}
+	body, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") || !strings.Contains(err.Error(), "Gecko") {
+		t.Fatalf("generic stable Xray JSON did not reject newer Gecko semantics, body=%q err=%v", body, err)
+	}
+	body, err = renderXrayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(body, `"type": "salamander"`) || !strings.Contains(body, `"packetSize": "512-1200"`) {
+		t.Fatalf("current xray-json did not preserve Gecko defaults: body=%q err=%v", body, err)
 	}
 	singBox, err := renderSingBoxJSON([]string{link})
 	if err != nil || !strings.Contains(singBox, `"type": "gecko"`) || !strings.Contains(singBox, `"min_packet_size": 512`) || !strings.Contains(singBox, `"max_packet_size": 1200`) {
@@ -1605,14 +1665,13 @@ func TestHysteria2GeckoUsesNativeDefaultsAcrossOutputs(t *testing.T) {
 
 func TestXrayJSONMovesHysteriaPortHoppingToCurrentMask(t *testing.T) {
 	link := "hysteria2://secret@example.com:443/?mport=20000-30000#hop"
-	for name, render := range map[string]func([]string, bool) (string, error){
-		"v2ray-json": renderV2RayJSONSubscription,
-		"xray-json":  renderXrayJSONSubscription,
-	} {
-		body, err := render([]string{link}, false)
-		if err != nil || !strings.Contains(body, `"type": "udphop"`) || !strings.Contains(body, `"remotePorts": "20000-30000"`) || strings.Contains(body, `"udpHop"`) {
-			t.Fatalf("%s uses a removed UDP hop field: body=%s err=%v", name, body, err)
-		}
+	current, err := renderXrayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(current, `"type": "udphop"`) || !strings.Contains(current, `"remotePorts": "20000-30000"`) || strings.Contains(current, `"udpHop"`) {
+		t.Fatalf("current Xray JSON uses a removed UDP hop field: body=%s err=%v", current, err)
+	}
+	legacy, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(legacy, `"udpHop"`) || strings.Contains(legacy, `"type": "udphop"`) {
+		t.Fatalf("legacy JSON changed: body=%s err=%v", legacy, err)
 	}
 }
 
@@ -1855,6 +1914,15 @@ func TestStructuredFormatsRejectUnsupportedFinalMaskWithoutSilentLoss(t *testing
 	}
 }
 
+func TestGenericXrayJSONRejectsNonRepresentableCurrentFinalMaskRanges(t *testing.T) {
+	fm := url.QueryEscape(`{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["1-2","3-4"],"delays":["0"]}}]}`)
+	link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=tcp&security=none&encryption=none&fm=" + fm
+	body, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") || !strings.Contains(err.Error(), "cannot losslessly represent") {
+		t.Fatalf("generic stable Xray JSON silently emitted plural FinalMask ranges: body=%q err=%v", body, err)
+	}
+}
+
 func TestXrayJSONPreservesCurrentFinalMaskRangesAndFields(t *testing.T) {
 	for name, item := range map[string]struct {
 		raw  string
@@ -1875,12 +1943,38 @@ func TestXrayJSONPreservesCurrentFinalMaskRangesAndFields(t *testing.T) {
 	}
 }
 
-func TestV2RayJSONRejectsUnknownFinalMaskTypes(t *testing.T) {
-	raw := `{"tcp":[{"type":"future-mask","settings":{}}]}`
-	link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=tcp&security=none&encryption=none&fm=" + url.QueryEscape(raw)
-	if body, err := renderV2RayJSONSubscription([]string{link}, false); err == nil || body != "" || !strings.Contains(err.Error(), "future-mask") {
-		t.Fatalf("v2ray-json accepted an unknown FinalMask type: body=%q err=%v", body, err)
+func TestGenericXrayJSONRejectsPostStableFinalMaskFields(t *testing.T) {
+	for name, raw := range map[string]string{
+		"realm":      `{"udp":[{"type":"realm","settings":{"url":"realm://token@example.com/id","stunServers":["stun.example.com:3478"]}}]}`,
+		"xdns":       `{"udp":[{"type":"xdns","settings":{"domains":["t.example.com:txt"]}}]}`,
+		"xicmp":      `{"udp":[{"type":"xicmp","settings":{"dgram":true}}]}`,
+		"bbrProfile": `{"quicParams":{"congestion":"bbr","bbrProfile":"standard"}}`,
+		"unknown":    `{"tcp":[{"type":"future-mask","settings":{}}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=tcp&security=none&encryption=none&fm=" + url.QueryEscape(raw)
+			if body, err := renderV2RayJSONSubscription([]string{link}, false); err == nil || body != "" || !strings.Contains(err.Error(), "stable v26.3.27") {
+				t.Fatalf("stable renderer accepted %s: body=%q err=%v", name, body, err)
+			}
+		})
 	}
+}
+
+func TestGenericXrayJSONStableDialectAcceptedByOfficialXray(t *testing.T) {
+	binary := strings.TrimSpace(os.Getenv("REBECCA_XRAY_STABLE_TEST_BINARY"))
+	if binary == "" {
+		t.Skip("set REBECCA_XRAY_STABLE_TEST_BINARY to the official stable Xray binary")
+	}
+	fm := url.QueryEscape(`{"tcp":[{"type":"fragment","settings":{"packets":"tlshello","lengths":["3-5"],"delays":["10-20"],"maxSplit":"3"}}]}`)
+	link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=kcp&security=none&encryption=none&seed=seed-value&headerType=dns&host=dns.example&mtu=1350&tti=20&fm=" + fm
+	body, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(body, `"mkcp-aes128gcm"`) || !strings.Contains(body, `"header-dns"`) || !strings.Contains(body, `"length": "3-5"`) || strings.Contains(body, `"lengths"`) || strings.Contains(body, `"mkcp-legacy"`) {
+		t.Fatalf("generic renderer mixed stable/current FinalMask dialects: %s", body)
+	}
+	assertOfficialXraySubscription(t, binary, body)
 }
 
 func TestGenericXrayJSONCurrentDialectAcceptedByOfficialXray(t *testing.T) {
@@ -1978,7 +2072,7 @@ func TestXrayJSONValidatesMKCPRangesAndUsesFinalMask(t *testing.T) {
 		{query: "&mtu=1500&tti=20", ok: true},
 		{query: "&mtu=4294967295&tti=20", ok: true},
 		{query: "&mtu=1350&tti=101", ok: true},
-		{query: "&mtu=1350&tti=5000"},
+		{query: "&mtu=1350&tti=5000", ok: true},
 		{query: "&mtu=20&tti=20"},
 		{query: "&mtu=4294967296&tti=20"},
 		{query: "&mtu=1350&tti=5001"},
@@ -1988,13 +2082,13 @@ func TestXrayJSONValidatesMKCPRangesAndUsesFinalMask(t *testing.T) {
 			t.Fatalf("mKCP query %q body=%s err=%v", tc.query, body, err)
 		}
 		if tc.ok {
-			for _, expected := range []string{`"mkcp-legacy"`, `"value": "seed-value"`, `"header": "dns"`, `"value": "dns.example"`} {
+			for _, expected := range []string{`"mkcp-aes128gcm"`, `"password": "seed-value"`, `"header-dns"`, `"domain": "dns.example"`} {
 				if !strings.Contains(body, expected) {
-					t.Fatalf("Xray JSON lost mKCP FinalMask %s: %s", expected, body)
+					t.Fatalf("latest-stable Xray JSON lost mKCP FinalMask %s: %s", expected, body)
 				}
 			}
-			if strings.Contains(body, `"seed"`) {
-				t.Fatalf("Xray JSON retained removed mKCP seed field: %s", body)
+			if strings.Contains(body, `"seed"`) || strings.Contains(body, `"header":`) {
+				t.Fatalf("latest-stable Xray JSON retained removed mKCP fields: %s", body)
 			}
 		}
 	}
@@ -2048,7 +2142,7 @@ func TestXrayJSONCurrentKCPDialectAndLayerAnchors(t *testing.T) {
 		"URI": {render: func() (string, error) { return renderXrayJSONSubscription([]string{headerLink}, false) }},
 		"metadata": {render: func() (string, error) {
 			link := "vless://11111111-1111-4111-8111-111111111111@example.com:443?type=kcp&security=none&encryption=none&seed=seed-value"
-			return renderXrayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{{FinalMask: headerOnly}}, false, "", "")
+			return renderXrayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{{FinalMask: headerOnly}}, false, "", "", true)
 		}, transportValue: "seed-value"},
 	} {
 		body, err := item.render()
