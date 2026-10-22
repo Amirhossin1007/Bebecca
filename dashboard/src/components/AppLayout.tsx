@@ -2116,8 +2116,8 @@ function AppLayoutContent() {
 										animate={{ opacity: 1, y: 0 }}
 										exit={{ opacity: 0, y: -80 }}
 										transition={{
-											duration: 0.45,
-											delay: 1.0,
+											duration: 0.5,
+											delay: 0.7,
 											ease: [0.16, 1, 0.3, 1],
 										}}
 										style={{
@@ -2157,8 +2157,8 @@ function AppLayoutContent() {
 										animate={{ opacity: 1, y: 0 }}
 										exit={{ opacity: 0, y: -80 }}
 										transition={{
-											duration: 0.45,
-											delay: 1.0,
+											duration: 0.5,
+											delay: 0.7,
 											ease: [0.16, 1, 0.3, 1],
 										}}
 										style={{

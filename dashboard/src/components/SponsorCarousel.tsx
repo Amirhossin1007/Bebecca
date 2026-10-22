@@ -161,9 +161,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = memo(({
 			initial={animateIn ? { y: "-140%", opacity: 0 } : false}
 			animate={{ y: "0%", opacity: 1 }}
 			transition={{
-				duration: 0.45,
+				duration: 0.5,
 				ease: [0.16, 1, 0.3, 1],
-				delay: animateIn && isInitial ? 1.0 : 0,
+				delay: animateIn && isInitial ? 0.7 : 0,
 			}}
 			style={{
 				display: isBanner ? "inline-flex" : "block",

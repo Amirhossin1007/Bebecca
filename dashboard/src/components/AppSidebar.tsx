@@ -176,33 +176,26 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 	collapsed,
 	inDrawer,
 }) => {
-	const [isReady, setIsReady] = useState(inDrawer);
 	const [isInitialMount, setIsInitialMount] = useState(true);
 
-	useEffect(() => {
-		if (inDrawer) return;
-		const timer = setTimeout(() => {
-			setIsReady(true);
-		}, 1000);
-		return () => clearTimeout(timer);
-	}, [inDrawer]);
-
-	const isExpanded = !collapsed && isReady;
-	const animDuration = inDrawer ? 0 : isInitialMount ? 0.45 : 0.26;
+	const isExpanded = !collapsed;
+	const animDuration = isInitialMount ? 0.5 : 0.26;
+	const animDelay = isInitialMount ? 0.7 : 0;
 
 	return (
 		<motion.div
-			initial={inDrawer ? false : { opacity: 0, y: 24 }}
+			initial={{ opacity: 0, y: 24 }}
 			animate={{
 				opacity: isExpanded ? 1 : 0,
 				y: isExpanded ? 0 : 24,
 			}}
 			transition={{
 				duration: animDuration,
+				delay: animDelay,
 				ease: [0.16, 1, 0.3, 1],
 			}}
 			onAnimationComplete={() => {
-				if (isInitialMount && isReady) setIsInitialMount(false);
+				if (isInitialMount) setIsInitialMount(false);
 			}}
 			style={{
 				width: "100%",
