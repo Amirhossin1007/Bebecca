@@ -1716,7 +1716,7 @@ const ServicesPage: FC = () => {
 				<div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions">
 					<div className="flex flex-row items-center gap-1 flex-wrap rb-inline-actions">
 						{actions.map((action) => (
-							<Tooltip>
+							<Tooltip key={action.id}>
 <TooltipTrigger asChild>
 								<span>
 									<Button aria-label={String(action.label)} disabled={typeof action.disabled === "function" ? action.disabled(service) : action.disabled} onClick={() => action.onClick?.(service)} variant="ghost" size="sm" className={cn("size-8 p-0", "min-w-[30px]! h-[30px]")}>{action.icon}</Button>

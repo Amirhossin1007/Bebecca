@@ -249,8 +249,8 @@ export const GeoUpdateDialog = ({
 							</FieldLabel>
 							<RadioGroup value={mode} onValueChange={(value) => setMode(value as "template" | "manual")}>
 								<div className="flex flex-row items-center gap-4">
-									<label className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem value="template" /><span>{t("nodes.geoDialog.modeTemplate")}</span></label>
-									<label className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem value="manual" /><span>{t("nodes.geoDialog.modeManual")}</span></label>
+									<label htmlFor="geo-mode-template" className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem id="geo-mode-template" value="template" /><span>{t("nodes.geoDialog.modeTemplate")}</span></label>
+									<label htmlFor="geo-mode-manual" className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem id="geo-mode-manual" value="manual" /><span>{t("nodes.geoDialog.modeManual")}</span></label>
 								</div>
 							</RadioGroup>
 						</Field>

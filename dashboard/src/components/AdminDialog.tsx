@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { type SubmitStatus, useSubmitTimers } from "hooks/useSubmitTimers";
 import dayjs from "dayjs";
 import { Eye, EyeOff, Search, ShieldPlus, Sparkles, UserPen } from "lucide-react";
-import { FC, useCallback, useEffect, useMemo, useState } from "react";
+import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
@@ -63,6 +63,7 @@ const adminPermissionsSchema: z.ZodType<AdminPermissions> = z.object({
 		set_flow: z.boolean(),
 		allow_custom_key: z.boolean(),
 		max_data_limit_per_user: z.number().nullable(),
+		min_data_limit_per_user: z.number().nullable(),
 		manage_speed_limit: z.boolean(),
 		manage_ip_limit: z.boolean(),
 		max_speed_limit_per_user: z.number().nullable(),
@@ -130,6 +131,7 @@ type AdminFormValues = {
 	delete_user_usage_limit?: string;
 	permissions: AdminPermissions;
 	maxDataLimitPerUserGb?: string;
+	minDataLimitPerUserGb?: string;
 	maxSpeedLimitPerUserMbps?: string;
 	maxIPLimitPerUser?: string;
 	data_limit?: string;
@@ -229,6 +231,11 @@ export const AdminDialog: FC = () => {
 					.trim()
 					.optional()
 					.transform((value) => (value === "" ? undefined : value)),
+				minDataLimitPerUserGb: z
+					.string()
+					.trim()
+					.optional()
+					.transform((value) => (value === "" ? undefined : value)),
 				permissions: adminPermissionsSchema,
 				services: z.array(z.number()).optional(),
 				service_limits: z.record(z.string(), z.any()).optional(),
@@ -260,6 +267,7 @@ export const AdminDialog: FC = () => {
 			delete_user_usage_limit: "",
 			permissions: clonePermissions(AdminRole.Standard),
 			maxDataLimitPerUserGb: "",
+			minDataLimitPerUserGb: "",
 			maxSpeedLimitPerUserMbps: "",
 			maxIPLimitPerUser: "",
 			data_limit: "",
@@ -300,6 +308,7 @@ export const AdminDialog: FC = () => {
 	const dataLimitValue = watch("data_limit") ?? "";
 	const usersLimitValue = watch("users_limit") ?? "";
 	const maxDataLimitValue = watch("maxDataLimitPerUserGb") ?? "";
+	const minDataLimitValue = watch("minDataLimitPerUserGb") ?? "";
 	const maxSpeedLimitValue = watch("maxSpeedLimitPerUserMbps") ?? "";
 	const maxIPLimitValue = watch("maxIPLimitPerUser") ?? "";
 	const parsedGlobalDataLimit = Number(dataLimitValue);
@@ -390,6 +399,7 @@ export const AdminDialog: FC = () => {
 	const resetPermissionsToRole = useCallback(() => {
 		setValue("permissions", clonePermissions(watchRole ?? AdminRole.Standard), { shouldDirty: true });
 		setValue("maxDataLimitPerUserGb", "", { shouldDirty: true });
+		setValue("minDataLimitPerUserGb", "", { shouldDirty: true });
 		setValue("maxSpeedLimitPerUserMbps", "", { shouldDirty: true });
 		setValue("maxIPLimitPerUser", "", { shouldDirty: true });
 	}, [setValue, watchRole]);
@@ -425,8 +435,16 @@ export const AdminDialog: FC = () => {
 		[setValue],
 	);
 
+	const handleMinDataLimitChange = useCallback(
+		(value: string) => {
+			setValue("minDataLimitPerUserGb", value, { shouldDirty: true });
+		},
+		[setValue],
+	);
+
 	useEffect(() => {
 		register("maxDataLimitPerUserGb");
+		register("minDataLimitPerUserGb");
 		register("maxSpeedLimitPerUserMbps");
 		register("maxIPLimitPerUser");
 		register("permissions");
@@ -488,6 +506,7 @@ export const AdminDialog: FC = () => {
 				? String(nextPermissions.users.max_ip_limit_per_user)
 				: "",
 			maxDataLimitPerUserGb: formatBytesToGbString(nextPermissions.users.max_data_limit_per_user),
+			minDataLimitPerUserGb: formatBytesToGbString(nextPermissions.users.min_data_limit_per_user),
 			data_limit: admin?.data_limit !== undefined && admin?.data_limit !== null ? String(Math.round((admin.data_limit / GB_IN_BYTES) * 1e9) / 1e9) : "",
 			users_limit: admin?.users_limit !== undefined && admin?.users_limit !== null ? String(admin.users_limit) : "",
 			services: admin?.services ?? [],
@@ -570,6 +589,32 @@ export const AdminDialog: FC = () => {
 				} else {
 					computedPermissions.users.max_data_limit_per_user = null;
 				}
+				const minLimitInput = values.minDataLimitPerUserGb?.trim();
+				if (minLimitInput) {
+					const parsedMin = Number(minLimitInput);
+					if (Number.isNaN(parsedMin) || parsedMin < 0) {
+						setError("minDataLimitPerUserGb", {
+							type: "manual",
+							message: t("admins.validation.invalidMinDataLimit"),
+						});
+						showSubmitError();
+						throw new Error("invalid_min_data_limit");
+					}
+					computedPermissions.users.min_data_limit_per_user =
+						parsedMin === 0 ? null : Math.round(parsedMin * GB_IN_BYTES);
+				} else {
+					computedPermissions.users.min_data_limit_per_user = null;
+				}
+				const minDataLimitBytes = computedPermissions.users.min_data_limit_per_user;
+				const maxDataLimitBytes = computedPermissions.users.max_data_limit_per_user;
+				if (minDataLimitBytes && maxDataLimitBytes && minDataLimitBytes > maxDataLimitBytes) {
+					setError("minDataLimitPerUserGb", {
+						type: "manual",
+						message: t("admins.validation.minAboveMax"),
+					});
+					showSubmitError();
+					throw new Error("invalid_min_data_limit");
+				}
 				const speedInput = values.maxSpeedLimitPerUserMbps?.trim();
 				if (speedInput) {
 					const parsedSpeed = Number(speedInput);
@@ -602,7 +647,7 @@ export const AdminDialog: FC = () => {
 					permissionPayload = buildPermissionsPayload();
 				} catch (error) {
 					if (
-						["invalid_max_data_limit", "invalid_max_speed_limit", "invalid_max_ip_limit"].includes(
+						["invalid_max_data_limit", "invalid_min_data_limit", "invalid_max_speed_limit", "invalid_max_ip_limit"].includes(
 							(error as Error).message,
 						)
 					) {
@@ -1152,6 +1197,9 @@ export const AdminDialog: FC = () => {
 				maxDataLimitValue={maxDataLimitValue}
 				onMaxDataLimitChange={handleMaxDataLimitChange}
 				maxDataLimitError={errors.maxDataLimitPerUserGb?.message as string | undefined}
+				minDataLimitValue={minDataLimitValue}
+				onMinDataLimitChange={handleMinDataLimitChange}
+				minDataLimitError={errors.minDataLimitPerUserGb?.message as string | undefined}
 				maxSpeedLimitValue={maxSpeedLimitValue}
 				onMaxSpeedLimitChange={handleMaxSpeedLimitChange}
 				maxSpeedLimitError={errors.maxSpeedLimitPerUserMbps?.message as string | undefined}

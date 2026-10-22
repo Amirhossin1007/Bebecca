@@ -2137,9 +2137,9 @@ export const InboundFormModal: FC<Props> = ({
 													)}>
 													<FormLabel helpKey="inbounds.mtproto.connectionModesHelp">{t("inbounds.mtproto.connectionModes")}</FormLabel>
 													<div className="flex flex-row items-center gap-6 flex-wrap">
-														<label className="flex cursor-pointer items-center gap-2 text-sm"><Controller control={control} name={"mtModeClassic"} render={({ field }) => <Checkbox checked={Boolean(field.value)} onCheckedChange={field.onChange} />} /><span>{t("inbounds.mtproto.modeClassic")}</span></label>
-														<label className="flex cursor-pointer items-center gap-2 text-sm"><Controller control={control} name={"mtModeSecure"} render={({ field }) => <Checkbox checked={Boolean(field.value)} onCheckedChange={field.onChange} />} /><span>{t("inbounds.mtproto.modeSecure")}</span></label>
-														<label className="flex cursor-pointer items-center gap-2 text-sm"><Controller control={control} name={"mtModeTLS"} render={({ field }) => <Checkbox checked={Boolean(field.value)} onCheckedChange={field.onChange} />} /><span>{t("inbounds.mtproto.modeTLS")}</span></label>
+														<label htmlFor="mt-mode-classic" className="flex cursor-pointer items-center gap-2 text-sm"><Controller control={control} name={"mtModeClassic"} render={({ field }) => <Checkbox id="mt-mode-classic" checked={Boolean(field.value)} onCheckedChange={field.onChange} />} /><span>{t("inbounds.mtproto.modeClassic")}</span></label>
+														<label htmlFor="mt-mode-secure" className="flex cursor-pointer items-center gap-2 text-sm"><Controller control={control} name={"mtModeSecure"} render={({ field }) => <Checkbox id="mt-mode-secure" checked={Boolean(field.value)} onCheckedChange={field.onChange} />} /><span>{t("inbounds.mtproto.modeSecure")}</span></label>
+														<label htmlFor="mt-mode-tls" className="flex cursor-pointer items-center gap-2 text-sm"><Controller control={control} name={"mtModeTLS"} render={({ field }) => <Checkbox id="mt-mode-tls" checked={Boolean(field.value)} onCheckedChange={field.onChange} />} /><span>{t("inbounds.mtproto.modeTLS")}</span></label>
 													</div>
 													<FieldError>
 														{fieldValidationErrors.mtModeClassic}
@@ -6371,7 +6371,7 @@ export const InboundFormModal: FC<Props> = ({
 																	<div className="flex flex-col gap-2">
 																		<div className="flex flex-row items-center gap-4">
 																			{sniffingOptions.map((option) => (
-																				<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox key={option.value} checked={(field.value ?? []).includes(option.value)} onCheckedChange={(checked) => field.onChange(checked === true ? [...(field.value ?? []), option.value] : (field.value ?? []).filter((item: string) => item !== option.value))} /><span>{option.label}</span></label>
+																				<label key={option.value} className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={(field.value ?? []).includes(option.value)} onCheckedChange={(checked) => field.onChange(checked === true ? [...(field.value ?? []), option.value] : (field.value ?? []).filter((item: string) => item !== option.value))} /><span>{option.label}</span></label>
 																			))}
 																		</div>
 																	</div>

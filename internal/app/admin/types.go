@@ -80,6 +80,7 @@ type UserPermissionSettings struct {
 	SetFlow              bool   `json:"set_flow"`
 	AllowCustomKey       bool   `json:"allow_custom_key"`
 	MaxDataLimitPerUser  *int64 `json:"max_data_limit_per_user"`
+	MinDataLimitPerUser  *int64 `json:"min_data_limit_per_user"`
 	ManageSpeedLimit     bool   `json:"manage_speed_limit"`
 	MaxSpeedLimitPerUser *int64 `json:"max_speed_limit_per_user"`
 	ManageIPLimit        bool   `json:"manage_ip_limit"`

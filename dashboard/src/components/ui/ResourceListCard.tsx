@@ -42,7 +42,7 @@ export const ResourceSummaryPills: FC<{ items: ResourceSummaryItem[] }> = ({
 					</Badge>
 				);
 				return item.helper ? (
-					<Tooltip>
+					<Tooltip key={item.label}>
 <TooltipTrigger asChild><span className="inline-flex max-w-full">{tag}</span></TooltipTrigger>
 <TooltipContent>{item.helper}</TooltipContent>
 </Tooltip>

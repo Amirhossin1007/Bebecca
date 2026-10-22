@@ -148,7 +148,7 @@ const SendPanel = () => {
 				{audience === "selected" && (
 					<div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto">
 						{(recipients.data?.items ?? []).map((admin) => (
-							<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox key={admin.id} checked={selected.includes(admin.id)} onCheckedChange={() => toggle(admin.id)} /><span>{admin.username}
+							<label key={admin.id} className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={selected.includes(admin.id)} onCheckedChange={() => toggle(admin.id)} /><span>{admin.username}
 								<span className="text-[0.75rem] text-gray-500 ms-2">
 									{admin.role}
 								</span></span></label>

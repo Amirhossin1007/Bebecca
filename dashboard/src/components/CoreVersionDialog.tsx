@@ -158,7 +158,7 @@ export const CoreVersionDialog = ({
 							</p>
 						</Field>
 						{allowPersist && (
-							<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={persist} onCheckedChange={(checked: boolean) => setPersist(checked)} /><span>{t("nodes.coreVersionDialog.persistExecutable")}</span></label>
+							<label htmlFor="core-version-persist" className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox id="core-version-persist" checked={persist} onCheckedChange={(checked: boolean) => setPersist(checked)} /><span>{t("nodes.coreVersionDialog.persistExecutable")}</span></label>
 						)}
 						{submissionError && (
 							<Alert variant="destructive" className="rounded-md text-[0.875rem]">

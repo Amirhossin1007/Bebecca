@@ -36,6 +36,7 @@ export const AdminPermissionsModal = ({
 		admin?.permissions ?? DEFAULT_ADMIN_PERMISSIONS,
 	);
 	const [maxDataLimitValue, setMaxDataLimitValue] = useState<string>("");
+	const [minDataLimitValue, setMinDataLimitValue] = useState<string>("");
 	const [maxSpeedLimitValue, setMaxSpeedLimitValue] = useState<string>("");
 	const [maxIPLimitValue, setMaxIPLimitValue] = useState<string>("");
 	const [saving, setSaving] = useState(false);
@@ -59,6 +60,15 @@ export const AdminPermissionsModal = ({
 					: "",
 			);
 			setPermissionsDraft(admin.permissions ?? DEFAULT_ADMIN_PERMISSIONS);
+			setMinDataLimitValue(
+				admin.permissions.users.min_data_limit_per_user
+					? String(
+							Number(
+								(admin.permissions.users.min_data_limit_per_user / (1024 * 1024 * 1024)).toFixed(2),
+							),
+						)
+					: "",
+			);
 			setMaxDataLimitValue(
 				admin.permissions.users.max_data_limit_per_user
 					? String(
@@ -73,6 +83,7 @@ export const AdminPermissionsModal = ({
 			setRequire2FA(false);
 			setPermissionsDraft(DEFAULT_ADMIN_PERMISSIONS);
 			setMaxDataLimitValue("");
+			setMinDataLimitValue("");
 		}
 	}, [admin]);
 
@@ -128,6 +139,21 @@ export const AdminPermissionsModal = ({
 								users: {
 									...prev.users,
 									max_data_limit_per_user:
+										!value || Number.isNaN(parsed)
+											? null
+											: Math.max(0, parsed) * 1024 * 1024 * 1024,
+								},
+							}));
+						}}
+						minDataLimitValue={minDataLimitValue}
+						onMinDataLimitChange={(value) => {
+							setMinDataLimitValue(value);
+							const parsed = Number(value);
+							setPermissionsDraft((prev) => ({
+								...prev,
+								users: {
+									...prev.users,
+									min_data_limit_per_user:
 										!value || Number.isNaN(parsed)
 											? null
 											: Math.max(0, parsed) * 1024 * 1024 * 1024,

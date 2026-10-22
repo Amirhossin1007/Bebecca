@@ -1,5 +1,4 @@
 import { toast } from "components/ui/sonner";
-import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type SubmitStatus, useSubmitTimers } from "hooks/useSubmitTimers";
 import dayjs from "dayjs";
@@ -835,6 +834,24 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			}
 		}
 
+		const minDataLimitPerUser =
+			userData?.permissions?.users?.min_data_limit_per_user;
+		const dataLimitUnchanged =
+			isEditing && (editingUser?.data_limit ?? 0) === dataLimitBytes;
+		if (
+			minDataLimitPerUser &&
+			dataLimitBytes > 0 &&
+			dataLimitBytes < minDataLimitPerUser &&
+			!dataLimitUnchanged
+		) {
+			setDataLimitError(
+				t("userDialog.dataLimitBelowMin", {
+					min: (minDataLimitPerUser / BYTES_PER_GB).toFixed(2),
+				}),
+			);
+			return;
+		}
+
 		const normalizedNextPlanDataLimit =
 			next_plan_enabled && next_plan_data_limit && next_plan_data_limit > 0
 				? gigabytesToBytes(Number(next_plan_data_limit))
@@ -861,6 +878,18 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			}
 		}
 
+		if (
+			minDataLimitPerUser &&
+			normalizedNextPlanDataLimit > 0 &&
+			normalizedNextPlanDataLimit < minDataLimitPerUser
+		) {
+			setNextPlanError(
+				t("userDialog.nextPlanDataLimitBelowMin", {
+					min: (minDataLimitPerUser / BYTES_PER_GB).toFixed(2),
+				}),
+			);
+			return;
+		}
 		const nextPlanPayload = next_plan_enabled
 			? {
 					data_limit: normalizedNextPlanDataLimit,
@@ -1325,7 +1354,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 								<SelectContent>
 									{resetStrategy.map((strategy) => (
 										<SelectItem key={strategy.value} value={strategy.value}>
-											<SelectItemText>{t("userDialog.resetStrategy" + strategy.title)}</SelectItemText>
+											<SelectItemText>{t(`userDialog.resetStrategy${strategy.title}`)}</SelectItemText>
 										</SelectItem>
 									))}
 								</SelectContent>

@@ -443,13 +443,13 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 									<Textarea rows={3} maxLength={500} {...form.register("note")} />
 								</FormField>
 
-								<label className="flex items-center justify-between gap-4 rounded-lg border bg-card/40 px-3 py-2.5 text-sm font-medium">
+								<label htmlFor="node-use-proxy" className="flex items-center justify-between gap-4 rounded-lg border bg-card/40 px-3 py-2.5 text-sm font-medium">
 									{t("nodes.useProxy")}
 									<Controller
 										control={form.control}
 										name="proxy_enabled"
 										render={({ field }) => (
-											<UiSwitch checked={Boolean(field.value)} onCheckedChange={(next) => field.onChange(next)} />
+											<UiSwitch id="node-use-proxy" checked={Boolean(field.value)} onCheckedChange={(next) => field.onChange(next)} />
 										)}
 									/>
 								</label>

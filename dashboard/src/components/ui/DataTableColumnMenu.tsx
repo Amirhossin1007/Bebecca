@@ -59,7 +59,7 @@ export function DataTableColumnMenu<TData>({
 							const id = `column-${column.id}`;
 							const checked = visibility[column.id] !== false;
 							return (
-								<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox key={column.id} id={id} checked={checked} onCheckedChange={(checked: boolean) => onChange({
+								<label key={column.id} className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox id={id} checked={checked} onCheckedChange={(checked: boolean) => onChange({
 											...visibility,
 											[column.id]: checked,
 										})} /><span><span className="text-[0.875rem]">

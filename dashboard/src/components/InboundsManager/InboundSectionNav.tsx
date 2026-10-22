@@ -97,14 +97,18 @@ export const InboundSectionNav = ({
 
 		collect();
 		container.addEventListener("scroll", updateActive, { passive: true });
-		RELEASE_EVENTS.forEach((type) => container.addEventListener(type, release, { passive: true }));
+		RELEASE_EVENTS.forEach((type) => {
+			container.addEventListener(type, release, { passive: true });
+		});
 		const observer = new MutationObserver(scheduleCollect);
 		observer.observe(container, { childList: true, subtree: true });
 
 		return () => {
 			observer.disconnect();
 			container.removeEventListener("scroll", updateActive);
-			RELEASE_EVENTS.forEach((type) => container.removeEventListener(type, release));
+			RELEASE_EVENTS.forEach((type) => {
+				container.removeEventListener(type, release);
+			});
 			if (frame) cancelAnimationFrame(frame);
 		};
 	}, [containerRef, resetKey]);

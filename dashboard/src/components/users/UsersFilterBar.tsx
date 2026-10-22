@@ -236,7 +236,7 @@ export const UsersFilterBar: FC = () => {
 							{ADVANCED_FILTER_OPTIONS.filter(
 								(option) => option.key !== "top_speed" || canViewTraffic,
 							).map((option) => (
-								<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox key={option.key} checked={activeFilters.includes(option.key)} onCheckedChange={() => toggleAdvancedFilter(option.key)} /><span>{getFilterLabel(option.key)}</span></label>
+								<label key={option.key} className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={activeFilters.includes(option.key)} onCheckedChange={() => toggleAdvancedFilter(option.key)} /><span>{getFilterLabel(option.key)}</span></label>
 							))}
 						</div>
 						<div className="flex flex-col gap-3 mt-3">

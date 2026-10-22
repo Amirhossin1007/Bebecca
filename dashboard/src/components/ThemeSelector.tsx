@@ -297,7 +297,7 @@ const ThemePanel: FC<ThemePanelProps> = ({
 							const selected = activeAccent === accent.key;
 							const label = t(`theme.accent.${accent.key}`, accent.label);
 							return (
-								<Tooltip>
+								<Tooltip key={accent.key}>
 <TooltipTrigger asChild>
 									
 										<button

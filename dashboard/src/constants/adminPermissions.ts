@@ -29,6 +29,7 @@ const FULL_USER_PERMISSIONS: PermissionTemplate["users"] = {
 	[UserPermissionToggle.SetFlow]: true,
 	[UserPermissionToggle.AllowCustomKey]: true,
 	max_data_limit_per_user: null,
+	min_data_limit_per_user: null,
 	[UserPermissionToggle.ManageSpeedLimit]: true,
 	[UserPermissionToggle.ManageIPLimit]: true,
 	max_speed_limit_per_user: null,

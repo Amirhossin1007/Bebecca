@@ -1201,7 +1201,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				<div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions">
 					<div className="flex flex-row items-center gap-1 rb-expanded-user-actions">
 						{expandedActions.map((action) => (
-							<Tooltip>
+							<Tooltip key={action.id}>
 <TooltipTrigger asChild>
 								<span>
 									<Button aria-label={String(action.label)} disabled={action.disabled} onClick={() => action.onClick?.()} variant="ghost" size="sm" className={cn("size-8 p-0", "min-w-[30px]! h-[30px]")}>{action.icon}</Button>

@@ -21,6 +21,9 @@ type AdminPermissionsEditorProps = {
 	maxDataLimitValue?: string;
 	onMaxDataLimitChange?: (value: string) => void;
 	maxDataLimitError?: string;
+	minDataLimitValue?: string;
+	onMinDataLimitChange?: (value: string) => void;
+	minDataLimitError?: string;
 	maxSpeedLimitValue?: string;
 	onMaxSpeedLimitChange?: (value: string) => void;
 	maxSpeedLimitError?: string;
@@ -168,6 +171,9 @@ export const AdminPermissionsEditor = ({
 	maxDataLimitValue,
 	onMaxDataLimitChange,
 	maxDataLimitError,
+	minDataLimitValue,
+	onMinDataLimitChange,
+	minDataLimitError,
 	maxSpeedLimitValue,
 	onMaxSpeedLimitChange,
 	maxSpeedLimitError,
@@ -213,6 +219,10 @@ export const AdminPermissionsEditor = ({
 
 	const handleMaxDataLimitChange = (value: string) => {
 		onMaxDataLimitChange?.(value);
+	};
+
+	const handleMinDataLimitChange = (value: string) => {
+		onMinDataLimitChange?.(value);
 	};
 
 	return (
@@ -263,6 +273,22 @@ export const AdminPermissionsEditor = ({
 			</Field>
 							<Field data-invalid={Boolean(maxSpeedLimitError)}>
 					<FieldLabel>{t("admins.permissions.maxSpeedPerUser")}</FieldLabel>
+			<Field data-invalid={Boolean(minDataLimitError)}>
+				<FieldLabel>{t("admins.permissions.minDataPerUser")}</FieldLabel>
+				<NumericInput
+					min={0}
+					step={1}
+					placeholder={t("admins.permissions.minDataHint")}
+					value={minDataLimitValue ?? ""}
+					onChange={handleMinDataLimitChange}
+					disabled={isReadOnly}
+				/>
+				{minDataLimitError ? (
+					<FieldError>{minDataLimitError}</FieldError>
+				) : (
+					<FieldDescription>{t("admins.permissions.minDataDescription")}</FieldDescription>
+				)}
+			</Field>
 					<NumericInput
 						min={0}
 						step={1}

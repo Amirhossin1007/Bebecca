@@ -73,6 +73,11 @@ func ValidateUserCreatePermissions(admin adminapp.Admin, payload UserCreate, ctx
 	}); err != nil {
 		return err
 	}
+	if payload.DataLimit != nil {
+		if err := EnsureMinDataLimitPermission(admin, *payload.DataLimit, 0); err != nil {
+			return err
+		}
+	}
 	if err := EnsureSpeedLimitPermission(admin, optionalInt64(payload.SpeedLimitKbps), 0, ctx.UserSpeedLimitEnabled); err != nil {
 		return err
 	}
@@ -122,6 +127,11 @@ func ValidateUserServiceCreatePermissions(admin adminapp.Admin, payload UserServ
 	}); err != nil {
 		return err
 	}
+	if payload.DataLimit != nil {
+		if err := EnsureMinDataLimitPermission(admin, *payload.DataLimit, 0); err != nil {
+			return err
+		}
+	}
 	if err := EnsureSpeedLimitPermission(admin, optionalInt64(payload.SpeedLimitKbps), 0, ctx.UserSpeedLimitEnabled); err != nil {
 		return err
 	}
@@ -155,6 +165,15 @@ func ValidateUserModifyPermissions(admin adminapp.Admin, payload UserModify, ctx
 		NextPlans: payload.NextPlans,
 	}); err != nil {
 		return err
+	}
+	if payload.DataLimit != nil {
+		current := int64(0)
+		if ctx.ExistingUser != nil && ctx.ExistingUser.DataLimit != nil {
+			current = *ctx.ExistingUser.DataLimit
+		}
+		if err := EnsureMinDataLimitPermission(admin, *payload.DataLimit, current); err != nil {
+			return err
+		}
 	}
 	if payload.SpeedLimitKbps != nil {
 		current := int64(0)
@@ -215,6 +234,9 @@ func EnsureUserConstraints(admin adminapp.Admin, input UserConstraintInput) erro
 				if err := EnsureDataLimitPermission(admin, *plan.DataLimit); err != nil {
 					return err
 				}
+				if err := EnsureMinDataLimitPermission(admin, *plan.DataLimit, 0); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -237,6 +259,21 @@ func EnsureDataLimitPermission(admin adminapp.Admin, dataLimit int64) error {
 		originalGB := float64(dataLimit) / (1024 * 1024 * 1024)
 		maxGB := float64(*perms.MaxDataLimitPerUser) / (1024 * 1024 * 1024)
 		return PermissionError{Detail: fmt.Sprintf("Data limit %.2f GB exceeds maximum %.2f GB. Maximum allowed: %.2f GB", originalGB, maxGB, maxGB)}
+	}
+	return nil
+}
+
+func EnsureMinDataLimitPermission(admin adminapp.Admin, dataLimit int64, currentLimit int64) error {
+	if admin.Role == adminapp.RoleFullAccess {
+		return nil
+	}
+	minLimit := admin.Permissions.Users.MinDataLimitPerUser
+	if minLimit == nil || *minLimit <= 0 || dataLimit <= 0 || dataLimit == currentLimit {
+		return nil
+	}
+	if dataLimit < *minLimit {
+		minGB := float64(*minLimit) / (1024 * 1024 * 1024)
+		return PermissionError{Detail: fmt.Sprintf("Data limit is below the minimum allowed %.2f GB.", minGB)}
 	}
 	return nil
 }
