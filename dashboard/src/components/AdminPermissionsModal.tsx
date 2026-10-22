@@ -1,6 +1,8 @@
-import { useToast } from "components/shadcn/toast";
-import { Button } from "components/shadcn/button";
-import { Switch } from "components/shadcn/selection";
+import { Button } from "components/ui/button";
+import { Switch } from "components/ui/switch";
+import { toast } from "components/ui/sonner";
+
+
 import { AppDialog } from "components/dialogs/AppDialog";
 import { DEFAULT_ADMIN_PERMISSIONS } from "constants/adminPermissions";
 import { useAdminsStore } from "contexts/AdminsContext";
@@ -27,7 +29,7 @@ export const AdminPermissionsModal = ({
 	admin,
 }: AdminPermissionsModalProps) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const updateAdmin = useAdminsStore((state) => state.updateAdmin);
 	const { userData } = useGetUser();
 	const [permissionsDraft, setPermissionsDraft] = useState<AdminPermissions>(
@@ -99,10 +101,10 @@ export const AdminPermissionsModal = ({
 				username: admin?.username ?? "",
 			})} contentProps={{ className: "max-w-[100vw] md:max-w-[calc(100vw_-_24px)] lg:max-w-[960px] h-[100dvh] md:h-auto max-h-[100dvh] md:max-h-[calc(100dvh_-_7.5rem)] my-0 md:my-[3.75rem] rounded-[0px] md:rounded-md" }} headerProps={{ className: "pr-12 text-[1.25rem] md:text-[1.5rem]" }} bodyProps={{ className: "overflow-x-hidden overflow-y-auto" }} footerProps={{ className: "gap-3" }} footer={
 				<>
-					<Button size="md" variant="ghost" onClick={onClose}>
+					<Button onClick={onClose} variant="ghost">
 						{t("cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" onClick={handleSave} loading={saving} disabled={!admin || (isFullAccess && !canManage2FA)}>
+					<Button onClick={handleSave} disabled={!admin || (isFullAccess && !canManage2FA)} loading={saving}>
 						{t("save")}
 					</Button>
 				</>
@@ -167,7 +169,7 @@ export const AdminPermissionsModal = ({
 					/>
 					<div className="flex flex-row items-center gap-2 border rounded-md justify-between mt-5 p-3">
 						<p>{t("admins.security.require2FA")}</p>
-						<Switch checked={require2FA} disabled={!canManage2FA} onChange={(event) => setRequire2FA(event.target.checked)} />
+						<Switch checked={require2FA} disabled={!canManage2FA} onCheckedChange={(checked: boolean) => setRequire2FA(checked)} />
 					</div>
 		</AppDialog>
 	);

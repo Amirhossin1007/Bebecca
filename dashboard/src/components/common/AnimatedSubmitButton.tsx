@@ -1,8 +1,11 @@
-import { Button, type ButtonProps } from "components/shadcn/button";
-import { withClass } from "components/shadcn/icon";
+import type { ButtonProps } from "components/ui/button";
+import { Button } from "components/ui/button";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { Check, X } from "lucide-react";
+
 import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "lib/cn";
-import { CheckIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import type { FC, ReactNode } from "react";
 
@@ -18,9 +21,9 @@ type AnimatedSubmitButtonProps = { h?: string; px?: number | string } & Omit<But
 	successWidth?: number;
 };
 
-const SuccessIcon = withClass(CheckIcon, "w-4 h-4 [stroke-width:2.4px]");
+const SuccessIcon = withClass(Check, "w-4 h-4 [stroke-width:2.4px]");
 
-const ErrorIcon = withClass(XMarkIcon, "w-5 h-5 [stroke-width:2.4px]");
+const ErrorIcon = withClass(X, "w-5 h-5 [stroke-width:2.4px]");
 
 const renderTextContent = (content: ReactNode) =>
 	typeof content === "string" ? (
@@ -83,7 +86,7 @@ export const AnimatedSubmitButton: FC<AnimatedSubmitButtonProps> = ({
 				initial={false}
 				style={{ display: "flex", justifyContent: "center", width: targetWidth }}
 			>
-				<Button variant="solid" size="md" aria-disabled={Boolean(isDisabled || isFeedbackState)} disabled={Boolean(isDisabled)} {...buttonProps} style={{ height: h, minHeight: h, paddingInline: px === undefined ? (status === "success" ? "1rem" : isCompact ? "0" : "2rem") : typeof px === "number" ? `${px * 0.25}rem` : px }} className={cn(cn("text-white overflow-hidden w-full disabled:cursor-not-allowed disabled:shadow-none", buttonBg, status === "idle" ? "rounded-[8px]" : "rounded-[999px]", isDisabled ? "cursor-not-allowed" : "cursor-pointer", isDisabled && status === "idle" ? "opacity-65" : "opacity-100", isFeedbackState ? "pointer-events-none" : "pointer-events-auto", buttonHoverBg, status === "idle" ? "active:[transform:scale(0.97)]" : "active:[transform:none]", isDisabled && status === "idle" ? "disabled:opacity-65" : "disabled:opacity-100"))}>
+				<Button aria-disabled={Boolean(isDisabled || isFeedbackState)} disabled={Boolean(isDisabled)} {...buttonProps} style={{ height: h, minHeight: h, paddingInline: px === undefined ? (status === "success" ? "1rem" : isCompact ? "0" : "2rem") : typeof px === "number" ? `${px * 0.25}rem` : px }} className={cn(cn("text-white overflow-hidden w-full disabled:cursor-not-allowed disabled:shadow-none", buttonBg, status === "idle" ? "rounded-[8px]" : "rounded-[999px]", isDisabled ? "cursor-not-allowed" : "cursor-pointer", isDisabled && status === "idle" ? "opacity-65" : "opacity-100", isFeedbackState ? "pointer-events-none" : "pointer-events-auto", buttonHoverBg, status === "idle" ? "active:[transform:scale(0.97)]" : "active:[transform:none]", isDisabled && status === "idle" ? "disabled:opacity-65" : "disabled:opacity-100"))}>
 					<AnimatePresence initial={false} mode="wait">
 						<motion.span
 							animate={{

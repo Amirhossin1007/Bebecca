@@ -1,9 +1,10 @@
-import { Menu, MenuButton, MenuList } from "components/shadcn/menu";
-import { Tooltip } from "components/shadcn/tooltip";
-import { IconButton } from "components/shadcn/button";
-import { Portal } from "components/shadcn/portal";
-import { Checkbox } from "components/shadcn/selection";
-import { AdjustmentsHorizontalIcon } from "@heroicons/react/24/outline";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { Button } from "components/ui/button";
+import { Checkbox } from "components/ui/checkbox";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
+
 import { useTranslation } from "react-i18next";
 import type { DataTableColumn } from "./DataTable.types";
 
@@ -37,12 +38,19 @@ export function DataTableColumnMenu<TData>({
 	).length;
 
 	return (
-		<Menu placement="bottom-end" isLazy closeOnSelect={false}>
-			<Tooltip label={t("next.table.toggleColumns")} placement="top" hasArrow>
-				<MenuButton as={IconButton} aria-label={t("next.table.toggleColumns")} icon={<AdjustmentsHorizontalIcon className="w-[16px]" />} size="sm" variant="outline" className="h-9 w-9 rounded-full" />
-			</Tooltip>
-			<Portal>
-				<MenuList className="z-[1800] min-w-[220px]! bg-panel-surface border-panel-border!">
+		<DropdownMenu>
+			<Tooltip>
+<TooltipTrigger asChild>
+				<DropdownMenuTrigger asChild>
+					<Button aria-label={t("next.table.toggleColumns")} size="sm" variant="outline" className="h-9 w-9 rounded-full">
+						<SlidersHorizontal className="w-[16px]" />
+					</Button>
+				</DropdownMenuTrigger>
+			</TooltipTrigger>
+<TooltipContent>{t("next.table.toggleColumns")}</TooltipContent>
+</Tooltip>
+			
+				<DropdownMenuContent className="z-[1800] min-w-[220px]! bg-panel-surface border-panel-border!">
 					<div className="flex flex-col gap-2 px-3 py-2">
 						<p className="text-[0.75rem] text-panel-text-muted uppercase tracking-[0.08em]">
 							{t("next.table.toggleColumns")} · {visibleCount}/{choosable.length}
@@ -51,21 +59,17 @@ export function DataTableColumnMenu<TData>({
 							const id = `column-${column.id}`;
 							const checked = visibility[column.id] !== false;
 							return (
-								<Checkbox key={column.id} id={id} size="sm" checked={checked} onChange={(event) =>
-										onChange({
+								<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox key={column.id} id={id} checked={checked} onCheckedChange={(checked: boolean) => onChange({
 											...visibility,
-											[column.id]: event.target.checked,
-										})
-									}>
-									<span className="text-[0.875rem]">
+											[column.id]: checked,
+										})} /><span><span className="text-[0.875rem]">
 										{column.menuLabel}
-									</span>
-								</Checkbox>
+									</span></span></label>
 							);
 						})}
 					</div>
-				</MenuList>
-			</Portal>
-		</Menu>
+				</DropdownMenuContent>
+			
+		</DropdownMenu>
 	);
 }

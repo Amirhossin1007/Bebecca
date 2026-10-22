@@ -1,6 +1,6 @@
 import { AdminDialog } from "components/AdminDialog";
 import { AdminsTable } from "components/AdminsTable";
-import { AdminsFilterBar } from "components/admins/AdminsFilterBar";
+import { AdminsCreateButton, AdminsFilterBar } from "components/admins/AdminsFilterBar";
 import { Pagination } from "components/Pagination";
 import { PageHeader } from "components/ui";
 import { useAdminsStore } from "contexts/AdminsContext";
@@ -48,6 +48,7 @@ export const AdminsPage: FC = () => {
 		<div className="flex flex-col gap-4 items-stretch">
 			<AdminsTable
 				toolbar={<AdminsFilterBar />}
+				headerActions={<AdminsCreateButton />}
 			/>
 			<Pagination for="admins" />
 			<AdminDialog />

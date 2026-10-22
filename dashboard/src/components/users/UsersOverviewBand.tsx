@@ -75,13 +75,13 @@ export function UsersOverviewBand({
 		<section
 			className={
 				bare
-					? "grid gap-4 p-4 md:grid-cols-[minmax(0,14rem)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,13rem)] md:gap-0"
-					: "grid gap-4 rounded-xl border border-panel-border bg-panel-surface p-4 md:grid-cols-[minmax(0,14rem)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,13rem)] md:gap-0"
+					? "grid grid-cols-2 gap-x-4 gap-y-4 p-4 md:grid-cols-[minmax(0,14rem)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,13rem)] md:gap-0"
+					: "grid grid-cols-2 gap-x-4 gap-y-4 rounded-xl border border-panel-border bg-panel-surface p-4 md:grid-cols-[minmax(0,14rem)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,13rem)] md:gap-0"
 			}
 			aria-label={t("usersStatusBreakdown")}
 		>
 			{/* Total, against the admin's user cap when the panel reports one. */}
-			<div className="flex flex-col justify-between gap-2 md:pe-6">
+			<div className="order-1 col-span-1 flex flex-col justify-between gap-2 md:pe-6">
 				<span className="text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-panel-text-muted">
 					{t("usersTable.total")}
 				</span>
@@ -119,7 +119,7 @@ export function UsersOverviewBand({
 			</div>
 
 			{/* Live state. */}
-			<div className="flex flex-col justify-between gap-3 md:border-s md:border-panel-border md:px-6">
+			<div className="order-3 col-span-2 flex flex-col justify-between gap-3 border-t border-panel-border! pt-4 md:order-2 md:col-span-1 md:border-s md:border-t-0 md:px-6 md:pt-0">
 				{[
 					{ key: "online", label: t("onlineStatus.online"), value: online, tone: "bg-panel-accent" },
 					{ key: "active", label: t("status.active"), value: active, tone: "bg-panel-success" },
@@ -145,7 +145,7 @@ export function UsersOverviewBand({
 			</div>
 
 			{/* Distribution across statuses. */}
-			<div className="flex flex-col justify-center gap-2 md:border-s md:border-panel-border md:px-6">
+			<div className="order-4 col-span-2 flex flex-col justify-center gap-2 border-t border-panel-border! pt-4 md:order-3 md:col-span-1 md:border-s md:border-t-0 md:px-6 md:pt-0">
 				<div className="flex items-center justify-between">
 					<span className="text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-panel-text-muted">
 						{t("usersStatusBreakdown")}
@@ -185,7 +185,7 @@ export function UsersOverviewBand({
 			</div>
 
 			{/* Traffic total plus the per-user average. */}
-			<div className="flex flex-col justify-between gap-2 md:border-s md:border-panel-border md:ps-6">
+			<div className="order-2 col-span-1 flex flex-col justify-between gap-2 md:order-4 md:col-span-1 md:border-s md:border-panel-border md:ps-6">
 				<span className="text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-panel-text-muted">
 					{usageLabel ?? t("usersTable.listUsage")}
 				</span>

@@ -1,37 +1,27 @@
-import { useToast } from "components/shadcn/toast";
-import { Badge } from "components/shadcn/badge";
-import { Alert, AlertIcon } from "components/shadcn/alert";
-import { Checkbox } from "components/shadcn/selection";
-import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
-import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
-import { Input } from "components/shadcn/input";
-import { Button } from "components/shadcn/button";
+import { toneClass } from "lib/tone";
+import { Badge } from "components/ui/badge";
+import { Alert } from "components/ui/alert";
+import { Checkbox } from "components/ui/checkbox";
+import { Button } from "components/ui/button";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "components/ui/dialog";
+import { FormField } from "components/ui/form-field";
+import { Input as UiInput } from "components/ui/input";
+import { NumberField } from "components/ui/number-field";
+import { CheckRow } from "components/ui/check-row";
+import { OverviewBand } from "components/ui/overview-band";
+import { ToggleRow } from "components/ui/toggle-row";
+import { FormSection } from "components/ui/form-section";
+import { SearchInput } from "components/common/SearchInput";
+import { DEFAULT_SEARCH_MATCH_OPTIONS } from "utils/searchMatch";
+import { AppWindow, Settings2, Download, ExternalLink, RefreshCw, Upload, Database, Code, Settings, FolderOpen, Ban, Send, Play, Plus, Sparkles, Trash2 } from "lucide-react";
+import type { ReactNode } from "react";
+
 import { cn } from "lib/cn";
-import {
-	ArrowDownTrayIcon,
-	ArrowTopRightOnSquareIcon,
-	ArrowPathIcon,
-	ArrowUpTrayIcon,
-	CircleStackIcon,
-	CodeBracketIcon,
-	Cog6ToothIcon,
-	FolderOpenIcon,
-	NoSymbolIcon,
-	PaperAirplaneIcon,
-	PlayIcon,
-	PlusIcon,
-	SparklesIcon,
-	TrashIcon,
-} from "@heroicons/react/24/outline";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
-import {
-	DataTable,
-	PageLoadingSkeleton,
-	ResourceListCard,
-	type DataTableColumn,
-	type DataTableRowAction,
-} from "components/ui";
+import { DataTable, PageLoadingSkeleton, DataTableColumn, DataTableRowAction } from "components/ui";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -58,6 +48,15 @@ const ExternalAppFilesModal = lazy(async () => ({
 		.ExternalAppFilesModal,
 }));
 
+const externalShell =
+	"flex max-h-[min(860px,calc(100dvh-4rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl max-md:inset-x-3 max-md:w-auto max-md:top-[4.5rem] max-md:bottom-24 max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0";
+
+const requiredLabel = (text: ReactNode) => (
+	<span>
+		{text} <span className="text-red-500">*</span>
+	</span>
+);
+
 const errorDetail = (error: unknown) => {
 	const candidate = error as {
 		data?: { detail?: string };
@@ -73,14 +72,16 @@ const errorDetail = (error: unknown) => {
 };
 
 export const ExternalAppsPage = () => {
-	const { t } = useTranslation();
-	const toast = useToast();
+	const { t, i18n } = useTranslation();
+	
 	const queryClient = useQueryClient();
 	const panelBg = "bg-panel-elevated";
 	const borderColor = "border-panel-border!";
 	const mutedColor = "panel.textSecondary";
 	const [template, setTemplate] = useState<TemplateID>("mirzabot");
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
+	const [appSearch, setAppSearch] = useState("");
+	const [appSearchMatch, setAppSearchMatch] = useState(DEFAULT_SEARCH_MATCH_OPTIONS);
 	const [domain, setDomain] = useState("");
 	const [name, setName] = useState("");
 	const [archiveRuntime, setArchiveRuntime] = useState<ArchiveRuntime>("php");
@@ -144,7 +145,7 @@ export const ExternalAppsPage = () => {
 			})
 			.map((name) => ({ value: name, label: name, searchLabel: name }));
 	}, [certificatesQuery.data?.certificates, template, usedRootDomains]);
-	const selectedTemplate = appsQuery.data?.templates.find(
+	const selectedTemplate = appsQuery.data?.templates?.find(
 		(item) => item.id === template,
 	);
 	const generateDatabaseCredentials = () => {
@@ -197,11 +198,7 @@ export const ExternalAppsPage = () => {
 					: undefined,
 			});
 		}, onSuccess: async () => {
-				toast({
-					title: t("externalApps.installSuccess"),
-					status: "success",
-					isClosable: true,
-				});
+				toast.success(t("externalApps.installSuccess"));
 				setDomain("");
 				setName("");
 				setArchiveRuntime("php");
@@ -220,53 +217,30 @@ export const ExternalAppsPage = () => {
 				await queryClient.invalidateQueries({ queryKey: ["external-apps"] });
 			},
 			onError: (error) => {
-				toast({
-					title: t("externalApps.installFailed"),
-					description: errorDetail(error),
-					status: "error",
-					isClosable: true,
-				});
+				toast.error(t("externalApps.installFailed"), { description: errorDetail(error) });
 			}, });
 
 	const toggleMutation = useMutation({ mutationFn: setExternalAppEnabled, onSuccess: () => queryClient.invalidateQueries({ queryKey: ["external-apps"] }),
 		onError: (error) => {
-			toast({
-				title: t("externalApps.actionFailed"),
-				description: errorDetail(error),
-				status: "error",
-				isClosable: true,
-			});
+			toast.error(t("externalApps.actionFailed"), { description: errorDetail(error) });
 		}, });
 
 	const deleteMutation = useMutation({ mutationFn: deleteExternalApp, onSuccess: () => {
-			toast({ title: t("externalApps.deleteSuccess"), status: "success" });
+			toast.success(t("externalApps.deleteSuccess"));
 			setDeleteTarget(null);
 			queryClient.invalidateQueries({ queryKey: ["external-apps"] });
 		},
 		onError: (error) => {
-			toast({
-				title: t("externalApps.actionFailed"),
-				description: errorDetail(error),
-				status: "error",
-				isClosable: true,
-			});
+			toast.error(t("externalApps.actionFailed"), { description: errorDetail(error) });
 		}, });
 
 	const updateMutation = useMutation({ mutationFn: updateExternalMirzaBot, onSuccess: (app) => {
-			toast({
-				title: t("externalApps.updateSuccess", { version: app.version }),
-				status: "success",
-			});
+			toast.success(t("externalApps.updateSuccess", { version: app.version }));
 			setUpdateTarget(null);
 			queryClient.invalidateQueries({ queryKey: ["external-apps"] });
 		},
 		onError: (error) => {
-			toast({
-				title: t("externalApps.updateFailed"),
-				description: errorDetail(error),
-				status: "error",
-				isClosable: true,
-			});
+			toast.error(t("externalApps.updateFailed"), { description: errorDetail(error) });
 		}, });
 
 	const databaseBackupMutation = useMutation({ mutationFn: (app: ExternalAppRecord) => exportExternalAppDatabase(app.id), onSuccess: (blob, app) => {
@@ -282,32 +256,19 @@ export const ExternalAppsPage = () => {
 				anchor.click();
 				anchor.remove();
 				URL.revokeObjectURL(url);
-				toast({
-					title: t("externalApps.databaseBackupReady"),
-					status: "success",
-				});
+				toast.success(t("externalApps.databaseBackupReady"));
 			},
 			onError: (error) => {
-				toast({
-					title: t("externalApps.databaseBackupFailed"),
-					description: errorDetail(error),
-					status: "error",
-					isClosable: true,
-				});
+				toast.error(t("externalApps.databaseBackupFailed"), { description: errorDetail(error) });
 			}, });
 
 	const settingsMutation = useMutation({ mutationFn: updateExternalAppSettings, onSuccess: () => {
-			toast({ title: t("externalApps.settingsSaved"), status: "success" });
+			toast.success(t("externalApps.settingsSaved"));
 			setSettingsTarget(null);
 			queryClient.invalidateQueries({ queryKey: ["external-apps"] });
 		},
 		onError: (error) => {
-			toast({
-				title: t("externalApps.actionFailed"),
-				description: errorDetail(error),
-				status: "error",
-				isClosable: true,
-			});
+			toast.error(t("externalApps.actionFailed"), { description: errorDetail(error) });
 		}, });
 
 	const confirmDelete = (app: ExternalAppRecord) => {
@@ -384,10 +345,10 @@ export const ExternalAppsPage = () => {
 								: app.runtime.toUpperCase()}
 						</Badge>
 						{app.php_version ? (
-							<Badge colorScheme="purple">PHP {app.php_version}</Badge>
+							<Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-500/20 dark:text-purple-200">PHP {app.php_version}</Badge>
 						) : null}
 						{app.version ? (
-							<Badge colorScheme="blue">{app.version}</Badge>
+							<Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-200">{app.version}</Badge>
 						) : null}
 					</div>
 				),
@@ -400,7 +361,7 @@ export const ExternalAppsPage = () => {
 				mobilePriority: 3,
 				mobileMetaLabel: t("status"),
 				cell: (app) => (
-					<Badge colorScheme={app.enabled ? "green" : "gray"}>
+					<Badge className={toneClass(app.enabled ? "green" : "gray")}>
 						{app.enabled
 							? t("externalApps.enabled")
 							: t("externalApps.disabled")}
@@ -435,7 +396,7 @@ export const ExternalAppsPage = () => {
 			actions.push({
 				id: "update",
 				label: t("externalApps.update"),
-				icon: <ArrowPathIcon className="w-[16px]" />,
+				icon: <RefreshCw className="w-[16px]" />,
 				onClick: () => setUpdateTarget(app),
 			});
 		}
@@ -443,7 +404,7 @@ export const ExternalAppsPage = () => {
 			actions.push({
 				id: "database-backup",
 				label: t("externalApps.downloadDatabaseBackup"),
-				icon: <ArrowDownTrayIcon className="w-[16px]" />,
+				icon: <Download className="w-[16px]" />,
 				onClick: () => databaseBackupMutation.mutate(app),
 				disabled: databaseBackupMutation.isPending,
 			});
@@ -452,7 +413,7 @@ export const ExternalAppsPage = () => {
 			{
 				id: "files",
 				label: t("externalApps.files.button"),
-				icon: <FolderOpenIcon className="w-[16px]" />,
+				icon: <FolderOpen className="w-[16px]" />,
 				onClick: () => openManager(app, "file"),
 			},
 			...(app.runtime === "php"
@@ -460,7 +421,7 @@ export const ExternalAppsPage = () => {
 						{
 							id: "php-settings",
 							label: t("externalApps.files.phpConfig"),
-							icon: <CodeBracketIcon className="w-[16px]" />,
+							icon: <Code className="w-[16px]" />,
 							onClick: () => openManager(app, "php-config"),
 						},
 					]
@@ -470,7 +431,7 @@ export const ExternalAppsPage = () => {
 						{
 							id: "settings",
 							label: t("externalApps.settings"),
-							icon: <Cog6ToothIcon className="w-[16px]" />,
+							icon: <Settings className="w-[16px]" />,
 							onClick: () => openSettings(app),
 						},
 					]
@@ -478,7 +439,7 @@ export const ExternalAppsPage = () => {
 			{
 				id: "open",
 				label: t("externalApps.open"),
-				icon: <ArrowTopRightOnSquareIcon className="w-[16px]" />,
+				icon: <ExternalLink className="w-[16px]" />,
 				onClick: () =>
 					window.open(app.public_url, "_blank", "noopener,noreferrer"),
 			},
@@ -487,7 +448,7 @@ export const ExternalAppsPage = () => {
 						{
 							id: "open-bot",
 							label: t("externalApps.openBot"),
-							icon: <PaperAirplaneIcon className="w-[16px]" />,
+							icon: <Send className="w-[16px]" />,
 							onClick: () =>
 								window.open(
 									`https://t.me/${encodeURIComponent(botUsername)}`,
@@ -503,9 +464,9 @@ export const ExternalAppsPage = () => {
 					? t("externalApps.disable")
 					: t("externalApps.enable"),
 				icon: app.enabled ? (
-					<NoSymbolIcon className="w-[16px]" />
+					<Ban className="w-[16px]" />
 				) : (
-					<PlayIcon className="w-[16px]" />
+					<Play className="w-[16px]" />
 				),
 				onClick: () =>
 					toggleMutation.mutate({ id: app.id, enabled: !app.enabled }),
@@ -514,7 +475,7 @@ export const ExternalAppsPage = () => {
 			{
 				id: "delete",
 				label: t("externalApps.delete"),
-				icon: <TrashIcon className="w-[16px]" />,
+				icon: <Trash2 className="w-[16px]" />,
 				onClick: () => confirmDelete(app),
 				disabled: deleteMutation.isPending,
 				isDanger: true,
@@ -523,6 +484,24 @@ export const ExternalAppsPage = () => {
 		return actions;
 	};
 
+	const locale = i18n.language || "en";
+	const visibleApps = apps.filter((app) => !appSearch.trim() || `${app.name} ${app.domain}`.toLowerCase().includes(appSearch.trim().toLowerCase()));
+	const appOverview = {
+		total: { label: t("externalApps.installedApps"), value: apps.length, caption: `${t("externalApps.enabled")}: ${apps.filter((app) => app.enabled).length}` },
+		rows: [
+			{ key: "enabled", label: t("externalApps.enabled"), value: apps.filter((app) => app.enabled).length, tone: "bg-panel-success" },
+			{ key: "database", label: t("externalApps.databaseSettings"), value: apps.filter((app) => app.has_database).length, tone: "bg-panel-accent" },
+		],
+		distribution: {
+			label: t("externalApps.runtime"),
+			segments: [
+				{ key: "php", label: "PHP", value: apps.filter((app) => app.runtime === "php").length, tone: "bg-panel-accent" },
+				{ key: "node", label: "Node.js", value: apps.filter((app) => app.runtime === "node").length, tone: "bg-panel-success" },
+				{ key: "static", label: t("externalApps.staticRuntime"), value: apps.filter((app) => app.runtime === "static").length, tone: "bg-panel-info" },
+			],
+		},
+		extra: { label: t("externalApps.disabled"), value: apps.filter((app) => !app.enabled).length },
+	};
 	if (appsQuery.isLoading) {
 		return <PageLoadingSkeleton />;
 	}
@@ -535,8 +514,8 @@ export const ExternalAppsPage = () => {
 						{t("externalApps.description")}
 					</p>
 				</div>
-				<Alert status="warning" className="rounded-md">
-					<AlertIcon />
+				<Alert className="rounded-md">
+					<TriangleAlert className="size-4" aria-hidden="true" />
 					<p>{t("externalApps.unsupported")}</p>
 				</Alert>
 			</div>
@@ -569,9 +548,7 @@ export const ExternalAppsPage = () => {
 							})}
 						</p>
 						{deleteTarget?.has_database ? (
-							<Checkbox checked={keepDatabase} onChange={(event) => setKeepDatabase(event.target.checked)}>
-								{t("externalApps.keepDatabase")}
-							</Checkbox>
+							<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={keepDatabase} onCheckedChange={(checked: boolean) => setKeepDatabase(checked)} /><span>{t("externalApps.keepDatabase")}</span></label>
 						) : null}
 					</div>
 				}
@@ -596,66 +573,45 @@ export const ExternalAppsPage = () => {
 					/>
 				</Suspense>
 			)}
-			<Modal open={Boolean(settingsTarget)} onClose={() => setSettingsTarget(null)} size="xl">
-				<ModalOverlay className="bg-blackAlpha-500" />
-				<ModalContent className={cn(panelBg)}>
-					<ModalHeader>{t("externalApps.settingsTitle")}</ModalHeader>
-					<ModalCloseButton />
-					<ModalBody>
-						<div className="flex flex-col gap-4">
-							<h2 className="font-heading font-bold text-[0.875rem] leading-[1.2]">{t("externalApps.routingSettings")}</h2>
-							<FormControl required>
-								<FormLabel>{t("externalApps.indexFile")}</FormLabel>
-								<Input value={indexFile} onChange={(event) => setIndexFile(event.target.value)} placeholder="index.php" autoComplete="off" />
-								<FormHelperText>
-									{t("externalApps.indexFileHint")}
-								</FormHelperText>
-							</FormControl>
-							<Checkbox checked={fallbackToIndex} onChange={(event) => setFallbackToIndex(event.target.checked)}>
-								<div className="flex flex-col gap-0">
-									<p>{t("externalApps.fallbackToIndex")}</p>
-									<p className={cn(mutedColor, "text-[0.875rem]")}>
-										{t("externalApps.fallbackToIndexHint")}
-									</p>
-								</div>
-							</Checkbox>
-							<FormControl>
-								<FormLabel>{t("externalApps.notFoundFile")}</FormLabel>
-								<Input value={notFoundFile} onChange={(event) => setNotFoundFile(event.target.value)} placeholder="404.html" autoComplete="off" />
-								<FormHelperText>
-									{t("externalApps.notFoundFileHint")}
-								</FormHelperText>
-							</FormControl>
-							<h2 className="font-heading font-bold text-[0.875rem] leading-[1.2] pt-2">
-								{t("externalApps.performanceSettings")}
-							</h2>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<FormControl required>
-									<FormLabel>{t("externalApps.maxRequestBody")}</FormLabel>
-									<Input type="number" min={1} max={32} value={maxRequestBodyMB} onChange={(event) =>
-											setMaxRequestBodyMB(Number(event.target.value))
-										} />
-									<FormHelperText>
-										{t("externalApps.maxRequestBodyHint")}
-									</FormHelperText>
-								</FormControl>
-								<FormControl required>
-									<FormLabel>{t("externalApps.staticCache")}</FormLabel>
-									<Input type="number" min={0} max={31536000} value={staticCacheSeconds} onChange={(event) =>
-											setStaticCacheSeconds(Number(event.target.value))
-										} />
-									<FormHelperText>
-										{t("externalApps.staticCacheHint")}
-									</FormHelperText>
-								</FormControl>
-							</div>
+			<Dialog open={Boolean(settingsTarget)} onOpenChange={(next) => { if (!next) setSettingsTarget(null); }}>
+				<DialogContent className={externalShell}>
+					<DialogHeader className="flex-row items-center gap-3 border-b px-5 py-3.5 pe-12 text-start sm:text-start">
+						<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+							<Settings2 className="size-4" />
 						</div>
-					</ModalBody>
-					<ModalFooter className="gap-3">
-						<Button size="md" variant="ghost" onClick={() => setSettingsTarget(null)}>
+						<div className="min-w-0">
+							<DialogTitle className="truncate text-base">{t("externalApps.settingsTitle")}</DialogTitle>
+							<DialogDescription className="truncate">{settingsTarget?.name || ""}</DialogDescription>
+						</div>
+					</DialogHeader>
+					<div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+						<div className="flex flex-col gap-5">
+							<FormSection title={t("externalApps.routingSettings")}>
+								<FormField label={requiredLabel(t("externalApps.indexFile"))} description={t("externalApps.indexFileHint")}>
+									<UiInput value={indexFile} onChange={(event) => setIndexFile(event.target.value)} placeholder="index.php" autoComplete="off" />
+								</FormField>
+								<ToggleRow title={t("externalApps.fallbackToIndex")} hint={t("externalApps.fallbackToIndexHint")} checked={fallbackToIndex} onChange={(next) => setFallbackToIndex(next)} />
+								<FormField label={t("externalApps.notFoundFile")} description={t("externalApps.notFoundFileHint")}>
+									<UiInput value={notFoundFile} onChange={(event) => setNotFoundFile(event.target.value)} placeholder="404.html" autoComplete="off" />
+								</FormField>
+							</FormSection>
+							<FormSection title={t("externalApps.performanceSettings")}>
+								<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+									<FormField label={requiredLabel(t("externalApps.maxRequestBody"))} description={t("externalApps.maxRequestBodyHint")}>
+										<NumberField inputMode="numeric" min={1} max={32} value={String(maxRequestBodyMB ?? "")} doneLabel={t("common.done")} onChange={(raw) => setMaxRequestBodyMB(Number(raw))} />
+									</FormField>
+									<FormField label={requiredLabel(t("externalApps.staticCache"))} description={t("externalApps.staticCacheHint")}>
+										<NumberField inputMode="numeric" min={0} max={31536000} value={String(staticCacheSeconds ?? "")} doneLabel={t("common.done")} onChange={(raw) => setStaticCacheSeconds(Number(raw))} />
+									</FormField>
+								</div>
+							</FormSection>
+						</div>
+					</div>
+					<DialogFooter className="flex-row flex-wrap items-center justify-end gap-2 border-t px-5 py-3">
+						<Button onClick={() => setSettingsTarget(null)} variant="outline" size="sm">
 							{t("close")}
 						</Button>
-						<Button size="md" colorScheme="blue" loading={settingsMutation.isPending} disabled={
+						<Button disabled={
 								!indexFile.trim() ||
 								maxRequestBodyMB < 1 ||
 								maxRequestBodyMB > 32 ||
@@ -671,12 +627,12 @@ export const ExternalAppsPage = () => {
 									static_cache_seconds: staticCacheSeconds,
 									not_found_file: notFoundFile.trim(),
 								});
-							}}>
+							}} size="sm" loading={settingsMutation.isPending}>
 							{t("save")}
 						</Button>
-					</ModalFooter>
-				</ModalContent>
-			</Modal>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 			<div>
 				<h2 className="font-heading font-bold text-[1.5rem] leading-[1.33] md:text-[1.875rem] md:leading-[1.2]">{t("externalApps.title")}</h2>
 				<p className={cn(mutedColor, "mt-2")}>
@@ -684,235 +640,183 @@ export const ExternalAppsPage = () => {
 				</p>
 			</div>
 
-			<Alert status="info" className="rounded-md">
-				<AlertIcon />
+			<Alert className="rounded-md">
+				<Info className="size-4" aria-hidden="true" />
 				<p className="text-[0.875rem]">{t("externalApps.resourceHint")}</p>
 			</Alert>
 
-			<Modal open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} size="3xl" isCentered scrollBehavior="inside" closeOnOverlayClick={!installMutation.isPending}>
-				<ModalOverlay className="bg-blackAlpha-500" />
-				<ModalContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0", panelBg, borderColor)}>
-					<ModalCloseButton disabled={installMutation.isPending} />
-					<div className="p-5 md:p-6">
-						<h2 className="font-heading font-bold text-[1.25rem] leading-[1.2] mb-4">
-							{t("externalApps.newApp")}
-						</h2>
-						{!appsQuery.data?.supported ? (
-							<Alert status="warning" className="mb-4 rounded-md">
-								<AlertIcon />
-								{appsQuery.data?.detail || t("externalApps.unsupported")}
-							</Alert>
-						) : null}
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<FormControl>
-								<FormLabel>{t("externalApps.template")}</FormLabel>
-								<Select
-									value={template}
-									onValueChange={(value) => setTemplate(value as TemplateID)}
-									options={[
-										{
-											value: "mirzabot",
-											label: t("externalApps.mirzaTemplate"),
-										},
-										{
-											value: "faoxima",
-											label: t("externalApps.faoximaTemplate"),
-										},
-										{
-											value: "archive",
-											label: t("externalApps.archiveTemplate"),
-										},
-									]}
-								/>
-								{(template === "mirzabot" || template === "faoxima") && selectedTemplate?.source_url ? (
-									<a href={selectedTemplate.source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 mt-2 text-[0.875rem] text-blue-300">
-										{t(
-											template === "faoxima"
-												? "externalApps.latestFaoximaRelease"
-												: "externalApps.latestRelease",
-										)}
-										<ArrowTopRightOnSquareIcon className="w-[14px]" />
-									</a>
-								) : null}
-							</FormControl>
-							<FormControl required>
-								<FormLabel>{t("externalApps.domainCertificate")}</FormLabel>
-								<Select
-									value={domain}
-									onValueChange={(value) => setDomain(String(value))}
-									options={certificateOptions}
-									placeholder={t("externalApps.selectDomain")}
-									showSearch
-									emptyText={t("externalApps.noCertificates")}
-								/>
-								<FormHelperText>
-									{t("externalApps.certificateHint")}{" "}
-									<RouterLink to="/settings#ssl" className="text-blue-300">
-										{t("externalApps.openSSLManager")}
-									</RouterLink>
-								</FormHelperText>
-							</FormControl>
+			<Dialog open={createDialogOpen} onOpenChange={(next) => { if (!next && !installMutation.isPending) setCreateDialogOpen(false); }}>
+				<DialogContent className={externalShell}>
+					<DialogHeader className="flex-row items-center gap-3 border-b px-5 py-3.5 pe-12 text-start sm:text-start">
+						<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+							<AppWindow className="size-4" />
 						</div>
-
-						{template !== "archive" ? (
-							<div className="flex flex-col mt-4 gap-3">
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<FormControl required>
-										<FormLabel>{t("externalApps.botToken")}</FormLabel>
-										<Input type="password" value={botToken} onChange={(event) => setBotToken(event.target.value)} autoComplete="off" />
-									</FormControl>
-									<FormControl required>
-										<FormLabel>{t("externalApps.telegramAdminID")}</FormLabel>
-										<Input value={adminID} onChange={(event) => setAdminID(event.target.value)} inputMode="numeric" />
-									</FormControl>
-								</div>
-								<Checkbox checked={hasDatabaseBackup} onChange={(event) => {
-										setHasDatabaseBackup(event.target.checked);
-										if (!event.target.checked) setDatabaseBackup(null);
-									}}>
-									{t(
-										template === "faoxima"
-											? "externalApps.faoximaDatabaseBackupToggle"
-											: "externalApps.databaseBackupToggle",
-									)}
-								</Checkbox>
-								{hasDatabaseBackup ? (
-									<FormControl required>
-										<FormLabel>{t("externalApps.databaseBackup")}</FormLabel>
-										<Input type="file" accept=".sql,application/sql,text/sql,text/plain" onChange={(event) =>
-												setDatabaseBackup(event.target.files?.[0] ?? null)
-											} className="pt-1" />
-										<FormHelperText>
-											{t("externalApps.databaseBackupHint")}
-										</FormHelperText>
-									</FormControl>
-								) : null}
-							</div>
-						) : (
-							<div className="flex flex-col mt-4 gap-4">
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<FormControl required>
-										<FormLabel>{t("externalApps.name")}</FormLabel>
-										<Input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
-									</FormControl>
-									<FormControl disabled={Boolean(archive)}>
-										<FormLabel>{t("externalApps.runtime")}</FormLabel>
+						<div className="min-w-0">
+							<DialogTitle className="truncate text-base">{t("externalApps.newApp")}</DialogTitle>
+							<DialogDescription className="truncate">{t("externalApps.description")}</DialogDescription>
+						</div>
+					</DialogHeader>
+					<div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+						<div className="flex flex-col gap-5">
+							{!appsQuery.data?.supported ? (
+								<Alert className="rounded-md">
+									<TriangleAlert className="size-4" aria-hidden="true" />
+									{appsQuery.data?.detail || t("externalApps.unsupported")}
+								</Alert>
+							) : null}
+							<FormSection>
+								<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+									<FormField label={t("externalApps.template")} description={selectedTemplate?.source_url ? undefined : undefined}>
 										<Select
-											value={archiveRuntime}
-											disabled={Boolean(archive)}
-											onValueChange={(value) =>
-												setArchiveRuntime(value as ArchiveRuntime)
-											}
+											value={template}
+											onValueChange={(value) => setTemplate(value as TemplateID)}
 											options={[
-												{ value: "php", label: "PHP" },
-												{ value: "node", label: "Node.js" },
-												{
-													value: "static",
-													label: t("externalApps.staticRuntime"),
-												},
+												{ value: "mirzabot", label: t("externalApps.mirzaTemplate") },
+												{ value: "faoxima", label: t("externalApps.faoximaTemplate") },
+												{ value: "archive", label: t("externalApps.archiveTemplate") },
 											]}
 										/>
-										<FormHelperText>
-											{archive
-												? t("externalApps.runtimeDetectedHint")
-												: t("externalApps.emptyRuntimeHint")}
-										</FormHelperText>
-									</FormControl>
+										{(template === "mirzabot" || template === "faoxima") && selectedTemplate?.source_url ? (
+											<a href={selectedTemplate.source_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-sm text-primary">
+												{t(template === "faoxima" ? "externalApps.latestFaoximaRelease" : "externalApps.latestRelease")}
+												<ExternalLink className="w-[14px]" />
+											</a>
+										) : null}
+									</FormField>
+									<FormField label={requiredLabel(t("externalApps.domainCertificate"))} description={t("externalApps.certificateHint")}>
+										<Select
+											value={domain}
+											onValueChange={(value) => setDomain(String(value))}
+											options={certificateOptions}
+											placeholder={t("externalApps.selectDomain")}
+											showSearch
+											emptyText={t("externalApps.noCertificates")}
+										/>
+										<RouterLink to="/settings#ssl" className="mt-1 inline-flex text-sm text-primary">
+											{t("externalApps.openSSLManager")}
+										</RouterLink>
+									</FormField>
 								</div>
-								<FormControl>
-									<FormLabel>{t("externalApps.zipArchive")}</FormLabel>
-									<Input type="file" accept=".zip,application/zip" onChange={(event) =>
-											setArchive(event.target.files?.[0] ?? null)
-										} className="pt-1" />
-									<FormHelperText>
-										{t("externalApps.archiveHint")}
-									</FormHelperText>
-								</FormControl>
-								<Checkbox checked={createDatabase} onChange={(event) => setCreateDatabase(event.target.checked)}>
-									{t("externalApps.createDatabase")}
-								</Checkbox>
-								{createDatabase ? (
-									<div className={cn("border rounded-md p-4", borderColor)}>
-										<div className="flex flex-row items-center justify-between mb-4 flex-wrap gap-2">
-											<div className="flex flex-row items-center gap-2">
-												<CircleStackIcon className="w-[18px]" />
-												<p className="font-semibold">
-													{t("externalApps.databaseSettings")}
-												</p>
-											</div>
-											<Button size="sm" variant="outline" onClick={generateDatabaseCredentials}>{<SparklesIcon className="w-[16px]" />}
-												{t("externalApps.generateDatabaseCredentials")}
-											</Button>
-										</div>
-										<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-											<FormControl required>
-												<FormLabel>{t("externalApps.databaseName")}</FormLabel>
-												<Input value={database} maxLength={64} autoComplete="off" onChange={(event) => setDatabase(event.target.value)} />
-											</FormControl>
-											<FormControl required>
-												<FormLabel>{t("externalApps.databaseUser")}</FormLabel>
-												<Input value={databaseUser} maxLength={32} autoComplete="off" onChange={(event) =>
-														setDatabaseUser(event.target.value)
-													} />
-											</FormControl>
-											<FormControl required>
-												<FormLabel>
-													{t("externalApps.databasePassword")}
-												</FormLabel>
-												<Input type="text" value={databasePassword} maxLength={128} autoComplete="new-password" onChange={(event) =>
-														setDatabasePassword(event.target.value)
-													} />
-											</FormControl>
-										</div>
-										<p className={cn(mutedColor, "text-[0.875rem] mt-3")}>
-											{t("externalApps.databaseCredentialsHint")}
-										</p>
-									</div>
-								) : null}
-							</div>
-						)}
+							</FormSection>
 
-						<Button size="md" colorScheme="blue" loading={installMutation.isPending} disabled={
+							{template !== "archive" ? (
+								<FormSection>
+									<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+										<FormField label={requiredLabel(t("externalApps.botToken"))}>
+											<UiInput type="password" value={botToken} onChange={(event) => setBotToken(event.target.value)} autoComplete="off" />
+										</FormField>
+										<FormField label={requiredLabel(t("externalApps.telegramAdminID"))}>
+											<UiInput value={adminID} onChange={(event) => setAdminID(event.target.value)} inputMode="numeric" />
+										</FormField>
+									</div>
+									<CheckRow checked={hasDatabaseBackup} onChange={(next) => {
+											setHasDatabaseBackup(next);
+											if (!next) setDatabaseBackup(null);
+										}}>
+										{t(template === "faoxima" ? "externalApps.faoximaDatabaseBackupToggle" : "externalApps.databaseBackupToggle")}
+									</CheckRow>
+									{hasDatabaseBackup ? (
+										<FormField label={requiredLabel(t("externalApps.databaseBackup"))} description={t("externalApps.databaseBackupHint")}>
+											<UiInput type="file" accept=".sql,application/sql,text/sql,text/plain" onChange={(event) => setDatabaseBackup(event.target.files?.[0] ?? null)} className="pt-1.5" />
+										</FormField>
+									) : null}
+								</FormSection>
+							) : (
+								<FormSection>
+									<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+										<FormField label={requiredLabel(t("externalApps.name"))}>
+											<UiInput value={name} maxLength={80} onChange={(event) => setName(event.target.value)} />
+										</FormField>
+										<FormField label={t("externalApps.runtime")} description={archive ? t("externalApps.runtimeDetectedHint") : t("externalApps.emptyRuntimeHint")}>
+											<Select
+												value={archiveRuntime}
+												disabled={Boolean(archive)}
+												onValueChange={(value) => setArchiveRuntime(value as ArchiveRuntime)}
+												options={[
+													{ value: "php", label: "PHP" },
+													{ value: "node", label: "Node.js" },
+													{ value: "static", label: t("externalApps.staticRuntime") },
+												]}
+											/>
+										</FormField>
+									</div>
+									<FormField label={t("externalApps.zipArchive")} description={t("externalApps.archiveHint")}>
+										<UiInput type="file" accept=".zip,application/zip" onChange={(event) => setArchive(event.target.files?.[0] ?? null)} className="pt-1.5" />
+									</FormField>
+									<CheckRow checked={createDatabase} onChange={(next) => setCreateDatabase(next)}>
+										{t("externalApps.createDatabase")}
+									</CheckRow>
+									{createDatabase ? (
+										<div className="flex flex-col gap-4 rounded-lg border bg-card/40 p-4">
+											<div className="flex flex-row flex-wrap items-center justify-between gap-2">
+												<div className="flex flex-row items-center gap-2">
+													<Database className="w-[18px]" />
+													<p className="text-sm font-semibold">{t("externalApps.databaseSettings")}</p>
+												</div>
+												<Button onClick={generateDatabaseCredentials} variant="outline" size="sm">
+													<Sparkles className="w-[16px]" />
+													{t("externalApps.generateDatabaseCredentials")}
+												</Button>
+											</div>
+											<div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+												<FormField label={requiredLabel(t("externalApps.databaseName"))}>
+													<UiInput value={database} maxLength={64} autoComplete="off" onChange={(event) => setDatabase(event.target.value)} />
+												</FormField>
+												<FormField label={requiredLabel(t("externalApps.databaseUser"))}>
+													<UiInput value={databaseUser} maxLength={32} autoComplete="off" onChange={(event) => setDatabaseUser(event.target.value)} />
+												</FormField>
+												<FormField label={requiredLabel(t("externalApps.databasePassword"))}>
+													<UiInput type="text" value={databasePassword} maxLength={128} autoComplete="new-password" onChange={(event) => setDatabasePassword(event.target.value)} />
+												</FormField>
+											</div>
+											<p className="text-xs text-muted-foreground">{t("externalApps.databaseCredentialsHint")}</p>
+										</div>
+									) : null}
+								</FormSection>
+							)}
+
+							{selectedTemplate?.detail ? (
+								<p className="text-sm text-orange-300">{selectedTemplate.detail}</p>
+							) : null}
+						</div>
+					</div>
+					<DialogFooter className="flex-row flex-wrap items-center justify-end gap-2 border-t px-5 py-3">
+						<Button onClick={() => setCreateDialogOpen(false)} disabled={installMutation.isPending} variant="outline" size="sm">
+							{t("cancel")}
+						</Button>
+						<Button disabled={
 								!appsQuery.data?.supported ||
 								selectedTemplate?.supported === false ||
 								!domain ||
 								(template === "archive" && !name.trim())
-							} onClick={() => installMutation.mutate()} className="mt-5">{<ArrowUpTrayIcon className="w-[18px]" />}
+							} onClick={() => installMutation.mutate()} size="sm" loading={installMutation.isPending}>
+							<Upload className="w-[18px]" />
 							{t("externalApps.install")}
 						</Button>
-						{selectedTemplate?.detail ? (
-							<p className="text-orange-300 text-[0.875rem] mt-2">
-								{selectedTemplate.detail}
-							</p>
-						) : null}
-					</div>
-				</ModalContent>
-			</Modal>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
 			<div className="flex flex-col gap-3">
-				<ResourceListCard
-					title={t("externalApps.installedApps")}
-					summaryItems={[
-						{ label: t("total"), value: apps.length },
-						{
-							label: t("externalApps.enabled"),
-							value: apps.filter((app) => app.enabled).length,
-							colorScheme: "green",
-						},
-						{
-							label: t("externalApps.disabled"),
-							value: apps.filter((app) => !app.enabled).length,
-						},
-					]}
-					actions={
-						<Button size="md" colorScheme="primary" onClick={() => setCreateDialogOpen(true)}>{<PlusIcon className="w-[16px] h-[16px]" />}
-							{t("externalApps.create")}
-						</Button>
-					}
-				/>
+				<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden">
+					<OverviewBand total={appOverview.total} rows={appOverview.rows} distribution={appOverview.distribution} extra={appOverview.extra} locale={locale} />
+					<div className="border-t border-panel-border! p-3">
+						<div className="flex flex-col gap-2 md:flex-row md:items-center">
+							<div className="min-w-0 flex-1">
+								<SearchInput containerProps={{ className: "w-full md:w-[360px]" }} placeholder={t("search")} value={appSearch} onChange={(event) => setAppSearch(event.target.value)} matchOptions={appSearchMatch} onMatchOptionsChange={setAppSearchMatch} />
+							</div>
+							<div className="flex shrink-0 justify-end gap-1.5">
+								<Button onClick={() => setCreateDialogOpen(true)}>
+									<Plus className="w-[16px] h-[16px]" />
+									{t("externalApps.create")}
+								</Button>
+							</div>
+						</div>
+					</div>
+				</div>
 				<DataTable
 					ariaLabel={t("externalApps.installedApps")}
-					data={apps}
+					data={visibleApps}
 					columns={appColumns}
 					getRowId={(app) => app.id}
 					loading={appsQuery.isLoading}

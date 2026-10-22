@@ -1,11 +1,13 @@
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
-import { Input } from "components/shadcn/input";
-import { Button, ButtonGroup } from "components/shadcn/button";
-import { Badge } from "components/shadcn/badge";
-import { Switch } from "components/shadcn/selection";
+import { Field, FieldDescription, FieldError, FieldLabel } from "components/ui/field";
+import { Input } from "components/ui/input";
+import { Button } from "components/ui/button";
+import { Badge } from "components/ui/badge";
+import { Switch } from "components/ui/switch";
+import { Dialog } from "components/ui/dialog";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
+
 import { cn } from "lib/cn";
-import { ArrowDownIcon, ArrowUpIcon } from "@heroicons/react/24/outline";
 import { type FC, useEffect, useMemo } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -93,8 +95,8 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 	}, [form, isOpen]);
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="xl" isCentered closeOnEsc={!isLoading} closeOnOverlayClick={!isLoading}>
-			<ModalOverlay />
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
 			<XrayModalContent>
 				<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col min-h-0 overflow-hidden">
 					<XrayModalHeader
@@ -106,14 +108,14 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 					>
 						{t("pages.xray.tor.title")}
 					</XrayModalHeader>
-					<ModalCloseButton disabled={isLoading} />
+					
 					<XrayModalBody className="flex-1 min-h-0 overflow-y-auto">
 						<div className="flex flex-col gap-3 items-stretch">
 							<XrayDialogSection>
-								<FormControl isInvalid={Boolean(form.formState.errors.locations)}>
-									<FormLabel>
+								<Field data-invalid={Boolean(form.formState.errors.locations)}>
+									<FieldLabel>
 										{t("pages.xray.tor.locations")}
-									</FormLabel>
+									</FieldLabel>
 									<Controller
 										name="locations"
 										control={form.control}
@@ -145,19 +147,19 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 											/>
 										)}
 									/>
-									<FormHelperText>
+									<FieldDescription>
 										{t("pages.xray.tor.locationsHint")}
-									</FormHelperText>
-									<FormErrorMessage>
+									</FieldDescription>
+									<FieldError>
 										{form.formState.errors.locations?.message}
-									</FormErrorMessage>
-								</FormControl>
+									</FieldError>
+								</Field>
 
 								<XrayFieldGrid className="mt-3">
-									<FormControl isInvalid={Boolean(form.formState.errors.startPort)}>
-										<FormLabel>
+									<Field data-invalid={Boolean(form.formState.errors.startPort)}>
+										<FieldLabel>
 											{t("pages.xray.tor.startPort")}
-										</FormLabel>
+										</FieldLabel>
 										<Input type="number" inputMode="numeric" {...form.register("startPort", {
 												valueAsNumber: true,
 												required: t("pages.xray.tor.portRequired"),
@@ -177,34 +179,34 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 													);
 												},
 											})} />
-										<FormErrorMessage>
+										<FieldError>
 											{form.formState.errors.startPort?.message}
-										</FormErrorMessage>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
+										</FieldError>
+									</Field>
+									<Field>
+										<FieldLabel>
 											{t("pages.xray.tor.direction")}
-										</FormLabel>
+										</FieldLabel>
 										<Controller
 											name="direction"
 											control={form.control}
 											render={({ field }) => (
-												<ButtonGroup isAttached size="sm" className="w-full">
-													<Button size="md" type="button" variant={field.value === "up" ? "solid" : "outline"} colorScheme={field.value === "up" ? "primary" : "gray"} aria-pressed={field.value === "up"} onClick={() => field.onChange("up")} className="flex-1">{<ArrowUpIcon className="w-[14px]" />}
+												<div className={cn("inline-flex items-center gap-2", "w-full")}>
+													<Button type="button" aria-pressed={field.value === "up"} onClick={() => field.onChange("up")} className="flex-1" variant={field.value === "up" ? "default" : "outline"}>{<ArrowUp className="w-[14px]" />}
 														{t("pages.xray.tor.directionUp")}
 													</Button>
-													<Button size="md" type="button" variant={field.value === "down" ? "solid" : "outline"} colorScheme={field.value === "down" ? "primary" : "gray"} aria-pressed={field.value === "down"} onClick={() => field.onChange("down")} className="flex-1">{<ArrowDownIcon className="w-[14px]" />}
+													<Button type="button" aria-pressed={field.value === "down"} onClick={() => field.onChange("down")} className="flex-1" variant={field.value === "down" ? "default" : "outline"}>{<ArrowDown className="w-[14px]" />}
 														{t("pages.xray.tor.directionDown")}
 													</Button>
-												</ButtonGroup>
+												</div>
 											)}
 										/>
-									</FormControl>
+									</Field>
 								</XrayFieldGrid>
 
 								<XrayFieldGrid className="mt-3">
-									<FormControl isInvalid={Boolean(form.formState.errors.portStep)}>
-										<FormLabel>{t("pages.xray.tor.portStep")}</FormLabel>
+									<Field data-invalid={Boolean(form.formState.errors.portStep)}>
+										<FieldLabel>{t("pages.xray.tor.portStep")}</FieldLabel>
 										<Input type="number" inputMode="numeric" {...form.register("portStep", {
 												valueAsNumber: true,
 												min: {
@@ -216,30 +218,30 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 													message: t("pages.xray.tor.portStepInvalid"),
 												},
 											})} />
-										<FormErrorMessage>
+										<FieldError>
 											{form.formState.errors.portStep?.message}
-										</FormErrorMessage>
-									</FormControl>
-									<FormControl isInvalid={Boolean(
+										</FieldError>
+									</Field>
+									<Field data-invalid={Boolean(
 											form.formState.errors.tagPrefix || duplicateTag,
 										)}>
-										<FormLabel>{t("pages.xray.tor.tagPrefix")}</FormLabel>
-										<Input placeholder="tor" {...form.register("tagPrefix", {
+										<FieldLabel>{t("pages.xray.tor.tagPrefix")}</FieldLabel>
+										<Input {...form.register("tagPrefix", {
 												required: t("pages.xray.tor.tagRequired"),
 												validate: (value) =>
 													Boolean(value.trim()) ||
 													t("pages.xray.tor.tagRequired"),
 											})} />
-										<FormHelperText>
+										<FieldDescription>
 											{t("pages.xray.tor.tagPrefixHint")}
-										</FormHelperText>
-										<FormErrorMessage>
+										</FieldDescription>
+										<FieldError>
 											{form.formState.errors.tagPrefix?.message ||
 												(duplicateTag
 													? t("pages.xray.outbound.tagExistsNamed", { tag: duplicateTag })
 													: undefined)}
-										</FormErrorMessage>
-									</FormControl>
+										</FieldError>
+									</Field>
 								</XrayFieldGrid>
 
 								<div className={cn("mt-4 pt-3 border-t", borderColor)}>
@@ -247,7 +249,7 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 										<p className="text-[0.75rem] font-semibold">
 											{t("pages.xray.tor.preview")}
 										</p>
-										<Badge variant="subtle">{preview.length}</Badge>
+										<Badge>{preview.length}</Badge>
 									</div>
 									<div className="flex flex-col items-stretch gap-0 max-h-[152px] overflow-y-auto">
 										{preview.map((item) => (
@@ -261,30 +263,30 @@ export const TorProxyModal: FC<TorProxyModalProps> = ({
 									</div>
 								</div>
 							</XrayDialogSection>
-							<FormControl className="rb-dialog-switch-row">
-								<FormLabel>
+							<Field className="rb-dialog-switch-row">
+								<FieldLabel>
 									{t("pages.xray.tor.strict")}
-								</FormLabel>
+								</FieldLabel>
 								<Controller
 									name="strict"
 									control={form.control}
 									render={({ field }) => (
-										<Switch checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
+										<Switch checked={field.value} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 									)}
 								/>
-							</FormControl>
+							</Field>
 						</div>
 					</XrayModalBody>
 					<XrayModalFooter className="justify-end">
-						<Button size="md" variant="outline" onClick={onClose} disabled={isLoading}>
+						<Button onClick={onClose} disabled={isLoading} variant="outline">
 							{t("cancel")}
 						</Button>
-						<Button size="md" type="submit" colorScheme="primary" loading={isLoading} disabled={Boolean(duplicateTag)}>
+						<Button type="submit" disabled={Boolean(duplicateTag)} loading={isLoading}>
 							{t("pages.xray.tor.start")}
 						</Button>
 					</XrayModalFooter>
 				</form>
 			</XrayModalContent>
-		</Modal>
+		</Dialog>
 	);
 };

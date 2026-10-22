@@ -1,37 +1,9 @@
-import {
-	ArrowLeftOnRectangleIcon,
-	ArrowsRightLeftIcon,
-	ArrowUpOnSquareIcon,
-	Bars3Icon,
-	BellIcon,
-	BookOpenIcon,
-	BriefcaseIcon,
-	CheckIcon,
-	CircleStackIcon,
-	ClockIcon,
-	CodeBracketSquareIcon,
-	Cog6ToothIcon,
-	Cog8ToothIcon,
-	CommandLineIcon,
-	DocumentDuplicateIcon,
-	EyeIcon,
-	HomeIcon as HeroHomeIcon,
-	LanguageIcon,
-	LinkIcon,
-	ServerStackIcon,
-	Squares2X2Icon,
-	UserIcon,
-	UserGroupIcon,
-	WrenchScrewdriverIcon,
-} from "@heroicons/react/24/outline";
-import {
-	BellIcon as BellSolidIcon,
-	BriefcaseIcon as BriefcaseSolidIcon,
-	Cog6ToothIcon as Cog6ToothSolidIcon,
-	HomeIcon as HomeSolidIcon,
-	UserGroupIcon as UserGroupSolidIcon,
-	UserIcon as UserSolidIcon,
-} from "@heroicons/react/24/solid";
+import { Button } from "components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { Sheet, SheetContent, SheetTitle } from "components/ui/sheet";
+import { TriangleAlert } from "lucide-react";
+import { LogOut, ArrowLeftRight, Share, Menu, Bell, BookOpen, Briefcase, Check, Database, Clock, SquareCode, Settings, Settings2, Terminal, Copy, Eye, House as HeroHomeIcon, Languages, Link, Server, LayoutGrid, User as UserIcon, Users, Wrench, Bell as BellSolidIcon, Briefcase as BriefcaseSolidIcon, Settings as Cog6ToothSolidIcon, House as HomeSolidIcon, Users as UserGroupSolidIcon, User as UserSolidIcon } from "lucide-react";
 import {
 	Breadcrumb,
 	BreadcrumbItem,
@@ -66,20 +38,7 @@ import { AppSidebar } from "./AppSidebar";
 import { useSheetSwipeToClose } from "hooks/useSheetSwipeToClose";
 import { useDisclosure } from "hooks/useDisclosure";
 import { useMediaQuery } from "hooks/useMediaQuery";
-import { Button } from "components/shadcn/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "components/shadcn/dropdown-menu";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "components/shadcn/popover";
-import { Sheet, SheetContent, SheetTitle } from "components/shadcn/sheet";
+
 import { cn } from "lib/cn";
 import { GitHubStars } from "./GitHubStars";
 import { HeaderCalendar } from "./HeaderCalendar";
@@ -88,32 +47,32 @@ import ThemeSelector from "./ThemeSelector";
 import { SponsorCarousel } from "./SponsorCarousel";
 
 /** Icons are sized by the call site with `size-*` classes now, not by a Chakra wrapper. */
-const LogoutIcon = ArrowLeftOnRectangleIcon;
-const MenuIcon = Bars3Icon;
-const LanguageIconStyled = LanguageIcon;
-const DocsIcon = CodeBracketSquareIcon;
-const PHPMyAdminIcon = CircleStackIcon;
-const ExternalAppsIcon = CommandLineIcon;
-const PlaceholderIcon = DocumentDuplicateIcon;
+const LogoutIcon = LogOut;
+const MenuIcon = Menu;
+const LanguageIconStyled = Languages;
+const DocsIcon = SquareCode;
+const PHPMyAdminIcon = Database;
+const ExternalAppsIcon = Terminal;
+const PlaceholderIcon = Copy;
 const PersonIcon = UserIcon;
-const MasterSettingsIcon = Cog8ToothIcon;
-const XraySettingsIcon = WrenchScrewdriverIcon;
+const MasterSettingsIcon = Settings2;
+const XraySettingsIcon = Wrench;
 const TAB_ICONS: Record<string, [ElementType, ElementType]> = {
 	dashboard: [HeroHomeIcon, HomeSolidIcon],
-	users: [UserGroupIcon, UserGroupSolidIcon],
-	admins: [BriefcaseIcon, BriefcaseSolidIcon],
-	settings: [Cog6ToothIcon, Cog6ToothSolidIcon],
+	users: [Users, UserGroupSolidIcon],
+	admins: [Briefcase, BriefcaseSolidIcon],
+	settings: [Settings, Cog6ToothSolidIcon],
 	myaccount: [UserIcon, UserSolidIcon],
-	notifications: [BellIcon, BellSolidIcon],
+	notifications: [Bell, BellSolidIcon],
 };
-const ServicesIcon = Squares2X2Icon;
-const HostsIcon = LinkIcon;
-const HAProxyIcon = ArrowsRightLeftIcon;
-const NodesIcon = ServerStackIcon;
-const InsightsIcon = EyeIcon;
-const RecentActionsIcon = ClockIcon;
-const ShareIcon = ArrowUpOnSquareIcon;
-const TutorialIcon = BookOpenIcon;
+const ServicesIcon = LayoutGrid;
+const HostsIcon = Link;
+const HAProxyIcon = ArrowLeftRight;
+const NodesIcon = Server;
+const InsightsIcon = Eye;
+const RecentActionsIcon = Clock;
+const ShareIcon = Share;
+const TutorialIcon = BookOpen;
 
 /** Primary tint for avatars and the active tab, per color mode. */
 const TINT_CLASS =
@@ -609,13 +568,17 @@ export function AppLayout() {
 		});
 	};
 
+	const resetNavDrag = () => {
+		navDragRef.current.active = false;
+		navDragRef.current.moved = false;
+		navDragRef.current.pointerId = null;
+	};
+
 	const finalizeNavDrag = () => {
 		if (!navDragRef.current.active) return;
 		const key = previewTabKeyRef.current;
 		const moved = navDragRef.current.moved;
-		navDragRef.current.active = false;
-		navDragRef.current.moved = false;
-		navDragRef.current.pointerId = null;
+		resetNavDrag();
 		if (navMoveRaf.current) {
 			window.cancelAnimationFrame(navMoveRaf.current);
 			navMoveRaf.current = null;
@@ -650,9 +613,7 @@ export function AppLayout() {
 
 	const handleNavPointerCancel = () => {
 		if (!navDragRef.current.active) return;
-		navDragRef.current.active = false;
-		navDragRef.current.moved = false;
-		navDragRef.current.pointerId = null;
+		resetNavDrag();
 		if (navMoveRaf.current) {
 			window.cancelAnimationFrame(navMoveRaf.current);
 			navMoveRaf.current = null;
@@ -842,18 +803,12 @@ export function AppLayout() {
 						transition: "margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
 					}}
 				>
-					<header className="sticky top-3 z-[100] mx-3 mt-3 flex h-14 min-h-14 shrink-0 select-none items-center justify-between gap-4 rounded-2xl border border-panel-border! bg-panel-surface px-3 shadow-[0_18px_48px_rgba(15,23,42,0.10)] md:mx-4 md:px-5 dark:shadow-[0_18px_48px_rgba(0,0,0,0.32)]">
+					<header className="sticky top-3 z-40 mx-3 mt-3 flex h-14 min-h-14 shrink-0 select-none items-center justify-between gap-4 rounded-2xl border border-panel-border! bg-panel-surface px-3 md:mx-4 md:px-5">
 						<div className="flex min-w-0 flex-1 items-center gap-3">
-							<Button
-								variant="outline"
-								size="icon-sm"
-								aria-label={t("a11y.toggleSidebar")}
-								onClick={() => {
+							<Button aria-label={t("a11y.toggleSidebar")} onClick={() => {
 									if (isMobile) sidebarDrawer.onOpen();
 									else setSidebarCollapsed(!sidebarCollapsed);
-								}}
-								className="shrink-0 border-panel-border! bg-panel-elevated hover:bg-panel-border-strong"
-							>
+								}} variant="outline" size="icon" className="shrink-0 border-panel-border! bg-panel-elevated hover:bg-panel-border-strong">
 								<MenuIcon className="size-4" />
 							</Button>
 
@@ -920,19 +875,12 @@ export function AppLayout() {
 
 							{/* User menu */}
 							{getUserIsSuccess && userData.username && (
-								<DropdownMenu
-									open={userMenu.isOpen}
-									onOpenChange={(open) => {
+								<DropdownMenu open={userMenu.isOpen} onOpenChange={(open) => {
 										if (open) userMenu.onOpen();
 										else handleUserMenuClose();
-									}}
-								>
+									}}>
 									<DropdownMenuTrigger asChild>
-										<Button
-											variant="outline"
-											aria-label={t("a11y.userMenu")}
-											className="h-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-elevated ps-1 pe-1 text-sm font-semibold hover:bg-panel-border-strong sm:pe-3"
-										>
+										<Button aria-label={t("a11y.userMenu")} variant="outline" className="h-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-elevated ps-1 pe-1 text-sm font-semibold hover:bg-panel-border-strong sm:pe-3">
 											<span className="flex items-center gap-2">
 												<span
 													className={cn(
@@ -948,11 +896,7 @@ export function AppLayout() {
 											</span>
 										</Button>
 									</DropdownMenuTrigger>
-									<DropdownMenuContent
-										align={isRTL ? "start" : "end"}
-										sideOffset={8}
-										className="min-w-[236px]! rounded-xl border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-xl select-none"
-									>
+									<DropdownMenuContent align={isRTL ? "start" : "end"} sideOffset={8} className="min-w-[236px]! rounded-xl border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-xl select-none">
 										<div ref={userMenuContentRef}>
 											{/* User info */}
 											<div className="mx-1.5 mt-1 mb-1.5 flex items-center gap-3 rounded-lg bg-panel-main px-3 py-2.5">
@@ -975,18 +919,11 @@ export function AppLayout() {
 											</div>
 
 											{/* Language selector */}
-											<Popover
-												open={languageMenu.isOpen}
-												onOpenChange={(open) =>
+											<Popover open={languageMenu.isOpen} onOpenChange={(open) =>
 													open ? languageMenu.onOpen() : languageMenu.onClose()
-												}
-											>
+												}>
 												<PopoverTrigger asChild>
-													<Button
-														variant="ghost"
-														onClick={(event: ReactMouseEvent) => event.stopPropagation()}
-														className="h-10 w-full justify-start gap-3 rounded-md bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated"
-													>
+													<Button onClick={(event: ReactMouseEvent) => event.stopPropagation()} variant="ghost" className="h-10 w-full justify-start gap-3 rounded-md bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
 														<LanguageIconStyled className="size-4 shrink-0" />
 														<span className="flex min-w-0 flex-1 items-center justify-between gap-3">
 															<span>{t("header.language")}</span>
@@ -998,12 +935,7 @@ export function AppLayout() {
 														</span>
 													</Button>
 												</PopoverTrigger>
-												<PopoverContent
-													container={userMenuContentRef.current}
-													side={isMobile ? "bottom" : isRTL ? "left" : "right"}
-													align="start"
-													className="min-w-[160px]! rounded-md border-panel-border! bg-panel-surface py-2 text-panel-text shadow-lg select-none"
-												>
+												<PopoverContent side={isMobile ? "bottom" : isRTL ? "left" : "right"} align="start" className="min-w-[160px]! rounded-md border-panel-border! bg-panel-surface py-2 text-panel-text shadow-lg select-none">
 													{languageItems.map(({ code, label, flag }) => {
 														const isActiveLang = i18n.language === code;
 														return (
@@ -1030,7 +962,7 @@ export function AppLayout() {
 																	)}
 																	<span>{label}</span>
 																</span>
-																{isActiveLang && <CheckIcon width={16} />}
+																{isActiveLang && <Check width={16} />}
 															</button>
 														);
 													})}
@@ -1048,17 +980,14 @@ export function AppLayout() {
 
 											<DropdownMenuSeparator className="my-2 opacity-60" />
 											{/* Logout */}
-											<DropdownMenuItem
-												onSelect={async () => {
+											<DropdownMenuItem onSelect={async () => {
 													try {
 														await logoutSession();
 													} finally {
 														clearClientSession();
 														navigate("/login");
 													}
-												}}
-												className="px-3 py-1.5 text-sm text-[#E53E3E] focus:bg-[color-mix(in_srgb,#ef4444_12%,transparent)] focus:text-[#E53E3E]"
-											>
+												}} className="px-3 py-1.5 text-sm text-[#E53E3E] focus:bg-[color-mix(in_srgb,#ef4444_12%,transparent)] focus:text-[#E53E3E]">
 												<LogoutIcon className="size-4" />
 												{t("header.logout")}
 											</DropdownMenuItem>
@@ -1076,16 +1005,10 @@ export function AppLayout() {
 
 				{/* mobile drawer */}
 				{isMobile && (
-					<Sheet
-						open={sidebarDrawer.isOpen}
-						onOpenChange={(open) =>
+					<Sheet open={sidebarDrawer.isOpen} onOpenChange={(open) =>
 							open ? sidebarDrawer.onOpen() : sidebarDrawer.onClose()
-						}
-					>
-						<SheetContent
-							side={isRTL ? "right" : "left"}
-							className="rb-sidebar-drawer w-[312px] max-w-[100vw] bg-panel-sidebar"
-						>
+						}>
+						<SheetContent side={isRTL ? "right" : "left"} className="rb-sidebar-drawer w-[312px] max-w-[100vw] bg-panel-sidebar">
 							<SheetTitle className="sr-only">{t("a11y.toggleSidebar")}</SheetTitle>
 							<div className="h-full overflow-y-auto">
 								<AppSidebar
@@ -1114,14 +1037,10 @@ export function AppLayout() {
 											{t("pwa.ios.body")}
 										</p>
 									</div>
-									<Button
-										size="xs" className="text-sm"
-										variant="ghost"
-										onClick={() => {
+									<Button onClick={() => {
 											setShowIosPrompt(false);
 											localStorage.setItem("ios-pwa-tip-shown", "1");
-										}}
-									>
+										}} variant="ghost" size="xs" className="text-sm">
 										{t("pwa.ios.dismiss")}
 									</Button>
 								</div>
@@ -1129,7 +1048,7 @@ export function AppLayout() {
 						)}
 
 						{/* Mobile bottom dock */}
-						<div className="pointer-events-none fixed inset-x-0 bottom-0 z-[1500] px-3 pb-[calc(env(safe-area-inset-bottom)+8px)]">
+						<div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)]">
 							<div
 								className={cn(
 									"pointer-events-auto mx-auto max-w-[min(480px,100%)] rounded-[30px] border p-1.5",
@@ -1226,72 +1145,48 @@ export function AppLayout() {
 
 										if (item.key === "settings") {
 											return (
-												<Popover
-													key={item.key}
-													open={settingsMenu.isOpen}
-													onOpenChange={(open) => {
+												<Popover key={item.key} open={settingsMenu.isOpen} onOpenChange={(open) => {
 														if (open) openSettingsMenu();
 														else handleSettingsMenuClose();
-													}}
-												>
+													}}>
 													<PopoverTrigger asChild>
-														<Button
-															variant="ghost"
-															size="sm"
-															ref={(node) => {
+														<Button ref={(node) => {
 																tabContentRefs.current[item.key] = node;
-															}}
-															onClick={(event) => {
+															}} onClick={(event) => {
 																// The click only toggles through handleSettingsMenuToggle, so
 																// stop the trigger from toggling on its own.
 																event.preventDefault();
 																if (settingsHoldOpened.current) return;
 																handleSettingsMenuToggle();
-															}}
-															onPointerDown={(event) => {
+															}} onPointerDown={(event) => {
 																if (event.pointerType === "mouse") return;
 																settingsHoldStartPoint.current = {
 																	x: event.clientX,
 																	y: event.clientY,
 																};
 																handleSettingsHoldStart();
-															}}
-															onPointerMove={(event) => {
+															}} onPointerMove={(event) => {
 																if (event.pointerType === "mouse") return;
 																handleSettingsHoldMove(event.clientX, event.clientY);
-															}}
-															onPointerUp={handleSettingsHoldEnd}
-															onPointerCancel={handleSettingsHoldEnd}
-															onPointerLeave={handleSettingsHoldEnd}
-															onContextMenu={(event) => {
+															}} onPointerUp={handleSettingsHoldEnd} onPointerCancel={handleSettingsHoldEnd} onPointerLeave={handleSettingsHoldEnd} onContextMenu={(event) => {
 																if (isMobile) event.preventDefault();
-															}}
-															className={tabButtonClass}
-														>
+															}} variant="ghost" size="sm" className={tabButtonClass}>
 															{navContent}
 														</Button>
 													</PopoverTrigger>
-													<PopoverContent
-														side="top"
-														align="center"
-														sideOffset={12}
-														collisionPadding={12}
-														className={cn(
+													<PopoverContent side="top" align="center" sideOffset={12} collisionPadding={12} className={cn(
 															"w-[min(210px,calc(100vw_-_24px))] max-w-[calc(100vw_-_24px)] max-h-[calc(100vh_-_160px)] overflow-y-auto rounded-[22px] p-2",
 															DOCK_CLASS,
-														)}
-													>
+														)}>
 														<div className="flex flex-col gap-1">
 															{settingsMenuItems.map((entry) => {
 																const ItemIcon = entry.icon;
 																const isSelected = activeSettingsKey === entry.key;
 																return (
-																	<Button
-																		key={entry.key}
-																		variant="ghost"
-																		size="xs"
-																		aria-current={isSelected ? "page" : undefined}
-																		className={cn(
+																	<Button key={entry.key} aria-current={isSelected ? "page" : undefined} onClick={() => {
+																			handleSettingsMenuClose();
+																			navigateToSettingsItem(entry.to);
+																		}} variant="ghost" size="xs" className={cn(
 																			"w-full justify-start text-sm",
 																			isSelected
 																				? "bg-panel-elevated font-semibold"
@@ -1300,12 +1195,7 @@ export function AppLayout() {
 																				? "hover:bg-panel-elevated"
 																				: "hover:bg-transparent",
 																			"active:bg-panel-elevated focus-visible:shadow-[0_0_0_2px_var(--primary-200)]",
-																		)}
-																		onClick={() => {
-																			handleSettingsMenuClose();
-																			navigateToSettingsItem(entry.to);
-																		}}
-																	>
+																		)}>
 																		{ItemIcon ? <ItemIcon className="size-4" /> : null}
 																		{entry.label}
 																	</Button>
@@ -1319,66 +1209,39 @@ export function AppLayout() {
 
 										if (item.key === "myaccount") {
 											return (
-												<Popover
-													key={item.key}
-													open={accountMenu.isOpen}
-													onOpenChange={(open) => {
+												<Popover key={item.key} open={accountMenu.isOpen} onOpenChange={(open) => {
 														if (!open) handleAccountMenuClose();
-													}}
-												>
+													}}>
 													<PopoverTrigger asChild>
-														<Button
-															variant="ghost"
-															size="sm"
-															ref={(node) => {
+														<Button ref={(node) => {
 																tabContentRefs.current[item.key] = node;
-															}}
-															onClick={(event) => {
+															}} onClick={(event) => {
 																// Same as the settings tab: the click is handled below only.
 																event.preventDefault();
 																if (accountHoldOpened.current) return;
 																handleAccountMenuClose();
 																handleNavClick(item.to);
-															}}
-															onPointerDown={(event) => {
+															}} onPointerDown={(event) => {
 																if (event.pointerType === "mouse") return;
 																accountHoldStartPoint.current = {
 																	x: event.clientX,
 																	y: event.clientY,
 																};
 																handleAccountHoldStart();
-															}}
-															onPointerMove={(event) => {
+															}} onPointerMove={(event) => {
 																if (event.pointerType === "mouse") return;
 																handleAccountHoldMove(event.clientX, event.clientY);
-															}}
-															onPointerUp={handleAccountHoldEnd}
-															onPointerCancel={handleAccountHoldEnd}
-															onPointerLeave={handleAccountHoldEnd}
-															onContextMenu={(event) => {
+															}} onPointerUp={handleAccountHoldEnd} onPointerCancel={handleAccountHoldEnd} onPointerLeave={handleAccountHoldEnd} onContextMenu={(event) => {
 																if (isMobile) event.preventDefault();
-															}}
-															className={tabButtonClass}
-														>
+															}} variant="ghost" size="sm" className={tabButtonClass}>
 															{navContent}
 														</Button>
 													</PopoverTrigger>
-													<PopoverContent
-														side="top"
-														align="center"
-														sideOffset={12}
-														collisionPadding={12}
-														onOpenAutoFocus={(event) => event.preventDefault()}
-														className={cn(
+													<PopoverContent side="top" align="center" sideOffset={12} collisionPadding={12} onOpenAutoFocus={(event) => event.preventDefault()} className={cn(
 															"w-[min(180px,calc(100vw_-_24px))] max-w-[calc(100vw_-_24px)] max-h-[calc(100vh_-_160px)] overflow-y-auto rounded-[22px] p-2",
 															DOCK_CLASS,
-														)}
-													>
-														<Button
-															variant="ghost"
-															size="xs"
-															className="w-full justify-start text-sm text-[#E53E3E] hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated"
-															onClick={async () => {
+														)}>
+														<Button onClick={async () => {
 																try {
 																	await logoutSession();
 																} finally {
@@ -1386,8 +1249,7 @@ export function AppLayout() {
 																	handleAccountMenuClose();
 																	navigate("/login");
 																}
-															}}
-														>
+															}} variant="ghost" size="xs" className="w-full justify-start text-sm text-[#E53E3E] hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
 															<LogoutIcon className="size-4" />
 															{t("header.logout")}
 														</Button>
@@ -1397,20 +1259,13 @@ export function AppLayout() {
 										}
 
 										return (
-											<Button
-												key={item.key}
-												variant="ghost"
-												size="sm"
-												ref={(node) => {
+											<Button key={item.key} ref={(node) => {
 													tabContentRefs.current[item.key] = node;
-												}}
-												onClick={() => {
+												}} onClick={() => {
 													if (item.to) {
 														handleNavClick(item.to);
 													}
-												}}
-												className={tabButtonClass}
-											>
+												}} variant="ghost" size="sm" className={tabButtonClass}>
 												{navContent}
 											</Button>
 										);

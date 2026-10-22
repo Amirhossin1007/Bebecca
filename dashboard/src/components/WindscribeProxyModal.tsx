@@ -1,8 +1,11 @@
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { Alert, AlertIcon } from "components/shadcn/alert";
-import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
-import { Input } from "components/shadcn/input";
-import { Button } from "components/shadcn/button";
+import { Alert } from "components/ui/alert";
+import { Field, FieldDescription, FieldError, FieldLabel } from "components/ui/field";
+import { Input } from "components/ui/input";
+import { Button } from "components/ui/button";
+import { Dialog } from "components/ui/dialog";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
+
 import { type FC, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -153,19 +156,19 @@ export const WindscribeProxyModal: FC<Props> = ({
 	};
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="xl" isCentered closeOnEsc={!isLoading && !isLoadingLocations} closeOnOverlayClick={!isLoading && !isLoadingLocations}>
-			<ModalOverlay />
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
 			<XrayModalContent>
 				<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-1 flex-col min-h-0 overflow-hidden">
 					<XrayModalHeader subtitle={t("pages.xray.windscribe.description")}>
 						{t("pages.xray.windscribe.title")}
 					</XrayModalHeader>
-					<ModalCloseButton disabled={isLoading || isLoadingLocations} />
+					
 					<XrayModalBody className="flex-1 min-h-0 overflow-y-auto">
 						<div className="flex flex-col gap-3 items-stretch">
 							{isMasterTarget && (
-								<Alert status="warning" className="rounded-xs text-[0.875rem]">
-									<AlertIcon />
+								<Alert className="rounded-xs text-[0.875rem]">
+									<TriangleAlert className="size-4" aria-hidden="true" />
 									{t("pages.xray.windscribe.nodeRequired")}
 								</Alert>
 							)}
@@ -173,8 +176,8 @@ export const WindscribeProxyModal: FC<Props> = ({
 								title={t("pages.xray.windscribe.account")}
 							>
 								<XrayFieldGrid>
-									<FormControl isInvalid={Boolean(form.formState.errors.username)}>
-										<FormLabel>{t("username")}</FormLabel>
+									<Field data-invalid={Boolean(form.formState.errors.username)}>
+										<FieldLabel>{t("username")}</FieldLabel>
 										<Input autoComplete="username" {...form.register("username", {
 												required: t("pages.xray.windscribe.usernameRequired"),
 												minLength: {
@@ -183,12 +186,12 @@ export const WindscribeProxyModal: FC<Props> = ({
 												},
 												maxLength: 128,
 											})} />
-										<FormErrorMessage>
+										<FieldError>
 											{form.formState.errors.username?.message}
-										</FormErrorMessage>
-									</FormControl>
-									<FormControl isInvalid={Boolean(form.formState.errors.password)}>
-										<FormLabel>{t("password")}</FormLabel>
+										</FieldError>
+									</Field>
+									<Field data-invalid={Boolean(form.formState.errors.password)}>
+										<FieldLabel>{t("password")}</FieldLabel>
 										<Input type="password" autoComplete="current-password" {...form.register("password", {
 												required: t("pages.xray.windscribe.passwordRequired"),
 												minLength: {
@@ -197,17 +200,17 @@ export const WindscribeProxyModal: FC<Props> = ({
 												},
 												maxLength: 256,
 											})} />
-										<FormErrorMessage>
+										<FieldError>
 											{form.formState.errors.password?.message}
-										</FormErrorMessage>
-									</FormControl>
+										</FieldError>
+									</Field>
 								</XrayFieldGrid>
-								<Button size="sm" type="button" variant="outline" loading={isLoadingLocations} disabled={isMasterTarget || isLoading} onClick={loadLocations} className="mt-3">
+								<Button type="button" disabled={isMasterTarget || isLoading} onClick={loadLocations} variant="outline" size="sm" loading={isLoadingLocations} className="mt-3">
 									{t("pages.xray.windscribe.loadLocations")}
 								</Button>
 								{loadError && (
-									<Alert status="error" className="mt-3 rounded-xs text-[0.875rem]">
-										<AlertIcon />
+									<Alert variant="destructive" className="mt-3 rounded-xs text-[0.875rem]">
+										<CircleAlert className="size-4" aria-hidden="true" />
 										{loadError}
 									</Alert>
 								)}
@@ -216,10 +219,10 @@ export const WindscribeProxyModal: FC<Props> = ({
 							<XrayDialogSection
 								title={t("pages.xray.windscribe.proxy")}
 							>
-								<FormControl isInvalid={Boolean(form.formState.errors.location)}>
-									<FormLabel>
+								<Field data-invalid={Boolean(form.formState.errors.location)}>
+									<FieldLabel>
 										{t("pages.xray.windscribe.location")}
-									</FormLabel>
+									</FieldLabel>
 									<Controller
 										name="location"
 										control={form.control}
@@ -240,18 +243,18 @@ export const WindscribeProxyModal: FC<Props> = ({
 											/>
 										)}
 									/>
-									<FormHelperText>
+									<FieldDescription>
 										{t("pages.xray.windscribe.singleLocationHint")}
-									</FormHelperText>
-									<FormErrorMessage>
+									</FieldDescription>
+									<FieldError>
 										{form.formState.errors.location?.message}
-									</FormErrorMessage>
-								</FormControl>
+									</FieldError>
+								</Field>
 								<XrayFieldGrid className="mt-3">
-									<FormControl isInvalid={Boolean(form.formState.errors.port)}>
-										<FormLabel>
+									<Field data-invalid={Boolean(form.formState.errors.port)}>
+										<FieldLabel>
 											{t("pages.xray.windscribe.port")}
-										</FormLabel>
+										</FieldLabel>
 										<Input type="number" inputMode="numeric" {...form.register("port", {
 												valueAsNumber: true,
 												min: {
@@ -263,14 +266,14 @@ export const WindscribeProxyModal: FC<Props> = ({
 													message: t("pages.xray.windscribe.portInvalid"),
 												},
 											})} />
-										<FormErrorMessage>
+										<FieldError>
 											{form.formState.errors.port?.message}
-										</FormErrorMessage>
-									</FormControl>
-									<FormControl isInvalid={Boolean(form.formState.errors.tag || duplicateTag)}>
-										<FormLabel>
+										</FieldError>
+									</Field>
+									<Field data-invalid={Boolean(form.formState.errors.tag || duplicateTag)}>
+										<FieldLabel>
 											{t("pages.xray.windscribe.tagPrefix")}
-										</FormLabel>
+										</FieldLabel>
 										<Input {...form.register("tag", {
 												required: t("pages.xray.windscribe.tagRequired"),
 												pattern: {
@@ -281,35 +284,35 @@ export const WindscribeProxyModal: FC<Props> = ({
 													!existingTags.includes(value.trim()) ||
 													t("pages.xray.outbound.tagExists"),
 											})} />
-										<FormHelperText>
+										<FieldDescription>
 											{t("pages.xray.windscribe.tagPrefixHint")}
-										</FormHelperText>
-										<FormErrorMessage>
+										</FieldDescription>
+										<FieldError>
 											{form.formState.errors.tag?.message ||
 												(duplicateTag
 													? t("pages.xray.outbound.tagExists")
 													: undefined)}
-										</FormErrorMessage>
-									</FormControl>
+										</FieldError>
+									</Field>
 								</XrayFieldGrid>
 							</XrayDialogSection>
 						</div>
 					</XrayModalBody>
 					<XrayModalFooter className="justify-end">
-						<Button size="md" variant="outline" onClick={onClose} disabled={isLoading || isLoadingLocations}>
+						<Button onClick={onClose} disabled={isLoading || isLoadingLocations} variant="outline">
 							{t("cancel")}
 						</Button>
-						<Button size="md" type="submit" colorScheme="primary" loading={isLoading} disabled={
+						<Button type="submit" disabled={
 								isMasterTarget ||
 								locationOptions.length === 0 ||
 								isLoadingLocations ||
 								duplicateTag
-							}>
+							} loading={isLoading}>
 							{t("pages.xray.windscribe.start")}
 						</Button>
 					</XrayModalFooter>
 				</form>
 			</XrayModalContent>
-		</Modal>
+		</Dialog>
 	);
 };

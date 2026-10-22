@@ -1,4 +1,6 @@
-import { buttonVariants } from "components/shadcn/button";
+import { buttonVariants } from "components/ui/button";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
 import { cn } from "lib/cn";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";

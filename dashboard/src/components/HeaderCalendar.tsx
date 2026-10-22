@@ -1,19 +1,16 @@
-import { Popover, PopoverArrow, PopoverBody, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
-import { Button, IconButton } from "components/shadcn/button";
-import { Badge } from "components/shadcn/badge";
-import { withClass } from "components/shadcn/icon";
+import { Button } from "components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { Badge } from "components/ui/badge";
+import { CircleAlert, CircleCheck, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { CalendarDays, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sparkles as SparklesIcon } from "lucide-react";
+
 import { cn } from "lib/cn";
-import {
-	CalendarDaysIcon,
-	ChevronLeftIcon,
-	ChevronRightIcon,
-	SparklesIcon,
-} from "@heroicons/react/24/outline";
 import { useSeasonal } from "contexts/SeasonalContext";
 import { type FC, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-const CalendarIcon = withClass(CalendarDaysIcon, "w-4 h-4");
+const CalendarIcon = withClass(CalendarDays, "w-4 h-4");
 const Sparkles = withClass(SparklesIcon, "w-4 h-4");
 const ChevronLeft = withClass(ChevronLeftIcon, "w-4 h-4");
 const ChevronRight = withClass(ChevronRightIcon, "w-4 h-4");
@@ -161,8 +158,8 @@ export const HeaderCalendar: FC = () => {
 	}, [i18n.language, seasonWindow]);
 
 	return (
-		<Popover placement="bottom-start">
-			<PopoverTrigger>
+		<Popover>
+			<PopoverTrigger asChild>
 				<Button variant="ghost" size="sm" className="hidden md:inline-flex px-3">{<CalendarIcon />}
 					<p className="truncate max-w-[320px] font-semibold text-[0.875rem]">
 						{formattedDate}
@@ -170,28 +167,28 @@ export const HeaderCalendar: FC = () => {
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent className={cn("w-fit min-w-[260px]! shadow-lg", border)}>
-				<PopoverArrow />
-				<PopoverBody>
+				
+				<div className="p-3">
 					<div className="flex flex-col gap-3">
 						<div dir={isRTL ? "rtl" : "ltr"} className="flex flex-row gap-2 justify-between items-center">
 							<div className="flex flex-row items-center gap-2">
-								<IconButton size="xs" variant="ghost" aria-label={t("dateTimePicker.previousMonth")} onClick={() => {
+								<Button aria-label={t("dateTimePicker.previousMonth")} onClick={() => {
 										const next = new Date(displayDate);
 										next.setMonth(displayDate.getMonth() - 1);
 										setDisplayDate(next);
-									}} >{prevIcon}</IconButton>
+									}} variant="ghost" size="xs" className="size-7 p-0">{prevIcon}</Button>
 								<p className="font-semibold">{monthLabel}</p>
 								{isChristmas && (
-									<Badge colorScheme="red" className="inline-flex items-center gap-1">
+									<Badge className={cn("bg-destructive/10 text-destructive", "inline-flex items-center gap-1")}>
 										<Sparkles />
 										{t("season.christmas")}
 									</Badge>
 								)}
-								<IconButton size="xs" variant="ghost" aria-label={t("dateTimePicker.nextMonth")} onClick={() => {
+								<Button aria-label={t("dateTimePicker.nextMonth")} onClick={() => {
 										const next = new Date(displayDate);
 										next.setMonth(displayDate.getMonth() + 1);
 										setDisplayDate(next);
-									}} >{nextIcon}</IconButton>
+									}} variant="ghost" size="xs" className="size-7 p-0">{nextIcon}</Button>
 							</div>
 						</div>
 						<div className="grid grid-cols-7 gap-1">
@@ -218,7 +215,7 @@ export const HeaderCalendar: FC = () => {
 							</p>
 						)}
 					</div>
-				</PopoverBody>
+				</div>
 			</PopoverContent>
 		</Popover>
 	);

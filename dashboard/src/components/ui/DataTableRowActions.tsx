@@ -1,11 +1,7 @@
-import type { MouseEvent as ReactMouseEvent } from "react";
-import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
-import { RowActionButton } from "./row-actions";
-import { Portal } from "components/shadcn/portal";
+import { Fragment, useState, type FC, type MouseEvent as ReactMouseEvent, type ReactElement, type ReactNode } from "react";
 import { Ellipsis } from "lucide-react";
-import { Fragment, type FC, type ReactElement, type ReactNode } from "react";
-
-const EllipsisIcon = () => <Ellipsis />;
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { RowActionButton } from "./row-actions";
 
 // Chakra colour token ("red.400") to a text class. The palette is safelisted in tailwind.css.
 const toneClass = (color?: string) => (color ? `text-${color.replace(".", "-")}` : undefined);
@@ -19,6 +15,7 @@ export type RowActionItem = {
 	disabled?: boolean;
 	isDanger?: boolean;
 	color?: string;
+	pinned?: boolean;
 };
 
 type RowActionsMenuProps = {
@@ -27,9 +24,7 @@ type RowActionsMenuProps = {
 };
 
 const getActionLabelText = (label: RowActionItem["label"]) =>
-	typeof label === "string" || typeof label === "number"
-		? String(label)
-		: "";
+	typeof label === "string" || typeof label === "number" ? String(label) : "";
 
 const getActionPriority = (action: RowActionItem) => {
 	const id = action.id.toLowerCase();
@@ -41,47 +36,51 @@ const getActionPriority = (action: RowActionItem) => {
 	return 50;
 };
 
-export const orderRowActions = <TAction extends RowActionItem>(
-	actions: TAction[],
-) =>
+export const orderRowActions = <TAction extends RowActionItem>(actions: TAction[]) =>
 	[...actions].sort((first, second) => {
 		const priorityDelta = getActionPriority(first) - getActionPriority(second);
 		if (priorityDelta !== 0) return priorityDelta;
 		return 0;
 	});
 
-export const RowActionsMenu: FC<RowActionsMenuProps> = ({
-	actions,
-	label = "Actions",
-}) => {
+export const RowActionsMenu: FC<RowActionsMenuProps> = ({ actions, label = "Actions" }) => {
+	const [open, setOpen] = useState(false);
 	if (actions.length === 0) return null;
 	const orderedActions = orderRowActions(actions);
+	const onClose = () => setOpen(false);
 
 	return (
-		<Menu placement="auto-end" strategy="fixed" autoSelect={false} isLazy>
-			{({ onClose }) => (
-				<>
-					<MenuButton as={RowActionButton} label={label} icon={<EllipsisIcon />} onClick={(event: ReactMouseEvent<HTMLElement>) => event.stopPropagation()} />
-					<Portal>
-						<MenuList className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto overflow-x-hidden overscroll-contain z-[2500] rounded-lg shadow-2xl">
-							{orderedActions.map((action) =>
-								action.render ? (
-									<Fragment key={action.id}>
-										{action.render(onClose)}
-									</Fragment>
-								) : (
-									<MenuItem key={action.id} icon={action.icon} onClick={(event) => {
-											event.stopPropagation();
-											action.onClick?.();
-										}} disabled={action.disabled} className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))}>
-										{action.label}
-									</MenuItem>
-								),
-							)}
-						</MenuList>
-					</Portal>
-				</>
-			)}
-		</Menu>
+		<DropdownMenu open={open} onOpenChange={setOpen}>
+			<DropdownMenuTrigger asChild>
+				<RowActionButton
+					label={label}
+					icon={<Ellipsis />}
+					onClick={(event: ReactMouseEvent<HTMLButtonElement>) => event.stopPropagation()}
+				/>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent
+				align="end"
+				className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto overflow-x-hidden overscroll-contain z-[2500] rounded-lg shadow-2xl"
+			>
+				{orderedActions.map((action) =>
+					action.render ? (
+						<Fragment key={action.id}>{action.render(onClose)}</Fragment>
+					) : (
+						<DropdownMenuItem
+							key={action.id}
+							disabled={action.disabled}
+							className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))}
+							onSelect={(event) => {
+								event.stopPropagation();
+								action.onClick?.();
+							}}
+						>
+							{action.icon}
+							{action.label}
+						</DropdownMenuItem>
+					),
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 };

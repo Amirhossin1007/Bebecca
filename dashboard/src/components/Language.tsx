@@ -1,9 +1,10 @@
-import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
-import { IconButton } from "components/shadcn/button";
-import { Portal } from "components/shadcn/portal";
-import { withClass } from "components/shadcn/icon";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { Check, Languages } from "lucide-react";
+
 import { cn } from "lib/cn";
-import { CheckIcon, LanguageIcon } from "@heroicons/react/24/outline";
+import { Button } from "components/ui/button";
 import type { FC, MutableRefObject, ReactNode } from "react";
 import ReactCountryFlag from "react-country-flag";
 import { useTranslation } from "react-i18next";
@@ -15,9 +16,9 @@ type HeaderProps = {
 	triggerVariant?: "outline" | "ghost";
 };
 
-const LangIcon = withClass(LanguageIcon, "w-4 h-4");
+const LangIcon = withClass(Languages, "w-4 h-4");
 
-const CheckIconChakra = withClass(CheckIcon, "w-4 h-4");
+const CheckIconChakra = withClass(Check, "w-4 h-4");
 
 export const Language: FC<HeaderProps> = ({
 	portalContainer,
@@ -40,9 +41,9 @@ export const Language: FC<HeaderProps> = ({
 	];
 
 	const menuList = (
-		<MenuList className={cn("min-w-[calc(100vw_-_24px)]! sm:min-w-[200px]! max-w-[calc(100vw_-_16px)] z-[9999]", menuBg, borderColor, textColor)}>
+		<DropdownMenuContent className={cn("min-w-[calc(100vw_-_24px)]! sm:min-w-[200px]! max-w-[calc(100vw_-_16px)] z-[9999]", menuBg, borderColor, textColor)}>
 			{items.map(({ code, label, flag }) => (
-				<MenuItem key={code} onClick={() => changeLanguage(code)} className="text-[0.875rem] bg-transparent">
+				<DropdownMenuItem key={code} onSelect={() => changeLanguage(code)} className="text-[0.875rem] bg-transparent">
 					<div className="flex flex-row items-center gap-2 justify-between w-full">
 						<div className="flex flex-row items-center gap-2">
 							{code === "fa" ? (
@@ -58,19 +59,23 @@ export const Language: FC<HeaderProps> = ({
 						</div>
 						{i18n.language === code && <CheckIconChakra />}
 					</div>
-				</MenuItem>
+				</DropdownMenuItem>
 			))}
-		</MenuList>
+		</DropdownMenuContent>
 	);
 
 	return (
-		<Menu placement="bottom-end" strategy="fixed" isLazy autoSelect={false} gutter={6}>
-			<MenuButton as={IconButton} size="sm" variant={triggerVariant} icon={<LangIcon />} type="button" className="relative" />
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button type="button" size="sm" variant={triggerVariant} className="relative">
+					<LangIcon />
+				</Button>
+			</DropdownMenuTrigger>
 			{portalContainer ? (
-				<Portal containerRef={portalContainer}>{menuList}</Portal>
+				<>{menuList}</>
 			) : (
-				<Portal>{menuList}</Portal>
+				<>{menuList}</>
 			)}
-		</Menu>
+		</DropdownMenu>
 	);
 };

@@ -1,4 +1,6 @@
-import { Button } from "components/shadcn/button";
+import { Button } from "components/ui/button";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
 import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "lib/cn";
 import type { FC, PropsWithChildren, ReactNode } from "react";
@@ -34,7 +36,7 @@ export const BulkActionBar: FC<BulkActionBarProps> = ({
 								})}
 					</p>
 					{onClear && (
-						<Button size="xs" variant="link" onClick={onClear} className="text-panel-text-muted">
+						<Button onClick={onClear} variant="link" size="xs" className="text-panel-text-muted">
 							{t("clear")}
 						</Button>
 					)}

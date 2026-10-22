@@ -1,29 +1,4 @@
-import {
-	ArrowsRightLeftIcon,
-	BellAlertIcon,
-	BoltIcon,
-	BookOpenIcon,
-	BriefcaseIcon,
-	ChevronDownIcon,
-	ChartBarIcon,
-	CircleStackIcon,
-	ClockIcon,
-	CodeBracketSquareIcon,
-	Cog6ToothIcon,
-	Cog8ToothIcon,
-	CommandLineIcon,
-	DocumentDuplicateIcon,
-	BellIcon,
-	DocumentTextIcon,
-	EyeIcon,
-	HomeIcon,
-	LinkIcon,
-	ServerStackIcon,
-	Squares2X2Icon,
-	UserCircleIcon,
-	UserGroupIcon,
-	WrenchScrewdriverIcon,
-} from "@heroicons/react/24/outline";
+import { ArrowLeftRight, BellRing, Zap, BookOpen, Briefcase, ChevronDown, ChartColumn, Database, Clock, SquareCode, Settings, Settings2, Terminal, Copy, Bell, FileText, Eye, House, Link, Server, LayoutGrid, CircleUser, Users, Wrench } from "lucide-react";
 import logoUrl from "assets/logo.svg";
 import useGetUser from "hooks/useGetUser";
 import {
@@ -48,31 +23,31 @@ import {
 /** Icons keep the sidebar's size without a styled-system wrapper. */
 const iconClass = "size-5 shrink-0";
 
-const HomeIconStyled = () => <HomeIcon className={iconClass} />;
-const UsersIconStyled = () => <UserGroupIcon className={iconClass} />;
-const BulkActionsIconStyled = () => <BoltIcon className={iconClass} />;
-const RecentActionsIconStyled = () => <ClockIcon className={iconClass} />;
-const SettingsIconStyled = () => <Cog6ToothIcon className={iconClass} />;
-const MasterSettingsIconStyled = () => <Cog8ToothIcon className={iconClass} />;
-const NodeIconStyled = () => <ServerStackIcon className={iconClass} />;
-const AdminIconStyled = () => <BriefcaseIcon className={iconClass} />;
-const ServicesIconStyled = () => <Squares2X2Icon className={iconClass} />;
-const HostsIconStyled = () => <LinkIcon className={iconClass} />;
-const HAProxyIconStyled = () => <ArrowsRightLeftIcon className={iconClass} />;
-const UsageIconStyled = () => <ChartBarIcon className={iconClass} />;
-const MyAccountIconStyled = () => <UserCircleIcon className={iconClass} />;
-const NotificationIconStyled = () => <BellIcon className={iconClass} />;
-const InsightsIconStyled = () => <EyeIcon className={iconClass} />;
-const TutorialIconStyled = () => <BookOpenIcon className={iconClass} />;
+const HomeIconStyled = () => <House className={iconClass} />;
+const UsersIconStyled = () => <Users className={iconClass} />;
+const BulkActionsIconStyled = () => <Zap className={iconClass} />;
+const RecentActionsIconStyled = () => <Clock className={iconClass} />;
+const SettingsIconStyled = () => <Settings className={iconClass} />;
+const MasterSettingsIconStyled = () => <Settings2 className={iconClass} />;
+const NodeIconStyled = () => <Server className={iconClass} />;
+const AdminIconStyled = () => <Briefcase className={iconClass} />;
+const ServicesIconStyled = () => <LayoutGrid className={iconClass} />;
+const HostsIconStyled = () => <Link className={iconClass} />;
+const HAProxyIconStyled = () => <ArrowLeftRight className={iconClass} />;
+const UsageIconStyled = () => <ChartColumn className={iconClass} />;
+const MyAccountIconStyled = () => <CircleUser className={iconClass} />;
+const NotificationIconStyled = () => <Bell className={iconClass} />;
+const InsightsIconStyled = () => <Eye className={iconClass} />;
+const TutorialIconStyled = () => <BookOpen className={iconClass} />;
 const XraySettingsIconStyled = () => (
-	<WrenchScrewdriverIcon className={iconClass} />
+	<Wrench className={iconClass} />
 );
-const XrayLogsIconStyled = () => <DocumentTextIcon className={iconClass} />;
-const ApiDocsIconStyled = () => <CodeBracketSquareIcon className={iconClass} />;
-const PHPMyAdminIconStyled = () => <CircleStackIcon className={iconClass} />;
-const ExternalAppsIconStyled = () => <CommandLineIcon className={iconClass} />;
-const PlaceholderIconStyled = () => <DocumentDuplicateIcon className={iconClass} />;
-const TutorialUpdateIconStyled = () => <BellAlertIcon className="size-3" />;
+const XrayLogsIconStyled = () => <FileText className={iconClass} />;
+const ApiDocsIconStyled = () => <SquareCode className={iconClass} />;
+const PHPMyAdminIconStyled = () => <Database className={iconClass} />;
+const ExternalAppsIconStyled = () => <Terminal className={iconClass} />;
+const PlaceholderIconStyled = () => <Copy className={iconClass} />;
+const TutorialUpdateIconStyled = () => <BellRing className="size-3" />;
 
 interface AppSidebarProps {
 	collapsed: boolean;
@@ -177,7 +152,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 	const baseSettingsSubItems: SidebarSubItems = [
 		isPrivilegedAdmin
 			? {
-					title: "errors",
+					title: t("diagnostics.menu"),
 					url: "/errors",
 					icon: InsightsIconStyled,
 				}
@@ -489,7 +464,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 											className="mb-1 flex w-full items-center justify-between rounded-[4px] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-panel-text-muted transition-colors hover:text-panel-text"
 										>
 											<span>{group.title}</span>
-											<ChevronDownIcon
+											<ChevronDown
 												width={14}
 												height={14}
 												style={{

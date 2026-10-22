@@ -1,7 +1,10 @@
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { FormControl, FormLabel } from "components/shadcn/field";
-import { Input } from "components/shadcn/input";
-import { Button } from "components/shadcn/button";
+import { Field, FieldLabel } from "components/ui/field";
+import { Input } from "components/ui/input";
+import { Button } from "components/ui/button";
+import { Dialog } from "components/ui/dialog";
+import { CircleAlert, CircleCheck, TriangleAlert } from "lucide-react";
+
+
 import { type FC, useEffect } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import { Controller, useForm } from "react-hook-form";
@@ -97,25 +100,25 @@ export const FakeDnsModal: FC<FakeDnsModalProps> = ({
 	});
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="lg">
-			<ModalOverlay className="bg-blackAlpha-400" />
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
 			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
 					{isEdit ? t("pages.xray.fakedns.edit") : t("pages.xray.fakedns.add")}
 				</XrayModalHeader>
-				<ModalCloseButton />
+				
 				<form onSubmit={handleSubmit}>
 					<XrayModalBody>
 						<XrayDialogSection
 							title={t("pages.xray.fakedns.title")}
 						>
 							<div className="flex flex-col gap-4 items-stretch">
-								<FormControl>
-									<FormLabel>{t("pages.xray.fakedns.ipPool")}</FormLabel>
-									<Input {...modalForm.register("ipPool")} size="sm" placeholder="198.18.0.0/16" />
-								</FormControl>
-								<FormControl>
-									<FormLabel>{t("pages.xray.fakedns.poolSize")}</FormLabel>
+								<Field>
+									<FieldLabel>{t("pages.xray.fakedns.ipPool")}</FieldLabel>
+									<Input {...modalForm.register("ipPool")} />
+								</Field>
+								<Field>
+									<FieldLabel>{t("pages.xray.fakedns.poolSize")}</FieldLabel>
 									<Controller
 										control={modalForm.control}
 										name="poolSize"
@@ -123,15 +126,15 @@ export const FakeDnsModal: FC<FakeDnsModalProps> = ({
 											<NumericInput value={field.value ?? ""} onChange={(value) => field.onChange(value)} size="sm" min={1} fieldProps={{ className: "[placeholder:100]" }} />
 										)}
 									/>
-								</FormControl>
+								</Field>
 							</div>
 						</XrayDialogSection>
 					</XrayModalBody>
 					<XrayModalFooter className="justify-end">
-						<Button size="md" variant="outline" onClick={onClose}>
+						<Button onClick={onClose} variant="outline">
 							{t("cancel")}
 						</Button>
-						<Button type="submit" colorScheme="primary" size="sm">
+						<Button type="submit" size="sm">
 							{isEdit
 								? t("pages.xray.fakedns.edit")
 								: t("pages.xray.fakedns.add")}
@@ -139,6 +142,6 @@ export const FakeDnsModal: FC<FakeDnsModalProps> = ({
 					</XrayModalFooter>
 				</form>
 			</XrayModalContent>
-		</Modal>
+		</Dialog>
 	);
 };

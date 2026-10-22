@@ -61,6 +61,31 @@ type AdminsStore = {
 	closeAdminDialog: () => void;
 };
 
+const buildAdminQuery = (filters: AdminFilters) => {
+	const query: Record<string, string | number> = {};
+	if (filters.search) {
+		query.username = filters.search;
+		query.match_case = String(filters.matchCase);
+		query.match_whole_word = String(filters.matchWholeWord);
+	}
+	if (filters.offset !== undefined) {
+		query.offset = filters.offset;
+	}
+	if (filters.limit !== undefined) {
+		query.limit = filters.limit;
+	}
+	if (filters.roleFilter) {
+		query.role = filters.roleFilter;
+	}
+	if (filters.statusFilter) {
+		query.status = filters.statusFilter;
+	}
+	if (filters.sort) {
+		query.sort = filters.sort;
+	}
+	return query;
+};
+
 const createDefaultFilters = (): AdminFilters => ({
 	search: "",
 	matchCase: false,
@@ -171,27 +196,7 @@ export const useAdminsStore = create<AdminsStore>((set, get) => ({
 			...stateFilters,
 			...overrides,
 		};
-		const query: Record<string, string | number> = {};
-		if (filters.search) {
-			query.username = filters.search;
-			query.match_case = String(filters.matchCase);
-			query.match_whole_word = String(filters.matchWholeWord);
-		}
-		if (filters.offset !== undefined) {
-			query.offset = filters.offset;
-		}
-		if (filters.limit !== undefined) {
-			query.limit = filters.limit;
-		}
-		if (filters.roleFilter) {
-			query.role = filters.roleFilter;
-		}
-		if (filters.statusFilter) {
-			query.status = filters.statusFilter;
-		}
-		if (filters.sort) {
-			query.sort = filters.sort;
-		}
+		const query = buildAdminQuery(filters);
 
 		const requestKey = JSON.stringify(query);
 		if (loading && currentRequestKey === requestKey && inflight) {
@@ -283,21 +288,7 @@ export const useAdminsStore = create<AdminsStore>((set, get) => ({
 			statusFilter: "",
 			...overrides,
 		};
-		const query: Record<string, string | number> = {};
-		if (filters.search) {
-			query.username = filters.search;
-			query.match_case = String(filters.matchCase);
-			query.match_whole_word = String(filters.matchWholeWord);
-		}
-		if (filters.offset !== undefined) {
-			query.offset = filters.offset;
-		}
-		if (filters.limit !== undefined) {
-			query.limit = filters.limit;
-		}
-		if (filters.sort) {
-			query.sort = filters.sort;
-		}
+		const query = buildAdminQuery(filters);
 
 		if (
 			!force &&

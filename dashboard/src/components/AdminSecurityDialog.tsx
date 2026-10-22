@@ -1,6 +1,10 @@
-import { useToast } from "components/shadcn/toast";
-import { Button } from "components/shadcn/button";
-import { Badge } from "components/shadcn/badge";
+import { toneClass } from "lib/tone";
+import { Button } from "components/ui/button";
+import { Badge } from "components/ui/badge";
+import { toast } from "components/ui/sonner";
+import { cn } from "lib/cn";
+
+
 import { AppDialog } from "components/dialogs/AppDialog";
 import dayjs from "dayjs";
 import { QRCodeCanvas } from "qrcode.react";
@@ -35,7 +39,7 @@ export const AdminSecurityDialog = ({
 	onChanged,
 }: Props) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const [sessions, setSessions] = useState<AdminSessionView[]>([]);
 	const [setup, setSetup] = useState<TOTPSetup | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -94,7 +98,7 @@ export const AdminSecurityDialog = ({
 			open={isOpen}
 			onClose={onClose}
 			title={t("admins.security.title", { username: admin?.username ?? "" })}
-			footer={<Button variant="solid" size="md" onClick={onClose}>{t("close")}</Button>}
+			footer={<Button onClick={onClose}>{t("close")}</Button>}
 		>
 			<div className="flex flex-col gap-5">
 				{canManage2FA && (
@@ -103,13 +107,13 @@ export const AdminSecurityDialog = ({
 							<p className="font-semibold">
 								{t("myaccount.twoFactor")}
 							</p>
-							<Badge colorScheme={admin?.totp_enabled ? "green" : "gray"}>
+							<Badge className={toneClass(admin?.totp_enabled ? "green" : "gray")}>
 								{admin?.totp_enabled
 									? t("nodes.enabled")
 									: t("disabled")}
 							</Badge>
 						</div>
-						<Button colorScheme={admin?.totp_enabled ? "red" : "primary"} loading={loading} onClick={admin?.totp_enabled ? remove2FA : enable2FA} size="sm">
+						<Button onClick={admin?.totp_enabled ? remove2FA : enable2FA} variant={admin?.totp_enabled ? "destructive" : "default"} size="sm" loading={loading}>
 							{admin?.totp_enabled
 								? t("admins.security.remove2FA")
 								: t("admins.security.setup2FA")}
@@ -148,7 +152,7 @@ export const AdminSecurityDialog = ({
 											{dayjs(session.last_seen_at).format("YYYY-MM-DD HH:mm")}
 										</p>
 									</div>
-									<Button colorScheme="red" loading={loading} onClick={() => revoke(session.id)} size="xs" variant="ghost">
+									<Button onClick={() => revoke(session.id)} variant="ghost" size="xs" loading={loading} className="text-destructive hover:bg-destructive/10">
 										{t("header.logout")}
 									</Button>
 								</div>

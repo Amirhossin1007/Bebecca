@@ -463,12 +463,17 @@ export const installExternalArchive = async (payload: {
 	});
 };
 
-export const installMirzaBot = async (payload: {
+type BotAppInstallPayload = {
 	domain: string;
 	bot_token: string;
 	admin_id: string;
 	database_backup?: File;
-}): Promise<ExternalAppRecord> => {
+};
+
+const installBotApp = async (
+	app: "mirzabot" | "faoxima",
+	payload: BotAppInstallPayload,
+): Promise<ExternalAppRecord> => {
 	const body = new FormData();
 	body.set("domain", payload.domain);
 	body.set("bot_token", payload.bot_token);
@@ -476,32 +481,16 @@ export const installMirzaBot = async (payload: {
 	if (payload.database_backup) {
 		body.set("database_backup", payload.database_backup);
 	}
-	return $fetch("/settings/external-apps/mirzabot", {
+	return $fetch(`/settings/external-apps/${app}`, {
 		method: "POST",
 		body,
 		timeout: 20 * 60 * 1000,
 	});
 };
 
-export const installFaoxima = async (payload: {
-	domain: string;
-	bot_token: string;
-	admin_id: string;
-	database_backup?: File;
-}): Promise<ExternalAppRecord> => {
-	const body = new FormData();
-	body.set("domain", payload.domain);
-	body.set("bot_token", payload.bot_token);
-	body.set("admin_id", payload.admin_id);
-	if (payload.database_backup) {
-		body.set("database_backup", payload.database_backup);
-	}
-	return $fetch("/settings/external-apps/faoxima", {
-		method: "POST",
-		body,
-		timeout: 20 * 60 * 1000,
-	});
-};
+export const installMirzaBot = (payload: BotAppInstallPayload) => installBotApp("mirzabot", payload);
+
+export const installFaoxima = (payload: BotAppInstallPayload) => installBotApp("faoxima", payload);
 
 export const setExternalAppEnabled = async (payload: {
 	id: string;

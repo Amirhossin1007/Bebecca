@@ -1,36 +1,16 @@
-import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
-import { Portal } from "components/shadcn/portal";
+import { DropdownMenuItem } from "components/ui/dropdown-menu";
+import { Button } from "components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { Spinner } from "components/ui/spinner";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+
 import { useBreakpointValue } from "hooks/useBreakpointValue";
-import { useToast } from "components/shadcn/toast";
-import { Button as KitButton, IconButton } from "components/shadcn/button";
-import { Tooltip as KitTooltip } from "components/shadcn/tooltip";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "components/ui/tooltip";
-import { Spinner } from "components/shadcn/feedback";
-import { withClass } from "components/shadcn/icon";
-import type { ComponentPropsWithoutRef, MouseEvent as ReactMouseEvent } from "react";
+
+import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "lib/cn";
-import { Check, Copy, Link2, Pencil, QrCode, Trash2 } from "lucide-react";
-import {
-	ArrowPathIcon,
-	CalendarDaysIcon,
-	ChartBarIcon,
-	CheckIcon,
-	ChevronRightIcon,
-	CircleStackIcon,
-	ClockIcon,
-	GlobeAltIcon,
-	LinkIcon,
-	LinkSlashIcon,
-	NoSymbolIcon,
-	PlusCircleIcon,
-	ServerStackIcon,
-	SignalIcon,
-} from "@heroicons/react/24/outline";
-import { LockClosedIcon } from "@heroicons/react/24/solid";
+import { Check, Copy, Link2, Pencil, QrCode, Trash2, RefreshCw, CalendarDays, ChartColumn, Check as CheckIcon, Database, Clock, Globe, Link, Unlink, Ban, CirclePlus, Server, Signal, Lock } from "lucide-react";
 import type { SortingState } from "@tanstack/react-table";
 import AddFileIcon from "assets/add_file.svg?react";
 import { useDashboard } from "contexts/DashboardContext";
@@ -42,7 +22,6 @@ import {
 	useCallback,
 	useEffect,
 	useMemo,
-	useRef,
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
@@ -58,6 +37,7 @@ import { copyTextToClipboard } from "utils/clipboard";
 import { RowActionButton } from "components/ui/row-actions";
 import { formatBytes } from "utils/formatByte";
 import { DataTableColumnMenu } from "components/ui/DataTableColumnMenu";
+import { AddTrafficDialog } from "components/AddTrafficDialog";
 import { UsersOverviewBand } from "components/users/UsersOverviewBand";
 import { generateUserLinks } from "utils/userLinks";
 import { AppDialog } from "./dialogs/AppDialog";
@@ -135,16 +115,16 @@ const QRIcon = () => <QrCode />;
 const CopiedIcon = () => <Check />;
 const EditIcon = () => <Pencil />;
 const DeleteIcon = () => <Trash2 />;
-const LockOverlayIcon = withClass(LockClosedIcon, "w-16 md:w-20 h-16 md:h-20");
-const ResetIcon = withClass(ArrowPathIcon, "w-4 md:w-5 h-4 md:h-5");
-const DisableIcon = withClass(NoSymbolIcon, "w-4 md:w-5 h-4 md:h-5");
-const RevokeIcon = withClass(LinkSlashIcon, "w-4 md:w-5 h-4 md:h-5");
-const TrafficIcon = withClass(PlusCircleIcon, "w-4 md:w-5 h-4 md:h-5");
-const ExtendIcon = withClass(ClockIcon, "w-4 md:w-5 h-4 md:h-5");
-const UsageHistoryIcon = withClass(ChartBarIcon, "w-4 md:w-5 h-4 md:h-5");
-const DataLimitIcon = withClass(CircleStackIcon, "w-4 md:w-5 h-4 md:h-5");
-const ExpiryIcon = withClass(CalendarDaysIcon, "w-4 md:w-5 h-4 md:h-5");
-const IPsIcon = withClass(GlobeAltIcon, "w-4 md:w-5 h-4 md:h-5");
+const LockOverlayIcon = withClass(Lock, "w-16 md:w-20 h-16 md:h-20");
+const ResetIcon = withClass(RefreshCw, "w-4 md:w-5 h-4 md:h-5");
+const DisableIcon = withClass(Ban, "w-4 md:w-5 h-4 md:h-5");
+const RevokeIcon = withClass(Unlink, "w-4 md:w-5 h-4 md:h-5");
+const TrafficIcon = withClass(CirclePlus, "w-4 md:w-5 h-4 md:h-5");
+const ExtendIcon = withClass(Clock, "w-4 md:w-5 h-4 md:h-5");
+const UsageHistoryIcon = withClass(ChartColumn, "w-4 md:w-5 h-4 md:h-5");
+const DataLimitIcon = withClass(Database, "w-4 md:w-5 h-4 md:h-5");
+const ExpiryIcon = withClass(CalendarDays, "w-4 md:w-5 h-4 md:h-5");
+const IPsIcon = withClass(Globe, "w-4 md:w-5 h-4 md:h-5");
 
 type UserIPRecord = {
 	node_id: number;
@@ -242,88 +222,6 @@ const deduplicateUserIPRecords = (records: UserIPRecord[]) => {
 	);
 };
 
-const TRAFFIC_AMOUNTS = [1, 2, 3, 5, 10] as const;
-
-const TrafficSubmenu: FC<{
-	label: string;
-	isRTL: boolean;
-	activeAction: string | null;
-	onClose: () => void;
-	onSelect: (gigabytes: number) => void;
-	getOptionLabel: (gigabytes: number) => string;
-}> = ({ label, isRTL, activeAction, onClose, onSelect, getOptionLabel }) => {
-	const [isOpen, setIsOpen] = useState(false);
-	const closeTimer = useRef<number | null>(null);
-
-	const cancelClose = () => {
-		if (closeTimer.current !== null) {
-			window.clearTimeout(closeTimer.current);
-			closeTimer.current = null;
-		}
-	};
-	const openMenu = () => {
-		cancelClose();
-		setIsOpen(true);
-	};
-	const closeMenu = () => {
-		cancelClose();
-		setIsOpen(false);
-	};
-	const scheduleClose = () => {
-		cancelClose();
-		closeTimer.current = window.setTimeout(() => setIsOpen(false), 120);
-	};
-
-	useEffect(
-		() => () => {
-			if (closeTimer.current !== null) {
-				window.clearTimeout(closeTimer.current);
-			}
-		},
-		[],
-	);
-
-	return (
-		<Menu open={isOpen} isLazy onClose={closeMenu} placement={isRTL ? "left-start" : "right-start"} strategy="fixed" autoSelect={false} closeOnSelect={false} gutter={4}>
-			<MenuButton as={MenuItem} icon={<TrafficIcon />} disabled={activeAction?.startsWith("traffic-")} closeOnSelect={false} onMouseEnter={openMenu} onMouseLeave={scheduleClose} onClick={(event: ReactMouseEvent<HTMLElement>) => {
-					event.preventDefault();
-					event.stopPropagation();
-					openMenu();
-				}} onKeyDown={(event: any) => {
-					if (event.key === (isRTL ? "ArrowLeft" : "ArrowRight")) {
-						event.preventDefault();
-						event.stopPropagation();
-						openMenu();
-					}
-				}}>
-				<div className="flex flex-row items-center w-full justify-between gap-3">
-					<span className="truncate">
-						{label}
-					</span>
-					<ChevronRightIcon style={{
-							flexShrink: 0,
-							transform: isRTL ? "rotate(180deg)" : undefined,
-						}} className="w-[14px]" />
-				</div>
-			</MenuButton>
-			<Portal>
-				<MenuList data-rb-context-menu="" onMouseEnter={openMenu} onMouseLeave={scheduleClose} onClick={(event) => event.stopPropagation()} className="min-w-[152px]! max-h-[min(70vh,_320px)] overflow-y-auto overflow-x-hidden overscroll-contain rounded-lg shadow-2xl z-[2600]">
-					{TRAFFIC_AMOUNTS.map((gigabytes) => (
-						<MenuItem key={gigabytes} disabled={activeAction === `traffic-${gigabytes}`} onClick={(event) => {
-								event.stopPropagation();
-								closeMenu();
-								onClose();
-								onSelect(gigabytes);
-							}}>
-							{getOptionLabel(gigabytes)}
-						</MenuItem>
-					))}
-				</MenuList>
-			</Portal>
-		</Menu>
-	);
-};
-
 const formatUsernamePreview = (username: string, maxLength = 20) =>
 	username.length > maxLength
 		? `${username.slice(0, Math.max(4, maxLength - 4))}...`
@@ -412,7 +310,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const locale = i18n.language || "en";
-	const toast = useToast();
+	
 	// One toast shape for every action in this section: top entrance, closable.
 	const notify = useCallback(
 		(
@@ -420,14 +318,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			status: "success" | "error",
 			options?: { description?: string; duration?: number },
 		) =>
-			toast({
-				title,
-				status,
-				description: options?.description,
-				duration: options?.duration ?? 2500,
-				isClosable: true,
-				position: "top",
-			}),
+			toast("", { description: options?.description, duration: options?.duration ?? 2500 }),
 		[toast],
 	);
 	const { userData } = useGetUser();
@@ -554,26 +445,20 @@ export const UsersTable: FC<UsersTableProps> = ({
 		}
 	};
 
-	const handleAdjustTraffic = async (user: UserListItem, gigabytes: number) => {
-		const currentLimit = user.data_limit;
-		if (!currentLimit || currentLimit <= 0) {
-			return;
-		}
-		setContextAction(`traffic-${gigabytes}`);
+	const [trafficUser, setTrafficUser] = useState<UserListItem | null>(null);
+	const handleAddTraffic = async (user: UserListItem, deltaBytes: number) => {
+		const currentLimit = user.data_limit ?? 0;
+		if (currentLimit <= 0) return;
 		try {
-			const delta = gigabytes * 1024 * 1024 * 1024;
-			const nextLimit = currentLimit + delta;
 			await fetch(`/v2/users/${encodeURIComponent(user.username)}`, {
 				method: "PUT",
-				body: { data_limit: nextLimit },
+				body: { data_limit: currentLimit + deltaBytes },
 			});
 			notify(t("usersTable.addTrafficSuccess"), "success");
 			refetchUsers(true);
 		} catch (error: any) {
 			notify(error?.data?.detail || error?.message || t("error"), "error");
-		} finally {
-			setContextAction(null);
-			closeContextMenu();
+			throw error;
 		}
 	};
 
@@ -1196,20 +1081,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				id: "add-traffic",
 				label: t("services.userActions.traffic.add"),
 				icon: <TrafficIcon />,
-				render: (_row, onClose) => (
-					<TrafficSubmenu
-						label={t("services.userActions.traffic.add")}
-						isRTL={isRTL}
-						activeAction={contextAction}
-						onClose={onClose}
-						onSelect={(gigabytes) => handleAdjustTraffic(user, gigabytes)}
-						getOptionLabel={(gigabytes) =>
-							t("usersTable.addGb", {
-								count: gigabytes,
-							})
-						}
-					/>
-				),
+				onClick: () => setTrafficUser(user),
 			});
 		}
 
@@ -1269,9 +1141,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 							await handleDeleteUser(user);
 						}}
 					>
-						<MenuItem icon={<DeleteIcon />} onClick={(event) => event.stopPropagation()} className="text-red-400">
+						<DropdownMenuItem onSelect={(event) => event.stopPropagation()} className="text-red-400">
 							{t("deleteUser.title")}
-						</MenuItem>
+						</DropdownMenuItem>
 					</DeleteConfirmDialog>
 				),
 			});
@@ -1329,11 +1201,14 @@ export const UsersTable: FC<UsersTableProps> = ({
 				<div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions">
 					<div className="flex flex-row items-center gap-1 rb-expanded-user-actions">
 						{expandedActions.map((action) => (
-							<KitTooltip key={action.id} label={action.label}>
+							<Tooltip>
+<TooltipTrigger asChild>
 								<span>
-									<IconButton aria-label={String(action.label)} variant="ghost" size="sm" disabled={action.disabled} onClick={() => action.onClick?.()} className="min-w-[30px]! h-[30px]" >{action.icon}</IconButton>
+									<Button aria-label={String(action.label)} disabled={action.disabled} onClick={() => action.onClick?.()} variant="ghost" size="sm" className={cn("size-8 p-0", "min-w-[30px]! h-[30px]")}>{action.icon}</Button>
 								</span>
-							</KitTooltip>
+							</TooltipTrigger>
+<TooltipContent>{action.label}</TooltipContent>
+</Tooltip>
 						))}
 					</div>
 					<ActionButtons
@@ -1358,6 +1233,11 @@ export const UsersTable: FC<UsersTableProps> = ({
 
 	return (
 		<div dir={isRTL ? "rtl" : "ltr"} data-dir={isRTL ? "rtl" : "ltr"} {...props} className={cn("flex flex-col gap-4 items-stretch", selectedUsers.length > 0 ? "pb-32" + " " + "md:pb-24" : "pb-0")}>
+			<AddTrafficDialog
+				target={trafficUser ? { kind: "user", name: trafficUser.username } : null}
+				onClose={() => setTrafficUser(null)}
+				onApply={(deltaBytes) => (trafficUser ? handleAddTraffic(trafficUser, deltaBytes) : Promise.resolve())}
+			/>
 			{/* One header card: the overview band, then the toolbar row. */}
 			<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden rb-users-header-card">
 				<UsersOverviewBand
@@ -1376,20 +1256,18 @@ export const UsersTable: FC<UsersTableProps> = ({
 					locale={locale}
 				/>
 
-				{/* Toolbar: search, sort, filters and create on the start side; refresh,
-				    auto-refresh and the column chooser on the end side. */}
 				<div className="border-t border-panel-border! p-3 rb-users-toolbar">
 					<div className="flex-wrap flex items-center gap-2">
 						<div className="max-sm:contents sm:flex-[1_1_240px] min-w-0!">
 							{toolbar}
 						</div>
 						<div className="flex flex-row items-center gap-1 shrink-0">
-							{headerActions}
 							<DataTableColumnMenu
 								columns={userColumns}
 								visibility={columnVisibility}
 								onChange={setColumnVisibility}
 							/>
+							{headerActions}
 						</div>
 					</div>
 				</div>
@@ -1466,51 +1344,51 @@ export const UsersTable: FC<UsersTableProps> = ({
 						renderBulkActions={() => (
 							<>
 								{canToggleUserStatus && (
-									<KitButton size="sm" variant="outline" onClick={handleBulkDisable} loading={bulkAction === "disable"} disabled={
+									<Button onClick={handleBulkDisable} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											bulkDisableTargets.length === 0
-										}>{<DisableIcon />}
+										} variant="outline" size="sm" loading={bulkAction === "disable"}>{<DisableIcon />}
 										{t("usersTable.disableUser")}
-									</KitButton>
+									</Button>
 								)}
 								{canToggleUserStatus && (
-									<KitButton size="sm" variant="outline" onClick={handleBulkEnable} loading={bulkAction === "enable"} disabled={
+									<Button onClick={handleBulkEnable} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											bulkEnableTargets.length === 0
-										}>{<CheckIcon className="w-[16px]" />}
+										} variant="outline" size="sm" loading={bulkAction === "enable"}>{<CheckIcon className="w-[16px]" />}
 										{t("usersTable.enableUser")}
-									</KitButton>
+									</Button>
 								)}
 								{canResetUsageActions && (
-									<KitButton size="sm" variant="outline" onClick={() => setIsBulkResetOpen(true)} loading={bulkAction === "reset"} disabled={
+									<Button onClick={() => setIsBulkResetOpen(true)} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											selectedUsers.length === 0
-										}>{<ResetIcon />}
+										} variant="outline" size="sm" loading={bulkAction === "reset"}>{<ResetIcon />}
 										{t("usersTable.resetUsage")}
-									</KitButton>
+									</Button>
 								)}
 								{canRevokeSubActions && (
-									<KitButton size="sm" variant="outline" onClick={handleBulkRevoke} loading={bulkAction === "revoke"} disabled={
+									<Button onClick={handleBulkRevoke} disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											selectedUsers.length === 0
-										}>{<RevokeIcon />}
+										} variant="outline" size="sm" loading={bulkAction === "revoke"}>{<RevokeIcon />}
 										{t("usersTable.revokeSub")}
-									</KitButton>
+									</Button>
 								)}
 								{canDeleteUserActions && (
 									<DeleteConfirmDialog
 										description={t("usersTable.bulkDeletePrompt")}
 										onConfirm={handleBulkDelete}
 									>
-										<KitButton size="sm" colorScheme="red" variant="outline" loading={bulkAction === "delete"} disabled={
+										<Button disabled={
 												Boolean(bulkAction) || bulkDeleteTargets.length === 0
-											}>{<DeleteIcon />}
+											} variant="outline" size="sm" loading={bulkAction === "delete"} className="border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10">{<DeleteIcon />}
 											{t("delete")}
-										</KitButton>
+										</Button>
 									</DeleteConfirmDialog>
 								)}
 							</>
@@ -1530,18 +1408,18 @@ export const UsersTable: FC<UsersTableProps> = ({
 					</div>
 				)}
 			</div>
-			<AppDialog open={ipDialog !== null} onClose={() => setIPDialog(null)} title={t("usersTable.ipsDialogTitle")} isCentered size="lg" scrollBehavior="inside" contentProps={{ className: "bg-panel-surface border-panel-border! border rounded-lg overflow-hidden" }} bodyProps={{ className: "pb-5" }} footer={
+			<AppDialog open={ipDialog !== null} onClose={() => setIPDialog(null)} title={t("usersTable.ipsDialogTitle")} size="lg" contentProps={{ className: "bg-panel-surface border-panel-border! border rounded-lg overflow-hidden" }} bodyProps={{ className: "pb-5" }} footer={
 					<div className="flex flex-row items-center w-full justify-end gap-2">
-						<KitButton variant="solid" size="sm" onClick={() => setIPDialog(null)}>
+						<Button onClick={() => setIPDialog(null)} size="sm">
 							{t("close")}
-						</KitButton>
-						<KitButton size="sm" colorScheme="primary" onClick={handleCopyIPs} disabled={
+						</Button>
+						<Button onClick={handleCopyIPs} disabled={
 								contextAction === "ips" ||
 								Boolean(ipDialog?.error) ||
 								!ipDialog?.records.length
-							}>{<CopyIcon />}
+							} size="sm">{<CopyIcon />}
 							{t("usersTable.copyIps")}
-						</KitButton>
+						</Button>
 					</div>
 				}>
 				<div className="flex flex-col gap-4">
@@ -1565,7 +1443,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 
 					{contextAction === "ips" ? (
 						<div className="flex items-center justify-center gap-3 py-8">
-							<Spinner size="sm" className="text-panel-accent" />
+							<Spinner className="text-panel-accent" />
 							<p className="text-[0.875rem] text-panel-text-muted">
 								{t("usersTable.ipsDialogLoading")}
 							</p>
@@ -1621,7 +1499,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 													{ip}
 												</p>
 												<div className="flex flex-row items-center mt-0.5 gap-1 justify-start sm:justify-end text-panel-text-secondary text-[0.75rem]">
-													<SignalIcon aria-hidden="true" className="w-[14px]" />
+													<Signal aria-hidden="true" className="w-[14px]" />
 													<p>
 														{t("usersTable.ipConnections_other", {
 															count: connections,
@@ -1634,25 +1512,25 @@ export const UsersTable: FC<UsersTableProps> = ({
 										<div className="flex flex-row items-center mt-3 gap-3 flex-wrap text-panel-text-muted text-[0.75rem]">
 											{protocols.length > 0 && (
 												<div className="flex flex-row items-center gap-1">
-													<GlobeAltIcon aria-hidden="true" className="w-[14px]" />
+													<Globe aria-hidden="true" className="w-[14px]" />
 													<p>{protocols.join(", ")}</p>
 												</div>
 											)}
 											{inbounds.length > 0 && (
 												<div className="flex flex-row items-center gap-1">
-													<LinkIcon aria-hidden="true" className="w-[14px]" />
+													<Link aria-hidden="true" className="w-[14px]" />
 													<p>{inbounds.join(", ")}</p>
 												</div>
 											)}
 											{nodes.length > 0 && (
 												<div className="flex flex-row items-center gap-1">
-													<ServerStackIcon aria-hidden="true" className="w-[14px]" />
+													<Server aria-hidden="true" className="w-[14px]" />
 													<p>{nodes.join(", ")}</p>
 												</div>
 											)}
 											{record.last_seen_at && (
 												<div className="flex flex-row items-center gap-1">
-													<ClockIcon aria-hidden="true" className="w-[14px]" />
+													<Clock aria-hidden="true" className="w-[14px]" />
 													<p dir="ltr">
 														{dayjs(record.last_seen_at).format(
 															"YYYY-MM-DD HH:mm",
@@ -1819,9 +1697,9 @@ const EmptySection: FC<EmptySectionProps> = ({
 				{isFiltered ? t("usersTable.noUserMatched") : t("usersTable.noUser")}
 			</p>
 			{!isFiltered && !isCreateDisabled && (
-				<KitButton size="sm" colorScheme="primary" onClick={handleCreate}>
+				<Button onClick={handleCreate} size="sm">
 					{t("createUser")}
-				</KitButton>
+				</Button>
 			)}
 		</div>
 	);

@@ -5,19 +5,9 @@
 @font-face {
   font-family: 'Arad';
   src:
-    url('/statics/fonts/Arad-Regular.woff2') format('woff2'),
-    url('/fonts/Arad-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Arad';
-  src:
-    url('/statics/fonts/Arad-Bold.woff2') format('woff2'),
-    url('/fonts/Arad-Bold.woff2') format('woff2');
-  font-weight: 700;
+    url('/statics/fonts/AradVF.woff2') format('woff2'),
+    url('/fonts/AradVF.woff2') format('woff2');
+  font-weight: 400 700;
   font-style: normal;
   font-display: swap;
 }
@@ -2255,7 +2245,7 @@ img.apple-emoji {
 
 /* Admin and node expansions: keep the attached panel inside the visible part of
    the table so every section is reachable without scrolling sideways. */
-:is(.rb-admins-section, .rb-nodes-section) .rb-data-table-row-detail .rb-data-table-expanded-content {
+:is(.rb-admins-section, .rb-nodes-section, .rb-services-section) .rb-data-table-row-detail .rb-data-table-expanded-content {
   position: sticky;
   left: 0;
   max-width: calc(100vw - 280px);
@@ -2533,6 +2523,14 @@ img.apple-emoji {
   padding: 0.75rem;
 }
 .rb-xray-dialog .xray-dialog-section.rb-dialog-collapsible-section { padding: 0; overflow: hidden; }
+.inbound-form-modal .xray-dialog-section {
+  border-top: 1px solid var(--rb-panel-border);
+  padding-top: 1.25rem;
+}
+.inbound-form-modal .xray-dialog-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
 .rb-xray-dialog .rb-dialog-collapsible-trigger {
   display: flex;
   align-items: center;
@@ -2625,4 +2623,71 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+:is(.rb-users-section, .rb-admins-section, .rb-nodes-section, .rb-services-section) .rb-resource-expanded {
+  margin-top: 0;
+  padding: 0.875rem 1rem 1rem;
+  border-top: 1px solid var(--rb-panel-border);
+  background: color-mix(in srgb, var(--rb-panel-elevated) 55%, transparent);
+}
+
+:is(.rb-users-section, .rb-admins-section, .rb-nodes-section, .rb-services-section) .rb-resource-details {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr));
+  column-gap: 0.5rem;
+  row-gap: 0.5rem;
+}
+
+:is(.rb-users-section, .rb-admins-section, .rb-nodes-section, .rb-services-section) .rb-resource-details[data-density="compact"] {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr));
+}
+
+:is(.rb-users-section, .rb-admins-section, .rb-nodes-section, .rb-services-section) .rb-resource-details .rb-resource-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--rb-panel-border);
+  border-radius: 0.625rem;
+  background: var(--rb-panel-surface);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+:is(.rb-users-section, .rb-admins-section, .rb-nodes-section, .rb-services-section) .rb-resource-details .rb-resource-meta > span {
+  max-width: 100%;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--rb-panel-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:is(.rb-users-section, .rb-admins-section, .rb-nodes-section, .rb-services-section) .rb-resource-details .rb-resource-meta-value {
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rb-panel-text);
+  text-align: start;
+}
+
+:is(.rb-users-section, .rb-admins-section, .rb-nodes-section, .rb-services-section) .rb-resource-expanded-actions {
+  margin-top: 0.875rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--rb-panel-border);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(.rb-users-section, .rb-admins-section, .rb-nodes-section, .rb-services-section) .rb-resource-expanded {
+    animation: rb-users-expand-in var(--rb-duration-ui) var(--rb-ease-out);
+    transform-origin: top center;
+  }
 }

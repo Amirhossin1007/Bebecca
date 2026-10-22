@@ -1,31 +1,31 @@
+import { toneClass } from "lib/tone";
+import { Field } from "components/ui/field";
+import { Badge } from "components/ui/badge";
+import { Switch } from "components/ui/switch";
+import { Button } from "components/ui/button";
+import { Spinner } from "components/ui/spinner";
+import { Alert } from "components/ui/alert";
+import { Textarea } from "components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
 import type { SortingState } from "@tanstack/react-table";
 import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
-import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+
 import { useColorMode } from "lib/color-mode";
-import { useToast } from "components/shadcn/toast";
-import { Badge } from "components/shadcn/badge";
-import { Switch } from "components/shadcn/selection";
-import { Button, IconButton } from "components/shadcn/button";
-import { Spinner } from "components/shadcn/feedback";
-import { Alert, AlertIcon } from "components/shadcn/alert";
-import { Textarea } from "components/shadcn/input";
-import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
-import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
-import { withClass } from "components/shadcn/icon";
+
 import { cn } from "lib/cn";
 import { PanelSelect as Select } from "components/common/PanelSelect";
-import {
-	ArrowPathIcon,
-	ArrowUpTrayIcon,
-	ChevronDownIcon as HeroChevronDownIcon,
-	ChevronUpIcon,
-	NoSymbolIcon,
-	PaperAirplaneIcon,
-	PlusIcon,
-	TrashIcon,
-} from "@heroicons/react/24/outline";
-import { NumericInput } from "components/common/NumericInput";
-import { PanelInput as Input } from "components/common/PanelInput";
+import { SettingsCard } from "components/ui/settings-card";
+import { FormField } from "components/ui/form-field";
+import { Input as UiInput } from "components/ui/input";
+import { SegmentedControl } from "components/ui/segmented-control";
+import { ToggleRow } from "components/ui/toggle-row";
+import { ListCard } from "components/ui/list-card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "components/ui/dialog";
+import { ShieldCheck, RefreshCw, Upload, ChevronDown as HeroChevronDownIcon, ChevronUp, Ban, Send, Plus, Trash2 } from "lucide-react";
+import { NumberField } from "components/ui/number-field";
 import { SearchInput } from "components/common/SearchInput";
 import useGetUser from "hooks/useGetUser";
 import {
@@ -87,7 +87,6 @@ import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import {
 	DataTable,
 	PageLoadingSkeleton,
-	ResourceListCard,
 	TabSystem,
 	type DataTableColumn,
 	type DataTableRowAction,
@@ -165,7 +164,7 @@ const TelegramSwitchRow = ({
 	description,
 	control,
 }: TelegramSwitchRowProps) => (
-	<FormControl className="telegram-switch-row">
+	<Field className="telegram-switch-row">
 		<div className="flex items-center justify-between gap-2 md:gap-3 telegram-switch-row__inner">
 			<div className="min-w-0! flex-1">
 				<p className="telegram-switch-row__title">{title}</p>
@@ -179,7 +178,7 @@ const TelegramSwitchRow = ({
 				{control}
 			</div>
 		</div>
-	</FormControl>
+	</Field>
 );
 
 const TOGGLE_KEY_PLACEHOLDER = "__dot__";
@@ -496,8 +495,8 @@ type FormValues = {
 	backup_interval_unit: "minutes" | "hours" | "days";
 };
 
-const RefreshIcon = withClass(ArrowPathIcon, "w-4 h-4");
-const SaveIcon = withClass(PaperAirplaneIcon, "w-4 h-4");
+const RefreshIcon = withClass(RefreshCw, "w-4 h-4");
+const SaveIcon = withClass(Send, "w-4 h-4");
 const ChevronDownIcon = withClass(HeroChevronDownIcon, "w-4 h-4");
 
 const buildDefaultValues = (settings: TelegramSettingsResponse): FormValues => {
@@ -652,7 +651,7 @@ const DisabledCard = ({
 			{children}
 		</div>
 		{disabled && (
-			<div className="flex absolute inset-0 items-center justify-center text-center font-semibold text-white px-6 rounded-[inherit] bg-blackAlpha-400 [backdrop-filter:blur(2px)]">
+			<div className="flex absolute inset-0 items-center justify-center text-center text-sm font-medium text-panel-text px-6 rounded-xl bg-panel-surface/70 [backdrop-filter:blur(2px)]">
 				<p>{message}</p>
 			</div>
 		)}
@@ -751,7 +750,7 @@ export const IntegrationSettingsPage = () => {
 	const location = useLocation();
 	const { t } = useTranslation();
 	const { colorMode } = useColorMode();
-	const toast = useToast();
+	
 	const { userData, getUserIsSuccess } = useGetUser();
 	const isSudoOrFull =
 		userData?.role === "sudo" || userData?.role === "full_access";
@@ -1050,11 +1049,7 @@ export const IntegrationSettingsPage = () => {
 							: prev,
 				);
 			}
-			toast({
-				title: t("settings.savedSuccess"),
-				status: "success",
-				duration: 3000,
-			});
+			toast.success(t("settings.savedSuccess"), { duration: 3000 });
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
@@ -1062,12 +1057,7 @@ export const IntegrationSettingsPage = () => {
 
 	const telegramBackupMutation = useMutation({ mutationFn: sendTelegramBackup, onSuccess: (result) => {
 			queryClient.invalidateQueries({ queryKey: ["telegram-settings"] });
-			toast({
-				title: t("settings.telegram.backupSendSuccess"),
-				description: result.filename,
-				status: "success",
-				duration: 4000,
-			});
+			toast.success(t("settings.telegram.backupSendSuccess"), { description: result.filename, duration: 4000 });
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
@@ -1075,12 +1065,7 @@ export const IntegrationSettingsPage = () => {
 
 	const telegramTestMutation = useMutation({ mutationFn: testTelegramSettings, onSuccess: (result) => {
 			queryClient.invalidateQueries({ queryKey: ["telegram-settings"] });
-			toast({
-				title: t("settings.telegram.testMessageSuccess"),
-				description: result.detail,
-				status: "success",
-				duration: 4000,
-			});
+			toast.success(t("settings.telegram.testMessageSuccess"), { description: result.detail, duration: 4000 });
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
@@ -1162,11 +1147,7 @@ export const IntegrationSettingsPage = () => {
 				...prev,
 				domains: "",
 			}));
-			toast({
-				title: t("settings.subscriptions.certificateIssued"),
-				status: "success",
-				duration: 3000,
-			});
+			toast.success(t("settings.subscriptions.certificateIssued"), { duration: 3000 });
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
@@ -1182,11 +1163,7 @@ export const IntegrationSettingsPage = () => {
 				nodeId: "",
 				nodeDomain: "",
 			}));
-			toast({
-				title: t("settings.subscriptions.nodeCertificateIssued"),
-				status: "success",
-				duration: 3000,
-			});
+			toast.success(t("settings.subscriptions.nodeCertificateIssued"), { duration: 3000 });
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
@@ -1200,11 +1177,7 @@ export const IntegrationSettingsPage = () => {
 				fullchain: "",
 				privateKey: "",
 			}));
-			toast({
-				title: t("settings.subscriptions.certificateImported"),
-				status: "success",
-				duration: 3000,
-			});
+			toast.success(t("settings.subscriptions.certificateImported"), { duration: 3000 });
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
@@ -1215,11 +1188,7 @@ export const IntegrationSettingsPage = () => {
 			if (cert) {
 				updateCertificateCache(cert);
 			}
-			toast({
-				title: t("settings.subscriptions.certificateRenewed"),
-				status: "success",
-				duration: 3000,
-			});
+			toast.success(t("settings.subscriptions.certificateRenewed"), { duration: 3000 });
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
@@ -1228,11 +1197,7 @@ export const IntegrationSettingsPage = () => {
 	const revokeCertificateMutation = useMutation({ mutationFn: revokeSubscriptionCertificate, onSuccess: (cert) => {
 			updateCertificateCache(cert);
 			setCertificateAction(null);
-			toast({
-				title: t("settings.subscriptions.certificateRevoked"),
-				status: "success",
-				duration: 3000,
-			});
+			toast.success(t("settings.subscriptions.certificateRevoked"), { duration: 3000 });
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
@@ -1250,11 +1215,7 @@ export const IntegrationSettingsPage = () => {
 						: prev,
 			);
 			setCertificateAction(null);
-			toast({
-				title: t("settings.subscriptions.certificateDeleted"),
-				status: "success",
-				duration: 3000,
-			});
+			toast.success(t("settings.subscriptions.certificateDeleted"), { duration: 3000 });
 		},
 		onError: (error) => {
 			generateErrorMessage(error, toast);
@@ -1262,11 +1223,7 @@ export const IntegrationSettingsPage = () => {
 	const certificateServingMutation = useMutation({ mutationFn: ({ domain, enabled }: { domain: string; enabled: boolean }) =>
 			updateSubscriptionCertificateServing(domain, enabled), onSuccess: (cert) => {
 				updateCertificateCache(cert);
-				toast({
-					title: t("settings.subscriptions.certificateServingUpdated"),
-					status: "success",
-					duration: 3000,
-				});
+				toast.success(t("settings.subscriptions.certificateServingUpdated"), { duration: 3000 });
 			},
 			onError: (error) => {
 				generateErrorMessage(error, toast);
@@ -1421,11 +1378,7 @@ export const IntegrationSettingsPage = () => {
 				!certificateForm.fullchain.trim() ||
 				!certificateForm.privateKey.trim()
 			) {
-				toast({
-					title: t("settings.subscriptions.certificateMissingInput"),
-					status: "warning",
-					duration: 2500,
-				});
+				toast.warning(t("settings.subscriptions.certificateMissingInput"), { duration: 2500 });
 				return;
 			}
 			importCertificateMutation.mutate({
@@ -1437,11 +1390,7 @@ export const IntegrationSettingsPage = () => {
 		}
 		if (certificateForm.provider === "node") {
 			if (!certificateForm.email.trim() || !certificateForm.nodeId) {
-				toast({
-					title: t("settings.subscriptions.certificateMissingInput"),
-					status: "warning",
-					duration: 2500,
-				});
+				toast.warning(t("settings.subscriptions.certificateMissingInput"), { duration: 2500 });
 				return;
 			}
 			issueNodeCertificateMutation.mutate({
@@ -1452,11 +1401,7 @@ export const IntegrationSettingsPage = () => {
 			return;
 		}
 		if (!certificateForm.email.trim() || domains.length === 0) {
-			toast({
-				title: t("settings.subscriptions.certificateMissingInput"),
-				status: "warning",
-				duration: 2500,
-			});
+			toast.warning(t("settings.subscriptions.certificateMissingInput"), { duration: 2500 });
 			return;
 		}
 		issueCertificateMutation.mutate({
@@ -1544,20 +1489,20 @@ export const IntegrationSettingsPage = () => {
 				mobileMetaLabel: t("status"),
 				cell: (certificate) => (
 					<div className="flex flex-row items-center gap-1.5 flex-wrap">
-						<Badge colorScheme={
+						<Badge className={toneClass(
 								certificate.status === "active"
 									? "green"
 									: certificate.status === "expiring"
 										? "orange"
 										: "red"
-							}>
+							)}>
 							{certificate.status}
 						</Badge>
-						<Badge colorScheme="blue">
+						<Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-200">
 							{certificate.provider || "unknown"}
 						</Badge>
 						{certificate.node_id ? (
-							<Badge colorScheme="purple">
+							<Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-500/20 dark:text-purple-200">
 								{t("settings.subscriptions.viaNode")} #{certificate.node_id}
 							</Badge>
 						) : null}
@@ -1616,14 +1561,12 @@ export const IntegrationSettingsPage = () => {
 								(certificate.serve_tls === false &&
 									certificate.status !== "active" &&
 									certificate.status !== "expiring")
-							} onChange={(event) =>
-								certificateServingMutation.mutate({
+							} onCheckedChange={(checked: boolean) => certificateServingMutation.mutate({
 									domain: certificate.domain,
-									enabled: event.target.checked,
-								})
-							} />
+									enabled: checked,
+								})} />
 						{certificate.auto_renew ? (
-							<Badge colorScheme="teal">
+							<Badge className="bg-teal-100 text-teal-800 hover:bg-teal-200 dark:bg-teal-500/20 dark:text-teal-200">
 								{t("settings.subscriptions.autoRenew")}
 							</Badge>
 						) : null}
@@ -1641,7 +1584,7 @@ export const IntegrationSettingsPage = () => {
 			actions.push({
 				id: "renew",
 				label: t("settings.subscriptions.renewAction"),
-				icon: <ArrowPathIcon className="w-[16px] h-[16px]" />,
+				icon: <RefreshCw className="w-[16px] h-[16px]" />,
 				onClick: () => handleRenewCertificate(certificate.domain),
 				disabled:
 					renewCertificateMutation.isPending &&
@@ -1652,7 +1595,7 @@ export const IntegrationSettingsPage = () => {
 			actions.push({
 				id: "revoke",
 				label: t("settings.subscriptions.revokeAction"),
-				icon: <NoSymbolIcon className="w-[16px] h-[16px]" />,
+				icon: <Ban className="w-[16px] h-[16px]" />,
 				onClick: () =>
 					setCertificateAction({ type: "revoke", domain: certificate.domain }),
 				isDanger: true,
@@ -1661,7 +1604,7 @@ export const IntegrationSettingsPage = () => {
 		actions.push({
 			id: "delete",
 			label: t("delete"),
-			icon: <TrashIcon className="w-[16px] h-[16px]" />,
+			icon: <Trash2 className="w-[16px] h-[16px]" />,
 			onClick: () =>
 				setCertificateAction({ type: "delete", domain: certificate.domain }),
 			isDanger: true,
@@ -1673,98 +1616,92 @@ export const IntegrationSettingsPage = () => {
 		issueNodeCertificateMutation.isPending ||
 		importCertificateMutation.isPending;
 	const certificateManager = (
-		<div className="flex flex-col gap-3">
-			<ResourceListCard
-				title={
-					<div>
-						<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-1">
-							{t("settings.subscriptions.certificateTitle")}
-						</h2>
-						<p className="text-[0.875rem] text-panel-text-muted">
-							{t("settings.subscriptions.certificateDescription")}
-						</p>
-					</div>
-				}
-				summaryItems={[
-					{ label: t("total"), value: certificates.length },
-					{
-						label: t("active"),
-						value: certificates.filter(
-							(certificate) => certificate.status === "active",
-						).length,
-						colorScheme: "green",
-					},
-					{
-						label: t("settings.subscriptions.serveTLS"),
-						value: certificates.filter(
-							(certificate) => certificate.serve_tls !== false,
-						).length,
-						colorScheme: "blue",
-					},
-				]}
-				actions={
-					<Button size="md" colorScheme="primary" onClick={() => setCertificateDialogOpen(true)}>{<PlusIcon className="w-[16px] h-[16px]" />}
-						{t("settings.subscriptions.getNewSSL")}
-					</Button>
-				}
-			>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-					<SearchInput
+		<div className="flex flex-col gap-4 items-stretch">
+			<ListCard
+				overview={{
+					total: { label: t("settings.subscriptions.certificateTitle"), value: certificates.length },
+					rows: [
+						{
+							key: "active",
+							label: t("active"),
+							value: certificates.filter((certificate) => certificate.status === "active").length,
+							tone: "bg-panel-success",
+						},
+						{
+							key: "serve",
+							label: t("settings.subscriptions.serveTLS"),
+							value: certificates.filter((certificate) => certificate.serve_tls !== false).length,
+							tone: "bg-panel-info",
+						},
+					],
+				}}
+				toolbar={
+					<div className="flex flex-col gap-2 md:flex-row md:items-center">
+						<div className="flex flex-row items-center gap-2">
+							<SearchInput
+							containerProps={{ className: "min-w-0 flex-1 md:w-[280px] md:flex-none" }}
 							value={certificateSearch}
 							onChange={(event) => setCertificateSearch(event.target.value)}
-						placeholder={t("settings.subscriptions.searchCertificates")}
-						matchOptions={certificateSearchMatch}
-						onMatchOptionsChange={setCertificateSearchMatch}
-						onClear={() => setCertificateSearch("")}
-						/>
-					<DataTableSortMenu
-						options={buildSortOptions(certificateColumns, filteredCertificates)}
-						sorting={certificateSorting}
-						onSortingChange={setCertificateSorting}
-					/>
-					<Select
-						showSearch={false}
-						value={certificateFilter}
-						onChange={(event) =>
-							setCertificateFilter(event.target.value as "all" | "expiring_7d")
-						}
-					>
-						<option value="all">
-							{t("settings.subscriptions.allCertificates")}
-						</option>
-						<option value="expiring_7d">
-							{t("settings.subscriptions.expiringInSevenDays")}
-						</option>
-					</Select>
-				</div>
-			</ResourceListCard>
+							placeholder={t("settings.subscriptions.searchCertificates")}
+							matchOptions={certificateSearchMatch}
+							onMatchOptionsChange={setCertificateSearchMatch}
+							onClear={() => setCertificateSearch("")}
+							/>
+							<DataTableSortMenu
+									options={buildSortOptions(certificateColumns, filteredCertificates)}
+									sorting={certificateSorting}
+									onSortingChange={setCertificateSorting}
+							/>
+						</div>
+						<div className="flex flex-row flex-wrap items-center gap-2">
+							<SegmentedControl<"all" | "expiring_7d">
+								label={t("settings.subscriptions.certificateList")}
+								value={certificateFilter}
+								options={[
+									{ value: "all", label: t("settings.subscriptions.allCertificates") },
+									{ value: "expiring_7d", label: t("settings.subscriptions.expiringInSevenDays") },
+								]}
+								onChange={(next) => setCertificateFilter(next)}
+							/>
+						</div>
+						<div className="flex flex-row flex-wrap items-center gap-2 md:ms-auto">
+							<Button onClick={() => refetchSubscriptionSettings()} disabled={isSubscriptionLoading} variant="outline" size="sm">{<RefreshIcon />}
+								{t("refresh")}
+							</Button>
+							<Button onClick={() => setCertificateDialogOpen(true)} size="sm">{<Plus className="w-[16px] h-[16px]" />}
+								{t("settings.subscriptions.getNewSSL")}
+							</Button>
+						</div>
+					</div>
+				}
+			/>
 			<DataTable
-					ariaLabel={t("settings.subscriptions.certificateList")}
-					data={filteredCertificates}
-					columns={certificateColumns}
-					sorting={certificateSorting}
-					onSortingChange={setCertificateSorting}
-					showSortMenu={false}
-					getRowId={(certificate) => certificate.domain}
-					loading={isSubscriptionLoading}
-					emptyState={
-						<p className="text-panel-text-muted">
-							{certificateSearch || certificateFilter !== "all"
-								? t("settings.subscriptions.noMatchingCertificates")
-								: t("settings.subscriptions.noCertificates")}
-						</p>
-					}
-					rowActions={certificateRowActions}
+				ariaLabel={t("settings.subscriptions.certificateList")}
+				data={filteredCertificates}
+				columns={certificateColumns}
+				sorting={certificateSorting}
+				onSortingChange={setCertificateSorting}
+				showSortMenu={false}
+				getRowId={(certificate) => certificate.domain}
+				loading={isSubscriptionLoading}
+				emptyState={
+					<p className="text-panel-text-muted">
+						{certificateSearch || certificateFilter !== "all"
+							? t("settings.subscriptions.noMatchingCertificates")
+							: t("settings.subscriptions.noCertificates")}
+					</p>
+				}
+				rowActions={certificateRowActions}
 
-					actionsPlacement="end"
-					actionsColumnWidth="60px"
+				actionsPlacement="end"
+				actionsColumnWidth="60px"
 
-					mobileBreakpoint="md"
+				mobileBreakpoint="md"
 			/>
 		</div>
 	);
 
-	if (!getUserIsSuccess) {
+				if (!getUserIsSuccess) {
 		return <PageLoadingSkeleton />;
 	}
 
@@ -1808,76 +1745,47 @@ export const IntegrationSettingsPage = () => {
 							label: t("settings.ssl.tabTitle"),
 						},
 					]} className="overflow-x-auto overflow-y-hidden max-w-full flex-1 master-settings-tabs" />
-				<Button size="md" colorScheme="primary" onClick={handleSaveAll} loading={saveAllMutation.isPending} disabled={!hasUnsavedChanges || saveAllMutation.isPending} className="shrink-0 self-end md:self-center">{<SaveIcon />}
+				<Button onClick={handleSaveAll} disabled={!hasUnsavedChanges || saveAllMutation.isPending} loading={saveAllMutation.isPending} className="shrink-0 self-end md:self-center">{<SaveIcon />}
 					{t("settings.save")}
 				</Button>
 			</div>
 			{activeIntegrationTab === 0 && (
-				<div className="px-0 md:px-2 mt-3">
-				{isPanelLoading && panelData === undefined ? (
+				isPanelLoading && panelData === undefined ? (
 					<div className="flex items-center justify-center py-12">
-						<Spinner size="lg" />
+						<Spinner />
 					</div>
 				) : (
-					<div className="flex flex-col gap-6 items-stretch">
-						<div className="rounded-2xl master-settings-card">
-							<div className="flex justify-between items-start md:items-center gap-4 flex-col md:flex-row mb-4">
-								<div>
-									<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-1">
-										{t("settings.runtime.title")}
-									</h2>
-									<p className="text-[0.875rem] text-gray-500">
-										{t("settings.runtime.description")}
-									</p>
-								</div>
-								<Button variant="outline" size="sm" onClick={() => {
+					<div className="mt-5 flex flex-col gap-4 items-stretch">
+						<SettingsCard
+							title={t("settings.runtime.title")}
+							description={t("settings.runtime.description")}
+							actions={
+								<Button onClick={() => {
 										void refetchRuntimeSettings();
 										void refetchPanelSettings();
-									}} loading={isRuntimeSettingsLoading || isPanelLoading}>{<ArrowPathIcon className="w-[16px] h-[16px]" />}
+									}} variant="outline" size="sm" loading={isRuntimeSettingsLoading || isPanelLoading}>{<RefreshCw className="w-[16px] h-[16px]" />}
 									{t("refresh")}
 								</Button>
-							</div>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<FormControl>
-									<FormLabel className="text-[0.875rem]">
-										{t("settings.panel.defaultSubscriptionType")}
-									</FormLabel>
-									<Select
-										size="sm"
-										value={panelDefaultSubType}
-										onChange={(event) =>
-											setPanelDefaultSubType(
-												event.target.value as
-													| "username-key"
-													| "key"
-													| "token"
-													| "key-username",
-											)
-										}
-										disabled={saveAllMutation.isPending || isPanelLoading}
-									>
-										<option value="username-key">
-											{t("settings.panel.link.usernameKey")}
-										</option>
-										<option value="key">
-											{t("settings.panel.link.keyOnly")}
-										</option>
-										<option value="key-username">
-											{t("settings.panel.link.keyUsername")}
-										</option>
-										<option value="token">
-											{t("settings.panel.link.token")}
-										</option>
-									</Select>
-									<FormHelperText>
-										{t("settings.panel.defaultSubscriptionTypeDescription")}
-									</FormHelperText>
-								</FormControl>
-								<FormControl>
-									<FormLabel className="text-[0.875rem]">
-										{t("settings.runtime.dashboardPath")}
-									</FormLabel>
-									<Input
+							}
+						>
+							<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+								<FormField label={t("settings.panel.defaultSubscriptionType")} description={t("settings.panel.defaultSubscriptionTypeDescription")}>
+									<div className={cn((saveAllMutation.isPending || isPanelLoading) && "pointer-events-none opacity-60")}>
+										<SegmentedControl<"username-key" | "key" | "key-username" | "token">
+											label={t("settings.panel.defaultSubscriptionType")}
+											value={panelDefaultSubType}
+											options={[
+												{ value: "username-key", label: t("settings.panel.link.usernameKey") },
+												{ value: "key", label: t("settings.panel.link.keyOnly") },
+												{ value: "key-username", label: t("settings.panel.link.keyUsername") },
+												{ value: "token", label: t("settings.panel.link.token") },
+											]}
+											onChange={(next) => setPanelDefaultSubType(next)}
+										/>
+									</div>
+								</FormField>
+								<FormField label={t("settings.runtime.dashboardPath")} description={t("settings.runtime.dashboardPathHint")}>
+									<UiInput
 										value={runtimeSettingsForm.dashboard_path}
 										placeholder="/dashboard/"
 										onChange={(event) =>
@@ -1888,226 +1796,197 @@ export const IntegrationSettingsPage = () => {
 										}
 										disabled={saveAllMutation.isPending}
 									/>
-									<FormHelperText>
-										{t("settings.runtime.dashboardPathHint")}
-									</FormHelperText>
-								</FormControl>
-								<TelegramSwitchRow
-									title={t("settings.runtime.subscriptionReadOnlyTitle")}
-									description={t("settings.runtime.subscriptionReadOnlyHint")}
-									control={
-										<Switch checked={runtimeSettingsForm.subscription_read_only} onChange={(event) =>
-												setRuntimeSettingsForm((prev) => ({
-													...prev,
-													subscription_read_only: event.target.checked,
-												}))
-											} disabled={saveAllMutation.isPending} />
-									}
-								/>
-								<TelegramSwitchRow
-									title={t("settings.runtime.recordNodeUsage")}
-									description={t("settings.runtime.recordNodeUsageHint")}
-									control={
-										<Switch checked={runtimeSettingsForm.record_node_usage} onChange={(event) =>
-												setRuntimeSettingsForm((prev) => ({
-													...prev,
-													record_node_usage: event.target.checked,
-												}))
-											} disabled={saveAllMutation.isPending} />
-									}
-								/>
-								<TelegramSwitchRow
-									title={t("settings.runtime.recordNodeUserUsages")}
-									description={t("settings.runtime.recordNodeUserUsagesHint")}
-									control={
-										<Switch checked={runtimeSettingsForm.record_node_user_usages} onChange={(event) =>
-												setRuntimeSettingsForm((prev) => ({
-													...prev,
-													record_node_user_usages: event.target.checked,
-												}))
-											} disabled={saveAllMutation.isPending} />
-									}
-								/>
-								<TelegramSwitchRow
-									title={t("settings.runtime.userSpeedLimit")}
-									description={t("settings.runtime.userSpeedLimitHint")}
-									control={
-										<Switch checked={runtimeSettingsForm.user_speed_limit_enabled} onChange={(event) =>
-												setRuntimeSettingsForm((prev) => ({
-													...prev,
-													user_speed_limit_enabled: event.target.checked,
-												}))
-											} disabled={saveAllMutation.isPending} />
-									}
-								/>
-								<TelegramSwitchRow
-									title={t("settings.runtime.apiDocs")}
-									description={t("settings.runtime.apiDocsHint")}
-									control={
-										<Switch checked={runtimeSettingsForm.api_docs_enabled} onChange={(event) =>
-												setRuntimeSettingsForm((prev) => ({
-													...prev,
-													api_docs_enabled: event.target.checked,
-												}))
-											} disabled={saveAllMutation.isPending} />
-									}
-								/>
-								<div className="border border-whiteAlpha-200! rounded-md p-4 [grid-column:auto] md:[grid-column:1_/_-1]">
-									<div className="flex items-start md:items-center justify-between gap-4 flex-col md:flex-row mb-4">
-										<div>
-											<h2 className="font-heading font-bold text-[0.875rem] leading-[1.2] mb-1">
-												{t("phpmyadmin.title")}
-											</h2>
-											<p className="text-[0.875rem] text-gray-500">
-												{t("phpmyadmin.settingsHint")}
-											</p>
-										</div>
-										<div className="flex flex-row items-center gap-2 flex-wrap">
-											<Button asChild size="sm" variant="outline" disabled={
-													!runtimeSettingsForm.phpmyadmin_enabled ||
-													!phpMyAdminSupported
-												}>
-																<RouterLink to="/phpmyadmin">{t("phpmyadmin.openPanel")}</RouterLink>
-															</Button>
-											<Button size="sm" variant="outline" onClick={openPHPMyAdminExternal} loading={isOpeningPHPMyAdminExternal} disabled={
-													!runtimeSettingsForm.phpmyadmin_enabled ||
-													!phpMyAdminSupported
-												}>
-												{t("phpmyadmin.openExternal")}
-											</Button>
-											<Button size="sm" colorScheme={
-													runtimeSettingsForm.phpmyadmin_enabled
-														? "red"
-														: "primary"
-												} onClick={() =>
-													runtimeSettingsForm.phpmyadmin_enabled
-														? phpMyAdminDisableMutation.mutate()
-														: phpMyAdminEnableMutation.mutate()
-												} loading={
-													phpMyAdminEnableMutation.isPending ||
-													phpMyAdminDisableMutation.isPending
-												} disabled={
-													isPHPMyAdminStatusLoading ||
-													(!runtimeSettingsForm.phpmyadmin_enabled &&
-														!phpMyAdminSupported)
-												}>
-												{runtimeSettingsForm.phpmyadmin_enabled
-													? t("phpmyadmin.disableAction")
-													: t("phpmyadmin.enableAction")}
-											</Button>
-										</div>
-									</div>
-									{!phpMyAdminSupported ? (
-										<Alert status="warning" className="rounded-md mb-4">
-											<AlertIcon />
-											{t("phpmyadmin.sqliteDisabled")}
-										</Alert>
-									) : null}
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-										<FormControl>
-											<FormLabel className="text-[0.875rem]">{t("path")}</FormLabel>
-											<Input
-												value={runtimeSettingsForm.phpmyadmin_path}
-												placeholder="/phpmyadmin/"
-												onChange={(event) =>
-													setRuntimeSettingsForm((prev) => ({
-														...prev,
-														phpmyadmin_path: event.target.value,
-													}))
-												}
-												disabled={
-													phpMyAdminEnableMutation.isPending ||
-													phpMyAdminDisableMutation.isPending
-												}
-											/>
-											<FormHelperText>
-												{t("phpmyadmin.panelOnlyHint")}
-											</FormHelperText>
-										</FormControl>
-										<FormControl>
-											<FormLabel className="text-[0.875rem]">
-												{t("phpmyadmin.loginMode")}
-											</FormLabel>
-											<Select
-												value={runtimeSettingsForm.phpmyadmin_login_mode}
-												onChange={(event) =>
-													setRuntimeSettingsForm((prev) => ({
-														...prev,
-														phpmyadmin_login_mode: event.target.value as
-															| "rebecca"
-															| "custom",
-													}))
-												}
-												disabled={
-													phpMyAdminEnableMutation.isPending ||
-													phpMyAdminDisableMutation.isPending
-												}
-											>
-												<option value="rebecca">
-													{t("phpmyadmin.loginModeRebecca")}
-												</option>
-												<option value="custom">
-													{t("phpmyadmin.loginModeCustom")}
-												</option>
-											</Select>
-											<FormHelperText>
-												{t("phpmyadmin.loginModeHint")}
-											</FormHelperText>
-										</FormControl>
-										<FormControl disabled={
-												runtimeSettingsForm.phpmyadmin_login_mode !==
-													"custom" ||
-												phpMyAdminEnableMutation.isPending ||
-												phpMyAdminDisableMutation.isPending
-											}>
-											<FormLabel className="text-[0.875rem]">
-												{t("phpmyadmin.username")}
-											</FormLabel>
-											<Input
-												value={runtimeSettingsForm.phpmyadmin_username}
-												placeholder="root"
-												onChange={(event) =>
-													setRuntimeSettingsForm((prev) => ({
-														...prev,
-														phpmyadmin_username: event.target.value,
-													}))
-												}
-											/>
-										</FormControl>
-										<FormControl disabled={
-												runtimeSettingsForm.phpmyadmin_login_mode !==
-													"custom" ||
-												phpMyAdminEnableMutation.isPending ||
-												phpMyAdminDisableMutation.isPending
-											}>
-											<FormLabel className="text-[0.875rem]">
-												{t("phpmyadmin.password")}
-											</FormLabel>
-											<Input
-												type="password"
-												value={runtimeSettingsForm.phpmyadmin_password}
-												placeholder={t("phpmyadmin.passwordPlaceholder")}
-												onChange={(event) =>
-													setRuntimeSettingsForm((prev) => ({
-														...prev,
-														phpmyadmin_password: event.target.value,
-													}))
-												}
-											/>
-										</FormControl>
-									</div>
-								</div>
+								</FormField>
 							</div>
-						</div>
+							<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+								<ToggleRow
+									title={t("settings.runtime.subscriptionReadOnlyTitle")}
+									hint={t("settings.runtime.subscriptionReadOnlyHint")}
+									checked={runtimeSettingsForm.subscription_read_only}
+									disabled={saveAllMutation.isPending}
+									onChange={(next) =>
+										setRuntimeSettingsForm((prev) => ({
+											...prev,
+											subscription_read_only: next,
+										}))
+									}
+								/>
+								<ToggleRow
+									title={t("settings.runtime.recordNodeUsage")}
+									hint={t("settings.runtime.recordNodeUsageHint")}
+									checked={runtimeSettingsForm.record_node_usage}
+									disabled={saveAllMutation.isPending}
+									onChange={(next) =>
+										setRuntimeSettingsForm((prev) => ({
+											...prev,
+											record_node_usage: next,
+										}))
+									}
+								/>
+								<ToggleRow
+									title={t("settings.runtime.recordNodeUserUsages")}
+									hint={t("settings.runtime.recordNodeUserUsagesHint")}
+									checked={runtimeSettingsForm.record_node_user_usages}
+									disabled={saveAllMutation.isPending}
+									onChange={(next) =>
+										setRuntimeSettingsForm((prev) => ({
+											...prev,
+											record_node_user_usages: next,
+										}))
+									}
+								/>
+								<ToggleRow
+									title={t("settings.runtime.userSpeedLimit")}
+									hint={t("settings.runtime.userSpeedLimitHint")}
+									checked={runtimeSettingsForm.user_speed_limit_enabled}
+									disabled={saveAllMutation.isPending}
+									onChange={(next) =>
+										setRuntimeSettingsForm((prev) => ({
+											...prev,
+											user_speed_limit_enabled: next,
+										}))
+									}
+								/>
+								<ToggleRow
+									title={t("settings.runtime.apiDocs")}
+									hint={t("settings.runtime.apiDocsHint")}
+									checked={runtimeSettingsForm.api_docs_enabled}
+									disabled={saveAllMutation.isPending}
+									onChange={(next) =>
+										setRuntimeSettingsForm((prev) => ({
+											...prev,
+											api_docs_enabled: next,
+										}))
+									}
+								/>
+							</div>
+						</SettingsCard>
+
+						<SettingsCard
+							title={t("phpmyadmin.title")}
+							description={t("phpmyadmin.settingsHint")}
+							actions={
+								<div className="flex flex-row items-center gap-2 flex-wrap">
+									<Button asChild disabled={
+											!runtimeSettingsForm.phpmyadmin_enabled ||
+											!phpMyAdminSupported
+										} variant="outline" size="sm">
+										<RouterLink to="/phpmyadmin">{t("phpmyadmin.openPanel")}</RouterLink>
+									</Button>
+									<Button onClick={openPHPMyAdminExternal} disabled={
+											!runtimeSettingsForm.phpmyadmin_enabled ||
+											!phpMyAdminSupported
+										} variant="outline" size="sm" loading={isOpeningPHPMyAdminExternal}>
+										{t("phpmyadmin.openExternal")}
+									</Button>
+									<Button onClick={() =>
+											runtimeSettingsForm.phpmyadmin_enabled
+												? phpMyAdminDisableMutation.mutate()
+												: phpMyAdminEnableMutation.mutate()
+										} disabled={
+											isPHPMyAdminStatusLoading ||
+											(!runtimeSettingsForm.phpmyadmin_enabled &&
+												!phpMyAdminSupported)
+										} size="sm" loading={
+											phpMyAdminEnableMutation.isPending ||
+											phpMyAdminDisableMutation.isPending
+										}>
+										{runtimeSettingsForm.phpmyadmin_enabled
+											? t("phpmyadmin.disableAction")
+											: t("phpmyadmin.enableAction")}
+									</Button>
+								</div>
+							}
+						>
+							{!phpMyAdminSupported ? (
+								<Alert className="rounded-md">
+									<TriangleAlert className="size-4" aria-hidden="true" />
+									{t("phpmyadmin.sqliteDisabled")}
+								</Alert>
+							) : null}
+							<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+								<FormField label={t("path")} description={t("phpmyadmin.panelOnlyHint")}>
+									<UiInput
+										value={runtimeSettingsForm.phpmyadmin_path}
+										placeholder="/phpmyadmin/"
+										onChange={(event) =>
+											setRuntimeSettingsForm((prev) => ({
+												...prev,
+												phpmyadmin_path: event.target.value,
+											}))
+										}
+										disabled={
+											phpMyAdminEnableMutation.isPending ||
+											phpMyAdminDisableMutation.isPending
+										}
+									/>
+								</FormField>
+								<FormField label={t("phpmyadmin.loginMode")} description={t("phpmyadmin.loginModeHint")}>
+									<div className={cn(
+											(phpMyAdminEnableMutation.isPending || phpMyAdminDisableMutation.isPending) &&
+												"pointer-events-none opacity-60",
+										)}>
+										<SegmentedControl<"rebecca" | "custom">
+											label={t("phpmyadmin.loginMode")}
+											value={runtimeSettingsForm.phpmyadmin_login_mode}
+											options={[
+												{ value: "rebecca", label: t("phpmyadmin.loginModeRebecca") },
+												{ value: "custom", label: t("phpmyadmin.loginModeCustom") },
+											]}
+											onChange={(next) =>
+												setRuntimeSettingsForm((prev) => ({
+													...prev,
+													phpmyadmin_login_mode: next,
+												}))
+											}
+										/>
+									</div>
+								</FormField>
+								<FormField label={t("phpmyadmin.username")}>
+									<UiInput
+										value={runtimeSettingsForm.phpmyadmin_username}
+										placeholder="root"
+										disabled={
+											runtimeSettingsForm.phpmyadmin_login_mode !== "custom" ||
+											phpMyAdminEnableMutation.isPending ||
+											phpMyAdminDisableMutation.isPending
+										}
+										onChange={(event) =>
+											setRuntimeSettingsForm((prev) => ({
+												...prev,
+												phpmyadmin_username: event.target.value,
+											}))
+										}
+									/>
+								</FormField>
+								<FormField label={t("phpmyadmin.password")}>
+									<UiInput
+										type="password"
+										value={runtimeSettingsForm.phpmyadmin_password}
+										placeholder={t("phpmyadmin.passwordPlaceholder")}
+										disabled={
+											runtimeSettingsForm.phpmyadmin_login_mode !== "custom" ||
+											phpMyAdminEnableMutation.isPending ||
+											phpMyAdminDisableMutation.isPending
+										}
+										onChange={(event) =>
+											setRuntimeSettingsForm((prev) => ({
+												...prev,
+												phpmyadmin_password: event.target.value,
+											}))
+										}
+									/>
+								</FormField>
+							</div>
+						</SettingsCard>
 					</div>
-				)}
-				</div>
+				)
 			)}
-			{activeIntegrationTab === 3 && (
-				<div className="px-0 md:px-2 mt-3">
+				{activeIntegrationTab === 3 && (
+				<div className="px-0 md:px-2 mt-5">
 				{isSubscriptionLoading && !subscriptionBundle ? (
 					<div className="flex items-center justify-center py-12">
-						<Spinner size="lg" />
+						<Spinner />
 					</div>
 				) : (
 					certificateManager
@@ -2115,10 +1994,10 @@ export const IntegrationSettingsPage = () => {
 				</div>
 			)}
 			{activeIntegrationTab === 1 && (
-				<div className="px-0 md:px-2 mt-3">
+				<div className="px-0 md:px-2 mt-5">
 				{isLoading && !data ? (
 					<div className="flex items-center justify-center py-12">
-						<Spinner size="lg" />
+						<Spinner />
 					</div>
 				) : (
 					<form
@@ -2126,94 +2005,62 @@ export const IntegrationSettingsPage = () => {
 						onSubmit={(event) => event.preventDefault()}
 					>
 						<div className="flex flex-col items-stretch gap-4">
-							<TelegramSwitchRow
-								title={t("settings.telegram.enableBot")}
-								description={t("settings.telegram.enableBotDescription")}
-								control={
-									<Controller
-										control={control}
-										name="use_telegram"
-										render={({ field }) => (
-											<Switch checked={field.value} onChange={(event) =>
-													field.onChange(event.target.checked)
-												} />
-										)}
+							<Controller
+								control={control}
+								name="use_telegram"
+								render={({ field }) => (
+									<ToggleRow
+										title={t("settings.telegram.enableBot")}
+										hint={t("settings.telegram.enableBotDescription")}
+										checked={Boolean(field.value)}
+										onChange={(next) => field.onChange(next)}
 									/>
-								}
+								)}
 							/>
+
 							<DisabledCard
 								disabled={!isTelegramEnabled}
 								message={telegramDisabledMessage}
 							>
-								<div className="master-settings-card">
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-										<FormControl>
-											<FormLabel>{t("settings.telegram.apiToken")}</FormLabel>
-											<Input
-												placeholder="123456:ABC"
-												{...register("api_token")}
-											/>
-										</FormControl>
-										<FormControl>
-											<FormLabel>{t("settings.telegram.proxyUrl")}</FormLabel>
-											<Input
-												placeholder="socks5://user:pass@host:port"
-												{...register("proxy_url")}
-											/>
-										</FormControl>
-										<FormControl>
-											<FormLabel>
-												{t("settings.telegram.adminChatIds")}
-											</FormLabel>
-											<Input
-												placeholder="12345, 67890"
-												{...register("admin_chat_ids")}
-											/>
-											<FormHelperText>
-												{t("settings.telegram.adminChatIdsHint")}
-											</FormHelperText>
-										</FormControl>
-										<FormControl>
-											<FormLabel>{t("settings.telegram.logsChatId")}</FormLabel>
-											<Input
-												placeholder="-100123456789"
-												{...register("logs_chat_id")}
-											/>
-											<FormHelperText>
-												{t("settings.telegram.logsChatIdHint")}
-											</FormHelperText>
-										</FormControl>
-										<TelegramSwitchRow
-											title={t("settings.telegram.logsChatIsForum")}
-											description={t("settings.telegram.logsChatIsForumHint")}
-											control={
-												<Controller
-													control={control}
-													name="logs_chat_is_forum"
-													render={({ field }) => (
-														<Switch checked={field.value} onChange={(event) =>
-																field.onChange(event.target.checked)
-															} />
-													)}
-												/>
-											}
-										/>
-										<FormControl>
-											<FormLabel>
-												{t("settings.telegram.defaultVlessFlow")}
-											</FormLabel>
-											<Input
-												placeholder="xtls-rprx-vision"
-												{...register("default_vless_flow")}
-											/>
-										</FormControl>
-									</div>
-									<div className="flex mt-4 master-settings-action-row">
-										<Button size="sm" variant="outline" loading={telegramTestMutation.isPending} onClick={() => telegramTestMutation.mutate()}>{<SaveIcon />}
+								<SettingsCard
+									title={t("settings.telegram")}
+									description={t("settings.telegram.description")}
+									actions={
+										<Button onClick={() => telegramTestMutation.mutate()} variant="outline" size="sm" loading={telegramTestMutation.isPending}>{<SaveIcon />}
 											{t("settings.telegram.testMessage")}
 										</Button>
+									}
+								>
+									<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+										<FormField label={t("settings.telegram.apiToken")}>
+											<UiInput placeholder="123456:ABC" {...register("api_token")} />
+										</FormField>
+										<FormField label={t("settings.telegram.proxyUrl")} description={t("settings.telegram.proxyUrlHelp")}>
+											<UiInput placeholder="socks5://user:pass@host:port" {...register("proxy_url")} />
+										</FormField>
+										<FormField label={t("settings.telegram.adminChatIds")} description={t("settings.telegram.adminChatIdsHint")}>
+											<UiInput placeholder="12345, 67890" {...register("admin_chat_ids")} />
+										</FormField>
+										<FormField label={t("settings.telegram.logsChatId")} description={t("settings.telegram.logsChatIdHint")}>
+											<UiInput placeholder="-100123456789" {...register("logs_chat_id")} />
+										</FormField>
+										<Controller
+											control={control}
+											name="logs_chat_is_forum"
+											render={({ field }) => (
+												<ToggleRow
+													title={t("settings.telegram.logsChatIsForum")}
+													hint={t("settings.telegram.logsChatIsForumHint")}
+													checked={Boolean(field.value)}
+													onChange={(next) => field.onChange(next)}
+												/>
+											)}
+										/>
+										<FormField label={t("settings.telegram.defaultVlessFlow")}>
+											<UiInput placeholder="xtls-rprx-vision" {...register("default_vless_flow")} />
+										</FormField>
 									</div>
-								</div>
+								</SettingsCard>
 							</DisabledCard>
 
 							<DisabledCard
@@ -2224,139 +2071,113 @@ export const IntegrationSettingsPage = () => {
 										: telegramDisabledMessage
 								}
 							>
-								<div id="telegram-periodic-backup" className="[scroll-margin-top:120px] master-settings-card">
-									<div className="mb-3">
-										<TelegramSwitchRow
-											title={t("settings.telegram.backupTitle")}
-											description={t("settings.telegram.backupDescription")}
-											control={
+								<div id="telegram-periodic-backup" className="[scroll-margin-top:120px]">
+									<SettingsCard
+										title={t("settings.telegram.backupTitle")}
+										description={t("settings.telegram.backupDescription")}
+										actions={
+											<div className="flex flex-row flex-wrap items-center gap-3">
 												<Controller
 													control={control}
 													name="backup_enabled"
 													render={({ field }) => (
-														<Switch checked={field.value} onChange={(event) =>
-																field.onChange(event.target.checked)
-															} />
+														<Switch checked={Boolean(field.value)} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 													)}
 												/>
-											}
-										/>
-									</div>
-									<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-										<FormControl>
-											<FormLabel>
-												{t("settings.telegram.backupChatId")}
-											</FormLabel>
-											<Input
-												placeholder="-100123456789"
-												{...register("backup_chat_id")}
-											/>
-											<FormHelperText>
-												{t("settings.telegram.backupChatIdHint")}
-											</FormHelperText>
-										</FormControl>
-										<TelegramSwitchRow
-											title={t("settings.telegram.backupChatIsForum")}
-											description={t("settings.telegram.backupChatIsForumHint")}
-											control={
-												<Controller
-													control={control}
-													name="backup_chat_is_forum"
-													render={({ field }) => (
-														<Switch checked={field.value} onChange={(event) =>
-																field.onChange(event.target.checked)
-															} />
-													)}
-												/>
-											}
-										/>
-										<FormControl>
-											<FormLabel>
-												{t("settings.telegram.backupScope")}
-											</FormLabel>
+												<Button onClick={() =>
+														telegramBackupMutation.mutate(telegramBackupScope)
+													} variant="outline" size="sm" loading={telegramBackupMutation.isPending}>{<Upload className="w-[16px]" />}
+													{t("settings.telegram.backupSendNow")}
+												</Button>
+											</div>
+										}
+									>
+										<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+											<FormField label={t("settings.telegram.backupChatId")} description={t("settings.telegram.backupChatIdHint")}>
+												<UiInput placeholder="-100123456789" {...register("backup_chat_id")} />
+											</FormField>
 											<Controller
 												control={control}
-												name="backup_scope"
+												name="backup_chat_is_forum"
 												render={({ field }) => (
-													<Select {...field}>
-														<option value="database">
-															{t("settings.telegram.backupScopeDatabase")}
-														</option>
-														<option value="full">
-															{t("settings.telegram.backupScopeFull")}
-														</option>
-													</Select>
-												)}
-											/>
-										</FormControl>
-										<FormControl>
-											<FormLabel>
-												{t("settings.telegram.backupIntervalValue")}
-											</FormLabel>
-											<Controller
-												control={control}
-												name="backup_interval_value"
-												render={({ field }) => (
-													<NumericInput
-														min={1}
-														value={field.value}
-														onChange={(_value, valueAsNumber) =>
-															field.onChange(
-																Number.isFinite(valueAsNumber)
-																	? valueAsNumber
-																	: 1,
-															)
-														}
-														disabled={!isTelegramBackupEnabled}
+													<ToggleRow
+														title={t("settings.telegram.backupChatIsForum")}
+														hint={t("settings.telegram.backupChatIsForumHint")}
+														checked={Boolean(field.value)}
+														onChange={(next) => field.onChange(next)}
 													/>
 												)}
 											/>
-										</FormControl>
-										<FormControl>
-											<FormLabel>
-												{t("settings.telegram.backupIntervalUnit")}
-											</FormLabel>
-											<Controller
-												control={control}
-												name="backup_interval_unit"
-												render={({ field }) => (
-													<Select
-														{...field}
-														disabled={!isTelegramBackupEnabled}
-													>
-														<option value="minutes">
-															{t("settings.telegram.backupIntervalMinutes")}
-														</option>
-														<option value="hours">
-															{t("settings.telegram.backupIntervalHours")}
-														</option>
-														<option value="days">
-															{t("settings.telegram.backupIntervalDays")}
-														</option>
-													</Select>
-												)}
-											/>
-										</FormControl>
-									</div>
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-										<p className="text-[0.75rem] text-gray-500">
-											{t("settings.telegram.backupLastSent")}:{" "}
-											{data?.backup_last_sent_at || "-"}
-										</p>
-										{data?.backup_last_error && (
-											<p className="text-[0.75rem] text-red-300">
-												{t("settings.telegram.backupLastError")}:{" "}
-												{data.backup_last_error}
+											<FormField label={t("settings.telegram.backupScope")}>
+												<Controller
+													control={control}
+													name="backup_scope"
+													render={({ field }) => (
+														<SegmentedControl<string>
+															label={t("settings.telegram.backupScope")}
+															value={field.value}
+															options={[
+																{ value: "database", label: t("settings.telegram.backupScopeDatabase") },
+																{ value: "full", label: t("settings.telegram.backupScopeFull") },
+															]}
+															onChange={(next) => field.onChange(next)}
+														/>
+													)}
+												/>
+											</FormField>
+											<FormField label={t("settings.telegram.backupIntervalValue")}>
+												<Controller
+													control={control}
+													name="backup_interval_value"
+													render={({ field }) => (
+														<NumberField
+															inputMode="numeric"
+															min={1}
+															value={String(field.value ?? "")}
+															doneLabel={t("common.done")}
+															disabled={!isTelegramBackupEnabled}
+															onChange={(raw) => {
+																const next = Number(raw);
+																field.onChange(raw !== "" && Number.isFinite(next) ? next : 1);
+															}}
+														/>
+													)}
+												/>
+											</FormField>
+											<FormField label={t("settings.telegram.backupIntervalUnit")}>
+												<Controller
+													control={control}
+													name="backup_interval_unit"
+													render={({ field }) => (
+														<div className={cn(!isTelegramBackupEnabled && "pointer-events-none opacity-60")}>
+															<SegmentedControl<string>
+																label={t("settings.telegram.backupIntervalUnit")}
+																value={field.value}
+																options={[
+																	{ value: "minutes", label: t("settings.telegram.backupIntervalMinutes") },
+																	{ value: "hours", label: t("settings.telegram.backupIntervalHours") },
+																	{ value: "days", label: t("settings.telegram.backupIntervalDays") },
+																]}
+																onChange={(next) => field.onChange(next)}
+															/>
+														</div>
+													)}
+												/>
+											</FormField>
+										</div>
+										<div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+											<p className="text-[0.8125rem] text-panel-text-muted">
+												{t("settings.telegram.backupLastSent")}:{" "}
+												{data?.backup_last_sent_at || "-"}
 											</p>
-										)}
-									</div>
-									<div className="flex mt-4 master-settings-action-row">
-										<Button size="sm" variant="outline" loading={telegramBackupMutation.isPending} onClick={() =>
-												telegramBackupMutation.mutate(telegramBackupScope)
-											}>{<ArrowUpTrayIcon className="w-[16px]" />}
-											{t("settings.telegram.backupSendNow")}
-										</Button>
-									</div>
+											{data?.backup_last_error && (
+												<p className="text-[0.8125rem] text-red-300">
+													{t("settings.telegram.backupLastError")}:{" "}
+													{data.backup_last_error}
+												</p>
+											)}
+										</div>
+									</SettingsCard>
 								</div>
 							</DisabledCard>
 
@@ -2364,119 +2185,95 @@ export const IntegrationSettingsPage = () => {
 								disabled={!isTelegramEnabled}
 								message={telegramDisabledMessage}
 							>
-								<div className="master-settings-card">
-									<div className="flex justify-between items-start md:items-center gap-3 flex-col md:flex-row">
-										<div>
-											<h2 className="font-heading font-bold text-[1rem] leading-[1.2]">
-												{t("settings.telegram.botCommandsTitle")}
-											</h2>
-										</div>
-										<Badge colorScheme="yellow">
+								<SettingsCard
+									title={t("settings.telegram.botCommandsTitle")}
+									actions={
+										<Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200 dark:bg-yellow-500/20 dark:text-yellow-200">
 											{t("settings.tabs.comingSoon")}
 										</Badge>
-									</div>
-								</div>
+									}
+								/>
 							</DisabledCard>
 
 							<DisabledCard
 								disabled={!isTelegramEnabled}
 								message={telegramDisabledMessage}
 							>
-								<div>
-									<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-3">
-										{t("settings.telegram.forumTopics")}
-									</h2>
+								<SettingsCard title={t("settings.telegram.forumTopics")}>
 									{forumTopics && Object.keys(forumTopics).length > 0 ? (
-										<div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+										<div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
 											{Object.entries(forumTopics).map(([key]) => (
-												<div key={key} className="master-settings-subcard">
-													<p className="text-[0.875rem] font-medium mb-2">
+												<div key={key} className="flex flex-col gap-4 rounded-lg border bg-card/40 p-4">
+													<p className="text-sm font-semibold">
 														{t("settings.telegram.topicKey")}: {key}
 													</p>
-													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-														<FormControl>
-															<FormLabel>
-																{t("settings.telegram.topicTitle")}
-															</FormLabel>
-															<Input
+													<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+														<FormField label={t("settings.telegram.topicTitle")}>
+															<UiInput
 																{...register(
 																	`forum_topics.${key}.title` as const,
 																)}
 															/>
-														</FormControl>
-														<FormControl>
-															<FormLabel>
-																{t("settings.telegram.topicId")}
-															</FormLabel>
-															<Input
+														</FormField>
+														<FormField label={t("settings.telegram.topicId")} description={t("settings.telegram.topicIdHint")}>
+															<UiInput
 																type="number"
 																{...register(
 																	`forum_topics.${key}.topic_id` as const,
 																)}
 															/>
-															<FormHelperText>
-																{t("settings.telegram.topicIdHint")}
-															</FormHelperText>
-														</FormControl>
+														</FormField>
 													</div>
 												</div>
 											))}
 										</div>
 									) : (
-										<p className="text-gray-500">
+										<p className="text-sm text-panel-text-muted">
 											{t("settings.telegram.emptyTopics")}
 										</p>
 									)}
-								</div>
+								</SettingsCard>
 							</DisabledCard>
 
 							<DisabledCard
 								disabled={!isTelegramEnabled}
 								message={telegramDisabledMessage}
 							>
-								<div>
-									<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-2">
-										{t("settings.telegram.notificationsTitle")}
-									</h2>
-									<p className="text-[0.875rem] text-gray-500 mb-4">
-										{t("settings.telegram.notificationsDescription")}
-									</p>
-									<div className="flex flex-col gap-4">
-										{EVENT_TOGGLE_GROUPS.map((group) => (
-											<div key={group.key} className="master-settings-subcard">
-												<p className="font-semibold mb-3">
-													{t(group.titleKey, group.defaultTitle)}
-												</p>
-												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-													{group.events.map((event) => (
-														<TelegramSwitchRow
-															key={event.key}
-															title={t(event.labelKey, event.defaultLabel)}
-															description={t(event.hintKey, event.defaultHint)}
-															control={
-																<Controller
-																	control={control}
-																	name={
-																		`event_toggles.${encodeToggleKey(event.key)}` as const
-																	}
-																	render={({ field }) => (
-																		<Switch checked={Boolean(field.value)} onChange={(e) =>
-																				field.onChange(e.target.checked)
-																			} />
-																	)}
-																/>
-															}
-														/>
-													))}
-												</div>
+								<SettingsCard
+									title={t("settings.telegram.notificationsTitle")}
+									description={t("settings.telegram.notificationsDescription")}
+								>
+									{EVENT_TOGGLE_GROUPS.map((group) => (
+										<div key={group.key} className="flex flex-col gap-3 rounded-lg border bg-card/40 p-4">
+											<p className="text-sm font-semibold">
+												{t(group.titleKey, group.defaultTitle)}
+											</p>
+											<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+												{group.events.map((event) => (
+													<Controller
+														key={event.key}
+														control={control}
+														name={
+															`event_toggles.${encodeToggleKey(event.key)}` as const
+														}
+														render={({ field }) => (
+															<ToggleRow
+																title={t(event.labelKey, event.defaultLabel)}
+																hint={t(event.hintKey, event.defaultHint)}
+																checked={Boolean(field.value)}
+																onChange={(next) => field.onChange(next)}
+															/>
+														)}
+													/>
+												))}
 											</div>
-										))}
-									</div>
-								</div>
+										</div>
+									))}
+								</SettingsCard>
 							</DisabledCard>
 
-							<div className="flex master-settings-action-row">
-								<Button size="md" variant="outline" onClick={() => refetch()} disabled={saveAllMutation.isPending}>{<RefreshIcon />}
+							<div className="flex justify-end">
+								<Button onClick={() => refetch()} disabled={saveAllMutation.isPending} variant="outline">{<RefreshIcon />}
 									{t("refresh")}
 								</Button>
 							</div>
@@ -2485,202 +2282,99 @@ export const IntegrationSettingsPage = () => {
 				)}
 				</div>
 			)}
-			{activeIntegrationTab === 2 && (
-				<div className="px-0 md:px-2 mt-3">
+				{activeIntegrationTab === 2 && (
+				<div className="px-0 md:px-2 mt-5">
 				{isSubscriptionLoading && !subscriptionBundle ? (
 					<div className="flex items-center justify-center py-12">
-						<Spinner size="lg" />
+						<Spinner />
 					</div>
 				) : (
 					<form onSubmit={(event) => event.preventDefault()}>
-						<div className="flex flex-col items-stretch gap-6">
-							<div className="master-settings-card">
-								<div className="flex justify-between items-start md:items-center flex-col md:flex-row gap-3 mb-4">
-									<div>
-										<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-1">
-											{t("settings.subscriptions.globalTitle")}
-										</h2>
-										<p className="text-[0.875rem] text-gray-500">
-											{t("settings.subscriptions.globalDescription")}
-										</p>
-									</div>
-									<div className="flex flex-row items-center gap-2">
-										<Button variant="outline" size="sm" type="button" onClick={() => refetchSubscriptionSettings()} disabled={saveAllMutation.isPending}>{<RefreshIcon />}
-											{t("refresh")}
-										</Button>
-									</div>
-								</div>
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.urlPrefix")}
-										</FormLabel>
-										<Input
+						<div className="flex flex-col items-stretch gap-4">
+							<SettingsCard
+								title={t("settings.subscriptions.globalTitle")}
+								description={t("settings.subscriptions.globalDescription")}
+								actions={
+									<Button type="button" onClick={() => refetchSubscriptionSettings()} disabled={saveAllMutation.isPending} variant="outline" size="sm">{<RefreshIcon />}
+										{t("refresh")}
+									</Button>
+								}
+							>
+								<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+									<FormField label={t("settings.subscriptions.urlPrefix")} description={t("settings.subscriptions.urlPrefixHint")}>
+										<UiInput
 											placeholder="https://sub.example.com"
 											{...subscriptionRegister("subscription_url_prefix")}
 										/>
-										<FormHelperText>
-											{t("settings.subscriptions.urlPrefixHint")}
-										</FormHelperText>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.customTemplatesDir")}
-										</FormLabel>
-										<Input
+									</FormField>
+									<FormField label={t("settings.subscriptions.customTemplatesDir")} description={t("settings.subscriptions.customTemplatesDirHint")}>
+										<UiInput
 											placeholder="/var/lib/rebecca/templates"
 											{...subscriptionRegister("custom_templates_directory")}
 										/>
-										<FormHelperText>
-											{t("settings.subscriptions.customTemplatesDirHint")}
-										</FormHelperText>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.profileTitle")}
-										</FormLabel>
-										<Input
+									</FormField>
+									<FormField label={t("settings.subscriptions.profileTitle")} description={t("settings.subscriptions.profileTitleHint")}>
+										<UiInput
 											placeholder="Subscription"
 											{...subscriptionRegister("subscription_profile_title")}
 										/>
-										<FormHelperText>
-											{t("settings.subscriptions.profileTitleHint")}
-										</FormHelperText>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.supportUrl")}
-										</FormLabel>
-										<Input
+									</FormField>
+									<FormField label={t("settings.subscriptions.supportUrl")} description={t("settings.subscriptions.supportUrlHint")}>
+										<UiInput
 											placeholder="https://t.me/support"
 											{...subscriptionRegister("subscription_support_url")}
 										/>
-										<FormHelperText>
-											{t("settings.subscriptions.supportUrlHint")}
-										</FormHelperText>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.updateInterval")}
-										</FormLabel>
-										<Input
+									</FormField>
+									<FormField label={t("settings.subscriptions.updateInterval")} description={t("settings.subscriptions.updateIntervalHint")}>
+										<UiInput
 											type="number"
 											{...subscriptionRegister("subscription_update_interval")}
 										/>
-										<FormHelperText>
-											{t("settings.subscriptions.updateIntervalHint")}
-										</FormHelperText>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.subscriptionPageTemplate")}
-										</FormLabel>
-										<div className="flex flex-row gap-2 items-stretch">
-											<Input {...subscriptionRegister("subscription_page_template")} className="flex-1" />
-										</div>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.homePageTemplate")}
-										</FormLabel>
-										<div className="flex flex-row gap-2 items-stretch">
-											<Input {...subscriptionRegister("home_page_template")} className="flex-1" />
-										</div>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.clashTemplate")}
-										</FormLabel>
-										<div className="flex flex-row gap-2 items-stretch">
-											<Input {...subscriptionRegister("clash_subscription_template")} className="flex-1" />
-										</div>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.clashSettingsTemplate")}
-										</FormLabel>
-										<div className="flex flex-row gap-2 items-stretch">
-											<Input {...subscriptionRegister("clash_settings_template")} className="flex-1" />
-										</div>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.v2rayTemplate")}
-										</FormLabel>
-										<div className="flex flex-row gap-2 items-stretch">
-											<Input {...subscriptionRegister("v2ray_subscription_template")} className="flex-1" />
-										</div>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.v2raySettingsTemplate")}
-										</FormLabel>
-										<div className="flex flex-row gap-2 items-stretch">
-											<Input {...subscriptionRegister("v2ray_settings_template")} className="flex-1" />
-										</div>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.happTemplate")}
-										</FormLabel>
-										<div className="flex flex-row gap-2 items-stretch">
-											<Input {...subscriptionRegister("happ_subscription_template")} className="flex-1" />
-										</div>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.incyTemplate")}
-										</FormLabel>
-										<div className="flex flex-row gap-2 items-stretch">
-											<Input {...subscriptionRegister("incy_subscription_template")} className="flex-1" />
-										</div>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.singboxTemplate")}
-										</FormLabel>
-										<div className="flex flex-row gap-2 items-stretch">
-											<Input {...subscriptionRegister(
-													"singbox_subscription_template",
-												)} className="flex-1" />
-										</div>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.singboxSettingsTemplate")}
-										</FormLabel>
-										<div className="flex flex-row gap-2 items-stretch">
-											<Input {...subscriptionRegister("singbox_settings_template")} className="flex-1" />
-										</div>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.muxTemplate")}
-										</FormLabel>
-										<div className="flex flex-row gap-2 items-stretch">
-											<Input {...subscriptionRegister("mux_template")} className="flex-1" />
-										</div>
-									</FormControl>
-									<div className="[grid-column:1_/_-1] md:[grid-column:1_/_-1]">
-										<hr className="mb-3 w-full border-0 border-b border-panel-border! opacity-60" />
-										<p className="text-[0.875rem] font-semibold">
-											{t("settings.subscriptions.routingSection")}
-										</p>
-									</div>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.subscriptionAliases")}
-										</FormLabel>
-										<Textarea placeholder="/mypath/\n/test/\n/api/v1/client/subscribe?token=\n/api/v1/client/subscribe?key=" rows={4} {...subscriptionRegister("subscription_aliases_text")} />
-										<FormHelperText>
-											{t("settings.subscriptions.aliasesHint")}
-										</FormHelperText>
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("settings.subscriptions.subscriptionPorts")}
-										</FormLabel>
-										<Input
+									</FormField>
+								</div>
+
+								<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+									<FormField label={t("settings.subscriptions.subscriptionPageTemplate")}>
+										<UiInput {...subscriptionRegister("subscription_page_template")} />
+									</FormField>
+									<FormField label={t("settings.subscriptions.homePageTemplate")}>
+										<UiInput {...subscriptionRegister("home_page_template")} />
+									</FormField>
+									<FormField label={t("settings.subscriptions.clashTemplate")}>
+										<UiInput {...subscriptionRegister("clash_subscription_template")} />
+									</FormField>
+									<FormField label={t("settings.subscriptions.clashSettingsTemplate")}>
+										<UiInput {...subscriptionRegister("clash_settings_template")} />
+									</FormField>
+									<FormField label={t("settings.subscriptions.v2rayTemplate")}>
+										<UiInput {...subscriptionRegister("v2ray_subscription_template")} />
+									</FormField>
+									<FormField label={t("settings.subscriptions.v2raySettingsTemplate")}>
+										<UiInput {...subscriptionRegister("v2ray_settings_template")} />
+									</FormField>
+									<FormField label={t("settings.subscriptions.happTemplate")}>
+										<UiInput {...subscriptionRegister("happ_subscription_template")} />
+									</FormField>
+									<FormField label={t("settings.subscriptions.incyTemplate")}>
+										<UiInput {...subscriptionRegister("incy_subscription_template")} />
+									</FormField>
+									<FormField label={t("settings.subscriptions.singboxTemplate")}>
+										<UiInput {...subscriptionRegister("singbox_subscription_template")} />
+									</FormField>
+									<FormField label={t("settings.subscriptions.singboxSettingsTemplate")}>
+										<UiInput {...subscriptionRegister("singbox_settings_template")} />
+									</FormField>
+									<FormField label={t("settings.subscriptions.muxTemplate")}>
+										<UiInput {...subscriptionRegister("mux_template")} />
+									</FormField>
+								</div>
+
+								<div className="grid grid-cols-1 gap-4 md:grid-cols-2 border-t border-panel-border! pt-4">
+									<FormField label={t("settings.subscriptions.subscriptionAliases")} description={t("settings.subscriptions.aliasesHint")}>
+										<Textarea rows={4} {...subscriptionRegister("subscription_aliases_text")} />
+									</FormField>
+									<FormField label={t("settings.subscriptions.subscriptionPorts")} description={t("settings.subscriptions.subscriptionPortsHint")}>
+										<UiInput
 											placeholder="443, 8443"
 											{...subscriptionRegister("subscription_ports_text", {
 												onBlur: (event) => {
@@ -2699,48 +2393,44 @@ export const IntegrationSettingsPage = () => {
 												},
 											})}
 										/>
-										<FormHelperText>
-											{t("settings.subscriptions.subscriptionPortsHint")}
-											{parsedSubscriptionPorts.length > 0
-												? ` ${t("settings.subscriptions.activePorts")}: ${parsedSubscriptionPorts.join(", ")}`
-												: ""}
-										</FormHelperText>
-									</FormControl>
+										{parsedSubscriptionPorts.length > 0 ? (
+											<p className="text-[0.8125rem] text-panel-text-muted">
+												{t("settings.subscriptions.activePorts")}: {parsedSubscriptionPorts.join(", ")}
+											</p>
+										) : null}
+									</FormField>
 								</div>
 
-								<div className="mt-6 [grid-column:1_/_-1] md:[grid-column:1_/_-1]">
-									<hr className="mb-4 w-full border-0 border-b border-panel-border! opacity-60" />
-									<div className="flex justify-between items-start md:items-center mb-4 flex-col sm:flex-row gap-2">
+								<div className="flex flex-col gap-3 border-t border-panel-border! pt-4">
+									<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 										<div>
-											<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-1">{t("settings.subscriptions.routingRulesTitle")}</h2>
-											<p className="text-[0.875rem] text-gray-500">{t("settings.subscriptions.routingRulesDesc")}</p>
+											<h3 className="text-sm font-semibold">{t("settings.subscriptions.routingRulesTitle")}</h3>
+											<p className="mt-1 text-[0.8125rem] text-panel-text-muted">{t("settings.subscriptions.routingRulesDesc")}</p>
 										</div>
-										<Button size="xs" variant="outline" colorScheme="orange" onClick={() => {
+										<Button onClick={() => {
 												setSubscriptionValue("client_routing_rules", DEFAULT_CLIENT_ROUTING_RULES, {
 													shouldDirty: true,
 													shouldValidate: true,
 												});
-											}}>{<ArrowPathIcon className="w-[14px] h-[14px]" />}
+											}} variant="outline" size="xs" className="border border-orange-500 bg-transparent text-orange-600 hover:bg-orange-50 dark:text-orange-300 dark:hover:bg-orange-500/10">{<RefreshCw className="w-[14px] h-[14px]" />}
 											{t("settings.subscriptions.resetToDefault")}
 										</Button>
 									</div>
 
-									<div className="flex flex-col gap-3 items-stretch">
-										<div className="font-semibold text-[0.875rem] px-2 hidden md:flex">
-											<div className="flex-1">{t("settings.subscriptions.rulePattern")}</div>
-											<div className="w-[220px] ml-4">{t("settings.subscriptions.ruleResult")}</div>
-											<div className="w-[100px] ml-4"></div>
+									<div className="flex flex-col gap-2">
+										<div className="hidden px-3 text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-panel-text-muted md:grid md:grid-cols-[minmax(0,1fr)_220px_auto] md:gap-2">
+											<span>{t("settings.subscriptions.rulePattern")}</span>
+											<span>{t("settings.subscriptions.ruleResult")}</span>
+											<span />
 										</div>
-										
 										{routingRules.map((field, index) => (
-											<div key={field.id} className="flex gap-3 items-stretch md:items-center flex-col md:flex-row p-2 rounded-md border bg-white dark:bg-blackAlpha-200">
-												<Input placeholder="^([Cc]lash|[Ss]tash)" {...subscriptionRegister(`client_routing_rules.${index}.pattern` as const)} className="flex-1 font-mono text-[0.875rem]" />
-												
+											<div key={field.id} className="grid grid-cols-1 gap-2 rounded-lg border bg-card/40 p-3 md:grid-cols-[minmax(0,1fr)_220px_auto] md:items-center">
+												<UiInput placeholder="^([Cc]lash|[Ss]tash)" {...subscriptionRegister(`client_routing_rules.${index}.pattern` as const)} className="font-mono" />
 												<Controller
 													control={subscriptionControl}
 													name={`client_routing_rules.${index}.result` as const}
 													render={({ field: controllerField }) => (
-														<Select {...controllerField} showSearch={false} className="w-full md:w-[220px]">
+														<Select {...controllerField} showSearch={false} className="w-full">
 															{CLIENT_OPTIONS.map((opt) => (
 																<option key={opt} value={opt}>
 																	{opt}
@@ -2749,40 +2439,33 @@ export const IntegrationSettingsPage = () => {
 														</Select>
 													)}
 												/>
-
-												<div className="flex flex-row items-center gap-1 justify-end">
-													<IconButton aria-label="Move Up" size="sm" variant="ghost" disabled={index === 0} onClick={() => moveRoutingRule(index, index - 1)} >{<ChevronUpIcon className="w-[16px]" />}</IconButton>
-													<IconButton aria-label="Move Down" size="sm" variant="ghost" disabled={index === routingRules.length - 1} onClick={() => moveRoutingRule(index, index + 1)} >{<HeroChevronDownIcon className="w-[16px]" />}</IconButton>
-													<IconButton aria-label="Delete" size="sm" colorScheme="red" variant="ghost" onClick={() => removeRoutingRule(index)} >{<TrashIcon className="w-[16px]" />}</IconButton>
+												<div className="flex flex-row items-center justify-end gap-1">
+													<Button aria-label="Move Up" disabled={index === 0} onClick={() => moveRoutingRule(index, index - 1)} variant="ghost" size="sm" className="size-8 p-0">{<ChevronUp className="w-[16px]" />}</Button>
+													<Button aria-label="Move Down" disabled={index === routingRules.length - 1} onClick={() => moveRoutingRule(index, index + 1)} variant="ghost" size="sm" className="size-8 p-0">{<HeroChevronDownIcon className="w-[16px]" />}</Button>
+													<Button aria-label="Delete" onClick={() => removeRoutingRule(index)} variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 size-8 p-0">{<Trash2 className="w-[16px]" />}</Button>
 												</div>
 											</div>
 										))}
-										
-										<Button size="sm" variant="outline" onClick={() => appendRoutingRule({ pattern: "", result: "v2ray" })} className="self-start">{<PlusIcon className="w-[16px]" />}
-											{t("settings.subscriptions.addRule")}
-										</Button>
 									</div>
+									<Button onClick={() => appendRoutingRule({ pattern: "", result: "v2ray" })} variant="outline" size="sm" className="self-start">{<Plus className="w-[16px]" />}
+										{t("settings.subscriptions.addRule")}
+									</Button>
 								</div>
-							</div>
-							<div className="master-settings-card">
-								<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mb-1">
-									{t("settings.subscriptions.adminsTitle")}
-								</h2>
-								<p className="text-[0.875rem] text-gray-500 mb-4">
-									{t("settings.subscriptions.adminsDescription")}
-								</p>
+							</SettingsCard>
+
+							<SettingsCard
+								title={t("settings.subscriptions.adminsTitle")}
+								description={t("settings.subscriptions.adminsDescription")}
+							>
 								{Object.values(adminOverrides).length === 0 ? (
-									<p className="text-gray-500">
+									<p className="text-sm text-panel-text-muted">
 										{t("settings.subscriptions.noAdmins")}
 									</p>
 								) : (
 									<div className="flex flex-col gap-4">
-										<FormControl className="max-w-full md:max-w-[280px]">
-											<FormLabel>
-												{t("settings.subscriptions.selectAdmin")}
-											</FormLabel>
-											<Menu>
-												<MenuButton as={Button} variant="outline" size="sm" className="w-full h-[36px] px-3 text-[13px] font-semibold justify-between text-start rounded-md">
+										<FormField className="max-w-full md:max-w-[320px]" label={t("settings.subscriptions.selectAdmin")} description={t("settings.subscriptions.inheritHint")}>
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="w-full h-[36px] px-3 text-[13px] font-semibold justify-between text-start rounded-md">
 													<span className="truncate flex-1 min-w-0! text-start">
 														{selectedAdminId && adminOverrides[selectedAdminId]
 															? adminOverrides[selectedAdminId].username
@@ -2790,9 +2473,9 @@ export const IntegrationSettingsPage = () => {
 																	"settings.subscriptions.selectAdminPlaceholder",
 																)}
 													</span>
-												{<ChevronDownIcon />}</MenuButton>
-												<MenuList className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden min-w-[calc(100vw_-_48px)]! md:min-w-[280px]! max-w-[calc(100vw_-_48px)] md:max-w-[280px] max-h-[280px] overflow-y-auto shadow-xl border-blackAlpha-200! dark:border-whiteAlpha-200!">
-													<div className="p-2 border-b border-gray-200!">
+												{<ChevronDownIcon />}</Button></DropdownMenuTrigger>
+												<DropdownMenuContent className="[scrollbar-width:none] [&::-webkit-scrollbar]:hidden min-w-[calc(100vw_-_48px)]! md:min-w-[280px]! max-w-[calc(100vw_-_48px)] md:max-w-[280px] max-h-[280px] overflow-y-auto">
+													<div className="p-2 border-b border-panel-border!">
 														<SearchInput placeholder={t(
 																	"settings.subscriptions.searchAdmin",
 																)} value={adminSearchTerm} onChange={(event) =>
@@ -2801,69 +2484,63 @@ export const IntegrationSettingsPage = () => {
 													</div>
 													{filteredAdmins.length === 0 ? (
 														<div className="px-3 py-2">
-															<p className="text-gray-500">
+															<p className="text-panel-text-muted">
 																{t("settings.subscriptions.noResults")}
 															</p>
 														</div>
 													) : (
 														filteredAdmins.map((admin) => (
-															<MenuItem key={admin.id} onClick={() => setSelectedAdminId(admin.id)} className={cn("min-h-[36px] py-1.5 px-3", selectedAdminId === admin.id ? "bg-primary-50" : "", selectedAdminId === admin.id ? "dark:bg-whiteAlpha-100" : "")}>
+															<DropdownMenuItem key={admin.id} onSelect={() => setSelectedAdminId(admin.id)} className={cn("min-h-[36px] py-1.5 px-3", selectedAdminId === admin.id ? "bg-primary-50" : "", selectedAdminId === admin.id ? "dark:bg-whiteAlpha-100" : "")}>
 																<div className="flex justify-between items-center w-full">
 																	<p>{admin.username}</p>
 																	{admin.subscription_domain ? (
-																		<p className="text-[0.75rem] text-gray-500 max-w-[160px] truncate">
+																		<p className="text-[0.75rem] text-panel-text-muted max-w-[160px] truncate">
 																			{admin.subscription_domain}
 																		</p>
 																	) : null}
 																</div>
-															</MenuItem>
+															</DropdownMenuItem>
 														))
 													)}
-												</MenuList>
-											</Menu>
-											<FormHelperText>
-												{t("settings.subscriptions.inheritHint")}
-											</FormHelperText>
-										</FormControl>
+												</DropdownMenuContent>
+											</DropdownMenu>
+										</FormField>
 										{selectedAdminId == null ||
 										!adminOverrides[selectedAdminId] ? (
-											<p className="text-gray-500">
+											<p className="text-sm text-panel-text-muted">
 												{t("settings.subscriptions.selectAdminPlaceholder")}
 											</p>
 										) : (
-											<div key={selectedAdminId} className="master-settings-subcard">
+											<div key={selectedAdminId} className="flex flex-col gap-4 rounded-lg border bg-card/40 p-4">
 												{(() => {
 													const admin = adminOverrides[selectedAdminId];
 													if (!admin) return null;
 													const settings = admin.subscription_settings || {};
 													return (
 														<>
-															<div className="flex justify-between items-start md:items-center gap-3 flex-col md:flex-row">
+															<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
 																<div>
 																	<p className="font-semibold">
 																		{admin.username}
 																	</p>
-																	<p className="text-[0.875rem] text-gray-500">
+																	<p className="text-[0.8125rem] text-panel-text-muted">
 																		{t("settings.subscriptions.adminHint")}
 																	</p>
 																</div>
-																<div className="flex flex-row items-center gap-2">
+																<div className="flex flex-row flex-wrap items-center gap-2">
 																	{admin.subscription_domain ? (
-																		<Badge colorScheme="blue">
+																		<Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-200">
 																			{admin.subscription_domain}
 																		</Badge>
 																	) : null}
-																	<Button size="sm" variant="ghost" onClick={() => handleAdminReset(admin.id)} disabled={saveAllMutation.isPending}>
+																	<Button onClick={() => handleAdminReset(admin.id)} disabled={saveAllMutation.isPending} variant="ghost" size="sm">
 																		{t("reset")}
 																	</Button>
 																</div>
 															</div>
-															<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-																<FormControl>
-																	<FormLabel>
-																		{t("settings.subscriptions.adminDomain")}
-																	</FormLabel>
-																	<Input
+															<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+																<FormField label={t("settings.subscriptions.adminDomain")}>
+																	<UiInput
 																		placeholder="sub.admin.example.com"
 																		value={admin.subscription_domain ?? ""}
 																		onChange={(event) =>
@@ -2874,14 +2551,9 @@ export const IntegrationSettingsPage = () => {
 																			)
 																		}
 																	/>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t(
-																			"settings.subscriptions.customTemplatesDir",
-																		)}
-																	</FormLabel>
-																	<Input
+																</FormField>
+																<FormField label={t("settings.subscriptions.customTemplatesDir")} description={t("settings.subscriptions.inheritHint")}>
+																	<UiInput
 																		placeholder={
 																			subscriptionBundle?.settings
 																				.custom_templates_directory || ""
@@ -2897,18 +2569,28 @@ export const IntegrationSettingsPage = () => {
 																			)
 																		}
 																	/>
-																	<FormHelperText>
-																		{t("settings.subscriptions.inheritHint")}
-																	</FormHelperText>
-																</FormControl>
-															</div>
-
-															<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-																<FormControl>
-																	<FormLabel>
-																		{t("settings.subscriptions.profileTitle")}
-																	</FormLabel>
-																	<Input
+																</FormField>
+																<FormField label={t("settings.subscriptions.updateInterval")}>
+																	<UiInput
+																		type="number"
+																		placeholder={
+																			subscriptionBundle?.settings
+																				.subscription_update_interval || ""
+																		}
+																		value={
+																			settings.subscription_update_interval ?? ""
+																		}
+																		onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"subscription_update_interval",
+																				event.target.value,
+																			)
+																		}
+																	/>
+																</FormField>
+																<FormField label={t("settings.subscriptions.profileTitle")}>
+																	<UiInput
 																		placeholder={
 																			subscriptionBundle?.settings
 																				.subscription_profile_title || ""
@@ -2924,12 +2606,9 @@ export const IntegrationSettingsPage = () => {
 																			)
 																		}
 																	/>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t("settings.subscriptions.supportUrl")}
-																	</FormLabel>
-																	<Input
+																</FormField>
+																<FormField label={t("settings.subscriptions.supportUrl")}>
+																	<UiInput
 																		placeholder={
 																			subscriptionBundle?.settings
 																				.subscription_support_url || ""
@@ -2945,262 +2624,170 @@ export const IntegrationSettingsPage = () => {
 																			)
 																		}
 																	/>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t("settings.subscriptions.updateInterval")}
-																	</FormLabel>
-																	<Input
-																		type="number"
-																		placeholder={
+																</FormField>
+															</div>
+
+															<div className="grid grid-cols-1 gap-4 md:grid-cols-2 border-t border-panel-border! pt-4">
+																<FormField label={t("settings.subscriptions.subscriptionPageTemplate")}>
+																	<UiInput placeholder={
 																			subscriptionBundle?.settings
-																				.subscription_update_interval || ""
-																		}
-																		value={
-																			settings.subscription_update_interval ??
+																				.subscription_page_template || ""
+																		} value={
+																			settings.subscription_page_template ??
 																			""
-																		}
-																		onChange={(event) =>
+																		} onChange={(event) =>
 																			handleAdminTemplateChange(
 																				admin.id,
-																				"subscription_update_interval",
+																				"subscription_page_template",
 																				event.target.value,
 																			)
-																		}
-																	/>
-																</FormControl>
+																		} />
+																</FormField>
+																<FormField label={t("settings.subscriptions.homePageTemplate")}>
+																	<UiInput placeholder={
+																			subscriptionBundle?.settings
+																				.home_page_template || ""
+																		} value={settings.home_page_template ?? ""} onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"home_page_template",
+																				event.target.value,
+																			)
+																		} />
+																</FormField>
+																<FormField label={t("settings.subscriptions.clashTemplate")}>
+																	<UiInput placeholder={
+																			subscriptionBundle?.settings
+																				.clash_subscription_template || ""
+																		} value={
+																			settings.clash_subscription_template ??
+																			""
+																		} onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"clash_subscription_template",
+																				event.target.value,
+																			)
+																		} />
+																</FormField>
+																<FormField label={t("settings.subscriptions.clashSettingsTemplate")}>
+																	<UiInput placeholder={
+																			subscriptionBundle?.settings
+																				.clash_settings_template || ""
+																		} value={
+																			settings.clash_settings_template ?? ""
+																		} onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"clash_settings_template",
+																				event.target.value,
+																			)
+																		} />
+																</FormField>
+																<FormField label={t("settings.subscriptions.v2rayTemplate")}>
+																	<UiInput placeholder={
+																			subscriptionBundle?.settings
+																				.v2ray_subscription_template || ""
+																		} value={
+																			settings.v2ray_subscription_template ??
+																			""
+																		} onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"v2ray_subscription_template",
+																				event.target.value,
+																			)
+																		} />
+																</FormField>
+																<FormField label={t("settings.subscriptions.v2raySettingsTemplate")}>
+																	<UiInput placeholder={
+																			subscriptionBundle?.settings
+																				.v2ray_settings_template || ""
+																		} value={
+																			settings.v2ray_settings_template ?? ""
+																		} onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"v2ray_settings_template",
+																				event.target.value,
+																			)
+																		} />
+																</FormField>
+																<FormField label={t("settings.subscriptions.happTemplate")}>
+																	<UiInput placeholder={
+																			subscriptionBundle?.settings
+																				.happ_subscription_template || ""
+																		} value={
+																			settings.happ_subscription_template ??
+																			""
+																		} onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"happ_subscription_template",
+																				event.target.value,
+																			)
+																		} />
+																</FormField>
+																<FormField label={t("settings.subscriptions.incyTemplate")}>
+																	<UiInput placeholder={
+																			subscriptionBundle?.settings
+																				.incy_subscription_template || ""
+																		} value={
+																			settings.incy_subscription_template ??
+																			""
+																		} onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"incy_subscription_template",
+																				event.target.value,
+																			)
+																		} />
+																</FormField>
+																<FormField label={t("settings.subscriptions.singboxTemplate")}>
+																	<UiInput placeholder={
+																			subscriptionBundle?.settings
+																				.singbox_subscription_template || ""
+																		} value={
+																			settings.singbox_subscription_template ??
+																			""
+																		} onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"singbox_subscription_template",
+																				event.target.value,
+																			)
+																		} />
+																</FormField>
+																<FormField label={t("settings.subscriptions.singboxSettingsTemplate")}>
+																	<UiInput placeholder={
+																			subscriptionBundle?.settings
+																				.singbox_settings_template || ""
+																		} value={
+																			settings.singbox_settings_template ?? ""
+																		} onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"singbox_settings_template",
+																				event.target.value,
+																			)
+																		} />
+																</FormField>
+																<FormField label={t("settings.subscriptions.muxTemplate")}>
+																	<UiInput placeholder={
+																			subscriptionBundle?.settings
+																				.mux_template || ""
+																		} value={settings.mux_template ?? ""} onChange={(event) =>
+																			handleAdminTemplateChange(
+																				admin.id,
+																				"mux_template",
+																				event.target.value,
+																			)
+																		} />
+																</FormField>
 															</div>
 
-															<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-																<FormControl>
-																	<FormLabel>
-																		{t(
-																			"settings.subscriptions.subscriptionPageTemplate",
-																		)}
-																	</FormLabel>
-																	<div className="flex flex-row gap-2 items-stretch">
-																		<Input placeholder={
-																				subscriptionBundle?.settings
-																					.subscription_page_template || ""
-																			} value={
-																				settings.subscription_page_template ??
-																				""
-																			} onChange={(event) =>
-																				handleAdminTemplateChange(
-																					admin.id,
-																					"subscription_page_template",
-																					event.target.value,
-																				)
-																			} className="flex-1" />
-																	</div>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t(
-																			"settings.subscriptions.homePageTemplate",
-																		)}
-																	</FormLabel>
-																	<div className="flex flex-row gap-2 items-stretch">
-																		<Input placeholder={
-																				subscriptionBundle?.settings
-																					.home_page_template || ""
-																			} value={settings.home_page_template ?? ""} onChange={(event) =>
-																				handleAdminTemplateChange(
-																					admin.id,
-																					"home_page_template",
-																					event.target.value,
-																				)
-																			} className="flex-1" />
-																	</div>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t("settings.subscriptions.clashTemplate")}
-																	</FormLabel>
-																	<div className="flex flex-row gap-2 items-stretch">
-																		<Input placeholder={
-																				subscriptionBundle?.settings
-																					.clash_subscription_template || ""
-																			} value={
-																				settings.clash_subscription_template ??
-																				""
-																			} onChange={(event) =>
-																				handleAdminTemplateChange(
-																					admin.id,
-																					"clash_subscription_template",
-																					event.target.value,
-																				)
-																			} className="flex-1" />
-																	</div>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t(
-																			"settings.subscriptions.clashSettingsTemplate",
-																		)}
-																	</FormLabel>
-																	<div className="flex flex-row gap-2 items-stretch">
-																		<Input placeholder={
-																				subscriptionBundle?.settings
-																					.clash_settings_template || ""
-																			} value={
-																				settings.clash_settings_template ?? ""
-																			} onChange={(event) =>
-																				handleAdminTemplateChange(
-																					admin.id,
-																					"clash_settings_template",
-																					event.target.value,
-																				)
-																			} className="flex-1" />
-																	</div>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t("settings.subscriptions.v2rayTemplate")}
-																	</FormLabel>
-																	<div className="flex flex-row gap-2 items-stretch">
-																		<Input placeholder={
-																				subscriptionBundle?.settings
-																					.v2ray_subscription_template || ""
-																			} value={
-																				settings.v2ray_subscription_template ??
-																				""
-																			} onChange={(event) =>
-																				handleAdminTemplateChange(
-																					admin.id,
-																					"v2ray_subscription_template",
-																					event.target.value,
-																				)
-																			} className="flex-1" />
-																	</div>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t(
-																			"settings.subscriptions.v2raySettingsTemplate",
-																		)}
-																	</FormLabel>
-																	<div className="flex flex-row gap-2 items-stretch">
-																		<Input placeholder={
-																				subscriptionBundle?.settings
-																					.v2ray_settings_template || ""
-																			} value={
-																				settings.v2ray_settings_template ?? ""
-																			} onChange={(event) =>
-																				handleAdminTemplateChange(
-																					admin.id,
-																					"v2ray_settings_template",
-																					event.target.value,
-																				)
-																			} className="flex-1" />
-																	</div>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t("settings.subscriptions.happTemplate")}
-																	</FormLabel>
-																	<div className="flex flex-row gap-2 items-stretch">
-																		<Input placeholder={
-																				subscriptionBundle?.settings
-																					.happ_subscription_template || ""
-																			} value={
-																				settings.happ_subscription_template ??
-																				""
-																			} onChange={(event) =>
-																				handleAdminTemplateChange(
-																					admin.id,
-																					"happ_subscription_template",
-																					event.target.value,
-																				)
-																			} className="flex-1" />
-																	</div>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t("settings.subscriptions.incyTemplate")}
-																	</FormLabel>
-																	<div className="flex flex-row gap-2 items-stretch">
-																		<Input placeholder={
-																				subscriptionBundle?.settings
-																					.incy_subscription_template || ""
-																			} value={
-																				settings.incy_subscription_template ??
-																				""
-																			} onChange={(event) =>
-																				handleAdminTemplateChange(
-																					admin.id,
-																					"incy_subscription_template",
-																					event.target.value,
-																				)
-																			} className="flex-1" />
-																	</div>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t(
-																			"settings.subscriptions.singboxTemplate",
-																		)}
-																	</FormLabel>
-																	<div className="flex flex-row gap-2 items-stretch">
-																		<Input placeholder={
-																				subscriptionBundle?.settings
-																					.singbox_subscription_template || ""
-																			} value={
-																				settings.singbox_subscription_template ??
-																				""
-																			} onChange={(event) =>
-																				handleAdminTemplateChange(
-																					admin.id,
-																					"singbox_subscription_template",
-																					event.target.value,
-																				)
-																			} className="flex-1" />
-																	</div>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t(
-																			"settings.subscriptions.singboxSettingsTemplate",
-																		)}
-																	</FormLabel>
-																	<div className="flex flex-row gap-2 items-stretch">
-																		<Input placeholder={
-																				subscriptionBundle?.settings
-																					.singbox_settings_template || ""
-																			} value={
-																				settings.singbox_settings_template ?? ""
-																			} onChange={(event) =>
-																				handleAdminTemplateChange(
-																					admin.id,
-																					"singbox_settings_template",
-																					event.target.value,
-																				)
-																			} className="flex-1" />
-																	</div>
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t("settings.subscriptions.muxTemplate")}
-																	</FormLabel>
-																	<div className="flex flex-row gap-2 items-stretch">
-																		<Input placeholder={
-																				subscriptionBundle?.settings
-																					.mux_template || ""
-																			} value={settings.mux_template ?? ""} onChange={(event) =>
-																				handleAdminTemplateChange(
-																					admin.id,
-																					"mux_template",
-																					event.target.value,
-																				)
-																			} className="flex-1" />
-																	</div>
-																</FormControl>
-															</div>
-
-															<hr className="my-4 w-full border-0 border-b border-panel-border! opacity-60" />
-
-															<div className="flex mt-4 master-settings-action-row">
-																<Button size="md" variant="outline" onClick={() => handleAdminReset(admin.id)} disabled={saveAllMutation.isPending}>{<RefreshIcon />}
+															<div className="flex">
+																<Button onClick={() => handleAdminReset(admin.id)} disabled={saveAllMutation.isPending} variant="outline">{<RefreshIcon />}
 																	{t("settings.subscriptions.resetOverrides")}
 																</Button>
 															</div>
@@ -3211,183 +2798,185 @@ export const IntegrationSettingsPage = () => {
 										)}
 									</div>
 								)}
-							</div>
+							</SettingsCard>
 						</div>
 					</form>
 				)}
 				</div>
 			)}
-			<Modal open={isCertificateDialogOpen} onClose={() => setCertificateDialogOpen(false)} size={certificateForm.provider === "manual" ? "3xl" : "xl"} isCentered scrollBehavior="inside" closeOnOverlayClick={!isCertificateMutationLoading}>
-				<ModalOverlay className="bg-blackAlpha-500" />
-				<ModalContent as="form" onSubmit={(event) => {
-						event.preventDefault();
-						handleIssueCertificate();
-					}} className="border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 bg-white dark:bg-whiteAlpha-50 border-blackAlpha-200! dark:border-whiteAlpha-200!">
-					<ModalHeader className="px-6 pt-6 pb-2">
-						{t("settings.subscriptions.getNewSSL")}
-					</ModalHeader>
-					<ModalCloseButton disabled={isCertificateMutationLoading} />
-					<ModalBody className="px-6 pb-6">
-						<div className="flex flex-col items-stretch gap-4">
-							<Alert status="info" variant="left-accent" className="rounded-lg">
-								<AlertIcon />
-								<p className="text-[0.875rem]">
-									{t("settings.subscriptions.certificateSNIHint")}
-								</p>
-							</Alert>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<FormControl>
-									<FormLabel>
-										{t("settings.subscriptions.certificateProvider")}
-									</FormLabel>
-									<Select
-										value={certificateForm.provider}
-										showSearch={false}
-										onChange={(event) =>
-											setCertificateForm((previous) => ({
-												...previous,
-												provider: event.target.value as
-													| "letsencrypt"
-													| "zerossl"
-													| "manual"
-													| "node",
-											}))
-										}
-									>
-										<option value="letsencrypt">Certbot / Let's Encrypt</option>
-										<option value="zerossl">ZeroSSL</option>
-										<option value="node">{t("settings.subscriptions.nodeCertificate")}</option>
-										<option value="manual">
-											{t("settings.subscriptions.manualCertificate")}
-										</option>
-									</Select>
-									{certificateForm.provider === "zerossl" ? (
-										<FormHelperText>
-											{t("settings.subscriptions.zeroSSLNoKeyHint")}
-										</FormHelperText>
-									) : null}
-								</FormControl>
-								{certificateForm.provider !== "manual" ? (
-									<FormControl required>
-										<FormLabel>{t("settings.subscriptions.email")}</FormLabel>
-										<Input
-											type="email"
-											placeholder="admin@example.com"
-											value={certificateForm.email}
-											onChange={(event) =>
-												setCertificateForm((previous) => ({
-													...previous,
-													email: event.target.value,
-												}))
-											}
-										/>
-									</FormControl>
-								) : null}
-								{certificateForm.provider === "node" ? (
-									<FormControl required>
-										<FormLabel>{t("settings.subscriptions.nodeCertificateNode")}</FormLabel>
-										<Select
-											value={certificateForm.nodeId}
-											showSearch={false}
-											onChange={(event) =>
-												setCertificateForm((previous) => ({
-													...previous,
-													nodeId: event.target.value,
-												}))
-											}
-										>
-											<option value="">{t("settings.subscriptions.selectNode")}</option>
-											{nodeList
-												.filter((node) => node.id != null)
-												.map((node) => (
-													<option key={node.id} value={String(node.id)}>
-														{node.name} ({node.address})
-													</option>
-												))}
-										</Select>
-										<FormHelperText>{t("settings.subscriptions.nodeCertificateHint")}</FormHelperText>
-									</FormControl>
-								) : null}
-								{certificateForm.provider === "node" ? (
-									<FormControl>
-										<FormLabel>{t("settings.subscriptions.domain")}</FormLabel>
-										<Input
-											placeholder="api.example.com"
-											value={certificateForm.nodeDomain}
-											onChange={(event) =>
-												setCertificateForm((previous) => ({
-													...previous,
-													nodeDomain: event.target.value,
-												}))
-											}
-										/>
-										<FormHelperText>{t("settings.subscriptions.nodeDomainHint")}</FormHelperText>
-									</FormControl>
-								) : null}
-								<FormControl required={certificateForm.provider !== "node"} className={cn(certificateForm.provider === "node" ? "hidden" : "")}>
-									<FormLabel>
-										{certificateForm.provider === "manual"
-											? t("settings.subscriptions.domain")
-											: t("settings.subscriptions.domains")}
-									</FormLabel>
-									<Input
-										placeholder={
-											certificateForm.provider === "manual"
-												? "example.com"
-												: "example.com,sub.example.com"
-										}
-										value={certificateForm.domains}
-										onChange={(event) =>
-											setCertificateForm((previous) => ({
-												...previous,
-												domains: event.target.value,
-											}))
-										}
-									/>
-									{certificateForm.provider !== "manual" ? (
-										<FormHelperText>
-											{t("settings.subscriptions.domainsHint")}
-										</FormHelperText>
-									) : null}
-								</FormControl>
-							</div>
-							{certificateForm.provider === "manual" ? (
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<FormControl required>
-										<FormLabel>fullchain.pem</FormLabel>
-										<Textarea dir="ltr" value={certificateForm.fullchain} onChange={(event) =>
-												setCertificateForm((previous) => ({
-													...previous,
-													fullchain: event.target.value,
-												}))
-											} className="font-mono min-h-[180px]" />
-									</FormControl>
-									<FormControl required>
-										<FormLabel>privkey.pem</FormLabel>
-										<Textarea dir="ltr" value={certificateForm.privateKey} onChange={(event) =>
-												setCertificateForm((previous) => ({
-													...previous,
-													privateKey: event.target.value,
-												}))
-											} className="font-mono min-h-[180px]" />
-									</FormControl>
+				<Dialog
+					open={isCertificateDialogOpen}
+					onOpenChange={(next) => {
+						if (!next && !isCertificateMutationLoading) setCertificateDialogOpen(false);
+					}}
+				>
+					<DialogContent className={cn(
+							"flex max-h-[min(860px,calc(100dvh-4rem))] flex-col gap-0 overflow-hidden p-0 max-md:inset-x-3 max-md:w-auto max-md:top-[4.5rem] max-md:bottom-24 max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0",
+							certificateForm.provider === "manual" ? "sm:max-w-3xl" : "sm:max-w-xl",
+						)}>
+						<form
+							onSubmit={(event) => {
+								event.preventDefault();
+								handleIssueCertificate();
+							}}
+							className="flex min-h-0 flex-1 flex-col"
+						>
+							<DialogHeader className="flex-row items-center gap-3 border-b px-5 py-3.5 pe-12 text-start sm:text-start">
+								<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+									<ShieldCheck className="size-4" />
 								</div>
-							) : null}
-						</div>
-					</ModalBody>
-					<ModalFooter className="gap-2 border-t border-blackAlpha-200! dark:border-whiteAlpha-200!">
-						<Button size="md" variant="ghost" onClick={() => setCertificateDialogOpen(false)} disabled={isCertificateMutationLoading}>
-							{t("cancel")}
-						</Button>
-						<Button size="md" type="submit" colorScheme="primary" loading={isCertificateMutationLoading}>
-							{certificateForm.provider === "manual"
-								? t("settings.subscriptions.importAction")
-								: t("settings.subscriptions.issueAction")}
-						</Button>
-					</ModalFooter>
-				</ModalContent>
-			</Modal>
-			<ConfirmDialog
+								<div className="min-w-0">
+									<DialogTitle className="truncate text-base">{t("settings.subscriptions.getNewSSL")}</DialogTitle>
+									<DialogDescription className="truncate">{t("settings.subscriptions.certificateTitle")}</DialogDescription>
+								</div>
+							</DialogHeader>
+							<div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+								<div className="flex flex-col gap-5">
+									<Alert className="rounded-lg">
+										<Info className="size-4" aria-hidden="true" />
+										<p className="text-[0.875rem]">
+											{t("settings.subscriptions.certificateSNIHint")}
+										</p>
+									</Alert>
+
+									<FormField
+										label={t("settings.subscriptions.certificateProvider")}
+										description={certificateForm.provider === "zerossl" ? t("settings.subscriptions.zeroSSLNoKeyHint") : undefined}
+									>
+										<SegmentedControl<"letsencrypt" | "zerossl" | "manual" | "node">
+											label={t("settings.subscriptions.certificateProvider")}
+											value={certificateForm.provider}
+											options={[
+												{ value: "letsencrypt", label: "Certbot / Let's Encrypt" },
+												{ value: "zerossl", label: "ZeroSSL" },
+												{ value: "node", label: t("settings.subscriptions.nodeCertificate") },
+												{ value: "manual", label: t("settings.subscriptions.manualCertificate") },
+											]}
+											onChange={(next) =>
+												setCertificateForm((previous) => ({
+													...previous,
+													provider: next,
+												}))
+											}
+										/>
+									</FormField>
+
+									<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+										{certificateForm.provider !== "manual" ? (
+											<FormField label={t("settings.subscriptions.email")}>
+												<UiInput
+													type="email"
+													placeholder="admin@example.com"
+													value={certificateForm.email}
+													onChange={(event) =>
+														setCertificateForm((previous) => ({
+															...previous,
+															email: event.target.value,
+														}))
+													}
+												/>
+											</FormField>
+										) : null}
+										{certificateForm.provider === "node" ? (
+											<FormField label={t("settings.subscriptions.nodeCertificateNode")} description={t("settings.subscriptions.nodeCertificateHint")}>
+												<Select
+													value={certificateForm.nodeId}
+													showSearch={false}
+													onChange={(event) =>
+														setCertificateForm((previous) => ({
+															...previous,
+															nodeId: event.target.value,
+														}))
+													}
+												>
+													<option value="">{t("settings.subscriptions.selectNode")}</option>
+													{nodeList
+														.filter((node) => node.id != null)
+														.map((node) => (
+															<option key={node.id} value={String(node.id)}>
+																{node.name} ({node.address})
+															</option>
+														))}
+												</Select>
+											</FormField>
+										) : null}
+										{certificateForm.provider === "node" ? (
+											<FormField label={t("settings.subscriptions.domain")} description={t("settings.subscriptions.nodeDomainHint")}>
+												<UiInput
+													placeholder="api.example.com"
+													value={certificateForm.nodeDomain}
+													onChange={(event) =>
+														setCertificateForm((previous) => ({
+															...previous,
+															nodeDomain: event.target.value,
+														}))
+													}
+												/>
+											</FormField>
+										) : null}
+										{certificateForm.provider !== "node" ? (
+											<FormField
+												label={
+													certificateForm.provider === "manual"
+														? t("settings.subscriptions.domain")
+														: t("settings.subscriptions.domains")
+												}
+												description={certificateForm.provider !== "manual" ? t("settings.subscriptions.domainsHint") : undefined}
+											>
+												<UiInput
+													placeholder={
+														certificateForm.provider === "manual"
+															? "example.com"
+															: "example.com,sub.example.com"
+													}
+													value={certificateForm.domains}
+													onChange={(event) =>
+														setCertificateForm((previous) => ({
+															...previous,
+															domains: event.target.value,
+														}))
+													}
+												/>
+											</FormField>
+										) : null}
+									</div>
+
+									{certificateForm.provider === "manual" ? (
+										<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+											<FormField label="fullchain.pem">
+												<Textarea dir="ltr" value={certificateForm.fullchain} onChange={(event) =>
+														setCertificateForm((previous) => ({
+															...previous,
+															fullchain: event.target.value,
+														}))
+													} className="font-mono min-h-[180px]" />
+											</FormField>
+											<FormField label="privkey.pem">
+												<Textarea dir="ltr" value={certificateForm.privateKey} onChange={(event) =>
+														setCertificateForm((previous) => ({
+															...previous,
+															privateKey: event.target.value,
+														}))
+													} className="font-mono min-h-[180px]" />
+											</FormField>
+										</div>
+									) : null}
+								</div>
+							</div>
+							<DialogFooter className="flex-row flex-wrap items-center justify-end gap-2 border-t px-5 py-3">
+								<Button onClick={() => setCertificateDialogOpen(false)} disabled={isCertificateMutationLoading} variant="outline" size="sm">
+									{t("cancel")}
+								</Button>
+								<Button type="submit" size="sm" loading={isCertificateMutationLoading}>
+									{certificateForm.provider === "manual"
+										? t("settings.subscriptions.importAction")
+										: t("settings.subscriptions.issueAction")}
+								</Button>
+							</DialogFooter>
+						</form>
+					</DialogContent>
+				</Dialog>
+				<ConfirmDialog
 				open={Boolean(certificateAction)}
 				onClose={() => setCertificateAction(null)}
 				onConfirm={() => {

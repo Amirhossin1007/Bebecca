@@ -1,16 +1,13 @@
+import { Dialog, DialogContent, DialogHeader } from "components/ui/dialog";
+import { Button } from "components/ui/button";
+import { Alert } from "components/ui/alert";
+import { Spinner } from "components/ui/spinner";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Code, FilePlus, FolderOpen } from "lucide-react";
 import { useColorMode } from "lib/color-mode";
-import { useToast } from "components/shadcn/toast";
-import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
-import { Button } from "components/shadcn/button";
-import { Alert, AlertIcon } from "components/shadcn/alert";
-import { Spinner } from "components/shadcn/feedback";
+
 import { cn } from "lib/cn";
-import {
-	ArrowLeftIcon,
-	CodeBracketIcon,
-	DocumentPlusIcon,
-	FolderOpenIcon,
-} from "@heroicons/react/24/outline";
 import { FileManager, type FileManagerFile } from "@cubone/react-file-manager";
 import "@cubone/react-file-manager/dist/style.css";
 import "ace-builds/src-noconflict/ace";
@@ -116,7 +113,7 @@ export const ExternalAppFilesModal = ({
 	const { t, i18n } = useTranslation();
 	const { colorMode } = useColorMode();
 	const modalBg = "bg-white dark:bg-gray-900";
-	const toast = useToast();
+	
 	const [folder, setFolder] = useState("/");
 	const [document, setDocument] = useState<EditorDocument | null>(null);
 	const [draft, setDraft] = useState("");
@@ -135,16 +132,10 @@ export const ExternalAppFilesModal = ({
 				response?: { _data?: { detail?: string } };
 				message?: string;
 			};
-			toast({
-				title: t("externalApps.files.actionFailed"),
-				description:
-					candidate?.data?.detail ||
+			toast.error(t("externalApps.files.actionFailed"), { description: candidate?.data?.detail ||
 					candidate?.response?._data?.detail ||
 					candidate?.message ||
-					String(error),
-				status: "error",
-				isClosable: true,
-			});
+					String(error) });
 		},
 		[t, toast],
 	);
@@ -229,7 +220,7 @@ export const ExternalAppFilesModal = ({
 					current ? { ...current, content: draft } : current,
 				);
 				if (document?.kind === "file") await refreshFiles();
-				toast({ title: t("externalApps.files.saved"), status: "success" });
+				toast.success(t("externalApps.files.saved"));
 			},
 			onError: showError, });
 
@@ -272,15 +263,15 @@ export const ExternalAppFilesModal = ({
 	};
 
 	return (
-		<Modal open={Boolean(app)} onClose={close} size="full">
-			<ModalOverlay />
-			<ModalContent className={cn("h-[100dvh] max-h-[100dvh]", modalBg)}>
-				<ModalHeader className="px-3 md:px-6 py-3 md:py-4">
+		<Dialog open={Boolean(app)} onOpenChange={(open) => { if (!open) (close)(); }}>
+			
+			<DialogContent className={cn("h-[100dvh] max-h-[100dvh]", modalBg)}>
+				<DialogHeader className="px-3 md:px-6 py-3 md:py-4">
 					<div className="flex items-center gap-3 pe-10 min-w-0!">
 						{isPHPConfigView ? (
-							<CodeBracketIcon className="w-[22px]" />
+							<Code className="w-[22px]" />
 						) : (
-							<FolderOpenIcon className="w-[22px]" />
+							<FolderOpen className="w-[22px]" />
 						)}
 						<p className="truncate min-w-0!">
 							{t(
@@ -296,14 +287,14 @@ export const ExternalAppFilesModal = ({
 							</code>
 						) : null}
 					</div>
-				</ModalHeader>
-				<ModalCloseButton />
-				<ModalBody className="flex min-h-0 overflow-hidden px-2 md:px-4 pb-2 md:pb-4">
+				</DialogHeader>
+				
+				<div className={cn("px-5 py-4 overflow-y-auto", "flex min-h-0 overflow-hidden px-2 md:px-4 pb-2 md:pb-4")}>
 					<div className="flex gap-4 flex-1 min-h-0 min-w-0! w-full">
 						{!isPHPConfigView ? (
 							<div className={cn("flex-1 min-w-0! min-h-0 lg:flex flex-col", document ? "hidden" : "flex")}>
 								<div className="flex-1 min-h-0 min-w-0! external-app-files-shell">
-									<Button size="sm" variant="ghost" title={t("externalApps.files.newFile")} aria-label={t("externalApps.files.newFile")} disabled={fileMutation.isPending} onClick={createFile} className="external-app-files-new-file">{<DocumentPlusIcon className="w-[18px]" />}
+									<Button title={t("externalApps.files.newFile")} aria-label={t("externalApps.files.newFile")} disabled={fileMutation.isPending} onClick={createFile} variant="ghost" size="sm" className="external-app-files-new-file">{<FilePlus className="w-[18px]" />}
 										<span className="external-app-files-new-file-label">
 											{t("externalApps.files.newFile")}
 										</span>
@@ -362,8 +353,8 @@ export const ExternalAppFilesModal = ({
 						) : null}
 						<div className={cn("flex-1 min-w-0! min-h-0 flex-col", isPHPConfigView ? "flex" : `${document ? "flex" : "hidden"} lg:flex`)}>
 							{document?.kind === "php-config" ? (
-								<Alert status="warning" className="mb-2 rounded-md py-2">
-									<AlertIcon />
+								<Alert className="mb-2 rounded-md py-2">
+									<TriangleAlert className="size-4" aria-hidden="true" />
 									<p className="text-[0.875rem]">
 										{t("externalApps.files.phpConfigHint")}
 									</p>
@@ -371,14 +362,14 @@ export const ExternalAppFilesModal = ({
 							) : null}
 							<div className="flex justify-between items-center gap-2 mb-2 min-h-[32px]">
 								{!isPHPConfigView ? (
-									<Button variant="solid" size="sm" onClick={closeDocument} className="inline-flex lg:hidden">{<ArrowLeftIcon className="w-[16px]" />}
+									<Button onClick={closeDocument} size="sm" className="inline-flex lg:hidden">{<ArrowLeft className="w-[16px]" />}
 										{t("externalApps.files.backToFiles")}
 									</Button>
 								) : null}
 								<p className="flex-1 min-w-0! text-[0.875rem] text-panel-text-secondary truncate">
 									{document?.path || t("externalApps.files.openHint")}
 								</p>
-								<Button size="sm" colorScheme="blue" disabled={!document || !isDirty} loading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
+								<Button disabled={!document || !isDirty} onClick={() => saveMutation.mutate()} size="sm" loading={saveMutation.isPending} className="bg-blue-600 text-white shadow-xs hover:bg-blue-700">
 									{t("externalApps.files.save")}
 								</Button>
 							</div>
@@ -413,8 +404,8 @@ export const ExternalAppFilesModal = ({
 							</div>
 						</div>
 					</div>
-				</ModalBody>
-			</ModalContent>
-		</Modal>
+				</div>
+			</DialogContent>
+		</Dialog>
 	);
 };

@@ -1,4 +1,6 @@
-import { Input as FieldInput } from "components/shadcn/input";
+import { Input } from "components/ui/input";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
 import type { ComponentPropsWithoutRef } from "react";
 import { forwardRef, type ChangeEvent } from "react";
 import { NumericInput } from "./NumericInput";
@@ -26,7 +28,7 @@ export const PanelInput = forwardRef<HTMLInputElement, PanelInputProps>(
 	) => {
 		if (type !== "number") {
 			return (
-				<FieldInput ref={ref} type={type} onChange={onChange} value={value} defaultValue={defaultValue} min={min} max={max} step={step} size={size} disabled={isDisabled} {...props} />
+				<Input ref={ref} type={type} onChange={onChange} value={value} defaultValue={defaultValue} min={min} max={max} step={step} disabled={isDisabled} {...props} />
 			);
 		}
 

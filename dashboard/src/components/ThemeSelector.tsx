@@ -1,10 +1,10 @@
+import { Button } from "components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Check, Moon, Sun, SwatchBook } from "lucide-react";
 import { useColorMode } from "lib/color-mode";
-import {
-	CheckIcon,
-	MoonIcon,
-	SunIcon,
-	SwatchIcon,
-} from "@heroicons/react/24/outline";
 import {
 	type CSSProperties,
 	type FC,
@@ -14,23 +14,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { Button } from "components/shadcn/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuTrigger,
-} from "components/shadcn/dropdown-menu";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "components/shadcn/popover";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "components/shadcn/tooltip";
+
 import { useDisclosure } from "hooks/useDisclosure";
 import { useMediaQuery } from "hooks/useMediaQuery";
 import { cn } from "lib/cn";
@@ -39,10 +23,10 @@ import { updateThemeColor } from "utils/themeColor";
 const THEME_OPTIONS: Array<{
 	key: ThemeMode;
 	label: string;
-	icon: typeof MoonIcon;
+	icon: typeof Moon;
 }> = [
-	{ key: "dark", label: "Dark", icon: MoonIcon },
-	{ key: "light", label: "Light", icon: SunIcon },
+	{ key: "dark", label: "Dark", icon: Moon },
+	{ key: "light", label: "Light", icon: Sun },
 ];
 
 /** Every theme-menu surface gets the same width, padding and radius. */
@@ -277,17 +261,12 @@ const ThemePanel: FC<ThemePanelProps> = ({
 							const selected = activeTheme === theme.key;
 							const Icon = theme.icon;
 							return (
-								<Button
-									key={theme.key}
-									variant="outline"
-									onClick={() => onSelectTheme(theme.key)}
-									className={cn(
+								<Button key={theme.key} onClick={() => onSelectTheme(theme.key)} variant="outline" className={cn(
 										"relative h-[72px] rounded-[6px] px-3 text-panel-text hover:border-panel-accent! hover:bg-panel-elevated",
 										selected
 											? "border-2 border-panel-accent! bg-panel-elevated"
 											: "border border-panel-border! bg-transparent",
-									)}
-								>
+									)}>
 									<span className="flex w-full flex-col items-center justify-center gap-2">
 										<Icon className="size-4" />
 										<span className="text-center font-bold leading-none">
@@ -296,7 +275,7 @@ const ThemePanel: FC<ThemePanelProps> = ({
 									</span>
 									{selected ? (
 										<span className="absolute right-2 top-2 text-panel-accent">
-											<CheckIcon className="size-4" />
+											<Check className="size-4" />
 										</span>
 									) : null}
 								</Button>
@@ -318,8 +297,9 @@ const ThemePanel: FC<ThemePanelProps> = ({
 							const selected = activeAccent === accent.key;
 							const label = t(`theme.accent.${accent.key}`, accent.label);
 							return (
-								<Tooltip key={accent.key}>
-									<TooltipTrigger asChild>
+								<Tooltip>
+<TooltipTrigger asChild>
+									
 										<button
 											type="button"
 											aria-label={label}
@@ -337,11 +317,12 @@ const ThemePanel: FC<ThemePanelProps> = ({
 													: "border border-panel-border!",
 											)}
 										>
-											{selected ? <CheckIcon className="size-4" /> : null}
+											{selected ? <Check className="size-4" /> : null}
 										</button>
-									</TooltipTrigger>
-									<TooltipContent>{label}</TooltipContent>
-								</Tooltip>
+									
+								</TooltipTrigger>
+<TooltipContent>{label}</TooltipContent>
+</Tooltip>
 							);
 						})}
 					</div>
@@ -401,25 +382,18 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 
 	if (trigger === "menuItem") {
 		return (
-			<Popover
-				open={themeMenu.isOpen}
-				onOpenChange={(open) =>
+			<Popover open={themeMenu.isOpen} onOpenChange={(open) =>
 					open ? themeMenu.onOpen() : themeMenu.onClose()
-				}
-			>
+				}>
 				<PopoverTrigger asChild>
-					<Button
-						variant="ghost"
-						onClick={(event: ReactMouseEvent) => event.stopPropagation()}
-						className="h-10 w-full justify-start gap-3 rounded-md bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated"
-					>
-						<SwatchIcon className="size-4 shrink-0" />
+					<Button onClick={(event: ReactMouseEvent) => event.stopPropagation()} variant="ghost" className="h-10 w-full justify-start gap-3 rounded-md bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
+						<SwatchBook className="size-4 shrink-0" />
 						<span className="truncate">
 							{triggerLabel || t("header.theme")}
 						</span>
 					</Button>
 				</PopoverTrigger>
-				<PopoverContent container={portalContainer?.current} side={isWide ? "left" : "bottom"} className={cn("items-start", PANEL_CLASS)}>
+				<PopoverContent side={isWide ? "left" : "bottom"} className={cn("items-start", PANEL_CLASS)}>
 					{panel}
 				</PopoverContent>
 			</Popover>
@@ -428,18 +402,13 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 
 	const triggerButton =
 		trigger === "icon" ? (
-			<Button
-				variant="outline"
-				size="icon-sm"
-				aria-label={t("header.theme")}
-				className="relative"
-			>
-				<SwatchIcon />
+			<Button aria-label={t("header.theme")} variant="outline" size="icon" className="relative">
+				<SwatchBook />
 			</Button>
 		) : (
 			<Button variant="ghost" className="w-full justify-between">
 				{triggerLabel || t("header.theme")}
-				<SwatchIcon />
+				<SwatchBook />
 			</Button>
 		);
 

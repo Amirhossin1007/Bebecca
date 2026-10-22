@@ -1,16 +1,17 @@
-import { useToast } from "components/shadcn/toast";
-import { Alert, AlertIcon } from "components/shadcn/alert";
-import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
-import { Card, CardBody } from "components/shadcn/card";
-import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
-import { Switch } from "components/shadcn/selection";
-import { Badge } from "components/shadcn/badge";
-import { Button } from "components/shadcn/button";
-import { Input } from "components/shadcn/input";
-import { cn } from "lib/cn";
-import { DocumentDuplicateIcon } from "@heroicons/react/24/outline";
+import { Alert } from "components/ui/alert";
+import { Button } from "components/ui/button";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Copy } from "lucide-react";
+
 import { PanelSelect } from "components/common/PanelSelect";
-import { PageLoadingSkeleton } from "components/ui";
+import { OverviewBand } from "components/ui/overview-band";
+import { FormField } from "components/ui/form-field";
+import { Input as UiInput } from "components/ui/input";
+import { Switch as UiSwitch } from "components/ui/switch";
+
+import { PageHeader, PageLoadingSkeleton } from "components/ui";
+import { cn } from "lib/cn";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -24,12 +25,12 @@ const keyFor = (
 	item: Pick<SubscriptionPlaceholderSetting, "admin_id" | "service_id">,
 ) => `${item.admin_id ?? "default"}:${item.service_id}`;
 
+const VARIABLES = ["{USERNAME}", "{STATUS_TEXT}", "{DATA_USAGE}", "{DATA_LIMIT}", "{EXPIRE_DATE}"];
+
 const PlaceholderSettingsPage = () => {
-	const { t } = useTranslation();
-	const toast = useToast();
-	const panelBg = "bg-whiteAlpha-800 dark:bg-whiteAlpha-50";
-	const subtleBg = "bg-blackAlpha-50 dark:bg-whiteAlpha-50";
-	const borderColor = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
+	const { t, i18n } = useTranslation();
+	const locale = i18n.language || "en";
+	
 	const query = useQuery({ queryKey: ["subscription-placeholder-settings"], queryFn: getSubscriptionPlaceholderSettings, refetchOnWindowFocus: false });
 	const [selectedKey, setSelectedKey] = useState("");
 	const [draft, setDraft] = useState<SubscriptionPlaceholderSetting | null>(
@@ -65,23 +66,36 @@ const PlaceholderSettingsPage = () => {
 		? items.filter((item) => item.admin_id === selected.admin_id)
 		: [];
 
+	const overview = useMemo(() => {
+		const enabled = items.filter((item) => item.enabled && !item.inherited).length;
+		const inherited = items.filter((item) => item.inherited).length;
+		const disabled = Math.max(items.length - enabled - inherited, 0);
+		return {
+			total: { label: t("placeholders.service"), value: items.length, caption: `${t("placeholders.admin")}: ${admins.length}` },
+			rows: [
+				{ key: "enabled", label: t("placeholders.enabled"), value: enabled, tone: "bg-panel-success" },
+				{ key: "inherited", label: t("placeholders.inherit"), value: inherited, tone: "bg-panel-info" },
+			],
+			distribution: {
+				label: t("placeholders.variables"),
+				segments: [
+					{ key: "enabled", label: t("placeholders.enabled"), value: enabled, tone: "bg-panel-success" },
+					{ key: "inherited", label: t("placeholders.inherit"), value: inherited, tone: "bg-panel-info" },
+					{ key: "disabled", label: t("status.disabled"), value: disabled, tone: "bg-panel-text-muted/60" },
+				],
+			},
+			extra: { label: t("placeholders.serviceDefaults"), value: items.filter((item) => item.admin_id === null).length },
+		};
+	}, [items, admins.length, t]);
+
 	const save = useMutation({ mutationFn: updateSubscriptionPlaceholderSetting, onSuccess: async (updated) => {
 			setDraft(updated);
 			setSelectedKey(keyFor(updated));
 			await query.refetch();
-			toast({
-				title: t("placeholders.saved"),
-				status: "success",
-				duration: 2500,
-			});
+			toast.success(t("placeholders.saved"), { duration: 2500 });
 		},
 		onError: (error: Error) => {
-			toast({
-				title: t("placeholders.saveFailed"),
-				description: error.message,
-				status: "error",
-				duration: 5000,
-			});
+			toast.error(t("placeholders.saveFailed"), { description: error.message, duration: 5000 });
 		}, });
 
 	const selectAdmin = (value: string | string[]) => {
@@ -106,8 +120,8 @@ const PlaceholderSettingsPage = () => {
 	}
 	if (query.isError) {
 		return (
-			<Alert status="error" className="rounded-xl">
-				<AlertIcon />
+			<Alert variant="destructive" className="rounded-xl">
+				<CircleAlert className="size-4" aria-hidden="true" />
 				{t("placeholders.loadFailed")}
 			</Alert>
 		);
@@ -115,132 +129,101 @@ const PlaceholderSettingsPage = () => {
 
 	return (
 		<div className="flex flex-col gap-5 max-w-[1180px] mx-auto">
-			<div>
-				<h2 className="font-heading font-bold text-[1.5rem] leading-[1.33] md:text-[1.875rem] md:leading-[1.2]">{t("placeholders.title")}</h2>
-				<p className="mt-2 text-panel-text-secondary max-w-[760px]">
-					{t("placeholders.subtitle")}
-				</p>
+			<PageHeader title={t("placeholders.title")} description={t("placeholders.subtitle")} />
+
+			<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden">
+				<OverviewBand
+					total={overview.total}
+					rows={overview.rows}
+					distribution={overview.distribution}
+					extra={overview.extra}
+					locale={locale}
+				/>
+				{draft ? (
+					<div className="border-t border-panel-border! p-3">
+						<div className={cn("grid grid-cols-1 gap-3", query.data?.manage_all ? "md:grid-cols-2" : "md:grid-cols-1")}>
+							{query.data?.manage_all && (
+								<FormField label={t("placeholders.scope")}>
+									<PanelSelect
+										value={draft.admin_id === null ? "default" : String(draft.admin_id)}
+										onValueChange={selectAdmin}
+										options={[
+											{ value: "default", label: t("placeholders.serviceDefaults") },
+											...admins.map(([id, username]) => ({ value: String(id), label: username })),
+										]}
+									/>
+								</FormField>
+							)}
+							<FormField label={t("placeholders.service")}>
+								<PanelSelect
+									value={String(draft.service_id)}
+									onValueChange={selectService}
+									options={adminItems.map((item) => ({
+										value: String(item.service_id),
+										label: item.service_name,
+									}))}
+								/>
+							</FormField>
+						</div>
+					</div>
+				) : null}
 			</div>
 
-			<Tabs variant="soft-rounded" colorScheme="pink">
-				<TabList>
-					<Tab>{t("placeholders.tab")}</Tab>
-				</TabList>
-				<TabPanels>
-					<TabPanel className="px-0 pb-0">
-						<Card className={cn("border rounded-2xl shadow-[0_18px_50px_rgba(0,0,0,.12)] [backdrop-filter:blur(18px)]", panelBg, borderColor)}>
-							<CardBody className="p-4 md:p-7">
-								{!draft ? (
-									<div className="text-center py-14">
-										<DocumentDuplicateIcon style={{ margin: "0 auto" }} className="w-[42px]" />
-										<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mt-4">
-											{t("placeholders.noServices")}
-										</h2>
-										<p className="text-panel-text-secondary mt-2">
-											{t("placeholders.noServicesHint")}
-										</p>
-									</div>
-								) : (
-									<div className="flex flex-col gap-7">
-										<div className={cn("grid grid-cols-1 gap-4", query.data?.manage_all ? "md:grid-cols-2" : "md:grid-cols-1")}>
-											{query.data?.manage_all && (
-												<FormControl>
-													<FormLabel>{t("placeholders.scope")}</FormLabel>
-													<PanelSelect
-														value={draft.admin_id === null ? "default" : String(draft.admin_id)}
-														onValueChange={selectAdmin}
-														options={[
-															{ value: "default", label: t("placeholders.serviceDefaults") },
-															...admins.map(([id, username]) => ({ value: String(id), label: username })),
-														]}
-													/>
-												</FormControl>
-											)}
-											<FormControl>
-												<FormLabel>{t("placeholders.service")}</FormLabel>
-												<PanelSelect
-													value={String(draft.service_id)}
-													onValueChange={selectService}
-													options={adminItems.map((item) => ({
-														value: String(item.service_id),
-														label: item.service_name,
-													}))}
-												/>
-											</FormControl>
-										</div>
+			{!draft ? (
+				<div className="rounded-xl border border-panel-border! bg-panel-surface py-14 text-center">
+					<Copy style={{ margin: "0 auto" }} className="w-[42px]" />
+					<h2 className="font-heading font-bold text-[1rem] leading-[1.2] mt-4">
+						{t("placeholders.noServices")}
+					</h2>
+					<p className="text-panel-text-secondary mt-2">
+						{t("placeholders.noServicesHint")}
+					</p>
+				</div>
+			) : (
+				<div className="flex flex-col gap-5 rounded-xl border border-panel-border! bg-panel-surface p-4 md:p-5">
+					{!draft.is_default && (
+						<label className="flex items-center justify-between gap-4 rounded-lg border bg-card/40 px-3 py-2.5">
+							<span className="min-w-0">
+								<span className="block text-sm font-semibold">{t("placeholders.inherit")}</span>
+								<span className="block text-xs text-muted-foreground mt-0.5">{t("placeholders.inheritHint")}</span>
+							</span>
+							<UiSwitch checked={draft.inherited} onCheckedChange={(next) => updateDraft("inherited", next)} />
+						</label>
+					)}
 
-										{!draft.is_default && (
-											<div className={cn("flex flex-row items-center gap-2 border rounded-xl p-4 justify-between", subtleBg, borderColor)}>
-												<div>
-													<p className="font-semibold">{t("placeholders.inherit")}</p>
-													<p className="text-[0.875rem] text-panel-text-secondary mt-1">{t("placeholders.inheritHint")}</p>
-												</div>
-												<Switch colorScheme="pink" checked={draft.inherited} onChange={(event) => updateDraft("inherited", event.target.checked)} />
-											</div>
-										)}
+					<label className="flex items-center justify-between gap-4 rounded-lg border bg-card/40 px-3 py-2.5">
+						<span className="min-w-0">
+							<span className="block text-sm font-semibold">{t("placeholders.enabled")}</span>
+							<span className="block text-xs text-muted-foreground mt-0.5">{t("placeholders.enabledHint")}</span>
+						</span>
+						<UiSwitch checked={draft.enabled} disabled={draft.inherited} onCheckedChange={(next) => updateDraft("enabled", next)} />
+					</label>
 
-										<div className={cn("flex flex-row gap-2 border rounded-xl p-4 justify-between items-center", subtleBg, borderColor)}>
-											<div>
-												<p className="font-semibold">
-													{t("placeholders.enabled")}
-												</p>
-												<p className="text-[0.875rem] text-panel-text-secondary mt-1">
-													{t("placeholders.enabledHint")}
-												</p>
-											</div>
-											<Switch colorScheme="pink" checked={draft.enabled} disabled={draft.inherited} onChange={(event) =>
-													updateDraft("enabled", event.target.checked)
-												} />
-										</div>
+					<div className="grid grid-cols-1 gap-4">
+						<PlaceholderField label={t("placeholders.expired")} hint={t("placeholders.expiredHint")} value={draft.expired_remark} disabled={draft.inherited} dotClass="text-orange-400" onChange={(value) => updateDraft("expired_remark", value)} />
+						<PlaceholderField label={t("placeholders.limited")} hint={t("placeholders.limitedHint")} value={draft.limited_remark} disabled={draft.inherited} dotClass="text-red-400" onChange={(value) => updateDraft("limited_remark", value)} />
+						<PlaceholderField label={t("placeholders.disabled")} hint={t("placeholders.disabledHint")} value={draft.disabled_remark} disabled={draft.inherited} dotClass="text-gray-400" onChange={(value) => updateDraft("disabled_remark", value)} />
+					</div>
 
-										<div className="flex flex-col gap-5">
-											<PlaceholderField label={t("placeholders.expired")} hint={t("placeholders.expiredHint")} value={draft.expired_remark} disabled={draft.inherited} onChange={(value) =>
-													updateDraft("expired_remark", value)
-												} className="text-orange-400" />
-											<PlaceholderField label={t("placeholders.limited")} hint={t("placeholders.limitedHint")} value={draft.limited_remark} disabled={draft.inherited} onChange={(value) =>
-													updateDraft("limited_remark", value)
-												} className="text-red-400" />
-											<PlaceholderField label={t("placeholders.disabled")} hint={t("placeholders.disabledHint")} value={draft.disabled_remark} disabled={draft.inherited} onChange={(value) =>
-													updateDraft("disabled_remark", value)
-												} className="text-gray-400" />
-										</div>
+					<div className="flex flex-col gap-2">
+						<p className="text-sm font-semibold">{t("placeholders.variables")}</p>
+						<div className="flex flex-wrap gap-1.5">
+							{VARIABLES.map((variable) => (
+								<code key={variable} className="rounded-md border bg-muted px-2 py-0.5 font-mono text-xs">
+									{variable}
+								</code>
+							))}
+						</div>
+						<p className="text-xs text-muted-foreground">{t("placeholders.variablesHint")}</p>
+					</div>
 
-										<div>
-											<p className="text-[0.875rem] font-semibold mb-2">
-												{t("placeholders.variables")}
-											</p>
-											<div className="flex flex-wrap gap-2">
-												{[
-													"{USERNAME}",
-													"{STATUS_TEXT}",
-													"{DATA_USAGE}",
-													"{DATA_LIMIT}",
-													"{EXPIRE_DATE}",
-												].map((variable) => (
-													<div key={variable}>
-														<Badge className="px-2.5 py-1 rounded-full normal-case">
-															{variable}
-														</Badge>
-													</div>
-												))}
-											</div>
-											<p className="text-panel-text-secondary text-[0.875rem] mt-2">
-												{t("placeholders.variablesHint")}
-											</p>
-										</div>
-
-										<div className="flex flex-row items-center gap-2 justify-end">
-											<Button size="md" colorScheme="pink" loading={save.isPending} onClick={() => save.mutate({ ...draft, inherit_default: draft.inherited })}>
-												{t("placeholders.save")}
-											</Button>
-										</div>
-									</div>
-								)}
-							</CardBody>
-						</Card>
-					</TabPanel>
-				</TabPanels>
-			</Tabs>
+					<div className="flex justify-end">
+						<Button onClick={() => save.mutate({ ...draft, inherit_default: draft.inherited })} loading={save.isPending}>
+							{t("placeholders.save")}
+						</Button>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 };
@@ -248,26 +231,29 @@ const PlaceholderSettingsPage = () => {
 const PlaceholderField = ({
 	label,
 	hint,
-	className,
+	dotClass,
 	value,
 	disabled: isDisabled,
 	onChange,
 }: {
 	label: string;
 	hint: string;
-	className?: string;
+	dotClass?: string;
 	value: string;
 	disabled?: boolean;
 	onChange: (value: string) => void;
 }) => (
-	<FormControl>
-		<div className="flex flex-row items-center mb-2 gap-2">
-			<div className={cn("size-[8px] rounded-full bg-current", className)} />
-			<FormLabel className="mb-0">{label}</FormLabel>
-		</div>
-		<Input value={value} disabled={isDisabled} maxLength={255} onChange={(event) => onChange(event.target.value)} />
-		<FormHelperText>{hint}</FormHelperText>
-	</FormControl>
+	<FormField
+		label={
+			<span className="inline-flex items-center gap-2">
+				<span className={cn("size-2 rounded-full bg-current", dotClass)} />
+				{label}
+			</span>
+		}
+		description={hint}
+	>
+		<UiInput value={value} disabled={isDisabled} maxLength={255} onChange={(event) => onChange(event.target.value)} />
+	</FormField>
 );
 
 export default PlaceholderSettingsPage;

@@ -1,20 +1,12 @@
+import { Dialog, DialogContent, DialogHeader } from "components/ui/dialog";
+import { Button } from "components/ui/button";
+import { Spinner } from "components/ui/spinner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Download, Upload, Database, Clock, Cpu, Server, ShieldCheck, Signal, Users } from "lucide-react";
 import { useColorMode } from "lib/color-mode";
-import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
-import { Button } from "components/shadcn/button";
-import { Spinner } from "components/shadcn/feedback";
+
 import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "lib/cn";
-import {
-	ArrowDownTrayIcon,
-	ArrowUpTrayIcon,
-	CircleStackIcon,
-	ClockIcon,
-	CpuChipIcon,
-	ServerStackIcon,
-	ShieldCheckIcon,
-	SignalIcon,
-	UserGroupIcon,
-} from "@heroicons/react/24/outline";
 import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
 import { AnimatePresence, motion } from "framer-motion";
@@ -665,14 +657,14 @@ const HistoryModal: FC<{
 	);
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside" isCentered>
-			<ModalOverlay className="bg-blackAlpha-700 [backdrop-filter:blur(16px)]" />
-			<ModalContent className="bg-panel-surface border border-panel-border! rounded-[20px] shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_32px_80px_rgba(0,0,0,0.6)] mx-3 sm:mx-6 overflow-hidden">
-				<ModalHeader className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-4 border-b border-panel-border! text-[0.875rem] font-bold">
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
+			<DialogContent className="bg-panel-surface border border-panel-border! rounded-[20px] shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_32px_80px_rgba(0,0,0,0.6)] mx-3 sm:mx-6 overflow-hidden">
+				<DialogHeader className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-4 border-b border-panel-border! text-[0.875rem] font-bold">
 					<p className="text-panel-text">{t("dashboard.history.modalTitle", { metric: payload?.title ?? "" })}</p>
-					<ModalCloseButton className="static" />
-				</ModalHeader>
-				<ModalBody className="px-4 md:px-6 py-4 md:py-5">
+					
+				</DialogHeader>
+				<div className={cn("px-5 py-4 overflow-y-auto", "px-4 md:px-6 py-4 md:py-5")}>
 					<div className="flex flex-col gap-4">
 						{hasEnoughPoints && (
 							<div className="[&::-webkit-scrollbar]:hidden [scrollbar-width:none] p-1 rounded-full bg-panel-elevated w-full md:w-fit max-w-[100%] overflow-x-auto relative inline-flex items-center">
@@ -706,13 +698,13 @@ const HistoryModal: FC<{
 										<div key={interval.seconds} ref={(el: HTMLDivElement | null) => {
 												tabRefs.current[idx] = el;
 											}} className="flex-[1_1_0] md:flex-none relative inline-flex items-center justify-center">
-											<Button size="xs" variant="ghost" onClick={() => {
+											<Button onClick={() => {
 													if (isAvailable && intervalSeconds !== interval.seconds) {
 														setIsSwitchingInterval(true);
 														onIntervalChange(interval.seconds);
 														setTimeout(() => setIsSwitchingInterval(false), 300);
 													}
-												}} className={cn("h-[26px] w-full px-1 sm:px-3.5 rounded-full bg-transparent! text-[10px] sm:text-[11px] whitespace-nowrap relative z-[2] hover:md:text-panel-text focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", isActive ? "text-panel-text" : "text-panel-text-muted", isActive ? "font-bold" : "font-medium", isAvailable ? "opacity-100" : "opacity-40", isAvailable ? "cursor-pointer" : "cursor-not-allowed")}>
+												}} variant="ghost" size="xs" className={cn("h-[26px] w-full px-1 sm:px-3.5 rounded-full bg-transparent! text-[10px] sm:text-[11px] whitespace-nowrap relative z-[2] hover:md:text-panel-text focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", isActive ? "text-panel-text" : "text-panel-text-muted", isActive ? "font-bold" : "font-medium", isAvailable ? "opacity-100" : "opacity-40", isAvailable ? "cursor-pointer" : "cursor-not-allowed")}>
 												{t(interval.labelKey)}
 											</Button>
 										</div>
@@ -743,7 +735,7 @@ const HistoryModal: FC<{
 											justifyContent: "center",
 										}}
 									>
-										<Spinner size="md" thickness="2.5px" className="text-panel-accent" />
+										<Spinner className="text-panel-accent" />
 									</motion.div>
 								)}
 							</AnimatePresence>
@@ -755,7 +747,7 @@ const HistoryModal: FC<{
 								<Suspense
 									fallback={
 										<div className="flex h-[280px] items-center justify-center">
-											<Spinner size="md" className="text-panel-accent" />
+											<Spinner className="text-panel-accent" />
 										</div>
 									}
 								>
@@ -772,9 +764,9 @@ const HistoryModal: FC<{
 							</motion.div>
 						</div>
 					</div>
-				</ModalBody>
-			</ModalContent>
-		</Modal>
+				</div>
+			</DialogContent>
+		</Dialog>
 	);
 };
 
@@ -832,8 +824,9 @@ const ResourceCard: FC<{
 						</p>
 					</div>
 					{onHistory && (
-						<Button size="xs" variant="ghost" onClick={onHistory} className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] [[role=group]:hover_&]:md:bg-panel-surface hover:md:bg-panel-border! hover:md:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium", colorMode === "light" ? "[[role=group]:hover_&]:md:text-panel-text" : "[[role=group]:hover_&]:md:text-panel-text-secondary"))}>
-							{historyLabel}
+						<Button onClick={onHistory} variant="ghost" size="xs" className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] [[role=group]:hover_&]:md:bg-panel-surface hover:md:bg-panel-border! hover:md:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium", colorMode === "light" ? "[[role=group]:hover_&]:md:text-panel-text" : "[[role=group]:hover_&]:md:text-panel-text-secondary"))}>
+							<span className="hidden sm:inline">{historyLabel}</span>
+							<Clock className="size-3.5 sm:hidden" aria-hidden="true" />
 						</Button>
 					)}
 				</div>
@@ -952,9 +945,9 @@ const SectionCard: FC<{
 		{(title || action) && (
 			<div className="flex px-4 sm:px-5 md:px-6 py-3.5 items-center justify-between border-b border-panel-border!">
 				{title && (
-					<p className="text-[13px] font-bold text-panel-text tracking-[-0.01em]">
+					<div className="text-[13px] font-bold text-panel-text tracking-[-0.01em]">
 						{title}
-					</p>
+					</div>
 				)}
 				{action}
 			</div>
@@ -1125,7 +1118,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					</div>
 				</div>
 
-				<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
+				<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
 					{[1, 2, 3, 4].map((i) => (
 						<div key={i} className="bg-panel-surface rounded-[20px] border border-panel-border! p-4 sm:p-5 flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
 							<div>
@@ -1226,7 +1219,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						<div className="w-[75px] h-[22px] rounded-full bg-panel-elevated" />
 					</div>
 					<div className="p-4 sm:p-5 md:p-6">
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+						<div className="grid grid-cols-2 gap-3 md:gap-4">
 							{[1, 2].map((i) => (
 								<div key={i} className="bg-panel-surface rounded-[20px] border border-panel-border! p-4 sm:p-5 flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)]">
 									<div>
@@ -1403,10 +1396,10 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
 			</div>
 
-			<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
+			<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
 				<ResourceCard
 					label={t("dashboard.system.cpuUsage")}
-					icon={<CpuChipIcon className="w-[16px]" />}
+					icon={<Cpu className="w-[16px]" />}
 					value={formatPercent(systemData.cpu_usage, false)}
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
@@ -1436,7 +1429,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.memoryUsage")}
-					icon={<ServerStackIcon className="w-[16px]" />}
+					icon={<Server className="w-[16px]" />}
 					value={formatBytes(systemData.memory.current, 1)}
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
@@ -1455,7 +1448,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.swapUsage")}
-					icon={<CircleStackIcon className="w-[16px]" />}
+					icon={<Database className="w-[16px]" />}
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
@@ -1465,7 +1458,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.diskUsage")}
-					icon={<CircleStackIcon className="w-[16px]" />}
+					icon={<Database className="w-[16px]" />}
 					value={formatBytes(systemData.disk.current, 1)}
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
@@ -1480,7 +1473,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					title={
 						<div className="flex flex-row items-center gap-2.5">
 							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
-								<SignalIcon className="w-[14px]" />
+								<Signal className="w-[14px]" />
 							</div>
 							<span>{t("dashboard.system.bandwidthSpeed")}</span>
 						</div>
@@ -1497,7 +1490,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 												transition={{ type: "tween", ease: "easeInOut", duration: 0.25 }}
 											/>
 										)}
-										<Button size="xs" variant="ghost" onClick={() => setBandwidthScope("master")} className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", bandwidthScope === "master" ? "text-white" : "text-panel-text")}>
+										<Button onClick={() => setBandwidthScope("master")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", bandwidthScope === "master" ? "text-white" : "text-panel-text")}>
 											{t("dashboard.system.bandwidthScope.master")}
 										</Button>
 									</div>
@@ -1509,20 +1502,20 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 												transition={{ type: "tween", ease: "easeInOut", duration: 0.25 }}
 											/>
 										)}
-										<Button size="xs" variant="ghost" onClick={() => setBandwidthScope("total")} title={t("dashboard.system.bandwidthScope.totalHint")} className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", bandwidthScope === "total" ? "text-white" : "text-panel-text")}>
+										<Button onClick={() => setBandwidthScope("total")} title={t("dashboard.system.bandwidthScope.totalHint")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", bandwidthScope === "total" ? "text-white" : "text-panel-text")}>
 											{t("dashboard.system.bandwidthScope.total")}
 										</Button>
 									</div>
 								</div>
 							) : null}
 							{!showTotalBandwidth ? (
-								<Button size="xs" variant="ghost" onClick={() =>
+								<Button onClick={() =>
 										openHistory({
 											type: "network",
 											title: t("dashboard.system.bandwidthSpeed"),
 											networkEntries: systemData.network_history,
 										})
-									} className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2.5 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] [[role=group]:hover_&]:md:bg-panel-surface hover:md:bg-panel-border! hover:md:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium", colorMode === "light" ? "[[role=group]:hover_&]:md:text-panel-text" : "[[role=group]:hover_&]:md:text-panel-text-secondary"))}>
+									} variant="ghost" size="xs" className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2.5 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] [[role=group]:hover_&]:md:bg-panel-surface hover:md:bg-panel-border! hover:md:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium", colorMode === "light" ? "[[role=group]:hover_&]:md:text-panel-text" : "[[role=group]:hover_&]:md:text-panel-text-secondary"))}>
 									{t("dashboard.system.viewHistory")}
 								</Button>
 							) : null}
@@ -1531,12 +1524,12 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				>
 					<div className="flex flex-col gap-3">
 						<SpeedItem
-							icon={<ArrowDownTrayIcon className="w-[13px]" />}
+							icon={<Download className="w-[13px]" />}
 							label={t("dashboard.system.incomingSpeed")}
 							value={`${formatBytes(showTotalBandwidth ? (systemData.total_incoming_bandwidth_speed ?? 0) : systemData.incoming_bandwidth_speed)}/s`}
 						/>
 						<SpeedItem
-							icon={<ArrowUpTrayIcon className="w-[13px]" />}
+							icon={<Upload className="w-[13px]" />}
 							label={t("dashboard.system.outgoingSpeed")}
 							value={`${formatBytes(showTotalBandwidth ? (systemData.total_outgoing_bandwidth_speed ?? 0) : systemData.outgoing_bandwidth_speed)}/s`}
 						/>
@@ -1547,7 +1540,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					title={
 						<div className="flex flex-row items-center gap-2.5">
 							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
-								<ClockIcon className="w-[14px]" />
+								<Clock className="w-[14px]" />
 							</div>
 							<span>{t("dashboard.system.uptime")}</span>
 						</div>
@@ -1557,7 +1550,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						<div className="flex items-center justify-between gap-3">
 							<div className="flex flex-row items-center gap-2.5 text-panel-text-muted">
 								<div className="flex w-[28px] h-[28px] items-center justify-center rounded-[8px] bg-panel-elevated shrink-0">
-									<ServerStackIcon className="w-[13px]" />
+									<Server className="w-[13px]" />
 								</div>
 								<p className="text-[13px] font-semibold text-panel-text-secondary">
 									{t("dashboard.system.systemUptime")}
@@ -1568,7 +1561,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						<div className="flex items-center justify-between gap-3">
 							<div className="flex flex-row items-center gap-2.5 text-panel-text-muted">
 								<div className="flex w-[28px] h-[28px] items-center justify-center rounded-[8px] bg-panel-elevated shrink-0">
-									<CircleStackIcon className="w-[13px]" />
+									<Database className="w-[13px]" />
 								</div>
 								<p className="text-[13px] font-semibold text-panel-text-secondary">
 									{t("dashboard.system.panelUptime")}
@@ -1586,28 +1579,28 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				title={
 					<div className="flex flex-row items-center gap-2.5">
 						<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
-							<CpuChipIcon className="w-[14px]" />
+							<Cpu className="w-[14px]" />
 						</div>
 						<span>{t("dashboard.system.panelUsage")}</span>
 					</div>
 				}
 				action={
-					<Button size="xs" variant="ghost" onClick={() =>
+					<Button onClick={() =>
 							openHistory({
 								type: "panel",
 								title: t("dashboard.system.panelUsage"),
 								cpuEntries: systemData.panel_cpu_history,
 								memoryEntries: systemData.panel_memory_history,
 							})
-						} className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2.5 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] hover:bg-panel-border! hover:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium"))}>
+						} variant="ghost" size="xs" className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2.5 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] hover:bg-panel-border! hover:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium"))}>
 						{t("dashboard.system.viewHistory")}
 					</Button>
 				}
 			>
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+				<div className="grid grid-cols-2 gap-3 md:gap-4">
 					<ResourceCard
 						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
-						icon={<CpuChipIcon className="w-[16px]" />}
+						icon={<Cpu className="w-[16px]" />}
 						value={formatPercent(systemData.panel_cpu_percent, false)}
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
@@ -1618,7 +1611,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					/>
 					<ResourceCard
 						label={`${t("dashboard.system.memoryUsage")} (Panel)`}
-						icon={<ServerStackIcon className="w-[16px]" />}
+						icon={<Server className="w-[16px]" />}
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
@@ -1633,7 +1626,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				title={
 					<div className="flex flex-row items-center gap-2.5">
 						<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
-							<UserGroupIcon className="w-[14px]" />
+							<Users className="w-[14px]" />
 						</div>
 						<span>{t("dashboard.users")}</span>
 					</div>
@@ -1664,7 +1657,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 										}}
 									/>
 								)}
-								<Button size="xs" variant="ghost" onClick={() => setUserTab("all")} className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", userTab === "all" ? "text-white" : "text-panel-text", userTab === "all" ? "hover:md:text-white" : "hover:md:text-panel-text")}>
+								<Button onClick={() => setUserTab("all")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", userTab === "all" ? "text-white" : "text-panel-text", userTab === "all" ? "hover:md:text-white" : "hover:md:text-panel-text")}>
 									{t("dashboard.users.allUsers")}
 								</Button>
 							</div>
@@ -1691,7 +1684,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 										}}
 									/>
 								)}
-								<Button size="xs" variant="ghost" onClick={() => setUserTab("mine")} className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", userTab === "mine" ? "text-white" : "text-panel-text", userTab === "mine" ? "hover:md:text-white" : "hover:md:text-panel-text")}>
+								<Button onClick={() => setUserTab("mine")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", userTab === "mine" ? "text-white" : "text-panel-text", userTab === "mine" ? "hover:md:text-white" : "hover:md:text-panel-text")}>
 									{t("dashboard.users.myUsers")}
 								</Button>
 							</div>
@@ -1759,7 +1752,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					title={
 						<div className="flex flex-row items-center gap-2.5">
 							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
-								<ShieldCheckIcon className="w-[14px]" />
+								<ShieldCheck className="w-[14px]" />
 							</div>
 							<span>{t("dashboard.admins")}</span>
 						</div>

@@ -1,6 +1,11 @@
-import { Tag } from "components/shadcn/badge";
-import { Tooltip } from "components/shadcn/tooltip";
-import { IconButton } from "components/shadcn/button";
+import { toneClass } from "lib/tone";
+import { Badge } from "components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { Button } from "components/ui/button";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { cn } from "lib/cn";
+
+
 import type { ComponentPropsWithoutRef } from "react";
 import type { FC, ReactElement, ReactNode } from "react";
 
@@ -29,17 +34,18 @@ export const ResourceSummaryPills: FC<{ items: ResourceSummaryItem[] }> = ({
 		<div className="flex flex-row items-center gap-2 flex-wrap">
 			{items.map((item) => {
 				const tag = (
-					<Tag key={item.label} size="md" colorScheme={item.colorScheme ?? "gray"} variant="subtle" className="rounded-full px-3 py-1 font-medium">
+					<Badge key={item.label} className={cn(toneClass(item.colorScheme ?? "gray"), "rounded-full px-3 py-1 font-medium")}>
 						{item.label}:{" "}
 						<span dir="ltr" className="font-bold ms-1 [unicode-bidi:isolate]">
 							{item.value}
 						</span>
-					</Tag>
+					</Badge>
 				);
 				return item.helper ? (
-					<Tooltip key={item.label} label={item.helper} hasArrow placement="top">
-						{tag}
-					</Tooltip>
+					<Tooltip>
+<TooltipTrigger asChild><span className="inline-flex max-w-full">{tag}</span></TooltipTrigger>
+<TooltipContent>{item.helper}</TooltipContent>
+</Tooltip>
 				) : (
 					tag
 				);
@@ -103,13 +109,16 @@ export const ResourceRefreshButton: FC<{
 	onClick: () => void;
 }> = ({ icon, label, ...props }) => {
 	const button = (
-		<IconButton variant="ghost" size="sm" {...props} className="rounded-md" >{icon}</IconButton>
+		<Button {...props} variant="ghost" size="sm" className={cn("size-8 p-0", "rounded-md")}>{icon}</Button>
 	);
 
 	return label ? (
-		<Tooltip label={label} hasArrow placement="top">
+		<Tooltip>
+<TooltipTrigger asChild>
 			<span>{button}</span>
-		</Tooltip>
+		</TooltipTrigger>
+<TooltipContent>{label}</TooltipContent>
+</Tooltip>
 	) : (
 		button
 	);

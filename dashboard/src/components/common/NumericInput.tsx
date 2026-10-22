@@ -1,8 +1,19 @@
-import { NumberDecrementStepper, NumberIncrementStepper, NumberInput, NumberInputField, NumberInputStepper } from "components/shadcn/input";
+import { Input } from "components/ui/input";
+import { cn } from "lib/cn";
 import type { ComponentProps, ComponentPropsWithoutRef, Ref } from "react";
 
-type NumericInputProps = Omit<ComponentProps<typeof NumberInput>, "onChange"> & {
-	fieldProps?: ComponentPropsWithoutRef<typeof NumberInputField>;
+const SIZE_CLASSES = {
+	xs: "h-7 text-xs",
+	sm: "h-8 text-sm",
+	md: "",
+	lg: "h-10 text-base",
+} as const;
+
+type NumericInputProps = Omit<ComponentProps<"input">, "onChange" | "value" | "defaultValue" | "size"> & {
+	size?: keyof typeof SIZE_CLASSES;
+	value?: string | number;
+	defaultValue?: string | number;
+	fieldProps?: ComponentPropsWithoutRef<"input">;
 	fieldRef?: Ref<HTMLInputElement>;
 	onChange?: (valueAsString: string, valueAsNumber: number) => void;
 };
@@ -13,17 +24,28 @@ export const NumericInput = ({
 	min = 0,
 	step = 1,
 	defaultValue = 0,
+	size = "md",
+	value,
+	onChange,
+	className,
 	...props
 }: NumericInputProps) => {
-	const { style: fieldStyle, ...restFieldProps } = fieldProps;
+	const { style: fieldStyle, className: fieldClassName, ...restFieldProps } = fieldProps;
 
 	return (
-		<NumberInput min={min} step={step} defaultValue={props.value === undefined ? defaultValue : undefined} {...props}>
-			<NumberInputField ref={fieldRef} inputMode="decimal" {...restFieldProps} style={{ paddingRight: "2rem", ...fieldStyle }} />
-			<NumberInputStepper className="opacity-0 pointer-events-none [transition:opacity_0.15s_ease] [[role=group]:hover_&]:opacity-100 [[role=group]:hover_&]:pointer-events-auto [[role=group]:focus-within_&]:opacity-100 [[role=group]:focus-within_&]:pointer-events-auto rb-number-stepper [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto">
-				<NumberIncrementStepper />
-				<NumberDecrementStepper />
-			</NumberInputStepper>
-		</NumberInput>
+		<Input
+			ref={fieldRef}
+			type="number"
+			inputMode="decimal"
+			min={min}
+			step={step}
+			value={value}
+			defaultValue={value === undefined ? defaultValue : undefined}
+			onChange={(event) => onChange?.(event.target.value, event.target.valueAsNumber)}
+			className={cn(SIZE_CLASSES[size], className, fieldClassName)}
+			style={fieldStyle}
+			{...restFieldProps}
+			{...props}
+		/>
 	);
 };

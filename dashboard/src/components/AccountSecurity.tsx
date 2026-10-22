@@ -1,16 +1,15 @@
-import { useToast } from "components/shadcn/toast";
+import { toneClass } from "lib/tone";
+import { createElement } from "react";
+import { Button } from "components/ui/button";
+import { Badge } from "components/ui/badge";
+import { Spinner } from "components/ui/spinner";
+import { Input } from "components/ui/input";
+import { toast } from "components/ui/sonner";
+import { LogIn, Key, ShieldCheck } from "lucide-react";
+
 import { useDisclosure } from "hooks/useDisclosure";
-import { Button } from "components/shadcn/button";
-import { Badge } from "components/shadcn/badge";
-import { Spinner } from "components/shadcn/feedback";
-import { Icon } from "components/shadcn/icon";
-import { Input } from "components/shadcn/input";
+
 import { cn } from "lib/cn";
-import {
-	ArrowRightStartOnRectangleIcon,
-	KeyIcon,
-	ShieldCheckIcon,
-} from "@heroicons/react/24/outline";
 import { ChartBox } from "components/common/ChartBox";
 import { AppDialog } from "components/dialogs/AppDialog";
 import dayjs from "dayjs";
@@ -172,7 +171,7 @@ export const AccountSecurity = ({
 	onChangePassword,
 }: Props) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const queryClient = useQueryClient();
 	const setupDialog = useDisclosure();
 	const disableDialog = useDisclosure();
@@ -214,10 +213,7 @@ export const AccountSecurity = ({
 			setSetup(null);
 			setCode("");
 			queryClient.invalidateQueries({ queryKey: ["current-admin"] });
-			toast({
-				title: t("myaccount.twoFactorEnabled"),
-				status: "success",
-			});
+			toast.success(t("myaccount.twoFactorEnabled"));
 		} catch (error) {
 			generateErrorMessage(error, toast);
 		} finally {
@@ -238,10 +234,7 @@ export const AccountSecurity = ({
 				return;
 			}
 			queryClient.invalidateQueries({ queryKey: ["current-admin"] });
-			toast({
-				title: t("myaccount.twoFactorDisabled"),
-				status: "success",
-			});
+			toast.success(t("myaccount.twoFactorDisabled"));
 		} catch (error) {
 			generateErrorMessage(error, toast);
 		} finally {
@@ -258,7 +251,7 @@ export const AccountSecurity = ({
 							<div className="flex-col sm:flex-row flex items-stretch sm:items-center justify-between gap-3 py-2">
 								<div className="flex flex-row min-w-0! gap-3 items-start">
 									<div aria-hidden="true" className="flex items-center justify-center w-9 h-9 shrink-0 rounded-[6px] bg-panel-elevated text-panel-accent">
-										<KeyIcon className="w-[18px]" />
+										<Key className="w-[18px]" />
 									</div>
 									<div className="min-w-0!">
 										<p className="font-semibold text-[0.875rem]">
@@ -269,7 +262,7 @@ export const AccountSecurity = ({
 										</p>
 									</div>
 								</div>
-								<Button size="sm" variant="outline" onClick={onChangePassword} className="h-10 self-end sm:self-center">
+								<Button onClick={onChangePassword} variant="outline" size="sm" className="h-10 self-end sm:self-center">
 									{t("myaccount.changePassword")}
 								</Button>
 							</div>
@@ -279,14 +272,14 @@ export const AccountSecurity = ({
 							<div className="flex-col sm:flex-row flex items-stretch sm:items-center justify-between gap-3 py-2">
 								<div className="flex flex-row min-w-0! gap-3 items-start">
 									<div aria-hidden="true" className={cn("flex items-center justify-center w-9 h-9 shrink-0 rounded-[6px] bg-panel-elevated", totpEnabled ? "text-green-400" : "text-panel-text-muted")}>
-										<ShieldCheckIcon className="w-[18px]" />
+										<ShieldCheck className="w-[18px]" />
 									</div>
 									<div className="min-w-0!">
 										<div className="flex flex-row items-center gap-2 flex-wrap">
 											<p className="font-semibold text-[0.875rem]">
 												{t("myaccount.twoFactor")}
 											</p>
-											<Badge colorScheme={totpEnabled ? "green" : "gray"}>
+											<Badge className={toneClass(totpEnabled ? "green" : "gray")}>
 												{totpEnabled
 													? t("nodes.enabled")
 													: t("disabled")}
@@ -299,7 +292,7 @@ export const AccountSecurity = ({
 										</p>
 									</div>
 								</div>
-								<Button size="sm" variant="outline" colorScheme={totpEnabled ? "red" : "primary"} loading={twoFactorLoading} onClick={totpEnabled ? disableDialog.onOpen : beginSetup} className="h-10 sm:min-w-[112px]! self-end sm:self-center">
+								<Button onClick={totpEnabled ? disableDialog.onOpen : beginSetup} variant={totpEnabled ? "destructive" : "default"} size="sm" loading={twoFactorLoading} className="h-10 sm:min-w-[112px]! self-end sm:self-center">
 									{totpEnabled
 										? t("myaccount.disableTwoFactor")
 										: t("myaccount.enableTwoFactor")}
@@ -314,7 +307,7 @@ export const AccountSecurity = ({
 					<div className="flex flex-col gap-3">
 						{sessions.isLoading && (
 							<div className="flex justify-center py-6">
-								<Spinner size="sm" />
+								<Spinner />
 							</div>
 						)}
 						{sessions.data?.map((session) => {
@@ -330,22 +323,22 @@ export const AccountSecurity = ({
 									<div className="flex-col sm:flex-row flex justify-between items-stretch sm:items-center gap-3">
 										<div className="flex flex-row min-w-0! gap-3 items-start">
 											<div style={{ color: client.os.color }} aria-hidden="true" className="flex items-center justify-center w-10 h-10 shrink-0 rounded-[6px] bg-panel-elevated">
-												<Icon as={iconAs(client.os.icon)} className="size-5" />
+												{createElement(iconAs(client.os.icon), { className: "size-5" })}
 											</div>
 											<div className="min-w-0!">
 												<div className="flex flex-row items-center gap-2 flex-wrap">
-													<Icon as={iconAs(client.browser.icon)} style={{ color: client.browser.color }} aria-hidden="true" className="size-4" />
+													{createElement(iconAs(client.browser.icon), { style: { color: client.browser.color }, "aria-hidden": "true", className: "size-4" })}
 													<p className="font-bold text-[1rem]">
 														{browserLabel}
 													</p>
 													{session.current && (
-														<Badge colorScheme="green">
+														<Badge className="bg-green-600 text-white">
 															{t("current")}
 														</Badge>
 													)}
 												</div>
 												<div className="flex flex-row items-center gap-1.5 text-panel-text-secondary text-[0.875rem] flex-wrap">
-													<Icon as={iconAs(client.deviceIcon)} aria-hidden="true" />
+													{createElement(iconAs(client.deviceIcon), { "aria-hidden": "true" })}
 													<p>{osLabel}</p>
 													<p aria-hidden="true">·</p>
 													<p>
@@ -364,9 +357,9 @@ export const AccountSecurity = ({
 												</p>
 											</div>
 										</div>
-										<Button colorScheme="red" loading={
+										<Button onClick={() => revoke.mutate(session.id)} aria-label={`${t("header.logout")} ${browserLabel}`} variant="ghost" size="sm" loading={
 												revoke.isPending && revoke.variables === session.id
-											} onClick={() => revoke.mutate(session.id)} size="sm" variant="ghost" aria-label={`${t("header.logout")} ${browserLabel}`} className="self-end sm:self-center">{<ArrowRightStartOnRectangleIcon className="w-[16px]" />}
+											} className={cn("text-destructive hover:bg-destructive/10", "self-end sm:self-center")}>{<LogIn className="w-[16px]" />}
 											{t("header.logout")}
 										</Button>
 									</div>
@@ -385,7 +378,7 @@ export const AccountSecurity = ({
 				onClose={setupDialog.onClose}
 				title={t("myaccount.enableTwoFactor")}
 				footer={
-					<Button size="md" colorScheme="primary" disabled={code.length !== 6} loading={twoFactorLoading} onClick={confirmSetup}>
+					<Button disabled={code.length !== 6} onClick={confirmSetup} loading={twoFactorLoading}>
 						{t("confirm")}
 					</Button>
 				}
@@ -408,14 +401,14 @@ export const AccountSecurity = ({
 				onClose={disableDialog.onClose}
 				title={t("myaccount.disableTwoFactor")}
 				footer={
-					<Button size="md" colorScheme="red" disabled={!password || code.length !== 6} loading={twoFactorLoading} onClick={confirmDisable}>
+					<Button disabled={!password || code.length !== 6} onClick={confirmDisable} variant="destructive" loading={twoFactorLoading}>
 						{t("phpmyadmin.disableAction")}
 					</Button>
 				}
 			>
 				<div className="flex flex-col gap-3">
-					<Input type="password" placeholder={t("myaccount.currentPassword")} value={password} onChange={(event) => setPassword(event.target.value)} />
-					<Input autoComplete="one-time-code" inputMode="numeric" maxLength={6} placeholder={t("login.authenticationCode")} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))} />
+					<Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+					<Input autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))} />
 				</div>
 			</AppDialog>
 		</div>

@@ -1,8 +1,10 @@
-import { useToast } from "components/shadcn/toast";
-import { Button, IconButton } from "components/shadcn/button";
-import { Input } from "components/shadcn/input";
-import { Spinner } from "components/shadcn/feedback";
-import { ClipboardIcon, KeyIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { Button } from "components/ui/button";
+import { Input } from "components/ui/input";
+import { Spinner } from "components/ui/spinner";
+import { toast } from "components/ui/sonner";
+import { cn } from "lib/cn";
+import { Clipboard, Key, Trash2 } from "lucide-react";
+
 import { AppDialog } from "components/dialogs/AppDialog";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import { PanelSelect as Select } from "components/common/PanelSelect";
@@ -30,7 +32,7 @@ type Props = {
 
 export const AdminApiKeysDialog = ({ admin, open: isOpen, onClose }: Props) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const [keys, setKeys] = useState<AdminApiKey[]>([]);
 	const [lifetime, setLifetime] = useState("1m");
 	const [generatedKey, setGeneratedKey] = useState("");
@@ -111,10 +113,9 @@ export const AdminApiKeysDialog = ({ admin, open: isOpen, onClose }: Props) => {
 			<AppDialog
 				open={isOpen}
 				onClose={close}
-				isCentered
 				size="xl"
 				title={t("admins.apiKeys.title", { username: admin?.username ?? "" })}
-				footer={<Button variant="solid" size="md" onClick={close}>{t("close")}</Button>}
+				footer={<Button onClick={close}>{t("close")}</Button>}
 			>
 				<div className="flex flex-col gap-5">
 					<p className="text-panel-text-secondary text-[0.875rem]">
@@ -139,7 +140,7 @@ export const AdminApiKeysDialog = ({ admin, open: isOpen, onClose }: Props) => {
 								</option>
 							</Select>
 						</div>
-						<Button size="md" colorScheme="primary" loading={creating} disabled={Boolean(generatedKey)} onClick={create}>{<KeyIcon className="w-[17px]" />}
+						<Button disabled={Boolean(generatedKey)} onClick={create} loading={creating}>{<Key className="w-[17px]" />}
 							{t("admins.apiKeys.create")}
 						</Button>
 					</div>
@@ -153,10 +154,10 @@ export const AdminApiKeysDialog = ({ admin, open: isOpen, onClose }: Props) => {
 							</p>
 							<div className="flex flex-row items-center gap-2">
 								<Input value={generatedKey} readOnly className="bg-panel-elevated font-mono" />
-								<IconButton variant="solid" size="md" aria-label={t("copy")} onClick={async () => {
+								<Button aria-label={t("copy")} onClick={async () => {
 										await copyTextToClipboard(generatedKey);
 										generateSuccessMessage(t("copied"), toast);
-									}} >{<ClipboardIcon className="w-[18px]" />}</IconButton>
+									}} className="size-9 p-0">{<Clipboard className="w-[18px]" />}</Button>
 							</div>
 							<p className="text-orange-700 dark:text-orange-200 text-[0.75rem] mt-2">
 								{t("myaccount.apiKeyWarning")}
@@ -170,7 +171,7 @@ export const AdminApiKeysDialog = ({ admin, open: isOpen, onClose }: Props) => {
 						</p>
 						{loading ? (
 							<div className="flex justify-center py-6">
-								<Spinner size="sm" />
+								<Spinner />
 							</div>
 						) : keys.length === 0 ? (
 							<p className="text-panel-text-muted text-[0.875rem]">
@@ -197,7 +198,7 @@ export const AdminApiKeysDialog = ({ admin, open: isOpen, onClose }: Props) => {
 													: t("myaccount.neverUsed")}
 											</p>
 										</div>
-										<IconButton aria-label={`${t("delete")} ${key.masked_key ?? "API key"}`} colorScheme="red" variant="ghost" size="sm" loading={deletingID === key.id} onClick={() => setKeyToDelete(key)} >{<TrashIcon className="w-[17px]" />}</IconButton>
+										<Button aria-label={`${t("delete")} ${key.masked_key ?? "API key"}`} onClick={() => setKeyToDelete(key)} variant="ghost" size="sm" loading={deletingID === key.id} className="text-destructive hover:bg-destructive/10 size-8 p-0">{<Trash2 className="w-[17px]" />}</Button>
 									</div>
 								))}
 							</div>

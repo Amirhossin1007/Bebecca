@@ -1,8 +1,10 @@
-import { Popover, PopoverBody, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
-import { Button, IconButton } from "components/shadcn/button";
-import { Badge } from "components/shadcn/badge";
+import { Button } from "components/ui/button";
+import { Badge } from "components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Bell } from "lucide-react";
+
 import { cn } from "lib/cn";
-import { BellIcon } from "@heroicons/react/24/outline";
 import dayjs from "dayjs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -28,23 +30,23 @@ export const NotificationBell = () => {
 	};
 
 	return (
-		<Popover placement="bottom-end" isLazy>
-			<PopoverTrigger>
+		<Popover>
+			<PopoverTrigger asChild>
 				<div className="relative inline-flex">
-					<IconButton aria-label={t("notifications.bell.label")} size="sm" variant="ghost" className="rounded-full" >{<BellIcon className="w-[18px] h-[18px]" />}</IconButton>
+					<Button aria-label={t("notifications.bell.label")} variant="ghost" size="sm" className={cn("size-8 p-0", "rounded-full")}>{<Bell className="w-[18px] h-[18px]" />}</Button>
 					{unread > 0 && (
-						<Badge colorScheme="red" className="absolute top--1 right--1 rounded-full text-[0.625rem] px-1.5">
+						<Badge className={cn("bg-destructive/10 text-destructive", "absolute top--1 right--1 rounded-full text-[0.625rem] px-1.5")}>
 							{unread > 99 ? "99+" : unread}
 						</Badge>
 					)}
 				</div>
 			</PopoverTrigger>
 			<PopoverContent className="w-[340px] max-h-[420px] overflow-y-auto">
-				<PopoverBody>
+				<div className="p-3">
 					<div className="flex flex-row items-center gap-2 justify-between mb-2">
 						<p className="font-semibold">{t("notifications.bell.label")}</p>
 						{unread > 0 && (
-							<Button size="xs" variant="ghost" onClick={() => markAll.mutate()} loading={markAll.isPending}>
+							<Button onClick={() => markAll.mutate()} variant="ghost" size="xs" loading={markAll.isPending}>
 								{t("notifications.inbox.markAllRead")}
 							</Button>
 						)}
@@ -70,10 +72,10 @@ export const NotificationBell = () => {
 							))}
 						</div>
 					)}
-					<Button size="sm" variant="outline" onClick={() => navigate("/notifications")} className="mt-3 w-full">
+					<Button onClick={() => navigate("/notifications")} variant="outline" size="sm" className="mt-3 w-full">
 						{t("notifications.bell.viewAll")}
 					</Button>
-				</PopoverBody>
+				</div>
 			</PopoverContent>
 		</Popover>
 	);

@@ -1,7 +1,10 @@
-import { useToast } from "components/shadcn/toast";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { Spinner } from "components/ui/spinner";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
 import { useColorMode } from "lib/color-mode";
-import { Tooltip } from "components/shadcn/tooltip";
-import { Spinner } from "components/shadcn/feedback";
+
 import { InfoIcon } from "components/common/InfoIcon";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { ChartBox } from "components/common/ChartBox";
@@ -69,7 +72,7 @@ const formatApiEnd = (date: Date) =>
 
 const NodesUsageAnalytics: FC = () => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const { colorMode } = useColorMode();
 	const { data: nodes } = useNodesQuery();
 	const fetchNodesUsage = useNodes((state) => state.fetchNodesUsage);
@@ -360,13 +363,7 @@ const NodesUsageAnalytics: FC = () => {
 				if (cancelled) return;
 				console.error("Error fetching usage data:", err);
 				setNodeUsageSlices([]);
-				toast({
-					title: t("errorFetchingData"),
-					status: "error",
-					isClosable: true,
-					position: "top",
-					duration: 3000,
-				});
+				toast.error(t("errorFetchingData"), { duration: 3000 });
 			})
 			.finally(() => {
 				if (!cancelled) {
@@ -513,13 +510,7 @@ const NodesUsageAnalytics: FC = () => {
 				console.error("Error fetching daily admin nodes:", err);
 				setAdminDailySlices([]);
 				setSelectedAdminNodeId(null);
-				toast({
-					title: t("errorFetchingData"),
-					status: "error",
-					isClosable: true,
-					position: "top",
-					duration: 3000,
-				});
+				toast.error(t("errorFetchingData"), { duration: 3000 });
 			});
 
 		return () => {
@@ -551,13 +542,7 @@ const NodesUsageAnalytics: FC = () => {
 				if (cancelled) return;
 				console.error("Error fetching admin totals nodes:", err);
 				setAdminTotalsSlices([]);
-				toast({
-					title: t("errorFetchingData"),
-					status: "error",
-					isClosable: true,
-					position: "top",
-					duration: 3000,
-				});
+				toast.error(t("errorFetchingData"), { duration: 3000 });
 			})
 			.finally(() => {
 				if (!cancelled) {
@@ -610,13 +595,7 @@ const NodesUsageAnalytics: FC = () => {
 				if (cancelled) return;
 				console.error("Error fetching node daily usage:", err);
 				setNodeDailyPoints([]);
-				toast({
-					title: t("errorFetchingData"),
-					status: "error",
-					isClosable: true,
-					position: "top",
-					duration: 3000,
-				});
+				toast.error(t("errorFetchingData"), { duration: 3000 });
 			})
 			.finally(() => {
 				if (!cancelled) {
@@ -681,13 +660,7 @@ const NodesUsageAnalytics: FC = () => {
 				if (cancelled) return;
 				console.error("Error fetching admin usage chart:", err);
 				setAdminDailyPoints([]);
-				toast({
-					title: t("errorFetchingData"),
-					status: "error",
-					isClosable: true,
-					position: "top",
-					duration: 3000,
-				});
+				toast.error(t("errorFetchingData"), { duration: 3000 });
 			})
 			.finally(() => {
 				if (!cancelled) {
@@ -725,12 +698,15 @@ const NodesUsageAnalytics: FC = () => {
 		<div className="flex flex-col gap-6 items-stretch">
 			<ChartBox
 				title={
-					<Tooltip label={t("nodes.trafficOverviewTooltip")} placement="top" className="text-[0.875rem]">
+					<Tooltip>
+<TooltipTrigger asChild>
 						<div className="flex flex-row gap-2 items-center">
 							<p className="font-semibold">{t("nodes.trafficOverview")}</p>
 							<InfoIcon aria-label="info" className="text-gray-500 dark:text-gray-400 cursor-help" />
 						</div>
-					</Tooltip>
+					</TooltipTrigger>
+<TooltipContent>{t("nodes.trafficOverviewTooltip")}</TooltipContent>
+</Tooltip>
 				}
 				headerActions={
 					<DateRangePicker
@@ -767,12 +743,15 @@ const NodesUsageAnalytics: FC = () => {
 
 			<ChartBox
 				title={
-					<Tooltip label={t("nodes.perDayUsageTooltip")} placement="top" className="text-[0.875rem]">
+					<Tooltip>
+<TooltipTrigger asChild>
 						<div className="flex flex-row gap-2 items-center">
 							<p className="font-semibold">{t("nodes.perDayUsage")}</p>
 							<InfoIcon aria-label="info" className="text-gray-500 dark:text-gray-400 cursor-help" />
 						</div>
-					</Tooltip>
+					</TooltipTrigger>
+<TooltipContent>{t("nodes.perDayUsageTooltip")}</TooltipContent>
+</Tooltip>
 				}
 				headerActions={
 					<div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center justify-end w-full">
@@ -832,12 +811,15 @@ const NodesUsageAnalytics: FC = () => {
 
 			<ChartBox
 				title={
-					<Tooltip label={t("nodes.adminUsageChartTooltip")} placement="top" className="text-[0.875rem]">
+					<Tooltip>
+<TooltipTrigger asChild>
 						<div className="flex flex-row gap-2 items-center">
 							<p className="font-semibold">{t("nodes.adminUsageChart")}</p>
 							<InfoIcon aria-label="info" className="text-gray-500 dark:text-gray-400 cursor-help" />
 						</div>
-					</Tooltip>
+					</TooltipTrigger>
+<TooltipContent>{t("nodes.adminUsageChartTooltip")}</TooltipContent>
+</Tooltip>
 				}
 				headerActions={
 					<div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center justify-end w-full">
@@ -908,12 +890,15 @@ const NodesUsageAnalytics: FC = () => {
 
 			<ChartBox
 				title={
-					<Tooltip label={t("nodes.perAdminUsageTooltip")} placement="top" className="text-[0.875rem]">
+					<Tooltip>
+<TooltipTrigger asChild>
 						<div className="flex flex-row gap-2 items-center">
 							<p className="font-semibold">{t("nodes.perAdminUsage")}</p>
 							<InfoIcon aria-label="info" className="text-gray-500 dark:text-gray-400 cursor-help" />
 						</div>
-					</Tooltip>
+					</TooltipTrigger>
+<TooltipContent>{t("nodes.perAdminUsageTooltip")}</TooltipContent>
+</Tooltip>
 				}
 				headerActions={
 					<div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center justify-end w-full">

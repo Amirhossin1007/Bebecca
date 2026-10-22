@@ -1,6 +1,10 @@
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { Tag } from "components/shadcn/badge";
-import { Button } from "components/shadcn/button";
+import { toneClass } from "lib/tone";
+import { Badge } from "components/ui/badge";
+import { Button } from "components/ui/button";
+import { Dialog } from "components/ui/dialog";
+import { CircleAlert, CircleCheck, TriangleAlert } from "lucide-react";
+
+
 import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -82,29 +86,29 @@ export const DnsPresetsModal: FC<DnsPresetsModalProps> = ({
 	const { t } = useTranslation();
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="md">
-			<ModalOverlay className="bg-blackAlpha-400" />
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
 			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
 					{t("pages.xray.dns.dnsPresetTitle")}
 				</XrayModalHeader>
-				<ModalCloseButton />
+				
 				<XrayModalBody className="pb-6">
 					<div className="flex flex-col gap-3 items-stretch">
 						{DNS_PRESETS.map((preset) => (
 							<div key={preset.name} className="border rounded-md p-3 xray-dialog-section">
 								<div className="flex flex-row items-center gap-3">
-									<Tag colorScheme={preset.family ? "purple" : "green"} size="sm">
+									<Badge className={toneClass(preset.family ? "purple" : "green")}>
 										{preset.family
 											? t("pages.xray.dns.dnsPresetFamily")
 											: t("DNS")}
-									</Tag>
+									</Badge>
 									<p className="font-semibold">{preset.name}</p>
 									<div className="flex-1" />
-									<Button size="xs" colorScheme="primary" onClick={() => {
+									<Button onClick={() => {
 											onSelectPreset(preset.servers);
 											onClose();
-										}}>
+										}} size="xs">
 										{t("install")}
 									</Button>
 								</div>
@@ -113,6 +117,6 @@ export const DnsPresetsModal: FC<DnsPresetsModalProps> = ({
 					</div>
 				</XrayModalBody>
 			</XrayModalContent>
-		</Modal>
+		</Dialog>
 	);
 };

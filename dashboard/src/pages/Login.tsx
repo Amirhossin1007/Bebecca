@@ -1,24 +1,12 @@
-import {
-	ArrowRightOnRectangleIcon,
-	CheckIcon,
-	EyeIcon,
-	EyeSlashIcon,
-	LockClosedIcon,
-	MoonIcon,
-	SunIcon,
-	UserIcon,
-} from "@heroicons/react/24/outline";
+import { Button } from "components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { LogIn, Check, Eye, EyeOff, Lock, Moon, Sun, User } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useColorMode } from "lib/color-mode";
 import logoUrl from "assets/logo.svg";
 import { Language } from "components/Language";
-import { Button } from "components/shadcn/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "components/shadcn/dropdown-menu";
+
 import { cn } from "lib/cn";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
@@ -171,23 +159,18 @@ const LoginThemeMenu = () => {
 	};
 
 	const options: Array<{ key: LoginThemeMode; label: string; icon: ReactNode }> = [
-		{ key: "dark", label: t("theme.dark"), icon: <MoonIcon className="size-4" /> },
-		{ key: "light", label: t("theme.light"), icon: <SunIcon className="size-4" /> },
+		{ key: "dark", label: t("theme.dark"), icon: <Moon className="size-4" /> },
+		{ key: "light", label: t("theme.light"), icon: <Sun className="size-4" /> },
 	];
 
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon-sm"
-					aria-label={t("header.theme")}
-				>
+				<Button type="button" aria-label={t("header.theme")} variant="ghost" size="icon">
 					{activeTheme === "dark" ? (
-						<MoonIcon className="size-4" />
+						<Moon className="size-4" />
 					) : (
-						<SunIcon className="size-4" />
+						<Sun className="size-4" />
 					)}
 				</Button>
 			</DropdownMenuTrigger>
@@ -197,7 +180,7 @@ const LoginThemeMenu = () => {
 						{option.icon}
 						<span className="flex-1">{option.label}</span>
 						{activeTheme === option.key ? (
-							<CheckIcon className="size-4 text-panel-accent" />
+							<Check className="size-4 text-panel-accent" />
 						) : null}
 					</DropdownMenuItem>
 				))}
@@ -381,7 +364,7 @@ export const Login = () => {
 												? t(errors.username.message as string)
 												: undefined
 										}
-										icon={<UserIcon className="size-4" />}
+										icon={<User className="size-4" />}
 										label={t("username")}
 										placeholder={t("username")}
 										registration={register("username")}
@@ -403,9 +386,9 @@ export const Login = () => {
 												className="inline-flex size-8 items-center justify-center rounded-md text-panel-text-muted transition-colors hover:text-panel-text"
 											>
 												{showPassword ? (
-													<EyeSlashIcon className="size-4" />
+													<EyeOff className="size-4" />
 												) : (
-													<EyeIcon className="size-4" />
+													<Eye className="size-4" />
 												)}
 											</button>
 										}
@@ -414,7 +397,7 @@ export const Login = () => {
 												? t(errors.password.message as string)
 												: undefined
 										}
-										icon={<LockClosedIcon className="size-4" />}
+										icon={<Lock className="size-4" />}
 										label={t("password")}
 										placeholder={t("password")}
 										registration={register("password")}
@@ -430,12 +413,8 @@ export const Login = () => {
 										</div>
 									) : null}
 
-									<Button
-										type="submit"
-										disabled={!canSubmit}
-										className="mt-1 h-11 w-full rounded-lg text-sm"
-									>
-										<ArrowRightOnRectangleIcon className="size-4" />
+									<Button type="submit" disabled={!canSubmit} className="mt-1 h-11 w-full rounded-lg text-sm">
+										<LogIn className="size-4" />
 										{isSubmitting ? t("login.loading") : t("login")}
 									</Button>
 								</div>
@@ -482,14 +461,10 @@ export const Login = () => {
 									</div>
 								) : null}
 
-								<Button
-									onClick={step === "otp" ? submitOTP : confirmSetup}
-									disabled={otp.length !== 6 || challengeLoading}
-									className="h-11 w-full rounded-lg text-sm"
-								>
+								<Button onClick={step === "otp" ? submitOTP : confirmSetup} disabled={otp.length !== 6 || challengeLoading} className="h-11 w-full rounded-lg text-sm">
 									{t("continue")}
 								</Button>
-								<Button variant="ghost" onClick={cancelChallenge} className="w-full rounded-lg">
+								<Button onClick={cancelChallenge} variant="ghost" className="w-full rounded-lg">
 									{t("back")}
 								</Button>
 							</div>

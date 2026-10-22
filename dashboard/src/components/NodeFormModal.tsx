@@ -1,27 +1,31 @@
-import { useToast } from "components/shadcn/toast";
+import { Button } from "components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { Collapsible, CollapsibleContent } from "components/ui/collapsible";
+import { Textarea } from "components/ui/textarea";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { cn } from "lib/cn";
+
+import { useSubmitTimers } from "hooks/useSubmitTimers";
 import { useClipboard } from "hooks/useClipboard";
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { Button, IconButton } from "components/shadcn/button";
-import { Tooltip } from "components/shadcn/tooltip";
-import { Collapse } from "components/shadcn/collapse";
-import { Checkbox, Switch } from "components/shadcn/selection";
-import { FormControl, FormErrorMessage, FormLabel } from "components/shadcn/field";
-import { Textarea } from "components/shadcn/input";
-import { withClass } from "components/shadcn/icon";
-import { PanelSelect as Select } from "components/common/PanelSelect";
-import {
-	ArrowDownTrayIcon,
-	DocumentDuplicateIcon,
-	EyeIcon,
-	EyeSlashIcon,
-} from "@heroicons/react/24/outline";
+
+import { CheckRow } from "components/ui/check-row";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "components/ui/dialog";
+import { FormField } from "components/ui/form-field";
+import { Input as UiInput } from "components/ui/input";
+import { DataSizeField } from "components/ui/data-size-field";
+import { NumberField } from "components/ui/number-field";
+import { SegmentedControl } from "components/ui/segmented-control";
+import { Switch as UiSwitch } from "components/ui/switch";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Server, Download, Copy, Eye, EyeOff } from "lucide-react";
 import {
 	getNodeDefaultValues,
 	NodeSchema,
 	type NodeType,
 } from "contexts/NodesContext";
-import { type FC, useCallback, useEffect, useRef, useState } from "react";
+import { FC, useCallback, useEffect, useState } from "react";
 import { type Resolver, Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
@@ -29,18 +33,11 @@ import {
 	AnimatedSubmitButton,
 	type AnimatedSubmitStatus,
 } from "./common/AnimatedSubmitButton";
-import { Input } from "./Input";
-import {
-	XrayModalBody,
-	XrayModalContent,
-	XrayModalFooter,
-	XrayModalHeader,
-} from "./xray/XrayDialog";
 
-const EyeIconStyled = withClass(EyeIcon, "w-4 h-4");
-const EyeSlashIconStyled = withClass(EyeSlashIcon, "w-4 h-4");
-const CopyIconStyled = withClass(DocumentDuplicateIcon, "w-4 h-4");
-const DownloadIconStyled = withClass(ArrowDownTrayIcon, "w-4 h-4");
+const EyeIconStyled = withClass(Eye, "w-4 h-4");
+const EyeSlashIconStyled = withClass(EyeOff, "w-4 h-4");
+const CopyIconStyled = withClass(Copy, "w-4 h-4");
+const DownloadIconStyled = withClass(Download, "w-4 h-4");
 
 const BYTES_IN_GB = 1024 * 1024 * 1024;
 const getInputError = (error: unknown): string | undefined => {
@@ -157,12 +154,11 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 	onSubmitSuccess,
 }) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const [showCertificate, setShowCertificate] = useState(false);
 	const [submitStatus, setSubmitStatus] =
 		useState<AnimatedSubmitStatus>("idle");
-	const submitResetTimerRef = useRef<number | null>(null);
-	const successCloseTimerRef = useRef<number | null>(null);
+	const { closeTimerRef: successCloseTimerRef, clearSubmitTimers, showSubmitError } = useSubmitTimers(setSubmitStatus);
 
 	const formatDataLimitForInput = useCallback((value?: number | null) => {
 		if (value === null || value === undefined) {
@@ -226,34 +222,6 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 		useClipboard(nodeCertificateValue);
 	const proxyEnabled = form.watch("proxy_enabled");
 
-	const clearSubmitTimers = useCallback(() => {
-		if (submitResetTimerRef.current !== null) {
-			window.clearTimeout(submitResetTimerRef.current);
-			submitResetTimerRef.current = null;
-		}
-		if (successCloseTimerRef.current !== null) {
-			window.clearTimeout(successCloseTimerRef.current);
-			successCloseTimerRef.current = null;
-		}
-	}, []);
-
-	useEffect(() => clearSubmitTimers, [clearSubmitTimers]);
-
-	const showSubmitError = useCallback(() => {
-		if (successCloseTimerRef.current !== null) {
-			window.clearTimeout(successCloseTimerRef.current);
-			successCloseTimerRef.current = null;
-		}
-		if (submitResetTimerRef.current !== null) {
-			window.clearTimeout(submitResetTimerRef.current);
-		}
-		setSubmitStatus("error");
-		submitResetTimerRef.current = window.setTimeout(() => {
-			setSubmitStatus("idle");
-			submitResetTimerRef.current = null;
-		}, 900);
-	}, []);
-
 	useEffect(() => {
 		if (!proxyEnabled) {
 			return;
@@ -315,13 +283,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 			if (submitStatus !== "idle") return;
 			const message =
 				getFirstInputError(errors) || "Please fix the node form fields.";
-			toast({
-				title: message,
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 3500,
-			});
+			toast.error(message, { duration: 3500 });
 			showSubmitError();
 		},
 	);
@@ -329,13 +291,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 	const handleCopyNodeCertificate = () => {
 		if (!nodeCertificateValue) return;
 		copyNodeCertificate();
-		toast({
-			title: t("copied"),
-			status: "success",
-			isClosable: true,
-			position: "top",
-			duration: 2000,
-		});
+		toast.success(t("copied"), { duration: 2000 });
 	};
 
 	const handleDownloadNodeCertificate = () => {
@@ -356,255 +312,217 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 		onClose();
 	}
 
-	return (
-		<Modal open={isOpen} onClose={handleClose} size="2xl" scrollBehavior="inside">
-			<ModalOverlay className="bg-blackAlpha-400" />
-			<XrayModalContent as="form" onSubmit={handleSubmit} className={"[.node-form-section_.chakra-simple-grid]:grid-cols-[1fr] [.node-form-section_.chakra-simple-grid]:md:grid-cols-[repeat(2,_minmax(0,_1fr))] [.node-form-section_.chakra-form-control]:block [.node-form-section_.node-switch-control]:flex [.node-form-section_.node-switch-control]:items-center [.node-form-section_.node-switch-control]:justify-between [.node-form-section_.node-switch-control]:gap-3 [.node-form-section_.chakra-form__label]:mb-1 [.node-form-section_.chakra-input__group,_.node-form-section_.chakra-numberinput,_.node-form-section_input,_.node-form-section_select]:w-full [.node-form-section_.chakra-form-control_>_.chakra-form__helper-text,_.node-form-section_.chakra-form-control_>_.chakra-form__error-message]:[grid-column:auto] mx-3"}>
-				<XrayModalHeader>
-					{isAddMode ? t("nodes.addNewRebeccaNode") : t("nodes.editNode")}
-				</XrayModalHeader>
-				<ModalCloseButton />
-				<XrayModalBody>
-					<div className="flex flex-col gap-4">
-						{!isAddMode && nodeCertificateValue && (
-							<div className="flex flex-col gap-3 xray-dialog-section">
-								<div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2">
-									<p className="font-medium min-w-0!">
-										{t("nodes.certificate")}
-									</p>
-									<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
-										<Button size="xs" variant="outline" onClick={handleCopyNodeCertificate}>{<CopyIconStyled />}
-											{nodeCertificateCopied ? t("copied") : t("copy")}
-										</Button>
-										<Button size="xs" variant="outline" onClick={handleDownloadNodeCertificate}>{<DownloadIconStyled />}
-											{t("nodes.download-certificate")}
-										</Button>
-										<Tooltip placement="top" label={t(
-												showCertificate
-													? "nodes.hide-certificate"
-													: "nodes.show-certificate",
-											)}>
-											<IconButton aria-label={t(
-													showCertificate
-														? "nodes.hide-certificate"
-														: "nodes.show-certificate",
-												)} onClick={() => setShowCertificate((prev) => !prev)} size="xs" variant="ghost">
-												{showCertificate ? (
-													<EyeSlashIconStyled />
-												) : (
-													<EyeIconStyled />
-												)}
-											</IconButton>
-										</Tooltip>
-									</div>
-								</div>
-								<Collapse in={showCertificate} animateOpacity>
-									<div className="border rounded-md p-3 font-mono text-[0.75rem] max-h-[220px] overflow-auto bg-gray-50 dark:bg-whiteAlpha-100">
-										{nodeCertificateValue}
-									</div>
-								</Collapse>
-							</div>
-						)}
+	const errors = form.formState?.errors;
+	const proxyTypeOptions = [
+		{ value: "http", label: "HTTP" },
+		{ value: "socks5", label: "SOCKS5" },
+	];
 
-						<div className="flex flex-col gap-3 xray-dialog-section node-form-section">
-							<p className="text-[0.875rem] font-semibold">
-								{t("nodes.connectionSettings")}
-							</p>
-							{isAddMode && (
-								<Checkbox checked disabled className="pointer-events-none">
-									{t("nodes.certInfoOption")}
-								</Checkbox>
-							)}
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<Input
-									label={t("nodes.nodeName")}
-									size="sm"
-									placeholder="Rebecca-S2"
-									maxLength={120}
-									{...form.register("name")}
-									error={getInputError(form.formState?.errors?.name)}
-								/>
-								<Input
-									label={t("nodes.nodeAddress")}
-									size="sm"
-									placeholder="192.168.1.1 or 2001:db8::1"
-									{...form.register("address")}
-									error={getInputError(form.formState?.errors?.address)}
-								/>
-							</div>
-							<FormControl isInvalid={Boolean(form.formState?.errors?.note)}>
-								<FormLabel>{t("fields.note")}</FormLabel>
-								<Textarea size="sm" maxLength={500} rows={3} placeholder={t("nodes.notePlaceholder")} {...form.register("note")} />
-								<FormErrorMessage>
-									{getInputError(form.formState?.errors?.note)}
-								</FormErrorMessage>
-							</FormControl>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<Input
-									label={t("nodes.controlPort")}
-									size="sm"
-									placeholder="62050"
-									{...form.register("port")}
-									error={getInputError(form.formState?.errors?.port)}
-								/>
-							</div>
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								<Input
-									label={t("nodes.usageCoefficient")}
-									size="sm"
-									placeholder="1"
-									{...form.register("usage_coefficient")}
-									error={getInputError(
-										form.formState?.errors?.usage_coefficient,
-									)}
-								/>
-								<FormControl>
-									<Input
-										label={t("nodes.dataLimitField")}
-										size="sm"
-										type="number"
-										step={0.01}
-										min={0}
-										placeholder={t("nodes.dataLimitPlaceholder")}
-										{...form.register("data_limit", {
-											setValueAs: (value) => {
-												if (
-													value === "" ||
-													value === null ||
-													value === undefined
-												) {
-													return null;
-												}
-												const parsed = Number(value);
-												return Number.isFinite(parsed) ? parsed : Number.NaN;
-											},
-											validate: (value) => {
-												if (value === null || value === undefined) {
-													return true;
-												}
-												if (Number.isNaN(value)) {
-													return t("nodes.dataLimitValidation");
-												}
-												return value >= 0 || t("nodes.dataLimitPositive");
-											},
-										})}
-										error={getInputError(form.formState?.errors?.data_limit)}
+	return (
+		<Dialog
+			open={isOpen}
+			onOpenChange={(open) => {
+				if (!open && !isLoading) handleClose();
+			}}
+		>
+			<DialogContent
+				className="flex max-h-[min(680px,calc(100dvh-10rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl max-md:inset-x-3 max-md:w-auto max-md:top-[4.5rem] max-md:bottom-24 max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0"
+			>
+				<form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+					<DialogHeader className="flex-row items-center gap-3 border-b px-5 py-3.5 pe-12 text-start sm:text-start">
+						<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+							<Server className="size-4" />
+						</div>
+						<div className="min-w-0">
+							<DialogTitle className="truncate text-base">
+								{isAddMode ? t("nodes.addNewRebeccaNode") : t("nodes.editNode")}
+							</DialogTitle>
+							{!isAddMode && node?.name ? (
+								<DialogDescription className="truncate">{node.name}</DialogDescription>
+							) : null}
+						</div>
+					</DialogHeader>
+
+					<div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+						<div className="flex flex-col gap-6">
+							{!isAddMode && nodeCertificateValue ? (
+								<section className="rounded-lg border bg-card/40 p-3.5">
+									<div className="flex flex-wrap items-center justify-between gap-2">
+										<p className="text-sm font-semibold">{t("nodes.certificate")}</p>
+										<div className="flex flex-wrap items-center gap-1.5">
+											<Button onClick={handleCopyNodeCertificate} variant="outline" size="xs">{<CopyIconStyled />}
+												{nodeCertificateCopied ? t("copied") : t("copy")}
+											</Button>
+											<Button onClick={handleDownloadNodeCertificate} variant="outline" size="xs">{<DownloadIconStyled />}
+												{t("nodes.download-certificate")}
+											</Button>
+											<Tooltip>
+<TooltipTrigger asChild>
+												<Button aria-label={t(showCertificate ? "nodes.hide-certificate" : "nodes.show-certificate")} onClick={() => setShowCertificate((prev) => !prev)} variant="ghost" size="xs" className="size-7 p-0">
+													{showCertificate ? <EyeSlashIconStyled /> : <EyeIconStyled />}
+												</Button>
+											</TooltipTrigger>
+<TooltipContent>{t(showCertificate ? "nodes.hide-certificate" : "nodes.show-certificate")}</TooltipContent>
+</Tooltip>
+										</div>
+									</div>
+									<Collapsible open={showCertificate}><CollapsibleContent forceMount className="data-[state=closed]:hidden">
+										<div className="mt-3 max-h-[220px] overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-[0.75rem] break-all">
+											{nodeCertificateValue}
+										</div>
+									</CollapsibleContent></Collapsible>
+								</section>
+							) : null}
+
+							<section className="flex flex-col gap-4">
+								<p className="text-sm font-semibold">{t("nodes.connectionSettings")}</p>
+								{isAddMode ? (
+									<CheckRow checked disabled onChange={() => undefined}>
+										{t("nodes.certInfoOption")}
+									</CheckRow>
+								) : null}
+								<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+									<FormField label={t("nodes.nodeName")} error={getInputError(errors?.name)}>
+										<UiInput placeholder="Rebecca-S2" maxLength={120} aria-invalid={Boolean(errors?.name) || undefined} {...form.register("name")} />
+									</FormField>
+									<FormField label={t("nodes.nodeAddress")} error={getInputError(errors?.address)}>
+										<UiInput placeholder="192.168.1.1 or 2001:db8::1" aria-invalid={Boolean(errors?.address) || undefined} {...form.register("address")} />
+									</FormField>
+									<FormField label={t("nodes.controlPort")} error={getInputError(errors?.port)}>
+										<Controller
+											control={form.control}
+											name="port"
+											render={({ field }) => (
+												<NumberField
+													inputMode="numeric"
+													min={1}
+													max={65535}
+													placeholder="62050"
+													doneLabel={t("common.done")}
+													value={field.value === undefined || field.value === null ? "" : String(field.value)}
+													onChange={(raw) => field.onChange(raw)}
+													invalid={Boolean(errors?.port)}
+												/>
+											)}
+										/>
+									</FormField>
+									<FormField label={t("nodes.usageCoefficient")} error={getInputError(errors?.usage_coefficient)}>
+										<Controller
+											control={form.control}
+											name="usage_coefficient"
+											render={({ field }) => (
+												<NumberField
+													inputMode="decimal"
+													step={0.01}
+													min={0}
+													placeholder="1"
+													doneLabel={t("common.done")}
+													value={field.value === undefined || field.value === null ? "" : String(field.value)}
+													onChange={(raw) => field.onChange(raw)}
+													invalid={Boolean(errors?.usage_coefficient)}
+												/>
+											)}
+										/>
+									</FormField>
+									<FormField label={t("nodes.dataLimitField")} description={t("nodes.dataLimitHint")} error={getInputError(errors?.data_limit)}>
+										<Controller
+											control={form.control}
+											name="data_limit"
+											render={({ field }) => (
+												<DataSizeField
+													placeholder={t("nodes.dataLimitPlaceholder")}
+													valueGb={field.value === undefined || field.value === null ? "" : String(field.value)}
+													onChangeGb={(next) => field.onChange(next.trim() === "" ? null : Number(next))}
+													invalid={Boolean(errors?.data_limit)}
+												/>
+											)}
+										/>
+									</FormField>
+								</div>
+								<FormField label={t("fields.note")} error={getInputError(errors?.note)}>
+									<Textarea rows={3} maxLength={500} {...form.register("note")} />
+								</FormField>
+
+								<label className="flex items-center justify-between gap-4 rounded-lg border bg-card/40 px-3 py-2.5 text-sm font-medium">
+									{t("nodes.useProxy")}
+									<Controller
+										control={form.control}
+										name="proxy_enabled"
+										render={({ field }) => (
+											<UiSwitch checked={Boolean(field.value)} onCheckedChange={(next) => field.onChange(next)} />
+										)}
 									/>
-									<p className="text-[0.75rem] text-gray-500 mt-1">
-										{t("nodes.dataLimitHint")}
-									</p>
-								</FormControl>
-							</div>
-							<FormControl className="node-switch-control rb-dialog-switch-row">
-								<FormLabel className="mb-0">{t("nodes.useProxy")}</FormLabel>
-								<Controller
-									control={form.control}
-									name="proxy_enabled"
-									render={({ field }) => (
-										<Switch checked={Boolean(field.value)} onChange={(event) => field.onChange(event.target.checked)} />
-									)}
-								/>
-							</FormControl>
-							<Collapse in={Boolean(proxyEnabled)} animateOpacity>
-								<div className="flex flex-col gap-3 mt-2 xray-dialog-section node-form-section">
-									<p className="text-[0.875rem] font-semibold">
-										{t("nodes.proxySettings")}
-									</p>
-									<FormControl isInvalid={
-											!!getInputError(form.formState?.errors?.proxy_type)
-										}>
-										<FormLabel>{t("nodes.proxyType")}</FormLabel>
+								</label>
+							</section>
+
+							{proxyEnabled ? (
+								<section className="flex flex-col gap-4 rounded-lg border p-4">
+									<p className="text-sm font-semibold">{t("nodes.proxySettings")}</p>
+									<FormField label={t("nodes.proxyType")} error={getInputError(errors?.proxy_type)}>
 										<Controller
 											control={form.control}
 											name="proxy_type"
 											render={({ field }) => (
-												<Select
-													size="sm"
-													placeholder={t("nodes.proxyTypePlaceholder")}
-													name={field.name}
+												<SegmentedControl<string>
+													label={t("nodes.proxyType")}
 													value={field.value ?? ""}
-													onBlur={field.onBlur}
-													onValueChange={(value) =>
-														field.onChange(value || null)
-													}
-													options={[
-														{ value: "http", label: "HTTP" },
-														{ value: "socks5", label: "SOCKS5" },
-													]}
+													options={proxyTypeOptions}
+													onChange={(next) => field.onChange(next)}
 												/>
 											)}
 										/>
-										<FormErrorMessage>
-											{getInputError(form.formState?.errors?.proxy_type)}
-										</FormErrorMessage>
-									</FormControl>
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-										<Input
-											label={t("nodes.proxyHost")}
-											size="sm"
-											placeholder="proxy.example.com"
-											{...form.register("proxy_host")}
-											error={getInputError(form.formState?.errors?.proxy_host)}
-										/>
-										<Input
-											label={t("nodes.proxyPort")}
-											size="sm"
-											type="number"
-											min={1}
-											max={65535}
-											placeholder="8080"
-											{...form.register("proxy_port", {
-												setValueAs: (value) => {
-													if (
-														value === "" ||
-														value === null ||
-														value === undefined
-													) {
-														return null;
-													}
-													const parsed = Number(value);
-													return Number.isFinite(parsed) ? parsed : Number.NaN;
-												},
-											})}
-											error={getInputError(form.formState?.errors?.proxy_port)}
-										/>
+									</FormField>
+									<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+										<FormField label={t("nodes.proxyHost")} error={getInputError(errors?.proxy_host)}>
+											<UiInput placeholder="proxy.example.com" aria-invalid={Boolean(errors?.proxy_host) || undefined} {...form.register("proxy_host")} />
+										</FormField>
+										<FormField label={t("nodes.proxyPort")} error={getInputError(errors?.proxy_port)}>
+											<Controller
+												control={form.control}
+												name="proxy_port"
+												render={({ field }) => (
+													<NumberField
+														inputMode="numeric"
+														min={1}
+														max={65535}
+														placeholder="8080"
+														doneLabel={t("common.done")}
+														value={field.value === undefined || field.value === null ? "" : String(field.value)}
+														onChange={(raw) => field.onChange(raw.trim() === "" ? null : raw)}
+														invalid={Boolean(errors?.proxy_port)}
+													/>
+												)}
+											/>
+										</FormField>
 									</div>
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-										<Input
-											label={t("nodes.proxyUsername")}
-											size="sm"
-											placeholder="user"
-											{...form.register("proxy_username")}
-											error={getInputError(
-												form.formState?.errors?.proxy_username,
-											)}
-										/>
-										<Input
-											label={t("nodes.proxyPassword")}
-											size="sm"
-											type="password"
-											placeholder="••••••••"
-											{...form.register("proxy_password")}
-											error={getInputError(
-												form.formState?.errors?.proxy_password,
-											)}
-										/>
+									<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+										<FormField label={t("nodes.proxyUsername")} error={getInputError(errors?.proxy_username)}>
+											<UiInput placeholder="user" {...form.register("proxy_username")} />
+										</FormField>
+										<FormField label={t("nodes.proxyPassword")} error={getInputError(errors?.proxy_password)}>
+											<UiInput type="password" placeholder="••••••••" {...form.register("proxy_password")} />
+										</FormField>
 									</div>
-									<p className="text-[0.75rem] text-gray-500">
-										{t("nodes.proxyHint")}
-									</p>
-								</div>
-							</Collapse>
+									<p className="text-xs text-muted-foreground">{t("nodes.proxyHint")}</p>
+								</section>
+							) : null}
 						</div>
 					</div>
-				</XrayModalBody>
-				<XrayModalFooter className="justify-end">
-					<Button variant="outline" size="sm" onClick={handleClose}>
-						{t("cancel")}
-					</Button>
-					<AnimatedSubmitButton status={submitStatus} idleContent={isAddMode ? t("nodes.addNode") : t("nodes.editNode")} successLabel={t("userDialog.submitSuccess")} disabled={isLoading} type="submit" containerProps={{ className: "w-full sm:w-[180px]" }} />
-				</XrayModalFooter>
-			</XrayModalContent>
-		</Modal>
+
+					<DialogFooter className="flex-row flex-wrap items-center justify-end gap-2 border-t px-5 py-3">
+						<Button onClick={handleClose} variant="outline" size="sm">
+							{t("cancel")}
+						</Button>
+						<div className="w-full sm:w-[180px]"><AnimatedSubmitButton
+							status={submitStatus}
+							idleContent={isAddMode ? t("nodes.addNode") : t("nodes.editNode")}
+							successLabel={t("userDialog.submitSuccess")}
+							disabled={isLoading}
+							type="submit"
+						/></div>
+					</DialogFooter>
+				</form>
+			</DialogContent>
+		</Dialog>
 	);
 };

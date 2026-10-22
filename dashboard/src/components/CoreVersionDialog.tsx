@@ -1,9 +1,12 @@
-import { Button } from "components/shadcn/button";
-import { FormControl, FormLabel } from "components/shadcn/field";
-import { Spinner } from "components/shadcn/feedback";
-import { Input } from "components/shadcn/input";
-import { Checkbox } from "components/shadcn/selection";
-import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
+import { Button } from "components/ui/button";
+import { Field, FieldLabel } from "components/ui/field";
+import { Spinner } from "components/ui/spinner";
+import { Input } from "components/ui/input";
+import { Checkbox } from "components/ui/checkbox";
+import { Alert, AlertDescription } from "components/ui/alert";
+import { CircleAlert, TriangleAlert } from "lucide-react";
+
+
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { AppDialog } from "components/dialogs/AppDialog";
 import { useEffect, useMemo, useState } from "react";
@@ -89,15 +92,14 @@ export const CoreVersionDialog = ({
 		<AppDialog
 			open={isOpen}
 			onClose={onClose}
-			isCentered
 			size="lg"
 			title={title}
 			footer={
 				<>
-					<Button size="md" variant="ghost" onClick={onClose} className="mr-3">
+					<Button onClick={onClose} variant="ghost" className="mr-3">
 						{t("cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" onClick={handleSubmit} loading={isSubmitting}>
+					<Button onClick={handleSubmit} loading={isSubmitting}>
 						{t("nodes.coreVersionDialog.confirmUpdate")}
 					</Button>
 				</>
@@ -109,10 +111,10 @@ export const CoreVersionDialog = ({
 								{description}
 							</p>
 						)}
-						<FormControl>
-							<FormLabel>
+						<Field>
+							<FieldLabel>
 								{t("nodes.coreVersionDialog.latestReleases")}
-							</FormLabel>
+							</FieldLabel>
 							<Select
 								placeholder={
 									isLoadingReleases
@@ -134,7 +136,7 @@ export const CoreVersionDialog = ({
 							</Select>
 							{isLoadingReleases && (
 								<div className="flex flex-row items-center gap-2 mt-2">
-									<Spinner size="sm" />
+									<Spinner />
 									<p className="text-[0.75rem] text-gray-500 dark:text-gray-400">
 										{t("nodes.coreVersionDialog.fetchingFromGithub")}
 									</p>
@@ -145,26 +147,22 @@ export const CoreVersionDialog = ({
 									{t("nodes.coreVersionDialog.failedToLoadReleases")}
 								</p>
 							)}
-						</FormControl>
-						<FormControl required>
-							<FormLabel>
+						</Field>
+						<Field>
+							<FieldLabel>
 								{t("nodes.coreVersionDialog.customVersionLabel")}
-							</FormLabel>
-							<Input value={version} placeholder={t(
-									"nodes.coreVersionDialog.customVersionPlaceholder",
-								)} onChange={handleInputChange} size="sm" />
+							</FieldLabel>
+							<Input value={version} onChange={handleInputChange} />
 							<p className="text-[0.75rem] text-gray-500 dark:text-gray-400 mt-1">
 								{t("nodes.coreVersionDialog.customVersionHelper")}
 							</p>
-						</FormControl>
+						</Field>
 						{allowPersist && (
-							<Checkbox checked={persist} onChange={(event) => setPersist(event.target.checked)}>
-								{t("nodes.coreVersionDialog.persistExecutable")}
-							</Checkbox>
+							<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={persist} onCheckedChange={(checked: boolean) => setPersist(checked)} /><span>{t("nodes.coreVersionDialog.persistExecutable")}</span></label>
 						)}
 						{submissionError && (
-							<Alert status="error" className="rounded-md text-[0.875rem]">
-								<AlertIcon />
+							<Alert variant="destructive" className="rounded-md text-[0.875rem]">
+								<CircleAlert className="size-4" aria-hidden="true" />
 								<AlertDescription>{submissionError}</AlertDescription>
 							</Alert>
 						)}

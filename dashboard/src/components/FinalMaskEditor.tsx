@@ -1,16 +1,15 @@
-import { FormControl, FormLabel } from "components/shadcn/field";
-import { Input, Textarea } from "components/shadcn/input";
-import { Switch } from "components/shadcn/selection";
-import { Button, IconButton } from "components/shadcn/button";
-import { Collapse } from "components/shadcn/collapse";
-import { Badge } from "components/shadcn/badge";
+import { toneClass } from "lib/tone";
+import { Field, FieldLabel } from "components/ui/field";
+import { Input } from "components/ui/input";
+import { Switch } from "components/ui/switch";
+import { Button } from "components/ui/button";
+import { Textarea } from "components/ui/textarea";
+import { Collapsible, CollapsibleContent } from "components/ui/collapsible";
+import { Badge } from "components/ui/badge";
+import { CircleAlert, CircleCheck, TriangleAlert } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+
 import { cn } from "lib/cn";
-import {
-	ArrowDownIcon,
-	ArrowUpIcon,
-	PlusIcon,
-	TrashIcon,
-} from "@heroicons/react/24/outline";
 import type { FC, ReactNode } from "react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -97,10 +96,10 @@ const TextField: FC<{
 	onChange: (value: string | undefined) => void;
 	placeholder?: string;
 }> = ({ label, value, onChange, placeholder }) => (
-	<FormControl>
-		<FormLabel className="text-[0.875rem]">{label}</FormLabel>
-		<Input size="sm" value={textValue(value)} placeholder={placeholder} onChange={(event) => onChange(optionalText(event.target.value))} />
-	</FormControl>
+	<Field>
+		<FieldLabel className="text-[0.875rem]">{label}</FieldLabel>
+		<Input value={textValue(value)} onChange={(event) => onChange(optionalText(event.target.value))} />
+	</Field>
 );
 
 const NumberField: FC<{
@@ -111,10 +110,10 @@ const NumberField: FC<{
 	max?: number;
 	placeholder?: string;
 }> = ({ label, value, onChange, min = 0, max, placeholder }) => (
-	<FormControl>
-		<FormLabel className="text-[0.875rem]">{label}</FormLabel>
-		<Input size="sm" type="number" min={min} max={max} value={textValue(value)} placeholder={placeholder} onChange={(event) => onChange(optionalNumber(event.target.value))} />
-	</FormControl>
+	<Field>
+		<FieldLabel className="text-[0.875rem]">{label}</FieldLabel>
+		<Input type="number" min={min} max={max} value={textValue(value)} onChange={(event) => onChange(optionalNumber(event.target.value))} />
+	</Field>
 );
 
 const SelectField: FC<{
@@ -124,15 +123,15 @@ const SelectField: FC<{
 	onChange: (value: string | undefined) => void;
 	placeholder?: string;
 }> = ({ label, value, options, onChange, placeholder }) => (
-	<FormControl>
-		<FormLabel className="text-[0.875rem]">{label}</FormLabel>
+	<Field>
+		<FieldLabel className="text-[0.875rem]">{label}</FieldLabel>
 		<SearchableTagSelect
 			value={textValue(value)}
 			options={options}
 			placeholder={placeholder ?? String(label)}
 			onChange={(next) => onChange(optionalText(String(next)))}
 		/>
-	</FormControl>
+	</Field>
 );
 
 const BooleanField: FC<{
@@ -140,12 +139,12 @@ const BooleanField: FC<{
 	value: unknown;
 	onChange: (value: boolean) => void;
 }> = ({ label, value, onChange }) => (
-	<FormControl className="flex items-center gap-2 w-auto">
-		<FormLabel className="text-[0.875rem] mb-0 cursor-pointer">
+	<Field className="flex items-center gap-2 w-auto">
+		<FieldLabel className="text-[0.875rem] mb-0 cursor-pointer">
 			{label}
-		</FormLabel>
-		<Switch size="sm" aria-label={typeof label === "string" ? label : undefined} checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} />
-	</FormControl>
+		</FieldLabel>
+		<Switch aria-label={typeof label === "string" ? label : undefined} checked={Boolean(value)} onCheckedChange={(checked: boolean) => onChange(checked)} />
+	</Field>
 );
 
 const OrderButtons: FC<{
@@ -164,9 +163,9 @@ const OrderButtons: FC<{
 	disableDown = false,
 }) => (
 	<div className="flex flex-row items-center gap-1">
-		<IconButton size="xs" variant="ghost" aria-label="Move up" disabled={index === 0 || disableUp} onClick={() => onMove(index, index - 1)} >{<ArrowUpIcon className="w-[14px]" />}</IconButton>
-		<IconButton size="xs" variant="ghost" aria-label="Move down" disabled={index === length - 1 || disableDown} onClick={() => onMove(index, index + 1)} >{<ArrowDownIcon className="w-[14px]" />}</IconButton>
-		<IconButton size="xs" variant="ghost" colorScheme="red" aria-label="Remove" onClick={onRemove} >{<TrashIcon className="w-[14px]" />}</IconButton>
+		<Button aria-label="Move up" disabled={index === 0 || disableUp} onClick={() => onMove(index, index - 1)} variant="ghost" size="xs" className="size-7 p-0">{<ArrowUp className="w-[14px]" />}</Button>
+		<Button aria-label="Move down" disabled={index === length - 1 || disableDown} onClick={() => onMove(index, index + 1)} variant="ghost" size="xs" className="size-7 p-0">{<ArrowDown className="w-[14px]" />}</Button>
+		<Button aria-label="Remove" onClick={onRemove} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10 size-7 p-0">{<Trash2 className="w-[14px]" />}</Button>
 	</div>
 );
 
@@ -233,9 +232,9 @@ const StringArrayField: FC<{
 	placeholder?: string;
 }> = ({ label, value, onChange, placeholder }) => {
 	return (
-		<FormControl>
-			<FormLabel className="text-[0.875rem]">{label}</FormLabel>
-			<Textarea size="sm" rows={3} value={stringArray(value).join("\n")} placeholder={placeholder} onChange={(event) =>
+		<Field>
+			<FieldLabel className="text-[0.875rem]">{label}</FieldLabel>
+			<Textarea rows={3} value={stringArray(value).join("\n")} onChange={(event) =>
 					onChange(
 						event.target.value === ""
 							? undefined
@@ -245,7 +244,7 @@ const StringArrayField: FC<{
 			<p className="mt-1 text-[0.75rem] text-gray-500">
 				One value per line.
 			</p>
-		</FormControl>
+		</Field>
 	);
 };
 
@@ -263,13 +262,13 @@ const NumberArrayField: FC<{
 				<p className="text-[0.875rem] font-medium">
 					{label}
 				</p>
-				<Button size="xs" variant="outline" onClick={() => update([...items, 0])}>{<PlusIcon className="w-[13px]" />}
+				<Button onClick={() => update([...items, 0])} variant="outline" size="xs">{<Plus className="w-[13px]" />}
 					{t("add")}
 				</Button>
 			</div>
 			{items.map((item, index) => (
 				<div key={`${index}-${items.length}`} className="flex flex-row gap-2 items-start">
-					<Input size="sm" type="number" min={0} max={255} value={item} onChange={(event) => {
+					<Input type="number" min={0} max={255} value={item} onChange={(event) => {
 							const next = [...items];
 							next[index] = Math.max(
 								0,
@@ -295,16 +294,16 @@ const PemLinesField: FC<{
 	onChange: (value: string[] | undefined) => void;
 	placeholder?: string;
 }> = ({ label, value, onChange, placeholder }) => (
-	<FormControl>
-		<FormLabel className="text-[0.875rem]">{label}</FormLabel>
-		<Textarea size="sm" value={stringArray(value).join("\n")} placeholder={placeholder} onChange={(event) =>
+	<Field>
+		<FieldLabel className="text-[0.875rem]">{label}</FieldLabel>
+		<Textarea value={stringArray(value).join("\n")} onChange={(event) =>
 				onChange(
 					event.target.value === ""
 						? undefined
 						: event.target.value.split(/\r?\n/),
 				)
 			} className="font-mono" />
-	</FormControl>
+	</Field>
 );
 
 type PacketEditorProps = {
@@ -426,12 +425,12 @@ const PacketEditor: FC<PacketEditorProps> = ({
 				/>
 			)}
 			{source === "packet" && packetType !== "array" && (
-				<FormControl>
-					<FormLabel className="text-[0.875rem]">Packet</FormLabel>
-					<Textarea size="sm" value={textValue(item.packet)} onChange={(event) =>
+				<Field>
+					<FieldLabel className="text-[0.875rem]">Packet</FieldLabel>
+					<Textarea value={textValue(item.packet)} onChange={(event) =>
 							update("packet", optionalText(event.target.value))
 						} className={cn(packetType === "str" ? "" : "font-mono")} />
-				</FormControl>
+				</Field>
 			)}
 		</div>
 	);
@@ -454,7 +453,7 @@ const PacketListEditor: FC<{
 				<p className="text-[0.875rem] font-semibold">
 					{label}
 				</p>
-				<Button size="xs" variant="outline" onClick={() => update([...items, {}])}>{<PlusIcon className="w-[13px]" />}
+				<Button onClick={() => update([...items, {}])} variant="outline" size="xs">{<Plus className="w-[13px]" />}
 					{t("add")}
 				</Button>
 			</div>
@@ -504,7 +503,7 @@ const TcpHeaderVariants: FC<{
 				<p className="text-[0.875rem] font-semibold">
 					{label}
 				</p>
-				<Button size="xs" variant="outline" onClick={() => update([...variants, [{}]])}>{<PlusIcon className="w-[13px]" />}
+				<Button onClick={() => update([...variants, [{}]])} variant="outline" size="xs">{<Plus className="w-[13px]" />}
 					{t("add")}
 				</Button>
 			</div>
@@ -696,7 +695,7 @@ const CertificateList: FC<{
 				<p className="text-[0.875rem] font-semibold">
 					Certificates
 				</p>
-				<Button size="xs" variant="outline" onClick={() => update([...certificates, {}])}>{<PlusIcon className="w-[13px]" />}
+				<Button onClick={() => update([...certificates, {}])} variant="outline" size="xs">{<Plus className="w-[13px]" />}
 					{t("add")}
 				</Button>
 			</div>
@@ -795,7 +794,7 @@ const RealmTlsSettings: FC<{
 				value={enabled}
 				onChange={(next) => onChange(next ? compatibleSettings : undefined)}
 			/>
-			<Collapse in={enabled} animateOpacity>
+			<Collapsible open={enabled}><CollapsibleContent forceMount className="data-[state=closed]:hidden">
 				<div className="flex flex-col gap-3 pt-1">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						<TextField
@@ -904,7 +903,7 @@ const RealmTlsSettings: FC<{
 						onChange={(next) => update("certificates", next)}
 					/>
 				</div>
-			</Collapse>
+			</CollapsibleContent></Collapsible>
 		</div>
 	);
 };
@@ -1121,9 +1120,9 @@ const LayerCollection: FC<{
 							onChange={(next) => setPendingType(String(next))}
 						/>
 					</div>
-					<Button variant="solid" size="sm" disabled={!selectedType} onClick={() =>
+					<Button disabled={!selectedType} onClick={() =>
 							emit([...value, createFinalMaskLayer(direction, selectedType)])
-						}>{<PlusIcon className="w-[14px]" />}
+						} size="sm">{<Plus className="w-[14px]" />}
 						{t("add")}
 					</Button>
 				</div>
@@ -1143,7 +1142,7 @@ const LayerCollection: FC<{
 				<div key={`${layer.type}-${index}-${value.length}`} className="flex flex-col gap-3 border rounded-lg p-3">
 					<div className="flex items-center justify-between gap-2">
 						<div className="flex flex-row items-center gap-2">
-							<Badge colorScheme={direction === "tcp" ? "blue" : "purple"}>
+							<Badge className={toneClass(direction === "tcp" ? "blue" : "purple")}>
 								#{index + 1}
 							</Badge>
 							<p className="text-[0.875rem] font-semibold">
@@ -1288,7 +1287,7 @@ const QuicParamsEditor: FC<{
 						Used by Hysteria and XHTTP H3.
 					</p>
 				</div>
-				<Switch aria-label="Enable QUIC parameters" checked={enabled} onChange={(event) => {
+				<Switch aria-label="Enable QUIC parameters" checked={enabled} onCheckedChange={(checked: boolean) => {
 						const activeHop = Boolean(
 							typeof udpHop.ports === "string" && udpHop.ports.trim(),
 						);
@@ -1296,10 +1295,10 @@ const QuicParamsEditor: FC<{
 							allowUdpHop || !activeHop
 								? params
 								: setKey(params, "udpHop", undefined);
-						onChange(event.target.checked ? compatible : undefined);
+						onChange(checked ? compatible : undefined);
 					}} />
 			</div>
-			<Collapse in={enabled} animateOpacity>
+			<Collapsible open={enabled}><CollapsibleContent forceMount className="data-[state=closed]:hidden">
 				<div className="flex flex-col gap-3 pt-1">
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 						<SelectField
@@ -1392,7 +1391,7 @@ const QuicParamsEditor: FC<{
 						))}
 					</div>
 				</div>
-			</Collapse>
+			</CollapsibleContent></Collapsible>
 		</div>
 	);
 };

@@ -1,8 +1,11 @@
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
-import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
-import { Input } from "components/shadcn/input";
-import { Button } from "components/shadcn/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
+import { Field, FieldDescription, FieldError, FieldLabel } from "components/ui/field";
+import { Input } from "components/ui/input";
+import { Button } from "components/ui/button";
+import { Dialog } from "components/ui/dialog";
+import { TriangleAlert } from "lucide-react";
+
+
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -169,44 +172,44 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 	);
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside">
-			<ModalOverlay className="bg-blackAlpha-400" />
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
 			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
 					{mode === "edit"
 						? t("pages.xray.balancer.editBalancer")
 						: t("pages.xray.balancer.addBalancer")}
 				</XrayModalHeader>
-				<ModalCloseButton />
+				
 				<form onSubmit={onSubmitInternal}>
 					<XrayModalBody>
-						<Tabs isLazy lazyBehavior="keepMounted" variant="unstyled">
-							<TabList>
-								<Tab>{t("form")}</Tab>
-								<Tab>{t("pages.xray.propagate.tab")}</Tab>
-							</TabList>
-							<TabPanels>
-								<TabPanel className="px-0">
+						<Tabs defaultValue="form">
+							<TabsList>
+								<TabsTrigger value="form">{t("form")}</TabsTrigger>
+								<TabsTrigger value="propagate">{t("pages.xray.propagate.tab")}</TabsTrigger>
+							</TabsList>
+							
+								<TabsContent value="form" className="px-0">
 									<div className="flex flex-col gap-3 items-stretch">
 										<XrayDialogSection title={t("pages.xray.balancer.addBalancer")}>
 											<div className="flex flex-col gap-4 items-stretch">
-												<FormControl isInvalid={duplicateTag}>
-													<FormLabel>{t("pages.xray.balancer.tag")}</FormLabel>
-													<Input {...modalForm.register("tag")} size="sm" placeholder={t("pages.xray.balancer.tagDesc")} />
+												<Field data-invalid={duplicateTag}>
+													<FieldLabel>{t("pages.xray.balancer.tag")}</FieldLabel>
+													<Input {...modalForm.register("tag")} />
 													{duplicateTag ? (
-														<FormErrorMessage>
+														<FieldError>
 															{t("pages.xray.balancer.tagError")}
-														</FormErrorMessage>
+														</FieldError>
 													) : (
-														<FormHelperText>
+														<FieldDescription>
 															{t("pages.xray.balancer.tagDesc")}
-														</FormHelperText>
+														</FieldDescription>
 													)}
-												</FormControl>
-												<FormControl>
-													<FormLabel>
+												</Field>
+												<Field>
+													<FieldLabel>
 														{t("pages.xray.balancer.balancerStrategy")}
-													</FormLabel>
+													</FieldLabel>
 													<SearchableTagSelect
 														mode="single"
 														options={[
@@ -224,11 +227,11 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 														placeholder={t("pages.xray.balancer.balancerStrategy")}
 														searchPlaceholder={t("search")}
 													/>
-												</FormControl>
-												<FormControl isInvalid={emptySelector}>
-													<FormLabel>
+												</Field>
+												<Field data-invalid={emptySelector}>
+													<FieldLabel>
 														{t("pages.xray.balancer.balancerSelectors")}
-													</FormLabel>
+													</FieldLabel>
 													<MultiValueAutocomplete
 														options={selectableOutboundOptions}
 														value={selectorValue.join(", ")}
@@ -263,15 +266,15 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 														}
 													/>
 													{emptySelector && (
-														<FormErrorMessage>
+														<FieldError>
 															{t("pages.xray.balancer.selectorError")}
-														</FormErrorMessage>
+														</FieldError>
 													)}
-												</FormControl>
-												<FormControl>
-													<FormLabel>
+												</Field>
+												<Field>
+													<FieldLabel>
 														{t("pages.xray.balancer.fallbackTag")}
-													</FormLabel>
+													</FieldLabel>
 													<SearchableTagSelect
 														mode="single"
 														options={selectableOutboundOptions}
@@ -293,12 +296,12 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 															/>
 														}
 													/>
-												</FormControl>
+												</Field>
 											</div>
 										</XrayDialogSection>
 									</div>
-								</TabPanel>
-								<TabPanel className="px-0">
+								</TabsContent>
+								<TabsContent value="propagate" className="px-0">
 									<PropagationTargets
 										source={sourceTarget}
 										section="balancers"
@@ -307,15 +310,15 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 										selectedIds={targetIds}
 										onChange={setTargetIds}
 									/>
-								</TabPanel>
-							</TabPanels>
+								</TabsContent>
+							
 						</Tabs>
 					</XrayModalBody>
 					<XrayModalFooter className="justify-end">
-						<Button size="md" variant="outline" onClick={onClose}>
+						<Button onClick={onClose} variant="outline">
 							{t("cancel")}
 						</Button>
-						<Button type="submit" colorScheme="primary" size="sm" disabled={!isValid}>
+						<Button type="submit" disabled={!isValid} size="sm">
 							{mode === "edit"
 								? t("pages.xray.balancer.editBalancer")
 								: t("pages.xray.balancer.addBalancer")}
@@ -323,6 +326,6 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 					</XrayModalFooter>
 				</form>
 			</XrayModalContent>
-		</Modal>
+		</Dialog>
 	);
 };

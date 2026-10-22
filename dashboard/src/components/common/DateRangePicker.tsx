@@ -1,18 +1,20 @@
+import { Button } from "components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { Calendar } from "lucide-react";
 import { useBreakpointValue } from "hooks/useBreakpointValue";
 import { useDisclosure } from "hooks/useDisclosure";
 import { useOutsideClick } from "hooks/useOutsideClick";
-import { Button } from "components/shadcn/button";
-import { Popover, PopoverArrow, PopoverBody, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
-import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
-import { withClass } from "components/shadcn/icon";
+
 import { cn } from "lib/cn";
-import { CalendarIcon } from "@heroicons/react/24/outline";
 import DatePicker from "components/common/DatePicker";
 import dayjs, { type ManipulateType } from "dayjs";
 import { type FC, type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-const CalendarIconStyled = withClass(CalendarIcon, "w-4 h-4");
+const CalendarIconStyled = withClass(Calendar, "w-4 h-4");
 
 type DateType = Date | null;
 
@@ -201,30 +203,30 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
 		<div className="flex gap-2 flex-wrap justify-start md:justify-end">
 			{showPresets &&
 				presets.map((preset) => (
-					<Button key={preset.key} size="sm" onClick={() => handlePresetChange(preset.key)} colorScheme="primary" variant={selectedPreset === preset.key ? "solid" : "outline"} className="rounded-md min-w-[52px]!">
+					<Button key={preset.key} onClick={() => handlePresetChange(preset.key)} size="sm" className="rounded-md min-w-[52px]!" variant={selectedPreset === preset.key ? "default" : "outline"}>
 						{preset.label}
 					</Button>
 				))}
-			<Popover open={isOpen} onClose={onClose} placement="auto-end" closeOnBlur={false}>
-				<PopoverTrigger>
-					<Button size="sm" variant="outline" onClick={onOpen} className={cn("min-w-[200px]! md:min-w-[240px]! max-w-[100%] rounded-md overflow-hidden text-ellipsis whitespace-nowrap", controlBg, borderColor)}>{<CalendarIconStyled />}
+			<Popover open={isOpen} onOpenChange={(open) => (open ? onOpen() : onClose())}>
+				<PopoverTrigger asChild>
+					<Button onClick={onOpen} variant="outline" size="sm" className={cn("min-w-[200px]! md:min-w-[240px]! max-w-[100%] rounded-md overflow-hidden text-ellipsis whitespace-nowrap", controlBg, borderColor)}>{<CalendarIconStyled />}
 						{rangeLabel}
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent className={cn("w-fit max-w-[calc(100vw_-_2rem)] focus:outline-none", panelBg, borderColor)}>
-					<PopoverArrow />
-					<PopoverBody ref={customRef} className="px-0 py-0">
-						<Tabs variant="unstyled" onChange={(index) => setTabIndex(index)} index={tabIndex}>
-							<TabList className="px-3 pt-3 gap-2">
-								<Tab className="text-xs md:text-sm rounded-md px-3 py-1.5 aria-selected:bg-primary-500 aria-selected:text-white">
+					
+					<div ref={customRef} className={cn("p-3", "px-0 py-0")}>
+						<Tabs value={String(tabIndex)} onValueChange={(value) => setTabIndex(Number(value))}>
+							<TabsList className="px-3 pt-3 gap-2">
+								<TabsTrigger value="0" className="text-xs md:text-sm rounded-md px-3 py-1.5 aria-selected:bg-primary-500 aria-selected:text-white">
 									{t("userDialog.relative")}
-								</Tab>
-								<Tab className="text-xs md:text-sm rounded-md px-3 py-1.5 aria-selected:bg-primary-500 aria-selected:text-white">
+								</TabsTrigger>
+								<TabsTrigger value="1" className="text-xs md:text-sm rounded-md px-3 py-1.5 aria-selected:bg-primary-500 aria-selected:text-white">
 									{t("userDialog.absolute")}
-								</Tab>
-							</TabList>
-							<TabPanels>
-								<TabPanel className="px-3 pb-3">
+								</TabsTrigger>
+							</TabsList>
+							
+								<TabsContent value="0" className="px-3 pb-3">
 									<div className="flex flex-col gap-3 items-stretch">
 										{customFilterOptions.map((row) => (
 											<div key={row.title} className="flex flex-col items-start gap-2">
@@ -241,8 +243,8 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
 											</div>
 										))}
 									</div>
-								</TabPanel>
-								<TabPanel className="px-3 pb-3 datepicker-panel">
+								</TabsContent>
+								<TabsContent value="1" className="px-3 pb-3 datepicker-panel">
 									<div className="flex flex-col items-center gap-2">
 										<DatePicker
 											locale={i18n.language.toLocaleLowerCase()}
@@ -257,10 +259,10 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
 											inline
 										/>
 									</div>
-								</TabPanel>
-							</TabPanels>
+								</TabsContent>
+							
 						</Tabs>
-					</PopoverBody>
+					</div>
 				</PopoverContent>
 			</Popover>
 		</div>

@@ -1,30 +1,24 @@
+import { toneClass } from "lib/tone";
+import { Badge } from "components/ui/badge";
+import { Alert } from "components/ui/alert";
+import { Spinner } from "components/ui/spinner";
+import { Input } from "components/ui/input";
+import { Button } from "components/ui/button";
+import { CircleAlert, Info, TriangleAlert } from "lucide-react";
+import { cn } from "lib/cn";
+import { RefreshCw, Undo2, CircleCheck, Eye, Key, Ban, SquarePen, CirclePlus, Trash2 } from "lucide-react";
 import type { SortingState } from "@tanstack/react-table";
 import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
-import { Badge } from "components/shadcn/badge";
-import { Alert, AlertIcon } from "components/shadcn/alert";
-import { Spinner } from "components/shadcn/feedback";
-import { Button } from "components/shadcn/button";
-import { Input } from "components/shadcn/input";
-import {
-	ArrowPathIcon,
-	ArrowUturnLeftIcon,
-	CheckCircleIcon,
-	EyeIcon,
-	KeyIcon,
-	NoSymbolIcon,
-	PencilSquareIcon,
-	PlusCircleIcon,
-	TrashIcon,
-} from "@heroicons/react/24/outline";
+
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
+import { OverviewBand } from "components/ui/overview-band";
 import { JsonEditor } from "components/JsonEditor";
 import { Pagination } from "components/Pagination";
 import {
 	DataTable,
 	type DataTableColumn,
 	type DataTableRowAction,
-	ResourceListCard,
 } from "components/ui";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";
@@ -170,22 +164,22 @@ const actionOperationVisual = (
 	actionType: string,
 ) => {
 	if (nodeRuntimeActionTypes.has(actionType))
-		return { color: "var(--color-blue-400)", icon: <ArrowPathIcon className="w-[18px]" /> };
+		return { color: "var(--color-blue-400)", icon: <RefreshCw className="w-[18px]" /> };
 	switch (operation) {
 		case "created":
-			return { color: "var(--color-green-400)", icon: <PlusCircleIcon className="w-[18px]" /> };
+			return { color: "var(--color-green-400)", icon: <CirclePlus className="w-[18px]" /> };
 		case "deleted":
-			return { color: "var(--color-red-400)", icon: <TrashIcon className="w-[18px]" /> };
+			return { color: "var(--color-red-400)", icon: <Trash2 className="w-[18px]" /> };
 		case "disabled":
-			return { color: "var(--color-orange-400)", icon: <NoSymbolIcon className="w-[18px]" /> };
+			return { color: "var(--color-orange-400)", icon: <Ban className="w-[18px]" /> };
 		case "enabled":
-			return { color: "var(--color-green-400)", icon: <CheckCircleIcon className="w-[18px]" /> };
+			return { color: "var(--color-green-400)", icon: <CircleCheck className="w-[18px]" /> };
 		case "reset":
-			return { color: "var(--color-orange-400)", icon: <ArrowPathIcon className="w-[18px]" /> };
+			return { color: "var(--color-orange-400)", icon: <RefreshCw className="w-[18px]" /> };
 		case "regenerated":
-			return { color: "var(--color-blue-400)", icon: <KeyIcon className="w-[18px]" /> };
+			return { color: "var(--color-blue-400)", icon: <Key className="w-[18px]" /> };
 		default:
-			return { color: "var(--color-blue-400)", icon: <PencilSquareIcon className="w-[18px]" /> };
+			return { color: "var(--color-blue-400)", icon: <SquarePen className="w-[18px]" /> };
 	}
 };
 
@@ -618,7 +612,7 @@ export const RecentActionsPage: FC = () => {
 					const resourceType = actionLifecycle(action).resource;
 					return (
 						<div className="flex flex-col items-start gap-1 min-w-0!">
-							<Badge variant="subtle">
+							<Badge>
 								{t(resourceTranslationKey(resourceType))}
 							</Badge>
 							<p className="font-mono text-[0.75rem] text-panel-text-muted truncate">
@@ -644,7 +638,7 @@ export const RecentActionsPage: FC = () => {
 				priority: "medium",
 				minWidth: "140px",
 				cell: (action) => (
-					<Badge colorScheme={statusTone(action.rollback_status)}>
+					<Badge className={toneClass(statusTone(action.rollback_status))}>
 						{t(`recentActions.status.${action.rollback_status}`)}
 					</Badge>
 				),
@@ -687,7 +681,7 @@ export const RecentActionsPage: FC = () => {
 		{
 			id: "details",
 			label: t("recentActions.details"),
-			icon: <EyeIcon className="w-[16px]" />,
+			icon: <Eye className="w-[16px]" />,
 			onClick: () => toggleDetails(action.id),
 		},
 		...(action.rollback_status === "available"
@@ -695,7 +689,7 @@ export const RecentActionsPage: FC = () => {
 					{
 						id: "rollback",
 						label: t("recentActions.rollback"),
-						icon: <ArrowUturnLeftIcon className="w-[16px]" />,
+						icon: <Undo2 className="w-[16px]" />,
 						isDanger: true,
 						onClick: () => rollback(action),
 					},
@@ -705,8 +699,8 @@ export const RecentActionsPage: FC = () => {
 
 	if (!canView) {
 		return (
-			<Alert status="error" className="rounded-md">
-				<AlertIcon />
+			<Alert variant="destructive" className="rounded-md">
+				<CircleAlert className="size-4" aria-hidden="true" />
 				{t("recentActions.noPermission")}
 			</Alert>
 		);
@@ -751,8 +745,8 @@ export const RecentActionsPage: FC = () => {
 					<Spinner />
 				</div>
 			) : detailQuery.isError ? (
-				<Alert status="error">
-					<AlertIcon />
+				<Alert variant="destructive">
+					<CircleAlert className="size-4" aria-hidden="true" />
 					{t("recentActions.loadFailed")}
 				</Alert>
 			) : detail?.snapshot_available || affectedResources.length > 0 ? (
@@ -791,7 +785,7 @@ export const RecentActionsPage: FC = () => {
 							</p>
 							<div className="flex flex-row items-center gap-2 flex-wrap">
 								{affectedResources.map((resource) => (
-									<Badge key={resource} variant="subtle">
+									<Badge key={resource}>
 										{resource}
 									</Badge>
 								))}
@@ -805,7 +799,7 @@ export const RecentActionsPage: FC = () => {
 							</p>
 							<div className="flex flex-row items-center gap-2 flex-wrap">
 								{diffPathLabels.map((label) => (
-									<Badge key={label} colorScheme="orange">
+									<Badge key={label} className="bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-500/20 dark:text-orange-200">
 										{t(label)}
 									</Badge>
 								))}
@@ -843,8 +837,8 @@ export const RecentActionsPage: FC = () => {
 					) : null}
 				</div>
 			) : (
-				<Alert status="info">
-					<AlertIcon />
+				<Alert>
+					<Info className="size-4" aria-hidden="true" />
 					{t(
 						detail?.action.rollback_status === "unsupported"
 							? "recentActions.historyOnly"
@@ -855,8 +849,8 @@ export const RecentActionsPage: FC = () => {
 			{rollbackMutation.isError && (
 				<>
 					<hr className="my-4 w-full border-0 border-b border-panel-border! opacity-60" />
-					<Alert status="error">
-						<AlertIcon />
+					<Alert variant="destructive">
+						<CircleAlert className="size-4" aria-hidden="true" />
 						<div className="flex flex-col gap-2">
 							<p>
 								{rollbackErrorDetail || t("recentActions.rollbackFailed")}
@@ -864,7 +858,7 @@ export const RecentActionsPage: FC = () => {
 							{rollbackConflictPaths.length > 0 && (
 								<div className="flex flex-row items-center gap-2 flex-wrap">
 									{rollbackConflictPaths.map((path) => (
-										<Badge key={path} colorScheme="red">
+										<Badge key={path} className="bg-destructive/10 text-destructive">
 											{path}
 										</Badge>
 									))}
@@ -877,26 +871,41 @@ export const RecentActionsPage: FC = () => {
 		</div>
 	);
 
+	const locale = i18n.language || "en";
+	const statusTones: Record<string, string> = {
+		available: "bg-panel-success",
+		undone: "bg-panel-info",
+		expired: "bg-panel-text-muted/60",
+		conflict: "bg-panel-danger",
+		unsupported: "bg-panel-warning",
+	};
+	const statusCount = (status: string) => actions.filter((action) => action.rollback_status === status).length;
+	const overview = {
+		total: { label: t("recentActions.title"), value: totalActions },
+		rows: [
+			{ key: "available", label: t("recentActions.status.available"), value: statusCount("available"), tone: statusTones.available },
+			{ key: "conflict", label: t("recentActions.status.conflict"), value: statusCount("conflict"), tone: statusTones.conflict },
+		],
+		distribution: {
+			label: t("recentActions.filters.status"),
+			segments: Object.keys(statusTones).map((status) => ({
+				key: status,
+				label: t(`recentActions.status.${status}`),
+				value: statusCount(status),
+				tone: statusTones[status],
+			})),
+		},
+		extra: { label: t("usersPage.filtered"), value: actions.length },
+	};
+
 	return (
 		<div dir={i18n.dir(i18n.language)} className="flex flex-col gap-4 items-stretch pb-8 md:pb-16">
-			<ResourceListCard
-				title={t("recentActions.title")}
-				summaryItems={[
-					{ label: t("total"), value: totalActions },
-					{
-						label: t("usersPage.filtered"),
-						value: totalActions,
-						colorScheme: "green",
-					},
-				]}
-				actions={
-					<Button size="md" variant="outline" onClick={() => void actionsQuery.refetch()} loading={actionsQuery.isFetching}>{<ArrowPathIcon className="w-[16px]" />}
-						{t("recentActions.refresh")}
-					</Button>
-				}
-			>
-				<div className="flex flex-col xl:flex-row gap-2 items-stretch">
-					<SearchInput containerProps={{ className: "w-full md:w-[340px]" }} value={search} onChange={(event) => {
+			<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden">
+				<OverviewBand total={overview.total} rows={overview.rows} distribution={overview.distribution} extra={overview.extra} locale={locale} />
+				<div className="border-t border-panel-border! p-3">
+					<div className="flex flex-col gap-2 md:flex-row md:items-center">
+						<div className="min-w-0 flex-1"><div className="grid grid-cols-2 gap-2 items-stretch xl:flex xl:flex-row">
+					<SearchInput containerProps={{ className: "col-span-2 w-full md:w-[340px]" }} value={search} onChange={(event) => {
 								setSearch(event.target.value);
 								debouncedSearchChange(event.target.value);
 							}} placeholder={t("recentActions.searchPlaceholder")} aria-label={t("recentActions.searchPlaceholder")} matchOptions={searchMatch} onMatchOptionsChange={(options) => {
@@ -935,12 +944,19 @@ export const RecentActionsPage: FC = () => {
 							label: t(`recentActions.status.${value}`),
 							value,
 						}))} placeholder={t("recentActions.filters.allStatuses")} aria-label={t("recentActions.filters.status")} className="w-full xl:w-[190px]" />
-					<Input type="date" size="sm" value={dayFilter} onChange={(event) => {
+					<Input type="date" value={dayFilter} onChange={(event) => {
 							setDayFilter(event.target.value);
 							resetPagination();
 						}} aria-label={t("recentActions.filters.day")} className="w-full xl:w-[170px]" />
+				</div></div>
+						<div className="flex shrink-0 items-center justify-end gap-1.5">
+							<Button onClick={() => void actionsQuery.refetch()} variant="outline" loading={actionsQuery.isFetching}>{<RefreshCw className="w-[16px]" />}
+								{t("recentActions.refresh")}
+							</Button>
+						</div>
+					</div>
 				</div>
-			</ResourceListCard>
+			</div>
 
 			<DataTable
 				ariaLabel={t("recentActions.title")}
@@ -963,14 +979,14 @@ export const RecentActionsPage: FC = () => {
 				rowActions={rowActions}
 				renderRowActions={(action) => (
 					<div className="flex flex-row items-center gap-2 justify-end">
-						<Button size="sm" variant="outline" onClick={() => toggleDetails(action.id)}>{<EyeIcon className="w-[16px]" />}
+						<Button onClick={() => toggleDetails(action.id)} variant="outline" size="sm">{<Eye className="w-[16px]" />}
 							{t("recentActions.details")}
 						</Button>
 						{action.rollback_status === "available" && (
-							<Button size="sm" colorScheme="orange" onClick={() => rollback(action)} loading={
+							<Button onClick={() => rollback(action)} size="sm" loading={
 									rollbackMutation.isPending &&
 									rollbackMutation.variables === action.id
-								}>{<ArrowUturnLeftIcon className="w-[16px]" />}
+								} className="bg-orange-600 text-white shadow-xs hover:bg-orange-700">{<Undo2 className="w-[16px]" />}
 								{t("recentActions.rollback")}
 							</Button>
 						)}

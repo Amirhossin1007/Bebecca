@@ -1,21 +1,20 @@
-import { useBreakpointValue } from "hooks/useBreakpointValue";
-import { Tooltip } from "components/shadcn/tooltip";
-import { Popover, PopoverArrow, PopoverBody, PopoverCloseButton, PopoverContent, PopoverHeader, PopoverTrigger } from "components/shadcn/popover";
-import { Button, IconButton } from "components/shadcn/button";
-import { Badge } from "components/shadcn/badge";
-import { Checkbox } from "components/shadcn/selection";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { Button } from "components/ui/button";
+import { Badge } from "components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { Checkbox } from "components/ui/checkbox";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+
+
 import { buttonVariants } from "components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Filter, CircleHelp } from "lucide-react";
 import { cn } from "lib/cn";
-import { withClass } from "components/shadcn/icon";
-import {
-	FunnelIcon,
-	QuestionMarkCircleIcon,
-} from "@heroicons/react/24/outline";
+
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
 import { DataTableSortMenu, type SortOption } from "components/ui/DataTableSortMenu";
-import { ADVANCED_FILTER_OPTIONS } from "components/Filters";
+import { ADVANCED_FILTER_OPTIONS } from "constants/advancedFilters";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import { useServicesStore } from "contexts/ServicesContext";
@@ -28,8 +27,8 @@ import { useTranslation } from "react-i18next";
 import { AdminRole, AdminStatus, UserPermissionToggle } from "types/Admin";
 import { canViewUserTraffic, isUserManagementLocked } from "utils/adminTraffic";
 
-const FilterIcon = withClass(FunnelIcon, "w-4 h-4");
-const HelpIcon = withClass(QuestionMarkCircleIcon, "w-4 h-4");
+const FilterIcon = withClass(Filter, "w-4 h-4");
+const HelpIcon = withClass(CircleHelp, "w-4 h-4");
 
 const formatChipCount = (value: number, locale: string) =>
 	new Intl.NumberFormat(locale || "en").format(value);
@@ -43,22 +42,12 @@ export const UsersFilterBar: FC = () => {
 	const loading = useDashboard((state) => state.loading);
 	const filters = useDashboard((state) => state.filters);
 	const onFilterChange = useDashboard((state) => state.onFilterChange);
-	const onCreateUser = useDashboard((state) => state.onCreateUser);
 	const { t, i18n } = useTranslation();
 	const locale = i18n.language || "en";
 	const [search, setSearch] = useState("");
 	const { userData } = useGetUser();
 	const hasPrivilegedRole =
 		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
-	const hasFullAccess = userData.role === AdminRole.FullAccess;
-	const userManagementLocked = isUserManagementLocked(userData);
-	const isCurrentAdminDisabled =
-		!hasPrivilegedRole && userData.status === AdminStatus.Disabled;
-	const canCreateUsers =
-		hasFullAccess ||
-		Boolean(userData.permissions?.users?.[UserPermissionToggle.Create]);
-	const showCreateButton =
-		canCreateUsers && !isCurrentAdminDisabled && !userManagementLocked;
 	const canViewTraffic = canViewUserTraffic(userData);
 
 	const userSortOptions = useMemo<SortOption[]>(
@@ -195,64 +184,59 @@ export const UsersFilterBar: FC = () => {
 		});
 	};
 
-	const handleCreate = () => {
-		if (!showCreateButton) return;
-		onCreateUser(true);
-	};
-
-	const isMobile = useBreakpointValue({ base: true, sm: false }) ?? false;
-
 	const activeFilterTotal =
 		activeFilters.length + (serviceId ? 1 : 0) + (ownerFilter ? 1 : 0);
 	const hasClearableFilters = activeFilterTotal > 0;
 
 	return (
 		<div className="max-sm:contents sm:flex items-center gap-2 w-full min-w-0!">
-			<SearchInput containerProps={{ className: "max-sm:basis-full sm:flex-[1_1_auto] min-w-0! max-w-[100%] sm:max-w-[380px]" }} placeholder={t("search")} value={search} onChange={onSearchChange} matchOptions={matchOptions} onMatchOptionsChange={(options) =>
+			<div className="flex min-w-0 items-center gap-2 max-sm:basis-full sm:flex-[1_1_auto] sm:max-w-[440px]">
+			<SearchInput containerProps={{ className: "min-w-0 flex-1" }} placeholder={t("search")} value={search} onChange={onSearchChange} matchOptions={matchOptions} onMatchOptionsChange={(options) =>
 					onFilterChange({
 						matchCase: options.matchCase,
 						matchWholeWord: options.matchWholeWord,
 						offset: 0,
 					})
 				} loading={loading} onClear={clearSearch} rightElement={
-					<Tooltip label={t("users.searchHelp")} placement="top" hasArrow>
+					<Tooltip>
+<TooltipTrigger asChild>
 						<div className="inline-flex items-center text-panel-text-muted px-1">
 							<HelpIcon />
 						</div>
-					</Tooltip>
+					</TooltipTrigger>
+<TooltipContent>{t("users.searchHelp")}</TooltipContent>
+</Tooltip>
 				} className="rounded-full border-panel-border! bg-panel-elevated focus-visible:border-primary-400! focus-visible:bg-panel-surface rb-users-search-input" />
-
 			<DataTableSortMenu
 				options={userSortOptions}
 				sorting={userSorting}
 				onSortingChange={handleUserSortChange}
 			/>
+			</div>
 
-			<Popover placement="bottom-end">
-				<PopoverTrigger>
+			<Popover>
+				<PopoverTrigger asChild>
 					<div className="relative shrink-0">
-						<IconButton size="md" aria-label={t("filters.advancedButton")} variant="outline" className="rounded-full w-9 h-9" >{<FilterIcon />}</IconButton>
+						<Button aria-label={t("filters.advancedButton")} variant="outline" className={cn("size-9 p-0", "rounded-full w-9 h-9")}>{<FilterIcon />}</Button>
 						{hasClearableFilters && (
-							<Badge colorScheme="primary" variant="solid" className="top-[-4px] rounded-full absolute end-[-4px] text-[0.6rem] px-1.5 pointer-events-none rb-users-filter-badge">
+							<Badge className="top-[-4px] rounded-full absolute end-[-4px] text-[0.6rem] px-1.5 pointer-events-none rb-users-filter-badge">
 								{formatChipCount(activeFilterTotal, locale)}
 							</Badge>
 						)}
 					</div>
 				</PopoverTrigger>
 				<PopoverContent className="border-light-border! min-w-[260px]!">
-					<PopoverArrow />
-					<PopoverCloseButton />
-					<PopoverHeader className="font-semibold">
+					
+					
+					<div className={cn("p-3 font-semibold", "font-semibold")}>
 						{t("filters.advancedTitle")}
-					</PopoverHeader>
-					<PopoverBody>
+					</div>
+					<div className="p-3">
 						<div className="flex flex-col gap-2">
 							{ADVANCED_FILTER_OPTIONS.filter(
 								(option) => option.key !== "top_speed" || canViewTraffic,
 							).map((option) => (
-								<Checkbox key={option.key} checked={activeFilters.includes(option.key)} onChange={() => toggleAdvancedFilter(option.key)}>
-									{getFilterLabel(option.key)}
-								</Checkbox>
+								<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox key={option.key} checked={activeFilters.includes(option.key)} onCheckedChange={() => toggleAdvancedFilter(option.key)} /><span>{getFilterLabel(option.key)}</span></label>
 							))}
 						</div>
 						<div className="flex flex-col gap-3 mt-3">
@@ -298,31 +282,45 @@ export const UsersFilterBar: FC = () => {
 								</div>
 							)}
 						</div>
-						<Button variant="ghost" size="sm" onClick={clearAdvancedFilters} disabled={!hasClearableFilters} className="mt-3 w-full">
+						<Button onClick={clearAdvancedFilters} disabled={!hasClearableFilters} variant="ghost" size="sm" className="mt-3 w-full">
 							{t("filters.advancedClear")}
 						</Button>
-					</PopoverBody>
+					</div>
 				</PopoverContent>
 			</Popover>
 
-			{/* On desktop the bulk/create actions sit at the end of the row;
-				on mobile they stay compact next to the search field. */}
-			{!isMobile && <div className="flex-[1_1_auto] min-w-0!" />}
-			{showCreateButton && (
-				<button
-					type="button"
-					aria-label={t("createUser")}
-					onClick={handleCreate}
-					className={cn(
-						buttonVariants({ size: isMobile ? "icon" : "default" }),
-						"shrink-0 bg-panel-accent text-white shadow-xs hover:bg-panel-accent-hover rb-users-create-btn",
-						!isMobile && "gap-2 px-4 font-semibold",
-					)}
-				>
-					<Plus className="size-4" />
-					{!isMobile && t("createUser")}
-				</button>
-			)}
 		</div>
+	);
+};
+
+export const UsersCreateButton: FC = () => {
+	const onCreateUser = useDashboard((state) => state.onCreateUser);
+	const { t } = useTranslation();
+	const { userData } = useGetUser();
+	const hasPrivilegedRole =
+		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
+	const canCreateUsers =
+		userData.role === AdminRole.FullAccess ||
+		Boolean(userData.permissions?.users?.[UserPermissionToggle.Create]);
+	const isCurrentAdminDisabled =
+		!hasPrivilegedRole && userData.status === AdminStatus.Disabled;
+	const showCreateButton =
+		canCreateUsers && !isCurrentAdminDisabled && !isUserManagementLocked(userData);
+
+	if (!showCreateButton) return null;
+
+	return (
+		<button
+			type="button"
+			aria-label={t("createUser")}
+			onClick={() => onCreateUser(true)}
+			className={cn(
+				buttonVariants({ size: "default" }),
+				"shrink-0 gap-2 bg-panel-accent px-4 font-semibold text-white shadow-xs hover:bg-panel-accent-hover whitespace-nowrap rb-users-create-btn",
+			)}
+		>
+			<Plus className="size-4" />
+			{t("createUser")}
+		</button>
 	);
 };

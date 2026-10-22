@@ -1,20 +1,16 @@
-import { useToast } from "components/shadcn/toast";
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
-import { Input } from "components/shadcn/input";
-import { Switch } from "components/shadcn/selection";
-import { Badge, Tag } from "components/shadcn/badge";
-import { Button, IconButton } from "components/shadcn/button";
-import { Spinner } from "components/shadcn/feedback";
-import { Tooltip } from "components/shadcn/tooltip";
-import {
-	ArrowDownIcon,
-	ArrowPathIcon,
-	ArrowUpIcon,
-	EyeIcon,
-	PlusIcon,
-	TrashIcon,
-} from "@heroicons/react/24/outline";
+import { Field, FieldDescription, FieldLabel } from "components/ui/field";
+import { Input } from "components/ui/input";
+import { Switch } from "components/ui/switch";
+import { Badge } from "components/ui/badge";
+import { Button } from "components/ui/button";
+import { Spinner } from "components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { Dialog } from "components/ui/dialog";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { cn } from "lib/cn";
+import { ArrowDown, RefreshCw, ArrowUp, Eye, Plus, Trash2 } from "lucide-react";
+
 import {
 	type FC,
 	useCallback,
@@ -87,7 +83,7 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 	onChanged,
 }) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const [items, setItems] = useState<OutboundSub[]>([]);
 	const [form, setForm] = useState<OutboundSubForm>(blankForm);
 	const [editingID, setEditingID] = useState<number | null>(null);
@@ -112,15 +108,10 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 				setItems(Array.isArray(response.obj) ? response.obj : []);
 			}
 		} catch (error: any) {
-			toast({
-				title: parseAPIError(
+			toast.error(parseAPIError(
 					error,
 					t("pages.xray.outboundSub.toastLoadFailed"),
-				),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+				));
 		} finally {
 			setLoading(false);
 		}
@@ -159,12 +150,7 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 
 	const save = async () => {
 		if (!form.url.trim()) {
-			toast({
-				title: t("pages.xray.outboundSub.toastUrlRequired"),
-				status: "warning",
-				isClosable: true,
-				position: "top",
-			});
+			toast.warning(t("pages.xray.outboundSub.toastUrlRequired"));
 			return;
 		}
 		setSaving(true);
@@ -175,28 +161,17 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 					: `/panel/xray/outbound-subs/${editingID}`;
 			const response = await apiFetch(path, { method: "POST", body: form });
 			if (responseOK(response)) {
-				toast({
-					title:
-						editingID === null
+				toast.success(editingID === null
 							? t("pages.xray.outboundSub.toastAdded")
-							: t("pages.xray.outboundSub.toastUpdated"),
-					status: "success",
-					isClosable: true,
-					position: "top",
-				});
+							: t("pages.xray.outboundSub.toastUpdated"));
 				resetForm();
 				await notifyChanged();
 			}
 		} catch (error: any) {
-			toast({
-				title: parseAPIError(
+			toast.error(parseAPIError(
 					error,
 					t("pages.xray.outboundSub.toastAddFailed"),
-				),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+				));
 		} finally {
 			setSaving(false);
 		}
@@ -221,15 +196,10 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 				setPreview(Array.isArray(response.obj) ? response.obj : []);
 			}
 		} catch (error: any) {
-			toast({
-				title: parseAPIError(
+			toast.error(parseAPIError(
 					error,
 					t("pages.xray.outboundSub.previewEmpty"),
-				),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+				));
 		} finally {
 			setPreviewing(false);
 		}
@@ -292,68 +262,62 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 	};
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
-			<ModalOverlay className="bg-blackAlpha-400" />
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
 			<XrayModalContent className="mx-3">
 				<XrayModalHeader>
 					{t("pages.xray.outboundSub.title")}
 				</XrayModalHeader>
-				<ModalCloseButton />
+				
 				<XrayModalBody>
 					<div className="flex flex-col items-stretch gap-4">
 						<div className="xray-section">
 							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-								<FormControl>
-									<FormLabel>{t("hostsDialog.remark")}</FormLabel>
-									<Input size="sm" value={form.remark} onChange={(event) =>
+								<Field>
+									<FieldLabel>{t("hostsDialog.remark")}</FieldLabel>
+									<Input value={form.remark} onChange={(event) =>
 											setForm((prev) => ({ ...prev, remark: event.target.value }))
-										} placeholder={t("pages.xray.outboundSub.remarkPlaceholder")} />
-								</FormControl>
-								<FormControl required>
-									<FormLabel>{t("pages.xray.outboundSub.url")}</FormLabel>
-									<Input size="sm" value={form.url} onChange={(event) =>
+										} />
+								</Field>
+								<Field>
+									<FieldLabel>{t("pages.xray.outboundSub.url")}</FieldLabel>
+									<Input value={form.url} onChange={(event) =>
 											setForm((prev) => ({ ...prev, url: event.target.value }))
-										} placeholder="https://example.com/sub" />
-								</FormControl>
-								<FormControl>
-									<FormLabel>{t("pages.xray.tor.tagPrefix")}</FormLabel>
-									<Input size="sm" value={form.tagPrefix} onChange={(event) =>
+										} />
+								</Field>
+								<Field>
+									<FieldLabel>{t("pages.xray.tor.tagPrefix")}</FieldLabel>
+									<Input value={form.tagPrefix} onChange={(event) =>
 											setForm((prev) => ({ ...prev, tagPrefix: event.target.value }))
-										} placeholder="sub1-" />
-									<FormHelperText>
+										} />
+									<FieldDescription>
 										{t("pages.xray.outboundSub.tagPrefixHint")}
-									</FormHelperText>
-								</FormControl>
-								<FormControl>
-									<FormLabel>{t("pages.xray.outboundSub.interval")}</FormLabel>
-									<Input size="sm" type="number" min={1} value={intervalMinutes} onChange={(event) =>
+									</FieldDescription>
+								</Field>
+								<Field>
+									<FieldLabel>{t("pages.xray.outboundSub.interval")}</FieldLabel>
+									<Input type="number" min={1} value={intervalMinutes} onChange={(event) =>
 											setForm((prev) => ({
 												...prev,
 												updateInterval: Math.max(60, Number(event.target.value || 10) * 60),
 											}))
 										} />
-									<FormHelperText>
+									<FieldDescription>
 										{t("pages.xray.outboundSub.intervalHint")}
-									</FormHelperText>
-								</FormControl>
+									</FieldDescription>
+								</Field>
 							</div>
 							<div className="flex flex-row items-center mt-3 gap-5 flex-wrap">
 								<div className="flex flex-row items-center gap-2">
-									<Switch size="sm" checked={form.enabled} onChange={(event) =>
-											setForm((prev) => ({ ...prev, enabled: event.target.checked }))
-										} />
+									<Switch checked={form.enabled} onCheckedChange={(checked: boolean) => setForm((prev) => ({ ...prev, enabled: checked }))} />
 									<p className="text-[0.875rem]">{t("nodes.enabled")}</p>
 								</div>
 								<div className="flex flex-row items-center gap-2">
-									<Switch size="sm" checked={form.prepend} onChange={(event) =>
-											setForm((prev) => ({ ...prev, prepend: event.target.checked }))
-										} />
+									<Switch checked={form.prepend} onCheckedChange={(checked: boolean) => setForm((prev) => ({ ...prev, prepend: checked }))} />
 									<p className="text-[0.875rem]">{t("pages.xray.outboundSub.prepend")}</p>
 								</div>
 								<div className="flex flex-row items-center gap-2">
-									<Switch size="sm" checked={form.allowPrivate} onChange={(event) =>
-											setForm((prev) => ({ ...prev, allowPrivate: event.target.checked }))
-										} />
+									<Switch checked={form.allowPrivate} onCheckedChange={(checked: boolean) => setForm((prev) => ({ ...prev, allowPrivate: checked }))} />
 									<p className="text-[0.875rem]">{t("pages.xray.outboundSub.allowPrivate")}</p>
 								</div>
 							</div>
@@ -361,9 +325,9 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 								<div className="flex flex-wrap mt-3 gap-2">
 									{preview.map((item, index) => (
 										<div key={`${item.tag}-${index}`}>
-											<Tag size="sm" colorScheme="green">
+											<Badge className="bg-green-600 text-white">
 												{item.tag || "-"} · {item.protocol || "-"}
-											</Tag>
+											</Badge>
 										</div>
 									))}
 								</div>
@@ -380,14 +344,14 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 										{t("pages.xray.outboundSub.restartHint")}
 									</p>
 								</div>
-								<Button size="xs" variant="ghost" loading={loading} onClick={load}>{<ArrowPathIcon className="w-[14px]" />}
+								<Button onClick={load} variant="ghost" size="xs" loading={loading}>{<RefreshCw className="w-[14px]" />}
 									{t("refresh")}
 								</Button>
 							</div>
 							<hr className="mb-3 w-full border-0 border-b border-panel-border! opacity-60" />
 							{loading ? (
 								<div className="flex flex-row items-center gap-2 justify-center py-6">
-									<Spinner size="sm" />
+									<Spinner />
 								</div>
 							) : items.length === 0 ? (
 								<p className="text-gray-500 text-[0.875rem]">
@@ -410,8 +374,8 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 											<tr key={item.id}>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
 													<div className="flex flex-row items-center gap-0">
-														<IconButton aria-label={t("a11y.moveUp")} size="xs" variant="ghost" disabled={index === 0 || busyID === item.id} onClick={() => move(item.id, "up")} >{<ArrowUpIcon className="w-[14px]" />}</IconButton>
-														<IconButton aria-label={t("a11y.moveDown")} size="xs" variant="ghost" disabled={index === items.length - 1 || busyID === item.id} onClick={() => move(item.id, "down")} >{<ArrowDownIcon className="w-[14px]" />}</IconButton>
+														<Button aria-label={t("a11y.moveUp")} disabled={index === 0 || busyID === item.id} onClick={() => move(item.id, "up")} variant="ghost" size="xs" className="size-7 p-0">{<ArrowUp className="w-[14px]" />}</Button>
+														<Button aria-label={t("a11y.moveDown")} disabled={index === items.length - 1 || busyID === item.id} onClick={() => move(item.id, "down")} variant="ghost" size="xs" className="size-7 p-0">{<ArrowDown className="w-[14px]" />}</Button>
 													</div>
 												</td>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text max-w-[260px]">
@@ -425,15 +389,18 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 													</p>
 												</td>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
-													<Badge colorScheme="blue">{item.outboundCount ?? 0}</Badge>
+													<Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-200">{item.outboundCount ?? 0}</Badge>
 												</td>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
 													{item.lastError ? (
-														<Tooltip label={item.lastError}>
-															<Badge colorScheme="red">error</Badge>
-														</Tooltip>
+														<Tooltip>
+<TooltipTrigger asChild>
+															<Badge className="bg-destructive/10 text-destructive">error</Badge>
+														</TooltipTrigger>
+<TooltipContent>{item.lastError}</TooltipContent>
+</Tooltip>
 													) : (
-														<Badge colorScheme="green">
+														<Badge className="bg-green-600 text-white">
 															{item.lastUpdated
 																? new Date(item.lastUpdated * 1000).toLocaleString()
 																: t("myaccount.never")}
@@ -441,15 +408,15 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 													)}
 												</td>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
-													<Switch size="sm" checked={!!item.enabled} disabled={busyID === item.id} onChange={() => toggle(item)} />
+													<Switch checked={!!item.enabled} disabled={busyID === item.id} onCheckedChange={() => toggle(item)} />
 												</td>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
 													<div className="flex flex-row items-center gap-1">
-														<Button size="xs" variant="ghost" onClick={() => edit(item)}>
+														<Button onClick={() => edit(item)} variant="ghost" size="xs">
 															{t("edit")}
 														</Button>
-														<IconButton aria-label={t("refresh")} size="xs" variant="ghost" loading={busyID === item.id} onClick={() => refreshOne(item.id)} >{<ArrowPathIcon className="w-[14px]" />}</IconButton>
-														<IconButton aria-label={t("delete")} size="xs" variant="ghost" colorScheme="red" disabled={busyID === item.id} onClick={() => deleteOne(item.id)} >{<TrashIcon className="w-[14px]" />}</IconButton>
+														<Button aria-label={t("refresh")} onClick={() => refreshOne(item.id)} variant="ghost" size="xs" loading={busyID === item.id} className="size-7 p-0">{<RefreshCw className="w-[14px]" />}</Button>
+														<Button aria-label={t("delete")} disabled={busyID === item.id} onClick={() => deleteOne(item.id)} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10 size-7 p-0">{<Trash2 className="w-[14px]" />}</Button>
 													</div>
 												</td>
 											</tr>
@@ -464,25 +431,25 @@ export const OutboundSubscriptionsModal: FC<Props> = ({
 					<div className="flex flex-row items-center w-full justify-between gap-2 flex-wrap">
 						<div>
 							{editingID !== null && (
-								<Button size="sm" variant="ghost" onClick={resetForm}>
+								<Button onClick={resetForm} variant="ghost" size="sm">
 									{t("cancel")}
 								</Button>
 							)}
 						</div>
 						<div className="flex flex-row items-center gap-2 flex-wrap">
-							<Button size="sm" variant="ghost" loading={previewing} onClick={previewURL}>{<EyeIcon className="w-[16px]" />}
+							<Button onClick={previewURL} variant="ghost" size="sm" loading={previewing}>{<Eye className="w-[16px]" />}
 								{t("bulkActions.preview")}
 							</Button>
-							<Button size="sm" colorScheme="primary" loading={saving} onClick={save}>{<PlusIcon className="w-[16px]" />}
+							<Button onClick={save} size="sm" loading={saving}>{<Plus className="w-[16px]" />}
 								{editingID === null ? t("add") : t("save")}
 							</Button>
-							<Button size="sm" variant="ghost" onClick={onClose}>
+							<Button onClick={onClose} variant="ghost" size="sm">
 								{t("close")}
 							</Button>
 						</div>
 					</div>
 				</XrayModalFooter>
 			</XrayModalContent>
-		</Modal>
+		</Dialog>
 	);
 };

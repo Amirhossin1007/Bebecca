@@ -1,7 +1,9 @@
-import { Spinner } from "components/shadcn/feedback";
-import { Checkbox } from "components/shadcn/selection";
-import { Tooltip } from "components/shadcn/tooltip";
-import { QuestionMarkCircleIcon } from "@heroicons/react/24/outline";
+import { Spinner } from "components/ui/spinner";
+import { Checkbox } from "components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { CircleHelp } from "lucide-react";
+
 import { type FC, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -69,7 +71,7 @@ export const PropagationTargets: FC<PropagationTargetsProps> = ({
 	}, [targets, enabledIds, selectedIds, onChange]);
 
 	if (targets === null) {
-		return <Spinner size="sm" />;
+		return <Spinner />;
 	}
 	if (!targets.length) {
 		return (
@@ -95,27 +97,26 @@ export const PropagationTargets: FC<PropagationTargetsProps> = ({
 			<p className="text-[0.875rem] text-panel-text-muted">
 				{t("pages.xray.propagate.hint")}
 			</p>
-			<Checkbox disabled={!enabledIds.length} checked={allSelected} isIndeterminate={someSelected} onChange={() => onChange(allSelected ? [] : enabledIds)}>
-				{t("pages.xray.propagate.selectAll")}
-			</Checkbox>
+			<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox disabled={!enabledIds.length} checked={allSelected || (someSelected ? "indeterminate" : false)} onCheckedChange={() => onChange(allSelected ? [] : enabledIds)} /><span>{t("pages.xray.propagate.selectAll")}</span></label>
 			<div className="flex flex-col gap-2">
 				{targets.map((target) => {
 					const disabled = target.status !== "ok";
 					return (
 						<div key={target.id} className="flex flex-row items-center gap-2 justify-between">
-							<Checkbox disabled={disabled} checked={selectedIds.includes(target.id)} onChange={(event) => toggle(target.id, event.target.checked)}>
-								{target.name || target.id}
-							</Checkbox>
+							<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox disabled={disabled} checked={selectedIds.includes(target.id)} onCheckedChange={(checked: boolean) => toggle(target.id, checked)} /><span>{target.name || target.id}</span></label>
 							{disabled && (
-								<Tooltip label={t(
+								<Tooltip>
+<TooltipTrigger asChild>
+									<span className="text-panel-text-muted cursor-help">
+										<CircleHelp className="w-[16px] h-[16px]" />
+									</span>
+								</TooltipTrigger>
+<TooltipContent>{t(
 										statusMessageKeys[
 											target.status as keyof typeof statusMessageKeys
 										],
-									)}>
-									<span className="text-panel-text-muted cursor-help">
-										<QuestionMarkCircleIcon className="w-[16px] h-[16px]" />
-									</span>
-								</Tooltip>
+									)}</TooltipContent>
+</Tooltip>
 							)}
 						</div>
 					);

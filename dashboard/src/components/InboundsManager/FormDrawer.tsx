@@ -1,23 +1,29 @@
-import { Input as ChakraInput, Select, Textarea as ChakraTextarea } from "components/shadcn/input";
-import { useToast } from "components/shadcn/toast";
-import { FormControl, FormErrorMessage, FormLabel } from "components/shadcn/field";
-import { Tooltip } from "components/shadcn/tooltip";
-import { Checkbox, CheckboxGroup, Radio, RadioGroup, Switch } from "components/shadcn/selection";
-import { Button, IconButton } from "components/shadcn/button";
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
-import { Alert, AlertDescription, AlertIcon, AlertTitle } from "components/shadcn/alert";
-import { Collapse } from "components/shadcn/collapse";
-import { Tag } from "components/shadcn/badge";
-import type { ComponentPropsWithoutRef } from "react";
+import { Field, FieldError, FieldLabel } from "components/ui/field";
+import { Input } from "components/ui/input";
+import { Textarea } from "components/ui/textarea";
+import { Switch } from "components/ui/switch";
+import { Button } from "components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "components/ui/alert";
+import { Checkbox } from "components/ui/checkbox";
+import { Collapsible, CollapsibleContent } from "components/ui/collapsible";
+import { RadioGroup, RadioGroupItem } from "components/ui/radio-group";
+import { NativeSelect } from "components/ui/native-select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { Badge } from "components/ui/badge";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
+
+import { FieldHint } from "components/ui/field-hint";
+import { NumberField } from "components/ui/number-field";
+import { SegmentedControl } from "components/ui/segmented-control";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
+import { buttonVariants } from "components/ui/button";
+import { Loader2, Network, Plus, RefreshCw, Sparkles } from "lucide-react";
+import type { ComponentProps, ComponentPropsWithoutRef } from "react";
 import { cn } from "lib/cn";
 
-import {
-	ArrowPathIcon,
-	InformationCircleIcon,
-	QuestionMarkCircleIcon,
-	SparklesIcon,
-} from "@heroicons/react/24/outline";
 import { JsonEditor } from "components/JsonEditor";
 import { SearchableTagSelect } from "components/common/SearchableTagSelect";
 import { shadowsocksMethods } from "constants/Proxies";
@@ -31,7 +37,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { type Control, Controller, type Path, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { EntityNotePanel } from "components/EntityNotePanel";
 import {
@@ -76,14 +82,55 @@ import {
 	getCustomNodeTargetIds,
 	sortInboundTargets,
 } from "utils/inboundTargets";
-import { NumericInput } from "../common/NumericInput";
 import { DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
-import {
-	XrayModalBody,
-	XrayModalContent,
-	XrayModalFooter,
-	XrayModalHeader,
-} from "../xray/XrayDialog";
+
+const FormLabel = ({ helpKey, className, children, ...props }: ComponentPropsWithoutRef<typeof FieldLabel> & { helpKey?: string }) => {
+	const { t } = useTranslation();
+	return (
+		<FieldLabel {...props} className={cn("font-semibold after:content-none", className)}>
+			<span className="inline-flex items-center gap-1.5">
+				{children}
+				{helpKey ? <FieldHint>{t(helpKey)}</FieldHint> : null}
+			</span>
+		</FieldLabel>
+	);
+};
+
+const FormControl = ({ className, isInvalid, isRequired, required, ...props }: ComponentPropsWithoutRef<typeof Field> & { isInvalid?: boolean; isRequired?: boolean; required?: boolean }) => {
+	const classes = (className ?? "").split(/\s+/);
+	const isToggleRow = classes.includes("flex") && classes.includes("items-center");
+	return (
+		<Field {...props} onClick={(event) => { props.onClick?.(event); const target = event.target as HTMLElement; if (isToggleRow && target.closest("label") && !target.closest("button, input")) event.currentTarget.querySelector<HTMLElement>("[role='switch']")?.click(); }} data-invalid={isInvalid || undefined} className={cn(isToggleRow && "flex flex-row items-center justify-between gap-4 rounded-lg border bg-card/40 px-3 py-2.5", className)} />
+	);
+};
+
+const FormNumberField = ({
+	control,
+	name,
+	rules,
+	...props
+}: Omit<ComponentProps<typeof NumberField>, "value" | "onChange" | "doneLabel"> & {
+	control: Control<InboundFormValues>;
+	name: Path<InboundFormValues>;
+	rules?: { required?: boolean };
+}) => {
+	const { t } = useTranslation();
+	return (
+		<Controller
+			control={control}
+			name={name}
+			rules={rules}
+			render={({ field }) => (
+				<NumberField
+					{...props}
+					value={field.value === undefined || field.value === null ? "" : String(field.value)}
+					onChange={field.onChange}
+					doneLabel={t("common.done")}
+				/>
+			)}
+		/>
+	);
+};
 
 type Props = {
 	open: boolean;
@@ -98,18 +145,6 @@ type Props = {
 	onClone?: () => void;
 	isDeleting?: boolean;
 };
-
-const Input = forwardRef<HTMLInputElement, Omit<ComponentPropsWithoutRef<"input">, "size"> & { disabled?: boolean; readOnly?: boolean }>(
-	({ disabled: isDisabled, readOnly: isReadOnly, ...props }, ref) => <ChakraInput size="sm" ref={ref} disabled={isDisabled} readOnly={isReadOnly} {...props} />,
-);
-Input.displayName = "InboundFormInput";
-
-const Textarea = forwardRef<HTMLTextAreaElement, ComponentPropsWithoutRef<"textarea">>(
-	(props, ref) => (
-		<ChakraTextarea size="sm" ref={ref} {...props} className="resize-y" />
-	),
-);
-Textarea.displayName = "InboundFormTextarea";
 
 const formatRealityKeyForDisplay = (value?: string | null) =>
 	(value ?? "").replace(/\s+/g, "").replace(/=+$/, "");
@@ -306,7 +341,7 @@ export const InboundFormModal: FC<Props> = ({
 	isDeleting,
 }) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const ovLabel = (
 		labelKey: string,
 		labelFallback: string,
@@ -317,9 +352,7 @@ export const InboundFormModal: FC<Props> = ({
 		<FormLabel {...labelProps}>
 			<div className="flex flex-row gap-1.5 items-center">
 				<span>{t(labelKey, labelFallback)}</span>
-				<Tooltip label={t(helpKey, helpFallback)} hasArrow placement="top">
-					<InformationCircleIcon aria-label={t("myaccount.info")} className="size-4 text-gray-500 cursor-help" />
-				</Tooltip>
+				<FieldHint>{t(helpKey, helpFallback)}</FieldHint>
 			</div>
 		</FormLabel>
 	);
@@ -975,7 +1008,7 @@ export const InboundFormModal: FC<Props> = ({
 								? field.value
 								: undefined;
 						return (
-							<NumericInput
+							<NumberField doneLabel={t("common.done")} inputMode="numeric"
 								min={0}
 								value={numberInputValue ?? ""}
 								onChange={(valueString) => field.onChange(valueString)}
@@ -1000,7 +1033,7 @@ export const InboundFormModal: FC<Props> = ({
 								typeof field.value === "boolean"
 									? field.value
 									: Boolean(field.value)
-							} onChange={(event) => field.onChange(event.target.checked)} />
+							} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 					)}
 				/>
 			</FormControl>
@@ -1012,8 +1045,7 @@ export const InboundFormModal: FC<Props> = ({
 		(name: keyof SockoptFormValues, label: string, placeholder?: string) => (
 			<FormControl>
 				<FormLabel>{label}</FormLabel>
-				<Input
-					{...register(`sockopt.${name}` as const)}
+				<Input {...register(`sockopt.${name}` as const)}
 					placeholder={placeholder}
 				/>
 			</FormControl>
@@ -1030,13 +1062,7 @@ export const InboundFormModal: FC<Props> = ({
 		const errors = validateInboundFormValues(values);
 		if (errors.length) {
 			setActiveTab(0);
-			toast({
-				title: t("inbounds.error.invalidConfig"),
-				description: errors[0],
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("inbounds.error.invalidConfig"), { description: errors[0] });
 			return;
 		}
 		await onSubmit(values);
@@ -1055,19 +1081,9 @@ export const InboundFormModal: FC<Props> = ({
 			form.setValue("realityPublicKey", formatRealityKeyForDisplay(publicKey), {
 				shouldDirty: true,
 			});
-			toast({
-				status: "success",
-				title: t("inbounds.reality.generateKeys"),
-				description: "Key pair generated successfully using Xray",
-				duration: 2000,
-				isClosable: true,
-			});
+			toast.success(t("inbounds.reality.generateKeys"), { description: "Key pair generated successfully using Xray", duration: 2000 });
 		} catch (error) {
-			toast({
-				status: "error",
-				title: t("inbounds.reality.generateError"),
-				description: error instanceof Error ? error.message : undefined,
-			});
+			toast.error(t("inbounds.reality.generateError"), { description: error instanceof Error ? error.message : undefined });
 		}
 	}, [form, toast, t]);
 
@@ -1079,10 +1095,7 @@ export const InboundFormModal: FC<Props> = ({
 	const handleGenerateEchCert = useCallback(async () => {
 		const sni = form.getValues("tlsServerName")?.trim();
 		if (!sni) {
-			toast({
-				status: "warning",
-				title: t("inbounds.tls.echMissingSni"),
-			});
+			toast.warning(t("inbounds.tls.echMissingSni"));
 			return;
 		}
 		try {
@@ -1093,18 +1106,9 @@ export const InboundFormModal: FC<Props> = ({
 			form.setValue("tlsEchConfigList", echConfigList ?? "", {
 				shouldDirty: true,
 			});
-			toast({
-				status: "success",
-				title: t("inbounds.tls.echGenerated"),
-				duration: 2000,
-				isClosable: true,
-			});
+			toast.success(t("inbounds.tls.echGenerated"), { duration: 2000 });
 		} catch (error) {
-			toast({
-				status: "error",
-				title: t("inbounds.tls.echError"),
-				description: error instanceof Error ? error.message : undefined,
-			});
+			toast.error(t("inbounds.tls.echError"), { description: error instanceof Error ? error.message : undefined });
 		}
 	}, [form, t, toast]);
 
@@ -1129,18 +1133,9 @@ export const InboundFormModal: FC<Props> = ({
 				shouldDirty: true,
 				shouldValidate: true,
 			});
-			toast({
-				status: "success",
-				title: t("inbounds.openvpn.generateSelfSignedSuccess"),
-				duration: 2500,
-				isClosable: true,
-			});
+			toast.success(t("inbounds.openvpn.generateSelfSignedSuccess"), { duration: 2500 });
 		} catch (error) {
-			toast({
-				status: "error",
-				title: t("inbounds.openvpn.generateSelfSignedError"),
-				description: error instanceof Error ? error.message : undefined,
-			});
+			toast.error(t("inbounds.openvpn.generateSelfSignedError"), { description: error instanceof Error ? error.message : undefined });
 		} finally {
 			setOVCertLoading(false);
 		}
@@ -1175,18 +1170,9 @@ export const InboundFormModal: FC<Props> = ({
 				shouldDirty: true,
 				shouldValidate: true,
 			});
-			toast({
-				status: "success",
-				title: t("inbounds.anyconnect.generateSelfSignedSuccess"),
-				duration: 2500,
-				isClosable: true,
-			});
+			toast.success(t("inbounds.anyconnect.generateSelfSignedSuccess"), { duration: 2500 });
 		} catch (error) {
-			toast({
-				status: "error",
-				title: t("inbounds.anyconnect.generateSelfSignedError"),
-				description: error instanceof Error ? error.message : undefined,
-			});
+			toast.error(t("inbounds.anyconnect.generateSelfSignedError"), { description: error instanceof Error ? error.message : undefined });
 		} finally {
 			setAnyConnectCertLoading(false);
 		}
@@ -1204,18 +1190,9 @@ export const InboundFormModal: FC<Props> = ({
 				shouldDirty: true,
 				shouldValidate: true,
 			});
-			toast({
-				status: "success",
-				title: t("inbounds.wireguard.generateKeysSuccess"),
-				duration: 2500,
-				isClosable: true,
-			});
+			toast.success(t("inbounds.wireguard.generateKeysSuccess"), { duration: 2500 });
 		} catch (error) {
-			toast({
-				status: "error",
-				title: t("inbounds.wireguard.generateKeysError"),
-				description: error instanceof Error ? error.message : undefined,
-			});
+			toast.error(t("inbounds.wireguard.generateKeysError"), { description: error instanceof Error ? error.message : undefined });
 		} finally {
 			setWGKeyLoading(false);
 		}
@@ -1228,18 +1205,9 @@ export const InboundFormModal: FC<Props> = ({
 			form.setValue("realityMldsa65Verify", verify ?? "", {
 				shouldDirty: true,
 			});
-			toast({
-				status: "success",
-				title: t("inbounds.reality.mldsaGenerated"),
-				duration: 2000,
-				isClosable: true,
-			});
+			toast.success(t("inbounds.reality.mldsaGenerated"), { duration: 2000 });
 		} catch (error) {
-			toast({
-				status: "error",
-				title: t("inbounds.reality.mldsaError"),
-				description: error instanceof Error ? error.message : undefined,
-			});
+			toast.error(t("inbounds.reality.mldsaError"), { description: error instanceof Error ? error.message : undefined });
 		}
 	}, [form, t, toast]);
 
@@ -1283,19 +1251,9 @@ export const InboundFormModal: FC<Props> = ({
 			form.setValue("realityShortIds", entries.join(","), {
 				shouldDirty: true,
 			});
-			toast({
-				status: "success",
-				title: t("inbounds.reality.generateShortId"),
-				description: "Short ID generated successfully",
-				duration: 2000,
-				isClosable: true,
-			});
+			toast.success(t("inbounds.reality.generateShortId"), { description: "Short ID generated successfully", duration: 2000 });
 		} catch (error) {
-			toast({
-				status: "error",
-				title: t("inbounds.reality.shortIdError"),
-				description: error instanceof Error ? error.message : undefined,
-			});
+			toast.error(t("inbounds.reality.shortIdError"), { description: error instanceof Error ? error.message : undefined });
 		}
 	}, [form, toast, t]);
 
@@ -1330,10 +1288,7 @@ export const InboundFormModal: FC<Props> = ({
 			return blocks;
 		} catch (error) {
 			console.error(error);
-			toast({
-				status: "error",
-				title: t("inbounds.vless.getKeysError"),
-			});
+			toast.error(t("inbounds.vless.getKeysError"));
 			return [];
 		} finally {
 			setVlessAuthLoading(false);
@@ -1351,10 +1306,7 @@ export const InboundFormModal: FC<Props> = ({
 		(label: string, blocks: VlessEncAuthBlock[]) => {
 			const match = blocks.find((block) => block.label === label);
 			if (!match) {
-				toast({
-					status: "warning",
-					title: t("inbounds.vless.authNotFound"),
-				});
+				toast.warning(t("inbounds.vless.authNotFound"));
 				return;
 			}
 			form.setValue("vlessDecryption", match.decryption ?? "", {
@@ -1385,10 +1337,7 @@ export const InboundFormModal: FC<Props> = ({
 	const handleFetchAuthClick = useCallback(async () => {
 		const label = form.getValues("vlessSelectedAuth");
 		if (!label) {
-			toast({
-				status: "info",
-				title: t("inbounds.vless.selectAuthFirst"),
-			});
+			toast.info(t("inbounds.vless.selectAuthFirst"));
 			return;
 		}
 		const blocks = await fetchVlessAuthBlocks();
@@ -1403,24 +1352,30 @@ export const InboundFormModal: FC<Props> = ({
 		form.setValue("vlessEncryption", "", { shouldDirty: true });
 	}, [form]);
 
+	const vlessAuthRequestedRef = useRef(false);
 	useEffect(() => {
-		if (isOpen && currentProtocol === "vless") {
-			ensureVlessAuthBlocks();
+		if (!isOpen) {
+			vlessAuthRequestedRef.current = false;
+			return;
 		}
-	}, [currentProtocol, ensureVlessAuthBlocks, isOpen]);
+		if (currentProtocol === "vless" && !vlessAuthRequestedRef.current) {
+			vlessAuthRequestedRef.current = true;
+			void fetchVlessAuthBlocks();
+		}
+	}, [currentProtocol, fetchVlessAuthBlocks, isOpen]);
 
+	const vlessDecryptionValue = useWatch({ control, name: "vlessDecryption" }) || "";
+	const showVlessAuthDetails =
+		Boolean(vlessSelectedAuth) || (vlessDecryptionValue !== "" && vlessDecryptionValue !== "none");
 	const vlessAuthenticationSection =
 		currentProtocol === "vless" ? (
-			<div className="flex flex-col gap-3 xray-dialog-section">
-				<p className="text-[0.875rem] font-semibold">
-					{t("inbounds.vless.authentication")}
-				</p>
+			<div className="flex flex-col gap-4 xray-dialog-section">
 				<Controller
 					control={control}
 					name="vlessSelectedAuth"
 					render={({ field }) => (
 						<FormControl>
-							<FormLabel>{t("inbounds.vless.authentication")}</FormLabel>
+							<FormLabel helpKey="inbounds.vless.authenticationHelp">{t("inbounds.vless.authentication")}</FormLabel>
 							<SearchableTagSelect
 								value={field.value || ""}
 								options={[
@@ -1440,48 +1395,68 @@ export const InboundFormModal: FC<Props> = ({
 						</FormControl>
 					)}
 				/>
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-					<FormControl>
-						<FormLabel>{t("inbounds.vless.decryption")}</FormLabel>
-						<Input {...register("vlessDecryption")} />
-					</FormControl>
-					<FormControl>
-						<FormLabel>{t("inbounds.vless.encryption")}</FormLabel>
-						<Input {...register("vlessEncryption")} />
-					</FormControl>
-				</div>
-				<div className="flex flex-row items-center gap-3">
-					<Button variant="solid" size="sm" onClick={handleFetchAuthClick} loading={vlessAuthLoading} disabled={!vlessSelectedAuth}>
-						{t("inbounds.vless.getKeys")}
-					</Button>
-					<Button size="sm" variant="ghost" onClick={handleClearAuth}>
-						{t("clear")}
-					</Button>
-				</div>
+				{showVlessAuthDetails ? (
+					<>
+						<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+							<FormControl>
+								<FormLabel helpKey="inbounds.vless.decryptionHelp">{t("inbounds.vless.decryption")}</FormLabel>
+								<Input {...register("vlessDecryption")} />
+							</FormControl>
+							<FormControl>
+								<FormLabel helpKey="inbounds.vless.encryptionHelp">{t("inbounds.vless.encryption")}</FormLabel>
+								<Input {...register("vlessEncryption")} />
+							</FormControl>
+						</div>
+						<div className="flex flex-row flex-wrap items-center gap-2">
+							<button
+								type="button"
+								onClick={handleFetchAuthClick}
+								disabled={!vlessSelectedAuth || vlessAuthLoading}
+								className={buttonVariants({ variant: "outline", size: "sm" })}
+							>
+								{vlessAuthLoading ? <Loader2 className="size-4 animate-spin" /> : null}
+								{t("inbounds.vless.getKeys")}
+							</button>
+							<button type="button" onClick={handleClearAuth} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+								{t("clear")}
+							</button>
+						</div>
+					</>
+				) : null}
 			</div>
 		) : null;
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="5xl" scrollBehavior="inside" isCentered>
-			<ModalOverlay className="bg-blackAlpha-400" />
-			<XrayModalContent className="max-w-[95vw] md:max-w-[56rem] inbound-form-modal">
-				<XrayModalHeader>
-					{mode === "create"
-						? t("inbounds.add")
-						: mode === "clone"
-							? t("inbounds.cloneTitle")
-							: t("inbounds.edit")}
-				</XrayModalHeader>
-				<ModalCloseButton />
-				<XrayModalBody>
-					<Tabs isLazy lazyBehavior="keepMounted" variant="unstyled" index={activeTab} onChange={(index) => setActiveTab(index)} className="xray-dialog-auto-sections">
-						<TabList>
-							<Tab>{t("form")}</Tab>
-							<Tab>{t("json")}</Tab>
-							<Tab>{t("inbounds.targets")}</Tab>
-						</TabList>
-						<TabPanels>
-							<TabPanel className="px-0">
+		<Dialog
+			open={isOpen}
+			onOpenChange={(next) => {
+				if (!next) onClose();
+			}}
+		>
+			<DialogContent className="flex max-h-[min(860px,calc(100dvh-8rem))] flex-col gap-0 overflow-clip p-0 sm:max-w-4xl max-md:inset-x-3 max-md:top-[4.5rem] max-md:bottom-24 max-md:max-h-none max-md:w-auto max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 inbound-form-modal">
+				<Tabs value={String(activeTab)} onValueChange={(value) => setActiveTab(Number(value))} className="flex min-h-0 flex-1 flex-col">
+					<div className="flex flex-col gap-3 border-b bg-background px-5 pb-3 pt-4 pe-12">
+						<div className="flex min-w-0 items-center gap-3">
+							<div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+								<Network className="size-4" />
+							</div>
+							<div className="min-w-0">
+								<DialogTitle className="truncate text-base font-semibold">
+									{mode === "create" ? t("inbounds.add") : mode === "clone" ? t("inbounds.cloneTitle") : t("inbounds.edit")}
+								</DialogTitle>
+								<DialogDescription className="truncate text-xs text-muted-foreground">
+									{String(currentProtocol).toUpperCase()}
+								</DialogDescription>
+							</div>
+						</div>
+						<TabsList className="grid w-full grid-cols-3">
+							<TabsTrigger value="0">{t("form")}</TabsTrigger>
+							<TabsTrigger value="1">{t("json")}</TabsTrigger>
+							<TabsTrigger value="2">{t("inbounds.targets")}</TabsTrigger>
+						</TabsList>
+					</div>
+					<div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+							<TabsContent value="0" forceMount className="mt-0 data-[state=inactive]:hidden">
 								<div className="flex flex-col items-stretch gap-6">
 									<div className="flex flex-col gap-3 xray-dialog-section">
 										<p className="text-[0.875rem] font-semibold">
@@ -1489,7 +1464,7 @@ export const InboundFormModal: FC<Props> = ({
 										</p>
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 											<FormControl required isInvalid={!!tagError || !!fieldValidationErrors.tag}>
-												<FormLabel>{t("inbounds.tag")}</FormLabel>
+												<FormLabel helpKey="inbounds.tagHelp">{t("inbounds.tag")}</FormLabel>
 												<Input
 													{...register("tag", { required: true })}
 													disabled={isEditMode}
@@ -1501,65 +1476,32 @@ export const InboundFormModal: FC<Props> = ({
 												)}
 											</FormControl>
 											<FormControl>
-												<FormLabel>{t("inbounds.listen")}</FormLabel>
+												<FormLabel helpKey="inbounds.listenHelp">{t("inbounds.listen")}</FormLabel>
 												<Input placeholder="::" {...register("listen")} />
 											</FormControl>
-											<FormControl required isInvalid={Boolean(
-													fieldValidationErrors.usageCoefficient,
-												)}>
-												<FormLabel>{t("inbounds.usageCoefficient")}</FormLabel>
-												<Controller
-													control={control}
-													name="usageCoefficient"
-													render={({ field }) => (
-														<NumericInput
-															value={field.value ?? "1"}
-															onChange={(value) => field.onChange(value)}
-															min={0.01}
-															max={100}
-															step={0.01}
-														/>
-													)}
-												/>
-												<p className="text-[0.75rem] text-gray-500 mt-1">
-													{t("inbounds.usageCoefficientHelp")}
-												</p>
-												{Number(formValues.usageCoefficient) !== 1 && (
-													<Alert status="warning" className="mt-2 rounded-md">
-														<AlertIcon />
-														<AlertDescription className="text-[0.75rem]">
-															{t("inbounds.usageCoefficientNodeWarning")}
-														</AlertDescription>
-													</Alert>
-												)}
-												{fieldValidationErrors.usageCoefficient && (
-													<p className="text-[0.75rem] text-red-500 mt-1">
-														{fieldValidationErrors.usageCoefficient}
-													</p>
-												)}
-											</FormControl>
+											
 										</div>
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 											<FormControl required isInvalid={!!portError || !!fieldValidationErrors.port}>
-												<FormLabel>{t("port")}</FormLabel>
-												<Input placeholder="443" {...register("port", { required: true })} value={portValue} disabled={
-														currentProtocol === "l2tp" ||
-														currentProtocol === "ikev2" ||
-														currentProtocol === "gre" ||
-														currentProtocol === "web"
-													} onChange={(event) => {
-														register("port").onChange(event);
-														form.setValue("port", event.target.value, {
-															shouldDirty: true,
-														});
-													}} className={cn(portWarning && "border-yellow-400! bg-yellow-50 dark:border-yellow-500! dark:bg-yellow-900", "dark:text-white")} />
+												<FormLabel helpKey="portHelp">{t("port")}</FormLabel>
+												<FormNumberField
+													control={control}
+													name="port"
+													rules={{ required: true }}
+													inputMode="numeric"
+													min={1}
+													max={65535}
+													placeholder="443"
+													disabled={currentProtocol === "l2tp" || currentProtocol === "ikev2" || currentProtocol === "gre" || currentProtocol === "web"}
+													invalid={!!portError || !!fieldValidationErrors.port}
+												/>
 												<div className="flex flex-row items-center gap-2 justify-between mt-1">
-													<Button size="xs" variant="ghost" onClick={() => generateRandomPort()} disabled={
+													<Button onClick={() => generateRandomPort()} disabled={
 															currentProtocol === "l2tp" ||
 															currentProtocol === "ikev2" ||
 															currentProtocol === "gre" ||
 															currentProtocol === "web"
-														}>{<SparklesIcon className="w-[16px] h-[16px]" />}
+														} variant="ghost" size="xs">{<Sparkles className="w-[16px] h-[16px]" />}
 														{t("inbounds.randomPort")}
 													</Button>
 												</div>
@@ -1575,7 +1517,7 @@ export const InboundFormModal: FC<Props> = ({
 												)}
 											</FormControl>
 											<FormControl required>
-												<FormLabel>{t("protocol")}</FormLabel>
+												<FormLabel helpKey="protocolHelp">{t("protocol")}</FormLabel>
 												<SearchableTagSelect
 													value={currentProtocol}
 													disabled={mode === "edit"}
@@ -1794,18 +1736,40 @@ export const InboundFormModal: FC<Props> = ({
 													}}
 												/>
 											</FormControl>
-										</div>
-										{currentProtocol === "vmess" && (
-											<FormControl className="flex items-center">
-												<FormLabel className="mb-0">
-													{t("inbounds.vmess.disableInsecure")}
-												</FormLabel>
-												<Switch {...register("disableInsecureEncryption")} />
+											<FormControl required isInvalid={Boolean(
+													fieldValidationErrors.usageCoefficient,
+												)}>
+												<div className="mb-1 flex min-w-0 items-center gap-1.5"><FormLabel className="mb-0">{t("inbounds.usageCoefficient")}</FormLabel><FieldHint>{t("inbounds.usageCoefficientHelp")}</FieldHint></div>
+												<Controller
+													control={control}
+													name="usageCoefficient"
+													render={({ field }) => (
+														<NumberField doneLabel={t("common.done")} inputMode="decimal"
+															value={field.value ?? "1"}
+															onChange={(value) => field.onChange(value)}
+															min={0.01}
+															max={100}
+															step={0.01}
+														/>
+													)}
+												/>
+												{Number(formValues.usageCoefficient) !== 1 && (
+													<Alert className="mt-2 rounded-md">
+														<TriangleAlert className="size-4" aria-hidden="true" />
+														<AlertDescription className="text-[0.75rem]">
+															{t("inbounds.usageCoefficientNodeWarning")}
+														</AlertDescription>
+													</Alert>
+												)}
+												{fieldValidationErrors.usageCoefficient && (
+													<p className="text-[0.75rem] text-red-500 mt-1">
+														{fieldValidationErrors.usageCoefficient}
+													</p>
+												)}
 											</FormControl>
-										)}
-										{currentProtocol === "vless" && (
+											{currentProtocol === "vless" && (
 											<FormControl>
-												<FormLabel>{t("inbounds.vless.flow")}</FormLabel>
+												<FormLabel helpKey="inbounds.vless.flowHelp">{t("inbounds.vless.flow")}</FormLabel>
 												<SearchableTagSelect
 													value={formValues.vlessFlow || ""}
 													options={[
@@ -1829,10 +1793,18 @@ export const InboundFormModal: FC<Props> = ({
 												/>
 											</FormControl>
 										)}
+										</div>
+										{currentProtocol === "vmess" && (
+											<FormControl className="flex items-center">
+												<FormLabel className="mb-0" helpKey="inbounds.vmess.disableInsecureHelp">{t("inbounds.vmess.disableInsecure")}</FormLabel>
+												<Controller control={control} name={"disableInsecureEncryption"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
+											</FormControl>
+										)}
+										
 										{currentProtocol === "shadowsocks" && (
 											<div className="flex flex-col gap-3">
 												<FormControl>
-													<FormLabel>{t("password")}</FormLabel>
+													<FormLabel helpKey="passwordHelp">{t("password")}</FormLabel>
 													<Input
 														type="text"
 														autoComplete="off"
@@ -1841,9 +1813,7 @@ export const InboundFormModal: FC<Props> = ({
 												</FormControl>
 												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 													<FormControl>
-														<FormLabel>
-															{t("inbounds.shadowsocks.method")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.shadowsocks.methodHelp">{t("inbounds.shadowsocks.method")}</FormLabel>
 														<SearchableTagSelect
 															value={formValues.shadowsocksMethod || ""}
 															options={shadowsocksMethods}
@@ -1861,9 +1831,7 @@ export const InboundFormModal: FC<Props> = ({
 														/>
 													</FormControl>
 													<FormControl>
-														<FormLabel>
-															{t("inbounds.shadowsocks.network")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.shadowsocks.networkHelp">{t("inbounds.shadowsocks.network")}</FormLabel>
 														<SearchableTagSelect
 															value={formValues.shadowsocksNetwork || ""}
 															options={shadowsocksNetworkOptions}
@@ -1884,10 +1852,8 @@ export const InboundFormModal: FC<Props> = ({
 													</FormControl>
 												</div>
 												<FormControl className="flex items-center">
-													<FormLabel className="mb-0">
-														{t("inbounds.shadowsocks.ivCheck")}
-													</FormLabel>
-													<Switch {...register("shadowsocksIvCheck")} />
+													<FormLabel className="mb-0" helpKey="inbounds.shadowsocks.ivCheckHelp">{t("inbounds.shadowsocks.ivCheck")}</FormLabel>
+													<Controller control={control} name={"shadowsocksIvCheck"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 												</FormControl>
 											</div>
 										)}
@@ -1897,9 +1863,9 @@ export const InboundFormModal: FC<Props> = ({
 													<p className="font-medium">
 														{t("inbounds.http.accounts")}
 													</p>
-													<Button variant="solid" size="xs" onClick={() =>
+													<Button onClick={() =>
 															appendHttpAccount({ user: "", pass: "" })
-														}>
+														} size="xs">
 														{t("inbounds.accounts.add")}
 													</Button>
 												</div>
@@ -1910,13 +1876,13 @@ export const InboundFormModal: FC<Props> = ({
 																<p className="font-semibold">
 																	{t("inbounds.accounts.label")} #{index + 1}
 																</p>
-																<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeHttpAccount(index)}>
+																<Button onClick={() => removeHttpAccount(index)} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10">
 																	{t("delete")}
 																</Button>
 															</div>
 															<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																<FormControl>
-																	<FormLabel>{t("username")}</FormLabel>
+																	<FormLabel helpKey="usernameHelp">{t("username")}</FormLabel>
 																	<Input
 																		{...register(
 																			`httpAccounts.${index}.user` as const,
@@ -1924,7 +1890,7 @@ export const InboundFormModal: FC<Props> = ({
 																	/>
 																</FormControl>
 																<FormControl>
-																	<FormLabel>{t("password")}</FormLabel>
+																	<FormLabel helpKey="passwordHelp">{t("password")}</FormLabel>
 																	<Input
 																		{...register(
 																			`httpAccounts.${index}.pass` as const,
@@ -1941,24 +1907,20 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 												</div>
 												<FormControl className="flex items-center">
-													<FormLabel className="mb-0">
-														{t("inbounds.http.allowTransparent")}
-													</FormLabel>
-													<Switch {...register("httpAllowTransparent")} />
+													<FormLabel className="mb-0" helpKey="inbounds.http.allowTransparentHelp">{t("inbounds.http.allowTransparent")}</FormLabel>
+													<Controller control={control} name={"httpAllowTransparent"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 												</FormControl>
 											</div>
 										)}
 										{currentProtocol === "socks" && (
 											<div className="flex flex-col gap-3">
 												<FormControl className="flex items-center">
-													<FormLabel className="mb-0">
-														{t("inbounds.socks.udp")}
-													</FormLabel>
-													<Switch {...register("socksUdpEnabled")} />
+													<FormLabel className="mb-0" helpKey="inbounds.socks.udpHelp">{t("inbounds.socks.udp")}</FormLabel>
+													<Controller control={control} name={"socksUdpEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 												</FormControl>
 												{socksUdpEnabled && (
 													<FormControl>
-														<FormLabel>{t("inbounds.socks.udpIp")}</FormLabel>
+														<FormLabel helpKey="inbounds.socks.udpIpHelp">{t("inbounds.socks.udpIp")}</FormLabel>
 														<Input
 															{...register("socksUdpIp")}
 															placeholder="127.0.0.1"
@@ -1966,20 +1928,16 @@ export const InboundFormModal: FC<Props> = ({
 													</FormControl>
 												)}
 												<FormControl className="flex items-center">
-													<FormLabel className="mb-0">
-														{t("inbounds.socks.auth")}
-													</FormLabel>
+													<FormLabel className="mb-0" helpKey="inbounds.socks.authHelp">{t("inbounds.socks.auth")}</FormLabel>
 													<Controller
 														control={control}
 														name="socksAuth"
 														render={({ field }) => (
-															<Switch checked={field.value === "password"} onChange={(event) =>
-																	field.onChange(
-																		event.target.checked
+															<Switch checked={field.value === "password"} onCheckedChange={(checked: boolean) => field.onChange(
+																		checked
 																			? "password"
 																			: "noauth",
-																	)
-																} />
+																	)} />
 														)}
 													/>
 												</FormControl>
@@ -1989,9 +1947,9 @@ export const InboundFormModal: FC<Props> = ({
 															<p className="font-medium">
 																{t("inbounds.socks.accounts")}
 															</p>
-															<Button variant="solid" size="xs" onClick={() =>
+															<Button onClick={() =>
 																	appendSocksAccount({ user: "", pass: "" })
-																}>
+																} size="xs">
 																{t("inbounds.accounts.add")}
 															</Button>
 														</div>
@@ -2001,13 +1959,13 @@ export const InboundFormModal: FC<Props> = ({
 																	<p className="font-semibold">
 																		{t("inbounds.accounts.label")} #{index + 1}
 																	</p>
-																	<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeSocksAccount(index)}>
+																	<Button onClick={() => removeSocksAccount(index)} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10">
 																		{t("delete")}
 																	</Button>
 																</div>
 																<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																	<FormControl>
-																		<FormLabel>{t("username")}</FormLabel>
+																		<FormLabel helpKey="usernameHelp">{t("username")}</FormLabel>
 																		<Input
 																			{...register(
 																				`socksAccounts.${index}.user` as const,
@@ -2015,7 +1973,7 @@ export const InboundFormModal: FC<Props> = ({
 																		/>
 																	</FormControl>
 																	<FormControl>
-																		<FormLabel>{t("password")}</FormLabel>
+																		<FormLabel helpKey="passwordHelp">{t("password")}</FormLabel>
 																		<Input
 																			{...register(
 																				`socksAccounts.${index}.pass` as const,
@@ -2036,8 +1994,8 @@ export const InboundFormModal: FC<Props> = ({
 										)}
 										{currentProtocol === "ssh" && (
 											<div className="flex flex-col gap-4">
-												<Alert status="warning" className="rounded-md">
-													<AlertIcon />
+												<Alert className="rounded-md">
+													<TriangleAlert className="size-4" aria-hidden="true" />
 													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.ssh.securityHelp")}
 													</AlertDescription>
@@ -2046,52 +2004,34 @@ export const InboundFormModal: FC<Props> = ({
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.sshUserLimit,
 														)}>
-														<FormLabel>{t("inbounds.ssh.userLimit")}</FormLabel>
-														<NumericInput
-															value={formValues.sshUserLimit}
+														<FormLabel helpKey="inbounds.ssh.userLimitHelp">{t("inbounds.ssh.userLimit")}</FormLabel>
+														<FormNumberField control={control} name="sshUserLimit" inputMode="numeric"
 															min={0}
 															max={64}
-															fieldProps={{ ...register("sshUserLimit") }}
-															onChange={(value) =>
-																form.setValue("sshUserLimit", value, {
-																	shouldDirty: true,
-																	shouldValidate: true,
-																})
-															}
-														/>
-														<FormErrorMessage>
+															/>
+														<FieldError>
 															{fieldValidationErrors.sshUserLimit}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.sshIdleTimeout,
 														)}>
-														<FormLabel>
-															{t("inbounds.ssh.idleTimeout")}
-														</FormLabel>
-														<NumericInput
-															value={formValues.sshIdleTimeout}
+														<FormLabel helpKey="inbounds.ssh.idleTimeoutHelp">{t("inbounds.ssh.idleTimeout")}</FormLabel>
+														<FormNumberField control={control} name="sshIdleTimeout" inputMode="numeric"
 															min={30}
 															max={86400}
-															fieldProps={{ ...register("sshIdleTimeout") }}
-															onChange={(value) =>
-																form.setValue("sshIdleTimeout", value, {
-																	shouldDirty: true,
-																	shouldValidate: true,
-																})
-															}
-														/>
-														<FormErrorMessage>
+															/>
+														<FieldError>
 															{fieldValidationErrors.sshIdleTimeout}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 												</div>
 											</div>
 										)}
 										{currentProtocol === "mtproto" && (
 											<div className="flex flex-col gap-4">
-												<Alert status="info" className="rounded-md">
-													<AlertIcon />
+												<Alert className="rounded-md">
+													<Info className="size-4" aria-hidden="true" />
 													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.mtproto.inboundOnlyHelp")}
 													</AlertDescription>
@@ -2100,124 +2040,87 @@ export const InboundFormModal: FC<Props> = ({
 													<FormControl required isInvalid={Boolean(
 															fieldValidationErrors.mtPublicHost,
 														)}>
-														<FormLabel>
-															{t("inbounds.mtproto.publicHost")}
-														</FormLabel>
-														<Input
-															{...register("mtPublicHost")}
+														<FormLabel helpKey="inbounds.mtproto.publicHostHelp">{t("inbounds.mtproto.publicHost")}</FormLabel>
+														<Input {...register("mtPublicHost")}
 															placeholder="proxy.example.com"
 														/>
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.mtPublicHost}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl required isInvalid={Boolean(fieldValidationErrors.mtSecret)}>
-														<FormLabel>
-															{t("inbounds.mtproto.secret")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.mtproto.secretHelp">{t("inbounds.mtproto.secret")}</FormLabel>
 														<div className="flex flex-row items-center gap-2">
 															<Input {...register("mtSecret")} className="font-mono" />
-															<IconButton variant="solid" aria-label={t("inbounds.generateSecret")} size="sm" onClick={() =>
+															<Button aria-label={t("inbounds.generateSecret")} onClick={() =>
 																	form.setValue("mtSecret", randomHex(32), {
 																		shouldDirty: true,
 																		shouldValidate: true,
 																	})
-																} >{<SparklesIcon className="w-[16px]" />}</IconButton>
+																} size="sm" className="size-8 p-0">{<Sparkles className="w-[16px]" />}</Button>
 														</div>
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.mtSecret}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.mtSponsorTag,
 														)}>
-														<FormLabel>
-															{t("inbounds.mtproto.sponsorTag")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.mtproto.sponsorTagHelp">{t("inbounds.mtproto.sponsorTag")}</FormLabel>
 														<Input {...register("mtSponsorTag")} className="font-mono" />
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.mtSponsorTag}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.mtTLSDomain,
 														)}>
-														<FormLabel>
-															{t("inbounds.mtproto.tlsDomain")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.mtproto.tlsDomainHelp">{t("inbounds.mtproto.tlsDomain")}</FormLabel>
 														<Input
 															{...register("mtTLSDomain")}
 															disabled={!formValues.mtModeTLS}
 															placeholder="www.google.com"
 														/>
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.mtTLSDomain}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.mtUserLimit,
 														)}>
-														<FormLabel>
-															{t("inbounds.mtproto.userLimit")}
-														</FormLabel>
-														<NumericInput
-															value={formValues.mtUserLimit}
+														<FormLabel helpKey="inbounds.mtproto.userLimitHelp">{t("inbounds.mtproto.userLimit")}</FormLabel>
+														<FormNumberField control={control} name="mtUserLimit" inputMode="numeric"
 															min={0}
 															max={64}
-															fieldProps={{ ...register("mtUserLimit") }}
-															onChange={(value) =>
-																form.setValue("mtUserLimit", value, {
-																	shouldDirty: true,
-																	shouldValidate: true,
-																})
-															}
-														/>
-														<FormErrorMessage>
+															/>
+														<FieldError>
 															{fieldValidationErrors.mtUserLimit}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.mtMaxConnections,
 														)}>
-														<FormLabel>
-															{t("inbounds.mtproto.maxConnections")}
-														</FormLabel>
-														<NumericInput
-															value={formValues.mtMaxConnections}
+														<FormLabel helpKey="inbounds.mtproto.maxConnectionsHelp">{t("inbounds.mtproto.maxConnections")}</FormLabel>
+														<FormNumberField control={control} name="mtMaxConnections" inputMode="numeric"
 															min={0}
-															fieldProps={{ ...register("mtMaxConnections") }}
-															onChange={(value) =>
-																form.setValue("mtMaxConnections", value, {
-																	shouldDirty: true,
-																	shouldValidate: true,
-																})
-															}
-														/>
-														<FormErrorMessage>
+															/>
+														<FieldError>
 															{fieldValidationErrors.mtMaxConnections}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 												</div>
 												<FormControl isInvalid={Boolean(
 														fieldValidationErrors.mtModeClassic,
 													)}>
-													<FormLabel>
-														{t("inbounds.mtproto.connectionModes")}
-													</FormLabel>
+													<FormLabel helpKey="inbounds.mtproto.connectionModesHelp">{t("inbounds.mtproto.connectionModes")}</FormLabel>
 													<div className="flex flex-row items-center gap-6 flex-wrap">
-														<Checkbox {...register("mtModeClassic")}>
-															{t("inbounds.mtproto.modeClassic")}
-														</Checkbox>
-														<Checkbox {...register("mtModeSecure")}>
-															{t("inbounds.mtproto.modeSecure")}
-														</Checkbox>
-														<Checkbox {...register("mtModeTLS")}>
-															{t("inbounds.mtproto.modeTLS")}
-														</Checkbox>
+														<label className="flex cursor-pointer items-center gap-2 text-sm"><Controller control={control} name={"mtModeClassic"} render={({ field }) => <Checkbox checked={Boolean(field.value)} onCheckedChange={field.onChange} />} /><span>{t("inbounds.mtproto.modeClassic")}</span></label>
+														<label className="flex cursor-pointer items-center gap-2 text-sm"><Controller control={control} name={"mtModeSecure"} render={({ field }) => <Checkbox checked={Boolean(field.value)} onCheckedChange={field.onChange} />} /><span>{t("inbounds.mtproto.modeSecure")}</span></label>
+														<label className="flex cursor-pointer items-center gap-2 text-sm"><Controller control={control} name={"mtModeTLS"} render={({ field }) => <Checkbox checked={Boolean(field.value)} onCheckedChange={field.onChange} />} /><span>{t("inbounds.mtproto.modeTLS")}</span></label>
 													</div>
-													<FormErrorMessage>
+													<FieldError>
 														{fieldValidationErrors.mtModeClassic}
-													</FormErrorMessage>
+													</FieldError>
 												</FormControl>
 												{formValues.mtPublicHost && (
 													<div className="flex flex-col gap-1">
@@ -2246,8 +2149,8 @@ export const InboundFormModal: FC<Props> = ({
 										)}
 										{currentProtocol === "web" && (
 											<div className="flex flex-col gap-4">
-												<Alert status="warning" className="rounded-md">
-													<AlertIcon />
+												<Alert className="rounded-md">
+													<TriangleAlert className="size-4" aria-hidden="true" />
 													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.web.dedicatedNodeHelp")}
 													</AlertDescription>
@@ -2256,55 +2159,49 @@ export const InboundFormModal: FC<Props> = ({
 													<FormControl required isInvalid={Boolean(
 															fieldValidationErrors.webHostname,
 														)}>
-														<FormLabel>{t("inbounds.web.hostname")}</FormLabel>
-														<Input
-															{...register("webHostname")}
+														<FormLabel helpKey="inbounds.web.hostnameHelp">{t("inbounds.web.hostname")}</FormLabel>
+														<Input {...register("webHostname")}
 															placeholder="proxy.example.com"
 														/>
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.webHostname}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl required isInvalid={Boolean(
 															fieldValidationErrors.webACMEEmail,
 														)}>
-														<FormLabel>{t("inbounds.web.acmeEmail")}</FormLabel>
+														<FormLabel helpKey="inbounds.web.acmeEmailHelp">{t("inbounds.web.acmeEmail")}</FormLabel>
 														<Input type="email" {...register("webACMEEmail")} />
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.webACMEEmail}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl required isInvalid={Boolean(fieldValidationErrors.webSecret)}>
-														<FormLabel>{t("inbounds.web.secret")}</FormLabel>
+														<FormLabel helpKey="inbounds.web.secretHelp">{t("inbounds.web.secret")}</FormLabel>
 														<div className="flex flex-row items-center gap-2">
 															<Input {...register("webSecret")} className="font-mono" />
-															<IconButton variant="solid" aria-label={t("inbounds.generateSecret")} size="sm" onClick={() =>
+															<Button aria-label={t("inbounds.generateSecret")} onClick={() =>
 																	form.setValue("webSecret", randomHex(32), {
 																		shouldDirty: true,
 																		shouldValidate: true,
 																	})
-																} >{<SparklesIcon className="w-[16px]" />}</IconButton>
+																} size="sm" className="size-8 p-0">{<Sparkles className="w-[16px]" />}</Button>
 														</div>
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.webSecret}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.webSiteUpstream,
 														)}>
-														<FormLabel>
-															{t("inbounds.web.siteUpstream")}
-														</FormLabel>
+														<div className="mb-1 flex min-w-0 items-center gap-1.5"><FormLabel className="mb-0">{t("inbounds.web.siteUpstream")}</FormLabel><FieldHint>{t("inbounds.web.siteUpstreamHelp")}</FieldHint></div>
 														<Input
 															{...register("webSiteUpstream")}
 															placeholder="http://127.0.0.1:3000"
 														/>
-														<p className="text-[0.75rem] text-gray-500 mt-1">
-															{t("inbounds.web.siteUpstreamHelp")}
-														</p>
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.webSiteUpstream}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 												</div>
 												{formValues.webHostname && (
@@ -2435,7 +2332,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Push the default route to clients so all client traffic enters the VPN.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("ovRedirectGateway")} />
+														<Controller control={control} name={"ovRedirectGateway"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -2445,7 +2342,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Forward OpenVPN client traffic into Xray so routing rules and Xray outbounds apply. Disable for direct NAT egress from the node.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("ovTproxyEnabled")} />
+														<Controller control={control} name={"ovTproxyEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -2455,7 +2352,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Require OpenVPN data channel offload on the node. If the kernel or OpenVPN build cannot use DCO, this inbound is rejected instead of falling back.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("ovRequireDCO")} />
+														<Controller control={control} name={"ovRequireDCO"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -2465,7 +2362,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Record OpenVPN session traffic and report it to the same Rebecca user quota/accounting pipeline.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("ovAccountingEnabled")} />
+														<Controller control={control} name={"ovAccountingEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 												</div>
 												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2477,7 +2374,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Include the CA certificate inside generated .ovpn files. Disable only if clients will receive the CA by another secure method.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("ovInlineCA")} />
+														<Controller control={control} name={"ovInlineCA"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -2487,7 +2384,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Add setenv CLIENT_CERT 0 so OpenVPN Connect does not ask for a separate client certificate.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("ovSetClientCertNone")} />
+														<Controller control={control} name={"ovSetClientCertNone"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -2497,7 +2394,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Add auth-nocache so the client does not keep the VPN password in memory after authentication.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("ovAuthNoCache")} />
+														<Controller control={control} name={"ovAuthNoCache"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -2507,7 +2404,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Include username and generated password inside the .ovpn profile. Disable to make clients ask for credentials.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("ovEmbedCredentials")} />
+														<Controller control={control} name={"ovEmbedCredentials"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -2517,7 +2414,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Add route-nopull so clients connect but ignore routes pushed by the server.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("ovRouteNoPull")} />
+														<Controller control={control} name={"ovRouteNoPull"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -2527,7 +2424,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Add block-outside-dns for Windows clients to reduce DNS leaks outside the VPN.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("ovBlockOutsideDNS")} />
+														<Controller control={control} name={"ovBlockOutsideDNS"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 												</div>
 												<FormControl isInvalid={Boolean(
@@ -2550,7 +2447,7 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 												</FormControl>
 												<div>
-													<Button variant="solid" size="sm" onClick={handleGenerateOVSelfSigned} loading={ovCertLoading}>{<SparklesIcon className="w-[16px]" />}
+													<Button onClick={handleGenerateOVSelfSigned} size="sm" loading={ovCertLoading}>{<Sparkles className="w-[16px]" />}
 														{t("inbounds.openvpn.generateSelfSigned")}
 													</Button>
 												</div>
@@ -2719,7 +2616,7 @@ export const InboundFormModal: FC<Props> = ({
 															"inbounds.wireguard.help.mtu",
 															"WireGuard interface MTU. 1420 is the common default; lower it only for path-specific fragmentation issues.",
 														)}
-														<Input {...register("wgMTU")} placeholder="1420" />
+														<FormNumberField control={control} name="wgMTU" inputMode="numeric" placeholder="1420" />
 														{fieldValidationErrors.wgMTU && (
 															<p className="text-[0.75rem] text-red-500 mt-1">
 																{fieldValidationErrors.wgMTU}
@@ -2748,8 +2645,8 @@ export const InboundFormModal: FC<Props> = ({
 												</FormControl>
 												{currentProtocol === "amneziawg" && (
 													<div className="flex flex-col gap-3">
-														<Alert status="info" className="rounded-md">
-															<AlertIcon />
+														<Alert className="rounded-md">
+															<Info className="size-4" aria-hidden="true" />
 															<AlertDescription className="text-[0.875rem]">
 																{t("inbounds.amneziawg.help")}
 															</AlertDescription>
@@ -2794,7 +2691,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Forward WireGuard client traffic into Xray so routing rules and Xray outbounds apply. Disable for direct NAT egress from the node.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("wgTproxyEnabled")} />
+														<Controller control={control} name={"wgTproxyEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -2804,11 +2701,11 @@ export const InboundFormModal: FC<Props> = ({
 															"Record WireGuard peer traffic and report it to the same Rebecca user quota/accounting pipeline.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("wgAccountingEnabled")} />
+														<Controller control={control} name={"wgAccountingEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 												</div>
 												<div>
-													<Button variant="solid" size="sm" onClick={handleGenerateWGKeypair} loading={wgKeyLoading}>{<SparklesIcon className="w-[16px]" />}
+													<Button onClick={handleGenerateWGKeypair} size="sm" loading={wgKeyLoading}>{<Sparkles className="w-[16px]" />}
 														{t("inbounds.wireguard.generateKeys")}
 													</Button>
 												</div>
@@ -2841,8 +2738,8 @@ export const InboundFormModal: FC<Props> = ({
 										)}
 										{currentProtocol === "sstp" && (
 											<div className="flex flex-col gap-4">
-												<Alert status="info" className="rounded-md">
-													<AlertIcon />
+												<Alert className="rounded-md">
+													<Info className="size-4" aria-hidden="true" />
 													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.sstp.help")}
 													</AlertDescription>
@@ -2851,36 +2748,34 @@ export const InboundFormModal: FC<Props> = ({
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.raIPv4Pool,
 														)}>
-														<FormLabel>{t("inbounds.sstp.ipv4Pool")}</FormLabel>
+														<FormLabel helpKey="inbounds.sstp.ipv4PoolHelp">{t("inbounds.sstp.ipv4Pool")}</FormLabel>
 														<Input
 															{...register("raIPv4Pool")}
 															placeholder="10.72.0.0/16"
 														/>
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.raIPv4Pool}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.raTunnelPort,
 														)}>
-														<FormLabel>
-															{t("inbounds.sstp.tunnelPort")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.sstp.tunnelPortHelp">{t("inbounds.sstp.tunnelPort")}</FormLabel>
 														<Input
 															{...register("raTunnelPort")}
 															disabled={!raTproxyEnabled}
 														/>
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.raTunnelPort}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl>
-														<FormLabel>{t("inbounds.sstp.mtu")}</FormLabel>
-														<Input {...register("raMTU")} placeholder="1400" />
+														<FormLabel helpKey="inbounds.sstp.mtuHelp">{t("inbounds.sstp.mtu")}</FormLabel>
+														<FormNumberField control={control} name="raMTU" inputMode="numeric" placeholder="1400" />
 													</FormControl>
 												</div>
 												<FormControl>
-													<FormLabel>{t("inbounds.sstp.dns")}</FormLabel>
+													<FormLabel helpKey="inbounds.sstp.dnsHelp">{t("inbounds.sstp.dns")}</FormLabel>
 													<Textarea
 														{...register("raDNSServers")}
 														rows={2}
@@ -2889,45 +2784,39 @@ export const InboundFormModal: FC<Props> = ({
 												</FormControl>
 												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 													<FormControl className="flex items-center">
-														<FormLabel className="mb-0">
-															{t("inbounds.routeThroughXray")}
-														</FormLabel>
-														<Switch {...register("raTproxyEnabled")} />
+														<FormLabel className="mb-0" helpKey="inbounds.routeThroughXrayHelp">{t("inbounds.routeThroughXray")}</FormLabel>
+														<Controller control={control} name={"raTproxyEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
-														<FormLabel className="mb-0">
-															{t("inbounds.enableAccounting")}
-														</FormLabel>
-														<Switch {...register("raAccountingEnabled")} />
+														<FormLabel className="mb-0" helpKey="inbounds.enableAccountingHelp">{t("inbounds.enableAccounting")}</FormLabel>
+														<Controller control={control} name={"raAccountingEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 												</div>
 												<FormControl required isInvalid={Boolean(
 														fieldValidationErrors.raServerCertificate,
 													)}>
-													<FormLabel>
-														{t("inbounds.sstp.serverCertificate")}
-													</FormLabel>
+													<FormLabel helpKey="inbounds.sstp.serverCertificateHelp">{t("inbounds.sstp.serverCertificate")}</FormLabel>
 													<Textarea
 														{...register("raServerCertificate")}
 														rows={4}
 													/>
-													<FormErrorMessage>
+													<FieldError>
 														{fieldValidationErrors.raServerCertificate}
-													</FormErrorMessage>
+													</FieldError>
 												</FormControl>
 												<FormControl required isInvalid={Boolean(fieldValidationErrors.raServerKey)}>
-													<FormLabel>{t("inbounds.sstp.serverKey")}</FormLabel>
+													<FormLabel helpKey="inbounds.sstp.serverKeyHelp">{t("inbounds.sstp.serverKey")}</FormLabel>
 													<Textarea {...register("raServerKey")} rows={4} />
-													<FormErrorMessage>
+													<FieldError>
 														{fieldValidationErrors.raServerKey}
-													</FormErrorMessage>
+													</FieldError>
 												</FormControl>
 											</div>
 										)}
 										{currentProtocol === "gre" && (
 											<div className="flex flex-col gap-4">
-												<Alert status="warning" className="rounded-md">
-													<AlertIcon />
+												<Alert className="rounded-md">
+													<TriangleAlert className="size-4" aria-hidden="true" />
 													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.gre.help")}
 													</AlertDescription>
@@ -2936,66 +2825,58 @@ export const InboundFormModal: FC<Props> = ({
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.raIPv4Pool,
 														)}>
-														<FormLabel>{t("inbounds.gre.ipv4Pool")}</FormLabel>
+														<FormLabel helpKey="inbounds.gre.ipv4PoolHelp">{t("inbounds.gre.ipv4Pool")}</FormLabel>
 														<Input
 															{...register("raIPv4Pool")}
 															placeholder="10.74.0.0/16"
 														/>
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.raIPv4Pool}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.raTunnelPort,
 														)}>
-														<FormLabel>
-															{t("inbounds.gre.tunnelPort")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.gre.tunnelPortHelp">{t("inbounds.gre.tunnelPort")}</FormLabel>
 														<Input
 															{...register("raTunnelPort")}
 															disabled={!raTproxyEnabled}
 														/>
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.raTunnelPort}
-														</FormErrorMessage>
+														</FieldError>
 													</FormControl>
 													<FormControl isInvalid={Boolean(
 															fieldValidationErrors.greLocalAddress,
 													)}>
-														<FormLabel>
-															{t("inbounds.gre.localAddress")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.gre.localAddressHelp">{t("inbounds.gre.localAddress")}</FormLabel>
 														<Input
 															{...register("greLocalAddress")}
 															placeholder="203.0.113.10"
 														/>
-														<FormErrorMessage>
+														<FieldError>
 															{fieldValidationErrors.greLocalAddress}
-														</FormErrorMessage>
+														</FieldError>
 												</FormControl>
 													<div className="grid grid-cols-2 gap-3">
 														<FormControl isInvalid={Boolean(fieldValidationErrors.greMTU)}>
-															<FormLabel>{t("inbounds.gre.mtu")}</FormLabel>
-															<Input {...register("greMTU")} />
+															<FormLabel helpKey="inbounds.gre.mtuHelp">{t("inbounds.gre.mtu")}</FormLabel>
+															<FormNumberField control={control} name="greMTU" inputMode="numeric" />
 														</FormControl>
 														<FormControl isInvalid={Boolean(fieldValidationErrors.greTTL)}>
-															<FormLabel>{t("inbounds.gre.ttl")}</FormLabel>
-															<Input {...register("greTTL")} />
+															<FormLabel helpKey="inbounds.gre.ttlHelp">{t("inbounds.gre.ttl")}</FormLabel>
+															<FormNumberField control={control} name="greTTL" inputMode="numeric" />
 														</FormControl>
 													</div>
 												</div>
 												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 													<FormControl className="flex items-center">
-														<FormLabel className="mb-0">
-															{t("inbounds.routeThroughXray")}
-														</FormLabel>
-														<Switch {...register("raTproxyEnabled")} />
+														<FormLabel className="mb-0" helpKey="inbounds.routeThroughXrayHelp">{t("inbounds.routeThroughXray")}</FormLabel>
+														<Controller control={control} name={"raTproxyEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
-														<FormLabel className="mb-0">
-															{t("inbounds.enableAccounting")}
-														</FormLabel>
-														<Switch {...register("raAccountingEnabled")} />
+														<FormLabel className="mb-0" helpKey="inbounds.enableAccountingHelp">{t("inbounds.enableAccounting")}</FormLabel>
+														<Controller control={control} name={"raAccountingEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 												</FormControl>
 												</div>
 											</div>
@@ -3003,8 +2884,8 @@ export const InboundFormModal: FC<Props> = ({
 										{(currentProtocol === "ikev2" ||
 											currentProtocol === "anyconnect") && (
 											<div className="flex flex-col gap-3">
-												<Alert status="info" className="rounded-md">
-													<AlertIcon />
+												<Alert className="rounded-md">
+													<Info className="size-4" aria-hidden="true" />
 													<AlertDescription className="text-[0.875rem]">
 														{currentProtocol === "ikev2"
 															? t("inbounds.ikev2.ports")
@@ -3104,10 +2985,7 @@ export const InboundFormModal: FC<Props> = ({
 																"inbounds.remoteAccess.help.mtu",
 																"Tunnel MTU. 1400 is a compatible default for Internet paths.",
 															)}
-															<Input
-																{...register("raMTU")}
-																placeholder="1400"
-															/>
+															<FormNumberField control={control} name="raMTU" inputMode="numeric" placeholder="1400" />
 														</FormControl>
 													)}
 												</div>
@@ -3133,7 +3011,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Apply Xray routing and outbounds to this inbound.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("raTproxyEnabled")} />
+														<Controller control={control} name={"raTproxyEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -3143,7 +3021,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Report live usage to Rebecca quota accounting.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("raAccountingEnabled")} />
+														<Controller control={control} name={"raAccountingEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -3153,7 +3031,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Route all client traffic through the tunnel.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("raRedirectGateway")} />
+														<Controller control={control} name={"raRedirectGateway"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 												</div>
 												{currentProtocol === "anyconnect" && (
@@ -3177,7 +3055,7 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 														</FormControl>
 														<div>
-															<Button variant="solid" size="sm" onClick={handleGenerateAnyConnectSelfSigned} loading={anyConnectCertLoading}>{<SparklesIcon className="w-[16px]" />}
+															<Button onClick={handleGenerateAnyConnectSelfSigned} size="sm" loading={anyConnectCertLoading}>{<Sparkles className="w-[16px]" />}
 																{t("inbounds.anyconnect.generateSelfSigned")}
 															</Button>
 														</div>
@@ -3335,7 +3213,7 @@ export const InboundFormModal: FC<Props> = ({
 																	"Allow clients to change networks without reconnecting.",
 																	{ className: "mb-0" },
 																)}
-																<Switch {...register("ikeMobike")} />
+																<Controller control={control} name={"ikeMobike"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 															</FormControl>
 															<FormControl className="flex items-center">
 																{ovLabel(
@@ -3345,7 +3223,7 @@ export const InboundFormModal: FC<Props> = ({
 																	"Require full authentication when the IKE SA lifetime expires.",
 																	{ className: "mb-0" },
 																)}
-																<Switch {...register("ikeReauth")} />
+																<Controller control={control} name={"ikeReauth"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 															</FormControl>
 															<FormControl className="flex items-center">
 																{ovLabel(
@@ -3355,7 +3233,7 @@ export const InboundFormModal: FC<Props> = ({
 																	"Send the server certificate during authentication.",
 																	{ className: "mb-0" },
 																)}
-																<Switch {...register("ikeSendCert")} />
+																<Controller control={control} name={"ikeSendCert"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 															</FormControl>
 														</div>
 														<FormControl>
@@ -3488,7 +3366,7 @@ export const InboundFormModal: FC<Props> = ({
 																"Resolve the listen hostname again when reconnecting.",
 																{ className: "mb-0" },
 															)}
-															<Switch {...register("acListenHostIsDynDNS")} />
+															<Controller control={control} name={"acListenHostIsDynDNS"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 														</FormControl>
 														<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
 														<p className="text-[0.875rem] font-semibold">
@@ -3924,7 +3802,7 @@ export const InboundFormModal: FC<Props> = ({
 																		help,
 																		{ className: "mb-0" },
 																	)}
-																	<Switch {...register(name)} />
+																	<Controller control={control} name={name} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 																</FormControl>
 															))}
 														</div>
@@ -3936,8 +3814,8 @@ export const InboundFormModal: FC<Props> = ({
 											currentProtocol === "pptp") && (
 											<div className="flex flex-col gap-3">
 												{currentProtocol === "l2tp" && (
-													<Alert status="info" className="rounded-md">
-														<AlertIcon />
+													<Alert className="rounded-md">
+														<Info className="size-4" aria-hidden="true" />
 														<div>
 															<AlertTitle className="text-[0.875rem]">
 																{t("inbounds.l2tp.fixedPortsTitle")}
@@ -4110,7 +3988,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Route all client traffic through the L2TP/IPsec VPN.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("l2tpRedirectGateway")} />
+														<Controller control={control} name={"l2tpRedirectGateway"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -4120,7 +3998,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Forward VPN client traffic into Xray so routing rules and Xray outbounds apply. Disable for direct NAT egress from the node.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("l2tpTproxyEnabled")} />
+														<Controller control={control} name={"l2tpTproxyEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
 														{ovLabel(
@@ -4130,7 +4008,7 @@ export const InboundFormModal: FC<Props> = ({
 															"Record L2TP session traffic and report it to the same Rebecca user quota/accounting pipeline.",
 															{ className: "mb-0" },
 														)}
-														<Switch {...register("l2tpAccountingEnabled")} />
+														<Controller control={control} name={"l2tpAccountingEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 												</div>
 											</div>
@@ -4143,8 +4021,8 @@ export const InboundFormModal: FC<Props> = ({
 												{t("inbounds.streamSettings")}
 											</p>
 											{currentProtocol === "hysteria" ? (
-												<Alert status="info" className="rounded-md">
-													<AlertIcon />
+												<Alert className="rounded-md">
+													<Info className="size-4" aria-hidden="true" />
 													<AlertDescription className="text-[0.875rem]">
 														{t("inbounds.hysteria.fixedTransport")}
 													</AlertDescription>
@@ -4152,7 +4030,7 @@ export const InboundFormModal: FC<Props> = ({
 											) : (
 												<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 													<FormControl>
-														<FormLabel>{t("inbounds.network")}</FormLabel>
+														<FormLabel helpKey="inbounds.networkHelp">{t("inbounds.network")}</FormLabel>
 														<SearchableTagSelect
 															value={streamNetwork}
 															options={ALL_NETWORK_OPTIONS}
@@ -4172,42 +4050,29 @@ export const InboundFormModal: FC<Props> = ({
 														/>
 													</FormControl>
 													<FormControl>
-														<FormLabel>{t("inbounds.security")}</FormLabel>
+														<FormLabel helpKey="inbounds.securityHelp">{t("inbounds.security")}</FormLabel>
 														<Controller
 															control={control}
 															name="streamSecurity"
 															render={({ field }) => (
-																<SearchableTagSelect
-																	value={field.value}
-																	options={streamSecurityOptions.map(
-																		(security) => ({
-																			value: security,
-																			label: security,
-																			disabled:
-																				security === "tls"
-																					? !TLS_COMPATIBLE_PROTOCOLS.includes(
-																							currentProtocol,
-																						)
-																					: security === "reality"
-																						? !REALITY_COMPATIBLE_PROTOCOLS.includes(
-																								currentProtocol,
-																							)
-																						: false,
-																		}),
-																	)}
-																	placeholder={t("inbounds.security")}
-																	onChange={(value) =>
-																		field.onChange(String(value))
-																	}
-																/>
+																<SegmentedControl
+	label={t("inbounds.security")}
+	value={field.value}
+	options={streamSecurityOptions.map((security) => ({
+		value: security,
+		label: security === "none" ? t("userDialog.flow.none") : security === "tls" ? "TLS" : security === "reality" ? "Reality" : security,
+		disabled: security === "tls" ? !TLS_COMPATIBLE_PROTOCOLS.includes(currentProtocol) : security === "reality" ? !REALITY_COMPATIBLE_PROTOCOLS.includes(currentProtocol) : false,
+	}))}
+	onChange={(value) => field.onChange(value)}
+/>
 															)}
 														/>
 													</FormControl>
 												</div>
 											)}
 											{streamCompatibilityError && (
-												<Alert status="error" className="rounded-md">
-													<AlertIcon />
+												<Alert variant="destructive" className="rounded-md">
+													<CircleAlert className="size-4" aria-hidden="true" />
 													<AlertDescription className="text-[0.875rem]">
 														{streamCompatibilityError}
 													</AlertDescription>
@@ -4215,8 +4080,8 @@ export const InboundFormModal: FC<Props> = ({
 											)}
 
 											{streamNetwork === "ws" && (
-												<Alert status="warning" className="rounded-md mt-2">
-													<AlertIcon />
+												<Alert className="rounded-md mt-2">
+													<TriangleAlert className="size-4" aria-hidden="true" />
 													<div>
 														<AlertTitle className="text-[0.875rem]">
 															{t("inbounds.wsDeprecatedTitle")}
@@ -4232,7 +4097,7 @@ export const InboundFormModal: FC<Props> = ({
 												<div className="flex flex-col gap-3">
 													<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 														<FormControl isInvalid={!!fieldValidationErrors.wsPath}>
-															<FormLabel>{t("inbounds.ws.path")}</FormLabel>
+															<FormLabel helpKey="inbounds.ws.pathHelp">{t("inbounds.ws.path")}</FormLabel>
 															<Input
 																{...register("wsPath")}
 																placeholder="/ws"
@@ -4244,7 +4109,7 @@ export const InboundFormModal: FC<Props> = ({
 															)}
 														</FormControl>
 														<FormControl>
-															<FormLabel>{t("inbounds.ws.host")}</FormLabel>
+															<FormLabel helpKey="inbounds.ws.hostHelp">{t("inbounds.ws.host")}</FormLabel>
 															<Input
 																{...register("wsHost")}
 																placeholder="example.com"
@@ -4254,22 +4119,20 @@ export const InboundFormModal: FC<Props> = ({
 																!!fieldValidationErrors.wsHeartbeatPeriod
 															}>
 															<FormLabel>Heartbeat period (seconds)</FormLabel>
-															<Input
-																{...register("wsHeartbeatPeriod")}
-																inputMode="numeric"
+															<FormNumberField control={control} name={"wsHeartbeatPeriod"} inputMode="numeric"
 																placeholder="0"
 															/>
 															{fieldValidationErrors.wsHeartbeatPeriod && (
-																<FormErrorMessage>
+																<FieldError>
 																	{fieldValidationErrors.wsHeartbeatPeriod}
-																</FormErrorMessage>
+																</FieldError>
 															)}
 														</FormControl>
 														<FormControl className="flex items-center">
 															<FormLabel className="mb-0">
 																Accept PROXY protocol
 															</FormLabel>
-															<Switch {...register("wsAcceptProxyProtocol")} />
+															<Controller control={control} name={"wsAcceptProxyProtocol"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 														</FormControl>
 													</div>
 													<div className="flex flex-col gap-2">
@@ -4277,18 +4140,16 @@ export const InboundFormModal: FC<Props> = ({
 															<p className="font-medium">
 																{t("inbounds.ws.headers")}
 															</p>
-															<Button variant="solid" size="xs" onClick={() =>
+															<Button onClick={() =>
 																	appendWsHeader({ name: "", value: "" })
-																}>
+																} size="xs">
 																{t("inbounds.accounts.add")}
 															</Button>
 														</div>
 														{wsHeaderFields.map((field, index) => (
 															<div key={field.id} className="flex flex-row gap-2 items-start">
 																<FormControl>
-																	<Input
-																		{...register(
-																			`wsHeaders.${index}.name` as const,
+																	<Input {...register(`wsHeaders.${index}.name` as const,
 																		)}
 																		placeholder={t("inbounds.ws.headerName")}
 																	/>
@@ -4301,7 +4162,7 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder={t("inbounds.ws.headerValue")}
 																	/>
 																</FormControl>
-																<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeWsHeader(index)}>
+																<Button onClick={() => removeWsHeader(index)} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10">
 																	{t("delete")}
 																</Button>
 															</div>
@@ -4313,9 +4174,7 @@ export const InboundFormModal: FC<Props> = ({
 											{streamNetwork === "tcp" && (
 												<div className="flex flex-col gap-3">
 													<FormControl>
-														<FormLabel>
-															{t("inbounds.tcp.headerType")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.tcp.headerTypeHelp">{t("inbounds.tcp.headerType")}</FormLabel>
 														<SearchableTagSelect
 															value={tcpHeaderType}
 															options={["none", "http"]}
@@ -4337,14 +4196,14 @@ export const InboundFormModal: FC<Props> = ({
 													{tcpHeaderType === "http" && (
 														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 															<FormControl>
-																<FormLabel>{t("inbounds.tcp.host")}</FormLabel>
+																<FormLabel helpKey="inbounds.tcp.hostHelp">{t("inbounds.tcp.host")}</FormLabel>
 																<Textarea
 																	{...register("tcpHttpHosts")}
 																	placeholder="example.com"
 																/>
 															</FormControl>
 															<FormControl>
-																<FormLabel>{t("inbounds.tcp.path")}</FormLabel>
+																<FormLabel helpKey="inbounds.tcp.pathHelp">{t("inbounds.tcp.path")}</FormLabel>
 																<Input {...register("tcpHttpPath")} />
 															</FormControl>
 														</div>
@@ -4356,26 +4215,22 @@ export const InboundFormModal: FC<Props> = ({
 											<div className="flex flex-col gap-3">
 												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 												<FormControl>
-															<FormLabel>{t("serviceName")}</FormLabel>
+															<FormLabel helpKey="serviceNameHelp">{t("serviceName")}</FormLabel>
 														<Input {...register("grpcServiceName")} />
 													</FormControl>
 													<FormControl>
-														<FormLabel>
-															{t("inbounds.grpc.authority")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.grpc.authorityHelp">{t("inbounds.grpc.authority")}</FormLabel>
 														<Input {...register("grpcAuthority")} />
 													</FormControl>
 													<FormControl className="flex items-center">
-														<FormLabel className="mb-0">
-															{t("inbounds.grpc.multiMode")}
-														</FormLabel>
-													<Switch {...register("grpcMultiMode")} />
+														<FormLabel className="mb-0" helpKey="inbounds.grpc.multiModeHelp">{t("inbounds.grpc.multiMode")}</FormLabel>
+													<Controller control={control} name={"grpcMultiMode"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 												</FormControl>
 													<FormControl className="flex items-center">
 															<FormLabel className="mb-0">
 																Permit without stream
 															</FormLabel>
-															<Switch {...register("grpcPermitWithoutStream")} />
+															<Controller control={control} name={"grpcPermitWithoutStream"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 												</div>
 												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -4394,14 +4249,12 @@ export const InboundFormModal: FC<Props> = ({
 													).map(([name, label]) => (
 														<FormControl key={name} isInvalid={!!fieldValidationErrors[name]}>
 															<FormLabel>{label}</FormLabel>
-																<Input
-																	{...register(name)}
-																	inputMode="numeric"
+																<FormNumberField control={control} name={name} inputMode="numeric"
 																/>
 															{fieldValidationErrors[name] && (
-																	<FormErrorMessage>
+																	<FieldError>
 																		{fieldValidationErrors[name]}
-																	</FormErrorMessage>
+																	</FieldError>
 															)}
 														</FormControl>
 													))}
@@ -4468,15 +4321,13 @@ export const InboundFormModal: FC<Props> = ({
 													).map(([name, label, placeholder]) => (
 														<FormControl key={name} isInvalid={!!fieldValidationErrors[name]}>
 															<FormLabel>{label}</FormLabel>
-															<Input
-																{...register(name as keyof InboundFormValues)}
-																inputMode="numeric"
+															<FormNumberField control={control} name={name as keyof InboundFormValues} inputMode="numeric"
 																placeholder={placeholder}
 															/>
 															{fieldValidationErrors[name] && (
-																<FormErrorMessage>
+																<FieldError>
 																	{fieldValidationErrors[name]}
-																</FormErrorMessage>
+																</FieldError>
 															)}
 														</FormControl>
 													))}
@@ -4485,7 +4336,7 @@ export const InboundFormModal: FC<Props> = ({
 														<FormLabel className="mb-0">
 															Congestion control (legacy)
 														</FormLabel>
-													<Switch {...register("kcpCongestion")} />
+													<Controller control={control} name={"kcpCongestion"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 												</FormControl>
 											</div>
 										)}
@@ -4493,17 +4344,15 @@ export const InboundFormModal: FC<Props> = ({
 											{streamNetwork === "quic" && (
 												<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
 													<FormControl>
-														<FormLabel>{t("inbounds.quic.security")}</FormLabel>
+														<FormLabel helpKey="inbounds.quic.securityHelp">{t("inbounds.quic.security")}</FormLabel>
 														<Input {...register("quicSecurity")} />
 													</FormControl>
 													<FormControl>
-														<FormLabel>{t("inbounds.quic.key")}</FormLabel>
+														<FormLabel helpKey="inbounds.quic.keyHelp">{t("inbounds.quic.key")}</FormLabel>
 														<Input {...register("quicKey")} />
 													</FormControl>
 													<FormControl>
-														<FormLabel>
-															{t("inbounds.quic.headerType")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.quic.headerTypeHelp">{t("inbounds.quic.headerType")}</FormLabel>
 														<Input {...register("quicHeaderType")} />
 													</FormControl>
 												</div>
@@ -4515,9 +4364,7 @@ export const InboundFormModal: FC<Props> = ({
 													<FormControl isInvalid={
 																!!fieldValidationErrors.httpupgradePath
 															}>
-														<FormLabel>
-															{t("inbounds.httpUpgrade.path")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.httpUpgrade.pathHelp">{t("inbounds.httpUpgrade.path")}</FormLabel>
 														<Input {...register("httpupgradePath")} />
 														{fieldValidationErrors.httpupgradePath && (
 															<p className="text-[0.75rem] text-red-500 mt-1">
@@ -4526,27 +4373,25 @@ export const InboundFormModal: FC<Props> = ({
 														)}
 													</FormControl>
 													<FormControl>
-														<FormLabel>
-															{t("inbounds.httpUpgrade.host")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.httpUpgrade.hostHelp">{t("inbounds.httpUpgrade.host")}</FormLabel>
 													<Input {...register("httpupgradeHost")} />
 												</FormControl>
 													<FormControl className="flex items-center">
 															<FormLabel className="mb-0">
 																Accept PROXY protocol
 															</FormLabel>
-															<Switch {...register("httpupgradeAcceptProxyProtocol")} />
+															<Controller control={control} name={"httpupgradeAcceptProxyProtocol"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 												</div>
 												<div className="flex flex-col gap-2">
 													<div className="flex justify-between items-center">
 														<p className="font-medium">Headers</p>
-															<Button variant="solid" size="xs" onClick={() =>
+															<Button onClick={() =>
 																	appendHttpupgradeHeader({
 																		name: "",
 																		value: "",
 																	})
-																}>
+																} size="xs">
 															{t("inbounds.accounts.add")}
 														</Button>
 													</div>
@@ -4564,7 +4409,7 @@ export const InboundFormModal: FC<Props> = ({
 																	)}
 																	placeholder={t("inbounds.ws.headerValue")}
 																/>
-																<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeHttpupgradeHeader(index)}>
+																<Button onClick={() => removeHttpupgradeHeader(index)} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10">
 																{t("delete")}
 															</Button>
 														</div>
@@ -4576,9 +4421,7 @@ export const InboundFormModal: FC<Props> = ({
 											{streamNetwork === "splithttp" && (
 												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 													<FormControl isInvalid={!!fieldValidationErrors.splithttpPath}>
-														<FormLabel>
-															{t("inbounds.splitHttp.path")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.splitHttp.pathHelp">{t("inbounds.splitHttp.path")}</FormLabel>
 														<Input {...register("splithttpPath")} />
 														{fieldValidationErrors.splithttpPath && (
 															<p className="text-[0.75rem] text-red-500 mt-1">
@@ -4587,9 +4430,7 @@ export const InboundFormModal: FC<Props> = ({
 														)}
 													</FormControl>
 													<FormControl>
-														<FormLabel>
-															{t("inbounds.splitHttp.host")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.splitHttp.hostHelp">{t("inbounds.splitHttp.host")}</FormLabel>
 														<Input {...register("splithttpHost")} />
 													</FormControl>
 												</div>
@@ -4599,14 +4440,14 @@ export const InboundFormModal: FC<Props> = ({
 												<div className="flex flex-col gap-3">
 													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														<FormControl>
-															<FormLabel>{t("hostsPage.host")}</FormLabel>
+															<FormLabel helpKey="hostsPage.hostHelp">{t("hostsPage.host")}</FormLabel>
 															<Input
 																{...register("xhttpHost")}
 																placeholder="example.com"
 															/>
 														</FormControl>
 														<FormControl isInvalid={!!fieldValidationErrors.xhttpPath}>
-															<FormLabel>{t("path")}</FormLabel>
+															<FormLabel helpKey="pathHelp">{t("path")}</FormLabel>
 															<Input
 																{...register("xhttpPath")}
 																placeholder="/"
@@ -4623,9 +4464,9 @@ export const InboundFormModal: FC<Props> = ({
 															<p className="font-medium">
 																{t("inbounds.ws.headers")}
 															</p>
-															<Button variant="solid" size="xs" onClick={() =>
+															<Button onClick={() =>
 																	appendXhttpHeader({ name: "", value: "" })
-																}>
+																} size="xs">
 																{t("inbounds.accounts.add")}
 															</Button>
 														</div>
@@ -4647,7 +4488,7 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder={t("inbounds.ws.headerValue")}
 																	/>
 																</FormControl>
-																<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeXhttpHeader(index)}>
+																<Button onClick={() => removeXhttpHeader(index)} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10">
 																	{t("delete")}
 																</Button>
 															</div>
@@ -4655,7 +4496,7 @@ export const InboundFormModal: FC<Props> = ({
 													</div>
 													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														<FormControl>
-															<FormLabel>{t("inbounds.xhttp.mode")}</FormLabel>
+															<FormLabel helpKey="inbounds.xhttp.modeHelp">{t("inbounds.xhttp.mode")}</FormLabel>
 															<SearchableTagSelect
 																value={formValues.xhttpMode || ""}
 																options={[
@@ -4683,9 +4524,7 @@ export const InboundFormModal: FC<Props> = ({
 														<FormControl isInvalid={
 																!!fieldValidationErrors.xhttpPaddingBytes
 															}>
-															<FormLabel>
-																{t("inbounds.xhttp.paddingBytes")}
-															</FormLabel>
+															<FormLabel helpKey="inbounds.xhttp.paddingBytesHelp">{t("inbounds.xhttp.paddingBytes")}</FormLabel>
 															<Input
 																{...register("xhttpPaddingBytes")}
 																placeholder="100-1000"
@@ -4711,9 +4550,9 @@ export const InboundFormModal: FC<Props> = ({
 																	placeholder="base64"
 																/>
 																{fieldValidationErrors.xhttpSessionIDTable && (
-																	<FormErrorMessage>
+																	<FieldError>
 																		{fieldValidationErrors.xhttpSessionIDTable}
-																	</FormErrorMessage>
+																	</FieldError>
 																)}
 															</FormControl>
 															<FormControl isInvalid={
@@ -4725,9 +4564,9 @@ export const InboundFormModal: FC<Props> = ({
 																	placeholder="16-16"
 																/>
 																{fieldValidationErrors.xhttpSessionIDLength && (
-																	<FormErrorMessage>
+																	<FieldError>
 																		{fieldValidationErrors.xhttpSessionIDLength}
-																	</FormErrorMessage>
+																	</FieldError>
 																)}
 															</FormControl>
 															{(
@@ -4773,9 +4612,9 @@ export const InboundFormModal: FC<Props> = ({
 																		placeholder={placeholder}
 																	/>
 																	{fieldValidationErrors[name] && (
-																		<FormErrorMessage>
+																		<FieldError>
 																			{fieldValidationErrors[name]}
-																		</FormErrorMessage>
+																		</FieldError>
 																	)}
 																</FormControl>
 															))}
@@ -4784,18 +4623,14 @@ export const InboundFormModal: FC<Props> = ({
 													{xhttpMode === "packet-up" && (
 														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 															<FormControl>
-																<FormLabel>
-																	{t("inbounds.xhttp.maxBuffered")}
-																</FormLabel>
+																<FormLabel helpKey="inbounds.xhttp.maxBufferedHelp">{t("inbounds.xhttp.maxBuffered")}</FormLabel>
 																<Input
 																	{...register("xhttpScMaxBufferedPosts")}
 																	placeholder="30"
 																/>
 															</FormControl>
 															<FormControl>
-																<FormLabel>
-																	{t("inbounds.xhttp.maxUploadBytes")}
-																</FormLabel>
+																<FormLabel helpKey="inbounds.xhttp.maxUploadBytesHelp">{t("inbounds.xhttp.maxUploadBytes")}</FormLabel>
 																<Input
 																	{...register("xhttpScMaxEachPostBytes")}
 																	placeholder="1000000"
@@ -4805,9 +4640,7 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 													{xhttpMode === "stream-up" && (
 														<FormControl>
-															<FormLabel>
-																{t("inbounds.xhttp.streamUp")}
-															</FormLabel>
+															<FormLabel helpKey="inbounds.xhttp.streamUpHelp">{t("inbounds.xhttp.streamUp")}</FormLabel>
 															<Input
 																{...register("xhttpScStreamUpServerSecs")}
 																placeholder="20-80"
@@ -4815,16 +4648,12 @@ export const InboundFormModal: FC<Props> = ({
 														</FormControl>
 													)}
 													<FormControl className="flex items-center">
-														<FormLabel className="mb-0">
-															{t("inbounds.xhttp.noSSE")}
-														</FormLabel>
-														<Switch {...register("xhttpNoSSEHeader")} />
+														<FormLabel className="mb-0" helpKey="inbounds.xhttp.noSSEHelp">{t("inbounds.xhttp.noSSE")}</FormLabel>
+														<Controller control={control} name={"xhttpNoSSEHeader"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 													<FormControl className="flex items-center">
-														<FormLabel className="mb-0">
-															{t("inbounds.xhttp.paddingObfsMode")}
-														</FormLabel>
-														<Switch {...register("xhttpPaddingObfsMode")} />
+														<FormLabel className="mb-0" helpKey="inbounds.xhttp.paddingObfsModeHelp">{t("inbounds.xhttp.paddingObfsMode")}</FormLabel>
+														<Controller control={control} name={"xhttpPaddingObfsMode"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
 														<div className="flex flex-col gap-3 mt-2 xray-dialog-section">
 															<p className="text-[0.875rem] font-semibold">
@@ -4834,9 +4663,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpPaddingKey
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.paddingKey")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.paddingKeyHelp">{t("inbounds.xhttp.paddingKey")}</FormLabel>
 																	<Input
 																		{...register("xhttpPaddingKey")}
 																		placeholder="_dc"
@@ -4851,9 +4678,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpPaddingHeader
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.paddingHeader")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.paddingHeaderHelp">{t("inbounds.xhttp.paddingHeader")}</FormLabel>
 																	<Input
 																		{...register("xhttpPaddingHeader")}
 																		placeholder="Referer"
@@ -4868,9 +4693,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpPaddingPlacement
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.paddingPlacement")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.paddingPlacementHelp">{t("inbounds.xhttp.paddingPlacement")}</FormLabel>
 																	<Controller
 																		control={control}
 																		name="xhttpPaddingPlacement"
@@ -4914,9 +4737,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpPaddingMethod
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.paddingMethod")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.paddingMethodHelp">{t("inbounds.xhttp.paddingMethod")}</FormLabel>
 																	<Controller
 																		control={control}
 																		name="xhttpPaddingMethod"
@@ -4958,9 +4779,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpUplinkHTTPMethod
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.uplinkHTTPMethod")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.uplinkHTTPMethodHelp">{t("inbounds.xhttp.uplinkHTTPMethod")}</FormLabel>
 																	<Input
 																		{...register("xhttpUplinkHTTPMethod")}
 																		placeholder="POST"
@@ -4977,9 +4796,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpSessionPlacement
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.sessionPlacement")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.sessionPlacementHelp">{t("inbounds.xhttp.sessionPlacement")}</FormLabel>
 																	<Controller
 																		control={control}
 																		name="xhttpSessionPlacement"
@@ -5023,9 +4840,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpSessionKey
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.sessionKey")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.sessionKeyHelp">{t("inbounds.xhttp.sessionKey")}</FormLabel>
 																	<Input {...register("xhttpSessionKey")} />
 																	{fieldValidationErrors.xhttpSessionKey && (
 																		<p className="text-[0.75rem] text-red-500 mt-1">
@@ -5037,9 +4852,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpSeqPlacement
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.seqPlacement")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.seqPlacementHelp">{t("inbounds.xhttp.seqPlacement")}</FormLabel>
 																	<Controller
 																		control={control}
 																		name="xhttpSeqPlacement"
@@ -5079,9 +4892,7 @@ export const InboundFormModal: FC<Props> = ({
 																</FormControl>
 
 																<FormControl isInvalid={!!fieldValidationErrors.xhttpSeqKey}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.seqKey")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.seqKeyHelp">{t("inbounds.xhttp.seqKey")}</FormLabel>
 																	<Input {...register("xhttpSeqKey")} />
 																	{fieldValidationErrors.xhttpSeqKey && (
 																		<p className="text-[0.75rem] text-red-500 mt-1">
@@ -5093,9 +4904,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpUplinkDataPlacement
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.uplinkDataPlacement")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.uplinkDataPlacementHelp">{t("inbounds.xhttp.uplinkDataPlacement")}</FormLabel>
 																	<Controller
 																		control={control}
 																		name="xhttpUplinkDataPlacement"
@@ -5139,9 +4948,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpUplinkDataKey
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.uplinkDataKey")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.uplinkDataKeyHelp">{t("inbounds.xhttp.uplinkDataKey")}</FormLabel>
 																	<Input
 																		{...register("xhttpUplinkDataKey")}
 																		placeholder="X-Data"
@@ -5156,9 +4963,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpUplinkChunkSize
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.uplinkChunkSize")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.uplinkChunkSizeHelp">{t("inbounds.xhttp.uplinkChunkSize")}</FormLabel>
 																	<Input
 																		{...register("xhttpUplinkChunkSize")}
 																		placeholder="3000-4000"
@@ -5173,9 +4978,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.xhttpServerMaxHeaderBytes
 																	}>
-																	<FormLabel>
-																		{t("inbounds.xhttp.serverMaxHeaderBytes")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.xhttp.serverMaxHeaderBytesHelp">{t("inbounds.xhttp.serverMaxHeaderBytes")}</FormLabel>
 																	<Input
 																		{...register("xhttpServerMaxHeaderBytes")}
 																		placeholder="0"
@@ -5197,9 +5000,7 @@ export const InboundFormModal: FC<Props> = ({
 												<div className="flex flex-col gap-3">
 													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														<FormControl>
-															<FormLabel>
-																{t("inbounds.hysteria.version")}
-															</FormLabel>
+															<FormLabel helpKey="inbounds.hysteria.versionHelp">{t("inbounds.hysteria.version")}</FormLabel>
 															<Input
 																{...register("hysteriaVersion")}
 																placeholder="2"
@@ -5209,9 +5010,7 @@ export const InboundFormModal: FC<Props> = ({
 														<FormControl isInvalid={
 																!!fieldValidationErrors.hysteriaUdpIdleTimeout
 															}>
-															<FormLabel>
-																{t("inbounds.hysteria.udpIdleTimeout")}
-															</FormLabel>
+															<FormLabel helpKey="inbounds.hysteria.udpIdleTimeoutHelp">{t("inbounds.hysteria.udpIdleTimeout")}</FormLabel>
 															<Input
 																{...register("hysteriaUdpIdleTimeout")}
 																placeholder="60"
@@ -5225,20 +5024,16 @@ export const InboundFormModal: FC<Props> = ({
 													</div>
 
 													<FormControl className="flex items-center">
-														<FormLabel className="mb-0">
-															{t("inbounds.hysteria.enableMasquerade")}
-														</FormLabel>
-														<Switch {...register("hysteriaMasqueradeEnabled")} />
+														<FormLabel className="mb-0" helpKey="inbounds.hysteria.enableMasqueradeHelp">{t("inbounds.hysteria.enableMasquerade")}</FormLabel>
+														<Controller control={control} name={"hysteriaMasqueradeEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 													</FormControl>
-													<Collapse in={Boolean(hysteriaMasqueradeEnabled)} animateOpacity>
+													<Collapsible open={Boolean(hysteriaMasqueradeEnabled)}><CollapsibleContent forceMount className="data-[state=closed]:hidden">
 														<div className="flex flex-col gap-3 mt-2">
 															<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.hysteriaMasqueradeType
 																	}>
-																	<FormLabel>
-																		{t("inbounds.hysteria.masqueradeType")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.hysteria.masqueradeTypeHelp">{t("inbounds.hysteria.masqueradeType")}</FormLabel>
 																	<SearchableTagSelect
 																		value={hysteriaMasqueradeType}
 																		options={[
@@ -5287,9 +5082,7 @@ export const InboundFormModal: FC<Props> = ({
 																</FormControl>
 																{hysteriaMasqueradeType === "string" && (
 																	<FormControl>
-																		<FormLabel>
-																			{t("inbounds.hysteria.statusCode")}
-																		</FormLabel>
+																		<FormLabel helpKey="inbounds.hysteria.statusCodeHelp">{t("inbounds.hysteria.statusCode")}</FormLabel>
 																		<Input
 																			{...register(
 																				"hysteriaMasqueradeStatusCode",
@@ -5305,9 +5098,7 @@ export const InboundFormModal: FC<Props> = ({
 																	<FormControl isInvalid={
 																			!!fieldValidationErrors.hysteriaMasqueradeUrl
 																		}>
-																		<FormLabel>
-																			{t("settings.telegram.proxyUrl")}
-																		</FormLabel>
+																		<FormLabel helpKey="settings.telegram.proxyUrlHelp">{t("settings.telegram.proxyUrl")}</FormLabel>
 																		<Input
 																			{...register("hysteriaMasqueradeUrl")}
 																			placeholder="https://example.com"
@@ -5322,20 +5113,12 @@ export const InboundFormModal: FC<Props> = ({
 																	</FormControl>
 																	<div className="flex flex-row items-center gap-6 flex-wrap">
 																		<FormControl className="flex items-center w-auto">
-																			<FormLabel className="mb-0">
-																				{t("inbounds.hysteria.rewriteHost")}
-																			</FormLabel>
-																			<Switch {...register(
-																					"hysteriaMasqueradeRewriteHost",
-																				)} />
+																			<FormLabel className="mb-0" helpKey="inbounds.hysteria.rewriteHostHelp">{t("inbounds.hysteria.rewriteHost")}</FormLabel>
+																			<Controller control={control} name={"hysteriaMasqueradeRewriteHost"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 																		</FormControl>
 																		<FormControl className="flex items-center w-auto">
-																			<FormLabel className="mb-0">
-																				{t("inbounds.hysteria.insecure")}
-																			</FormLabel>
-																			<Switch {...register(
-																					"hysteriaMasqueradeInsecure",
-																				)} />
+																			<FormLabel className="mb-0" helpKey="inbounds.hysteria.insecureHelp">{t("inbounds.hysteria.insecure")}</FormLabel>
+																			<Controller control={control} name={"hysteriaMasqueradeInsecure"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 																		</FormControl>
 																	</div>
 																</div>
@@ -5345,9 +5128,7 @@ export const InboundFormModal: FC<Props> = ({
 																<FormControl isInvalid={
 																		!!fieldValidationErrors.hysteriaMasqueradeDir
 																	}>
-																	<FormLabel>
-																		{t("inbounds.hysteria.fileDir")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.hysteria.fileDirHelp">{t("inbounds.hysteria.fileDir")}</FormLabel>
 																	<Input
 																		{...register("hysteriaMasqueradeDir")}
 																		placeholder="/var/www/html"
@@ -5364,9 +5145,7 @@ export const InboundFormModal: FC<Props> = ({
 
 															{hysteriaMasqueradeType === "string" && (
 																<FormControl>
-																	<FormLabel>
-																		{t("inbounds.hysteria.content")}
-																	</FormLabel>
+																	<FormLabel helpKey="inbounds.hysteria.contentHelp">{t("inbounds.hysteria.content")}</FormLabel>
 																	<Textarea
 																		{...register("hysteriaMasqueradeContent")}
 																		placeholder="ok"
@@ -5379,12 +5158,12 @@ export const InboundFormModal: FC<Props> = ({
 																	<p className="font-medium">
 																		{t("inbounds.hysteria.headers")}
 																	</p>
-																	<Button variant="solid" size="xs" onClick={() =>
+																	<Button onClick={() =>
 																			appendHysteriaMasqueradeHeader({
 																				name: "",
 																				value: "",
 																			})
-																		}>
+																		} size="xs">
 																		{t("inbounds.accounts.add")}
 																	</Button>
 																</div>
@@ -5411,9 +5190,9 @@ export const InboundFormModal: FC<Props> = ({
 																					)}
 																				/>
 																			</FormControl>
-																			<Button size="xs" variant="ghost" colorScheme="red" onClick={() =>
+																			<Button onClick={() =>
 																					removeHysteriaMasqueradeHeader(index)
-																				}>
+																				} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10">
 																				{t("delete")}
 																			</Button>
 																		</div>
@@ -5421,23 +5200,18 @@ export const InboundFormModal: FC<Props> = ({
 																)}
 															</div>
 														</div>
-													</Collapse>
+													</CollapsibleContent></Collapsible>
 
 													<div className="flex flex-col gap-3 xray-dialog-section">
 														<div className="flex justify-between items-center gap-3">
 															<div>
-																<p className="text-[0.875rem] font-semibold">
-																	{t("inbounds.hysteria.udpMasks")}
-																</p>
-																<p className="text-[0.75rem] text-gray-500">
-																	{t("inbounds.hysteria.udpMasksHint")}
-																</p>
+																<div className="flex min-w-0 items-center gap-1.5"><p className="text-[0.875rem] font-semibold">{t("inbounds.hysteria.udpMasks")}</p><FieldHint>{t("inbounds.hysteria.udpMasksHint")}</FieldHint></div>
 															</div>
-															<Button variant="solid" size="xs" onClick={() =>
+															<Button onClick={() =>
 																	appendHysteriaUdpMask(
 																		createDefaultHysteriaUdpMask(),
 																	)
-																}>{<SparklesIcon className="w-[14px] h-[14px]" />}
+																} size="xs">{<Sparkles className="w-[14px] h-[14px]" />}
 																{t("inbounds.hysteria.addUdpMask")}
 															</Button>
 														</div>
@@ -5463,17 +5237,15 @@ export const InboundFormModal: FC<Props> = ({
 																				index: index + 1,
 																			})}
 																		</p>
-																		<Button size="xs" variant="ghost" colorScheme="red" onClick={() =>
+																		<Button onClick={() =>
 																				removeHysteriaUdpMask(index)
-																			}>
+																			} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10">
 																			{t("delete")}
 																		</Button>
 																	</div>
 																	<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																		<FormControl>
-																			<FormLabel>
-																				{t("inbounds.fallbacks.type")}
-																			</FormLabel>
+																			<FormLabel helpKey="inbounds.fallbacks.typeHelp">{t("inbounds.fallbacks.type")}</FormLabel>
 																			<SearchableTagSelect
 																				value="salamander"
 																				disabled
@@ -5488,9 +5260,7 @@ export const InboundFormModal: FC<Props> = ({
 																			/>
 																		</FormControl>
 																		<FormControl>
-																			<FormLabel>
-																				{t("inbounds.xhttp.mode")}
-																			</FormLabel>
+																			<div className="mb-1 flex min-w-0 items-center gap-1.5"><FormLabel className="mb-0">{t("inbounds.xhttp.mode")}</FormLabel><FieldHint>{maskMode === "gecko" ? t("inbounds.hysteria.geckoHint") : t("inbounds.hysteria.salamanderHint")}</FieldHint></div>
 																			<Controller
 																				control={control}
 																				name={
@@ -5520,16 +5290,10 @@ export const InboundFormModal: FC<Props> = ({
 																					/>
 																				)}
 																			/>
-																			<p className="text-[0.75rem] text-gray-500 mt-1">
-																				{maskMode === "gecko"
-																					? t("inbounds.hysteria.geckoHint")
-																					: t(
-																							"inbounds.hysteria.salamanderHint",
-																						)}
-																			</p>
+																			
 																		</FormControl>
 																		<FormControl>
-																			<FormLabel>{t("password")}</FormLabel>
+																			<FormLabel helpKey="passwordHelp">{t("password")}</FormLabel>
 																			<div className="flex flex-row items-center gap-2">
 																				<Input
 																					{...register(
@@ -5537,9 +5301,9 @@ export const InboundFormModal: FC<Props> = ({
 																					)}
 																					placeholder="Obfuscation password"
 																				/>
-																				<IconButton aria-label={t(
+																				<Button aria-label={t(
 																						"inbounds.hysteria.generatePassword",
-																					)} size="sm" variant="outline" onClick={() =>
+																					)} onClick={() =>
 																						form.setValue(
 																							`hysteriaUdpMasks.${index}.password`,
 																							randomLowerAndNum(16),
@@ -5548,25 +5312,18 @@ export const InboundFormModal: FC<Props> = ({
 																								shouldValidate: true,
 																							},
 																						)
-																					} >{<ArrowPathIcon className="w-[16px] h-[16px]" />}</IconButton>
+																					} variant="outline" size="sm" className="size-8 p-0">{<RefreshCw className="w-[16px] h-[16px]" />}</Button>
 																			</div>
 																		</FormControl>
 																		{maskMode === "gecko" && (
 																			<FormControl>
-																				<FormLabel>
-																					{t("inbounds.hysteria.packetSize")}
-																				</FormLabel>
+																				<div className="mb-1 flex min-w-0 items-center gap-1.5"><FormLabel className="mb-0">{t("inbounds.hysteria.packetSize")}</FormLabel><FieldHint>{t("inbounds.hysteria.packetSizeHint")}</FieldHint></div>
 																				<Input
 																					{...register(
 																						`hysteriaUdpMasks.${index}.packetSize` as const,
 																					)}
 																					placeholder="512-1200"
 																				/>
-																				<p className="text-[0.75rem] text-gray-500 mt-1">
-																					{t(
-																						"inbounds.hysteria.packetSizeHint",
-																					)}
-																				</p>
 																			</FormControl>
 																		)}
 																	</div>
@@ -5577,20 +5334,16 @@ export const InboundFormModal: FC<Props> = ({
 
 													<div className="flex flex-col gap-3 xray-dialog-section">
 														<FormControl className="flex items-center">
-															<FormLabel className="mb-0">
-																{t("inbounds.hysteria.quicParams")}
-															</FormLabel>
-															<Switch {...register("hysteriaQuicParams.enabled")} />
+															<FormLabel className="mb-0" helpKey="inbounds.hysteria.quicParamsHelp">{t("inbounds.hysteria.quicParams")}</FormLabel>
+															<Controller control={control} name={"hysteriaQuicParams.enabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 														</FormControl>
-														<Collapse in={Boolean(
+														<Collapsible open={Boolean(
 																formValues.hysteriaQuicParams?.enabled,
-															)} animateOpacity>
+															)}><CollapsibleContent forceMount className="data-[state=closed]:hidden">
 															<div className="flex flex-col gap-3 mt-2">
 																<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																	<FormControl>
-																		<FormLabel>
-																			{t("inbounds.hysteria.congestion")}
-																		</FormLabel>
+																		<FormLabel helpKey="inbounds.hysteria.congestionHelp">{t("inbounds.hysteria.congestion")}</FormLabel>
 																		<Controller
 																			control={control}
 																			name="hysteriaQuicParams.congestion"
@@ -5616,9 +5369,7 @@ export const InboundFormModal: FC<Props> = ({
 																	{formValues.hysteriaQuicParams?.congestion ===
 																		"bbr" && (
 																		<FormControl>
-																			<FormLabel>
-																				{t("inbounds.hysteria.bbrProfile")}
-																			</FormLabel>
+																			<FormLabel helpKey="inbounds.hysteria.bbrProfileHelp">{t("inbounds.hysteria.bbrProfile")}</FormLabel>
 																			<Controller
 																				control={control}
 																				name="hysteriaQuicParams.bbrProfile"
@@ -5671,27 +5422,19 @@ export const InboundFormModal: FC<Props> = ({
 																)}
 																<div className="flex flex-row items-center gap-6 flex-wrap">
 																	<FormControl className="flex items-center w-auto">
-																		<FormLabel className="mb-0">
-																			{t("common.debug")}
-																		</FormLabel>
-																		<Switch {...register("hysteriaQuicParams.debug")} />
+																		<FormLabel className="mb-0" helpKey="common.debugHelp">{t("common.debug")}</FormLabel>
+																		<Controller control={control} name={"hysteriaQuicParams.debug"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 																	</FormControl>
 																	<FormControl className="flex items-center w-auto">
-																		<FormLabel className="mb-0">
-																			{t("inbounds.hysteria.udpHop")}
-																		</FormLabel>
-																		<Switch {...register(
-																				"hysteriaQuicParams.udpHopEnabled",
-																			)} />
+																		<FormLabel className="mb-0" helpKey="inbounds.hysteria.udpHopHelp">{t("inbounds.hysteria.udpHop")}</FormLabel>
+																		<Controller control={control} name={"hysteriaQuicParams.udpHopEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 																	</FormControl>
 																</div>
 																{formValues.hysteriaQuicParams
 																	?.udpHopEnabled && (
 																	<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																		<FormControl>
-																			<FormLabel>
-																				{t("inbounds.hysteria.hopPorts")}
-																			</FormLabel>
+																			<FormLabel helpKey="inbounds.hysteria.hopPortsHelp">{t("inbounds.hysteria.hopPorts")}</FormLabel>
 																			<Input
 																				{...register(
 																					"hysteriaQuicParams.udpHopPorts",
@@ -5700,9 +5443,7 @@ export const InboundFormModal: FC<Props> = ({
 																			/>
 																		</FormControl>
 																		<FormControl>
-																			<FormLabel>
-																				{t("inbounds.hysteria.hopInterval")}
-																			</FormLabel>
+																			<FormLabel helpKey="inbounds.hysteria.hopIntervalHelp">{t("inbounds.hysteria.hopInterval")}</FormLabel>
 																			<Input
 																				{...register(
 																					"hysteriaQuicParams.udpHopInterval",
@@ -5728,33 +5469,25 @@ export const InboundFormModal: FC<Props> = ({
 																	)}
 																</div>
 																<FormControl className="flex items-center">
-																	<FormLabel className="mb-0">
-																		{t("inbounds.hysteria.disablePathMtu")}
-																	</FormLabel>
-																	<Switch {...register(
-																			"hysteriaQuicParams.disablePathMTUDiscovery",
-																		)} />
+																	<FormLabel className="mb-0" helpKey="inbounds.hysteria.disablePathMtuHelp">{t("inbounds.hysteria.disablePathMtu")}</FormLabel>
+																	<Controller control={control} name={"hysteriaQuicParams.disablePathMTUDiscovery"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 																</FormControl>
 															</div>
-														</Collapse>
+														</CollapsibleContent></Collapsible>
 													</div>
 												</div>
 											)}
-											<FormControl className="flex items-center">
-												<FormLabel className="mb-0">
-													{t("inbounds.sockopt.enable")}
-												</FormLabel>
+											<div className="col-span-full flex flex-col xray-dialog-section"><FormControl className="flex items-center">
+												<FormLabel className="mb-0" helpKey="inbounds.sockopt.enableHelp">{t("inbounds.sockopt.enable")}</FormLabel>
 												<Controller
 													control={control}
 													name="sockoptEnabled"
 													render={({ field }) => (
-														<Switch checked={Boolean(field.value)} onChange={(event) =>
-																field.onChange(event.target.checked)
-															} />
+														<Switch checked={Boolean(field.value)} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 													)}
 												/>
 											</FormControl>
-											<Collapse in={Boolean(sockoptEnabled)} animateOpacity>
+											<Collapsible open={Boolean(sockoptEnabled)}><CollapsibleContent forceMount className="data-[state=closed]:hidden">
 												<div className="flex flex-col gap-3 mt-2 xray-dialog-section">
 													<p className="text-[0.875rem] font-semibold">
 														{t("hostsDialog.sockopt")}
@@ -5797,21 +5530,16 @@ export const InboundFormModal: FC<Props> = ({
 														)}
 													</div>
 													<FormControl>
-														<FormLabel>Trusted forwarded IP headers</FormLabel>
+														<div className="mb-1 flex min-w-0 items-center gap-1.5"><FormLabel>Trusted forwarded IP headers</FormLabel><FieldHint>{t("inbounds.sockopt.trustedHeadersHint")}</FieldHint></div>
 														<Textarea
 															{...register("sockopt.trustedXForwardedFor")}
 															rows={2}
 															placeholder="X-Forwarded-For"
 														/>
-														<p className="text-[0.75rem] text-gray-500 mt-1">
-															One header name per line.
-														</p>
 													</FormControl>
 													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														<FormControl>
-															<FormLabel>
-																{t("inbounds.sockopt.domainStrategy")}
-															</FormLabel>
+															<FormLabel helpKey="inbounds.sockopt.domainStrategyHelp">{t("inbounds.sockopt.domainStrategy")}</FormLabel>
 															<Controller
 																control={control}
 																name="sockopt.domainStrategy"
@@ -5836,9 +5564,7 @@ export const InboundFormModal: FC<Props> = ({
 															/>
 														</FormControl>
 														<FormControl>
-															<FormLabel>
-																{t("inbounds.sockopt.tcpCongestion")}
-															</FormLabel>
+															<FormLabel helpKey="inbounds.sockopt.tcpCongestionHelp">{t("inbounds.sockopt.tcpCongestion")}</FormLabel>
 															<Controller
 																control={control}
 																name="sockopt.tcpcongestion"
@@ -5863,9 +5589,7 @@ export const InboundFormModal: FC<Props> = ({
 															/>
 														</FormControl>
 														<FormControl>
-															<FormLabel>
-																{t("inbounds.sockopt.tproxy")}
-															</FormLabel>
+															<FormLabel helpKey="inbounds.sockopt.tproxyHelp">{t("inbounds.sockopt.tproxy")}</FormLabel>
 															<Controller
 																control={control}
 																name="sockopt.tproxy"
@@ -5909,7 +5633,7 @@ export const InboundFormModal: FC<Props> = ({
 														)}
 													</div>
 												</div>
-											</Collapse>
+											</CollapsibleContent></Collapsible></div>
 										</div>
 									)}
 
@@ -5924,7 +5648,7 @@ export const InboundFormModal: FC<Props> = ({
 											</p>
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<FormControl>
-													<FormLabel>{t("inbounds.tls.serverName")}</FormLabel>
+													<FormLabel helpKey="inbounds.tls.serverNameHelp">{t("inbounds.tls.serverName")}</FormLabel>
 													<Input
 														{...register("tlsServerName")}
 														placeholder="example.com"
@@ -5932,9 +5656,7 @@ export const InboundFormModal: FC<Props> = ({
 												</FormControl>
 												{currentProtocol !== "hysteria" && (
 													<FormControl>
-														<FormLabel>
-															{t("inbounds.tls.cipherSuites")}
-														</FormLabel>
+														<FormLabel helpKey="inbounds.tls.cipherSuitesHelp">{t("inbounds.tls.cipherSuites")}</FormLabel>
 														<SearchableTagSelect
 															mode="multiple"
 															value={
@@ -5969,7 +5691,7 @@ export const InboundFormModal: FC<Props> = ({
 											</div>
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<FormControl>
-													<FormLabel>{t("inbounds.tls.minVersion")}</FormLabel>
+													<FormLabel helpKey="inbounds.tls.minVersionHelp">{t("inbounds.tls.minVersion")}</FormLabel>
 													<SearchableTagSelect
 														value={formValues.tlsMinVersion || ""}
 														options={tlsVersionOptions}
@@ -5983,7 +5705,7 @@ export const InboundFormModal: FC<Props> = ({
 													/>
 												</FormControl>
 												<FormControl>
-													<FormLabel>{t("inbounds.tls.maxVersion")}</FormLabel>
+													<FormLabel helpKey="inbounds.tls.maxVersionHelp">{t("inbounds.tls.maxVersion")}</FormLabel>
 													<SearchableTagSelect
 														value={formValues.tlsMaxVersion || ""}
 														options={tlsVersionOptions}
@@ -6000,7 +5722,7 @@ export const InboundFormModal: FC<Props> = ({
 											<FormControl isInvalid={Boolean(
 													fieldValidationErrors.tlsFingerprint,
 												)}>
-												<FormLabel>{t("inbounds.tls.fingerprint")}</FormLabel>
+												<FormLabel helpKey="inbounds.tls.fingerprintHelp">{t("inbounds.tls.fingerprint")}</FormLabel>
 												<SearchableTagSelect
 													value={formValues.tlsFingerprint || ""}
 													options={[
@@ -6016,13 +5738,13 @@ export const InboundFormModal: FC<Props> = ({
 													}
 												/>
 												{fieldValidationErrors.tlsFingerprint && (
-													<FormErrorMessage>
+													<FieldError>
 														{fieldValidationErrors.tlsFingerprint}
-													</FormErrorMessage>
+													</FieldError>
 												)}
 											</FormControl>
 											<FormControl>
-												<FormLabel>{t("inbounds.tls.alpn")}</FormLabel>
+												<FormLabel helpKey="inbounds.tls.alpnHelp">{t("inbounds.tls.alpn")}</FormLabel>
 												<Controller
 													control={control}
 													name="tlsAlpn"
@@ -6048,53 +5770,38 @@ export const InboundFormModal: FC<Props> = ({
 											</FormControl>
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<FormControl className="flex items-center">
-													<FormLabel className="mb-0">
-														{t("inbounds.tls.allowInsecure")}
-													</FormLabel>
-													<Switch {...register("tlsAllowInsecure")} />
+													<FormLabel className="mb-0" helpKey="inbounds.tls.allowInsecureHelp">{t("inbounds.tls.allowInsecure")}</FormLabel>
+													<Controller control={control} name={"tlsAllowInsecure"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 												</FormControl>
 												<FormControl className="flex items-center">
-													<FormLabel className="mb-0">
-														{t("inbounds.tls.rejectUnknownSni")}
-													</FormLabel>
-													<Switch {...register("tlsRejectUnknownSni")} />
+													<FormLabel className="mb-0" helpKey="inbounds.tls.rejectUnknownSniHelp">{t("inbounds.tls.rejectUnknownSni")}</FormLabel>
+													<Controller control={control} name={"tlsRejectUnknownSni"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 												</FormControl>
 												<FormControl className="flex items-center">
-													<FormLabel className="mb-0">
-														{t("inbounds.tls.disableSystemRoot")}
-													</FormLabel>
-													<Switch {...register("tlsDisableSystemRoot")} />
+													<FormLabel className="mb-0" helpKey="inbounds.tls.disableSystemRootHelp">{t("inbounds.tls.disableSystemRoot")}</FormLabel>
+													<Controller control={control} name={"tlsDisableSystemRoot"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 												</FormControl>
 												<FormControl className="flex items-center">
-													<FormLabel className="mb-0">
-														{t("inbounds.tls.enableSessionResumption")}
-													</FormLabel>
-													<Switch {...register("tlsEnableSessionResumption")} />
+													<FormLabel className="mb-0" helpKey="inbounds.tls.enableSessionResumptionHelp">{t("inbounds.tls.enableSessionResumption")}</FormLabel>
+													<Controller control={control} name={"tlsEnableSessionResumption"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 												</FormControl>
 											</div>
 											<FormControl>
-												<FormLabel>
-													{t("inbounds.tls.verifyPeerCertByName")}
-												</FormLabel>
+												<FormLabel helpKey="inbounds.tls.verifyPeerCertByNameHelp">{t("inbounds.tls.verifyPeerCertByName")}</FormLabel>
 												<Input {...register("tlsVerifyPeerCertByName")} />
 											</FormControl>
 											<FormControl>
-												<FormLabel>TLS curve preferences</FormLabel>
+												<div className="mb-1 flex min-w-0 items-center gap-1.5"><FormLabel>TLS curve preferences</FormLabel><FieldHint>{t("inbounds.tls.curvePreferencesHint")}</FieldHint></div>
 												<Textarea
 													{...register("tlsCurvePreferences")}
 													rows={2}
 													placeholder="X25519MLKEM768&#10;X25519"
 												/>
-												<p className="text-[0.75rem] text-gray-500 mt-1">
-													One curve per line, in preference order.
-												</p>
 											</FormControl>
 											<FormControl isInvalid={Boolean(
 													fieldValidationErrors.tlsPinnedPeerCertSha256,
 												)}>
-												<FormLabel>
-													{t("inbounds.tls.pinnedPeerCertSha256")}
-												</FormLabel>
+												<FormLabel helpKey="inbounds.tls.pinnedPeerCertSha256Help">{t("inbounds.tls.pinnedPeerCertSha256")}</FormLabel>
 												<Input
 													{...register("tlsPinnedPeerCertSha256")}
 													placeholder={t(
@@ -6102,9 +5809,9 @@ export const InboundFormModal: FC<Props> = ({
 													)}
 												/>
 												{fieldValidationErrors.tlsPinnedPeerCertSha256 && (
-													<FormErrorMessage>
+													<FieldError>
 														{fieldValidationErrors.tlsPinnedPeerCertSha256}
-													</FormErrorMessage>
+													</FieldError>
 												)}
 											</FormControl>
 											<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
@@ -6113,7 +5820,7 @@ export const InboundFormModal: FC<Props> = ({
 													<div className="font-medium">
 														{t("settings.subscriptions.certificateTitle")}
 													</div>
-													<Button variant="solid" size="xs" onClick={handleAddTlsCertificate}>
+													<Button onClick={handleAddTlsCertificate} size="xs">
 														{t("inbounds.tls.addCertificate")}
 													</Button>
 												</div>
@@ -6124,35 +5831,31 @@ export const InboundFormModal: FC<Props> = ({
 													};
 													const usage = certConfig.usage || "encipherment";
 													return (
-														<div key={field.id} className={cn("border rounded-md p-3", sectionBorder)}>
+														<div key={field.id} className={cn("flex flex-col gap-3 border rounded-md p-3", sectionBorder)}>
 															<div className="flex justify-between items-center mb-3">
 																<p className="font-semibold">
 																	{t("nodes.certificate")} #{index + 1}
 																</p>
 																{tlsCertificateFields.length > 1 && (
-																	<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeTlsCertificate(index)}>
+																	<Button onClick={() => removeTlsCertificate(index)} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10">
 																		{t("delete")}
 																	</Button>
 																)}
 															</div>
 															<FormControl>
-																<FormLabel>
-																	{t("inbounds.tls.certificateSource")}
-																</FormLabel>
+																<FormLabel helpKey="inbounds.tls.certificateSourceHelp">{t("inbounds.tls.certificateSource")}</FormLabel>
 																<Controller
 																	control={control}
 																	name={
 																		`tlsCertificates.${index}.useFile` as const
 																	}
 																	render={({ field }) => (
-																		<RadioGroup value={field.value ? "file" : "content"} onChange={(value) =>
+																		<RadioGroup value={field.value ? "file" : "content"} onValueChange={(value) =>
 																				field.onChange(value === "file")
 																			}>
 																			<div className="flex flex-row items-center gap-4">
-																				<Radio value="file">{t("path")}</Radio>
-																				<Radio value="content">
-																					{t("inbounds.tls.certificateContent")}
-																				</Radio>
+																				<label className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem value="file" /><span>{t("path")}</span></label>
+																				<label className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem value="content" /><span>{t("inbounds.tls.certificateContent")}</span></label>
 																			</div>
 																		</RadioGroup>
 																	)}
@@ -6160,8 +5863,8 @@ export const InboundFormModal: FC<Props> = ({
 															</FormControl>
 															{certConfig.useFile ? (
 																<FormControl>
-																	<FormLabel>{t("inbounds.tls.existingCertificate")}</FormLabel>
-																	<Select placeholder={t("inbounds.tls.chooseCertificate")} onChange={(event) => {
+																	<FormLabel helpKey="inbounds.tls.existingCertificateHelp">{t("inbounds.tls.existingCertificate")}</FormLabel>
+																	<NativeSelect onChange={(event) => {
 																			const certificate = subscriptionBundle?.certificates.find(
 																				(item) => item.path === event.target.value,
 																			);
@@ -6192,15 +5895,13 @@ export const InboundFormModal: FC<Props> = ({
 																					{item.domain}
 																				</option>
 																			))}
-																	</Select>
+																	</NativeSelect>
 																</FormControl>
 															) : null}
 															{certConfig.useFile ? (
 																<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																	<FormControl>
-																		<FormLabel>
-																			{t("inbounds.tls.certFile")}
-																		</FormLabel>
+																		<FormLabel helpKey="inbounds.tls.certFileHelp">{t("inbounds.tls.certFile")}</FormLabel>
 																		<Input
 																			{...register(
 																				`tlsCertificates.${index}.certFile` as const,
@@ -6208,9 +5909,7 @@ export const InboundFormModal: FC<Props> = ({
 																		/>
 																	</FormControl>
 																	<FormControl>
-																		<FormLabel>
-																			{t("inbounds.tls.keyFile")}
-																		</FormLabel>
+																		<FormLabel helpKey="inbounds.tls.keyFileHelp">{t("inbounds.tls.keyFile")}</FormLabel>
 																		<Input
 																			{...register(
 																				`tlsCertificates.${index}.keyFile` as const,
@@ -6221,9 +5920,7 @@ export const InboundFormModal: FC<Props> = ({
 															) : (
 																<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 																	<FormControl>
-																		<FormLabel>
-																			{t("nodes.certificate")}
-																		</FormLabel>
+																		<FormLabel helpKey="nodes.certificateHelp">{t("nodes.certificate")}</FormLabel>
 																		<Textarea
 																			rows={3}
 																			{...register(
@@ -6232,9 +5929,7 @@ export const InboundFormModal: FC<Props> = ({
 																		/>
 																	</FormControl>
 																	<FormControl>
-																		<FormLabel>
-																			{t("myaccount.apiKeyMasked")}
-																		</FormLabel>
+																		<FormLabel helpKey="myaccount.apiKeyMaskedHelp">{t("myaccount.apiKeyMasked")}</FormLabel>
 																		<Textarea
 																			rows={3}
 																			{...register(
@@ -6245,18 +5940,8 @@ export const InboundFormModal: FC<Props> = ({
 																</div>
 															)}
 															<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-																<FormControl className="flex items-center">
-																	<FormLabel className="mb-0">
-																		{t("inbounds.tls.oneTimeLoading")}
-																	</FormLabel>
-																	<Switch {...register(
-																			`tlsCertificates.${index}.oneTimeLoading` as const,
-																		)} />
-																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		{t("inbounds.tls.usage")}
-																	</FormLabel>
+<FormControl>
+																	<FormLabel helpKey="inbounds.tls.usageHelp">{t("inbounds.tls.usage")}</FormLabel>
 																	<SearchableTagSelect
 																		value={usage}
 																		options={tlsUsageOptions}
@@ -6273,29 +5958,23 @@ export const InboundFormModal: FC<Props> = ({
 																		}
 																	/>
 																</FormControl>
-																<FormControl>
-																	<FormLabel>
-																		OCSP stapling interval (seconds)
-																	</FormLabel>
-																	<Input
-																		{...register(
-																			`tlsCertificates.${index}.ocspStapling` as const,
-																		)}
-																		inputMode="numeric"
-																		placeholder="0"
-																	/>
+<FormControl>
+	<FormLabel helpKey="inbounds.tls.ocspStaplingHelp">{t("inbounds.tls.ocspStapling")}</FormLabel>
+	<FormNumberField control={control} name={`tlsCertificates.${index}.ocspStapling` as const} inputMode="numeric" placeholder="0" />
+</FormControl>
+</div>
+<div className="flex flex-col gap-3">
+<FormControl className="flex items-center">
+																	<FormLabel className="mb-0" helpKey="inbounds.tls.oneTimeLoadingHelp">{t("inbounds.tls.oneTimeLoading")}</FormLabel>
+																	<Controller control={control} name={`tlsCertificates.${index}.oneTimeLoading` as const} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 																</FormControl>
-															</div>
-															{usage === "issue" && (
-																<FormControl className="flex items-center">
-																	<FormLabel className="mb-0">
-																		{t("inbounds.tls.buildChain")}
-																	</FormLabel>
-																	<Switch {...register(
-																			`tlsCertificates.${index}.buildChain` as const,
-																		)} />
+{usage === "issue" && (
+<FormControl className="flex items-center">
+																	<FormLabel className="mb-0" helpKey="inbounds.tls.buildChainHelp">{t("inbounds.tls.buildChain")}</FormLabel>
+																	<Controller control={control} name={`tlsCertificates.${index}.buildChain` as const} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 																</FormControl>
-															)}
+)}
+</div>
 														</div>
 													);
 												})}
@@ -6303,18 +5982,18 @@ export const InboundFormModal: FC<Props> = ({
 											<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
 											<div className="flex flex-col gap-3">
 												<FormControl>
-													<FormLabel>{t("inbounds.tls.echKey")}</FormLabel>
+													<FormLabel helpKey="inbounds.tls.echKeyHelp">{t("inbounds.tls.echKey")}</FormLabel>
 													<Input {...register("tlsEchServerKeys")} />
 												</FormControl>
 												<FormControl>
-													<FormLabel>{t("inbounds.tls.echConfig")}</FormLabel>
+													<FormLabel helpKey="inbounds.tls.echConfigHelp">{t("inbounds.tls.echConfig")}</FormLabel>
 													<Input {...register("tlsEchConfigList")} />
 												</FormControl>
 												<div className="flex flex-row items-center gap-3">
-													<Button variant="solid" size="xs" onClick={handleGenerateEchCert}>
+													<Button onClick={handleGenerateEchCert} size="xs">
 														{t("inbounds.tls.echGenerate")}
 													</Button>
-													<Button size="xs" variant="ghost" onClick={handleClearEchCert}>
+													<Button onClick={handleClearEchCert} variant="ghost" size="xs">
 														{t("clear")}
 													</Button>
 												</div>
@@ -6330,16 +6009,17 @@ export const InboundFormModal: FC<Props> = ({
 												{t("inbounds.reality.title")}
 											</p>
 											<FormControl className="flex items-center">
-												<FormLabel className="mb-0">{t("show")}</FormLabel>
-												<Switch {...register("realityShow")} />
+												<FormLabel className="mb-0" helpKey="showHelp">{t("show")}</FormLabel>
+												<Controller control={control} name={"realityShow"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 											</FormControl>
 											<FormControl>
-												<FormLabel>{t("inbounds.reality.xver")}</FormLabel>
+												<FormLabel helpKey="inbounds.reality.xverHelp">{t("inbounds.reality.xver")}</FormLabel>
 												<Controller
 													control={control}
 													name="realityXver"
 													render={({ field }) => (
-														<NumericInput
+														<NumberField doneLabel={t("common.done")}
+																	inputMode="numeric"
 															value={field.value ?? ""}
 															onChange={(value) => field.onChange(value)}
 															min={0}
@@ -6348,7 +6028,7 @@ export const InboundFormModal: FC<Props> = ({
 												/>
 											</FormControl>
 											<FormControl>
-												<FormLabel>{t("inbounds.tls.fingerprint")}</FormLabel>
+												<FormLabel helpKey="inbounds.tls.fingerprintHelp">{t("inbounds.tls.fingerprint")}</FormLabel>
 												<SearchableTagSelect
 													value={formValues.realityFingerprint || ""}
 													options={tlsFingerprintOptions}
@@ -6368,13 +6048,15 @@ export const InboundFormModal: FC<Props> = ({
 												<FormLabel>
 													<div className="flex flex-row items-center gap-2">
 														<p>{t("pages.xray.routeTester.target")}</p>
-														<Tooltip label={t("common.randomize")}>
-															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" onClick={handleRandomizeRealityTarget} >{<ArrowPathIcon className="w-[14px] h-[14px]" />}</IconButton>
-														</Tooltip>
+														<Tooltip>
+<TooltipTrigger asChild>
+															<Button aria-label={t("common.randomize")} onClick={handleRandomizeRealityTarget} variant="ghost" size="xs" className="size-7 p-0">{<RefreshCw className="w-[14px] h-[14px]" />}</Button>
+														</TooltipTrigger>
+<TooltipContent>{t("common.randomize")}</TooltipContent>
+</Tooltip>
 													</div>
 												</FormLabel>
-												<Input
-													{...register("realityTarget", { required: true })}
+												<Input {...register("realityTarget", { required: true })}
 													placeholder="example.com:443"
 												/>
 												{(errors.realityTarget ||
@@ -6392,9 +6074,12 @@ export const InboundFormModal: FC<Props> = ({
 												<FormLabel>
 													<div className="flex flex-row items-center gap-2">
 														<p>{t("inbounds.reality.serverNames")}</p>
-														<Tooltip label={t("common.randomize")}>
-															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" onClick={handleRandomizeRealityTarget} >{<ArrowPathIcon className="w-[14px] h-[14px]" />}</IconButton>
-														</Tooltip>
+														<Tooltip>
+<TooltipTrigger asChild>
+															<Button aria-label={t("common.randomize")} onClick={handleRandomizeRealityTarget} variant="ghost" size="xs" className="size-7 p-0">{<RefreshCw className="w-[14px] h-[14px]" />}</Button>
+														</TooltipTrigger>
+<TooltipContent>{t("common.randomize")}</TooltipContent>
+</Tooltip><FieldHint>{t("inbounds.serverNamesHint")}</FieldHint>
 													</div>
 												</FormLabel>
 												<Input
@@ -6403,9 +6088,6 @@ export const InboundFormModal: FC<Props> = ({
 													})}
 													placeholder="domain.com"
 												/>
-												<div className="text-[0.875rem] text-gray-500">
-													{t("inbounds.serverNamesHint")}
-												</div>
 												{(errors.realityServerNames ||
 													fieldValidationErrors.realityServerNames) && (
 													<p className="text-[0.75rem] text-red-500 mt-1">
@@ -6415,14 +6097,13 @@ export const InboundFormModal: FC<Props> = ({
 												)}
 											</FormControl>
 											<FormControl>
-												<FormLabel>
-													{t("inbounds.reality.maxTimediff")}
-												</FormLabel>
+												<FormLabel helpKey="inbounds.reality.maxTimediffHelp">{t("inbounds.reality.maxTimediff")}</FormLabel>
 												<Controller
 													control={control}
 													name="realityMaxTimediff"
 													render={({ field }) => (
-														<NumericInput
+														<NumberField doneLabel={t("common.done")}
+																	inputMode="numeric"
 															value={field.value ?? ""}
 															onChange={(value) => field.onChange(value)}
 															min={0}
@@ -6432,18 +6113,13 @@ export const InboundFormModal: FC<Props> = ({
 											</FormControl>
 											<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 												<FormControl>
-													<FormLabel>
-														{t("inbounds.reality.minClientVer")}
-													</FormLabel>
-													<Input
-														{...register("realityMinClientVer")}
+													<FormLabel helpKey="inbounds.reality.minClientVerHelp">{t("inbounds.reality.minClientVer")}</FormLabel>
+													<Input {...register("realityMinClientVer")}
 														placeholder="25.9.11"
 													/>
 												</FormControl>
 												<FormControl>
-													<FormLabel>
-														{t("inbounds.reality.maxClientVer")}
-													</FormLabel>
+													<FormLabel helpKey="inbounds.reality.maxClientVerHelp">{t("inbounds.reality.maxClientVer")}</FormLabel>
 													<Input
 														{...register("realityMaxClientVer")}
 														placeholder="25.9.11"
@@ -6457,18 +6133,18 @@ export const InboundFormModal: FC<Props> = ({
 												<FormLabel>
 													<div className="flex flex-row items-center gap-2">
 														<p>{t("inbounds.reality.shortIds")}</p>
-														<Tooltip label={t("common.randomize")}>
-															<IconButton aria-label={t("common.randomize")} variant="ghost" size="xs" onClick={handleRandomizeRealityShortIds} >{<ArrowPathIcon className="w-[14px] h-[14px]" />}</IconButton>
-														</Tooltip>
+														<Tooltip>
+<TooltipTrigger asChild>
+															<Button aria-label={t("common.randomize")} onClick={handleRandomizeRealityShortIds} variant="ghost" size="xs" className="size-7 p-0">{<RefreshCw className="w-[14px] h-[14px]" />}</Button>
+														</TooltipTrigger>
+<TooltipContent>{t("common.randomize")}</TooltipContent>
+</Tooltip><FieldHint>{t("inbounds.shortIdsHint")}</FieldHint>
 													</div>
 												</FormLabel>
 												<Input {...register("realityShortIds")} />
-												<Button size="xs" variant="outline" onClick={handleGenerateShortId} className="mt-2 self-start">
+												<Button onClick={handleGenerateShortId} variant="outline" size="xs" className="mt-2 self-start">
 													{t("inbounds.reality.generateShortId")}
 												</Button>
-												<div className="text-[0.875rem] text-gray-500">
-													{t("inbounds.shortIdsHint")}
-												</div>
 												{(errors.realityShortIds ||
 													fieldValidationErrors.realityShortIds) && (
 													<p className="text-[0.75rem] text-red-500 mt-1">
@@ -6478,20 +6154,18 @@ export const InboundFormModal: FC<Props> = ({
 												)}
 											</FormControl>
 											<FormControl>
-												<FormLabel>{t("inbounds.reality.spiderX")}</FormLabel>
+												<FormLabel helpKey="inbounds.reality.spiderXHelp">{t("inbounds.reality.spiderX")}</FormLabel>
 												<Input {...register("realitySpiderX")} />
 											</FormControl>
 											<FormControl>
-												<FormLabel>{t("inbounds.reality.publicKey")}</FormLabel>
+												<FormLabel helpKey="inbounds.reality.publicKeyHelp">{t("inbounds.reality.publicKey")}</FormLabel>
 												<Input {...register("realityPublicKey")} />
 											</FormControl>
 											<FormControl required isInvalid={Boolean(
 													errors.realityPrivateKey ||
 														fieldValidationErrors.realityPrivateKey,
 												)}>
-												<FormLabel>
-													{t("inbounds.reality.privateKey")}
-												</FormLabel>
+												<FormLabel helpKey="inbounds.reality.privateKeyHelp">{t("inbounds.reality.privateKey")}</FormLabel>
 												<Input
 													{...register("realityPrivateKey", { required: true })}
 												/>
@@ -6504,10 +6178,10 @@ export const InboundFormModal: FC<Props> = ({
 												)}
 											</FormControl>
 											<div className="flex flex-row items-center gap-3">
-												<Button variant="solid" size="xs" onClick={handleGenerateRealityKeypair}>
+												<Button onClick={handleGenerateRealityKeypair} size="xs">
 													{t("inbounds.reality.generateKeys")}
 												</Button>
-												<Button size="xs" variant="ghost" onClick={handleClearRealityKeypair}>
+												<Button onClick={handleClearRealityKeypair} variant="ghost" size="xs">
 													{t("clear")}
 												</Button>
 											</div>
@@ -6546,37 +6220,31 @@ export const InboundFormModal: FC<Props> = ({
 													).map(([name, label]) => (
 														<FormControl key={name} isInvalid={!!fieldValidationErrors[name]}>
 															<FormLabel>{label}</FormLabel>
-															<Input
-																{...register(name as keyof InboundFormValues)}
-																inputMode="numeric"
+															<FormNumberField control={control} name={name as keyof InboundFormValues} inputMode="numeric"
 																placeholder="0"
 															/>
 															{fieldValidationErrors[name] && (
-																<FormErrorMessage>
+																<FieldError>
 																	{fieldValidationErrors[name]}
-																</FormErrorMessage>
+																</FieldError>
 															)}
 														</FormControl>
 													))}
 												</div>
 											</div>
 											<FormControl>
-												<FormLabel>
-													{t("inbounds.reality.mldsa65Seed")}
-												</FormLabel>
+												<FormLabel helpKey="inbounds.reality.mldsa65SeedHelp">{t("inbounds.reality.mldsa65Seed")}</FormLabel>
 												<Input {...register("realityMldsa65Seed")} />
 											</FormControl>
 											<FormControl>
-												<FormLabel>
-													{t("inbounds.reality.mldsa65Verify")}
-												</FormLabel>
+												<FormLabel helpKey="inbounds.reality.mldsa65VerifyHelp">{t("inbounds.reality.mldsa65Verify")}</FormLabel>
 												<Input {...register("realityMldsa65Verify")} />
 											</FormControl>
 											<div className="flex flex-row items-center gap-3">
-												<Button variant="solid" size="xs" onClick={handleGenerateMldsa65}>
+												<Button onClick={handleGenerateMldsa65} size="xs">
 													{t("inbounds.reality.mldsa65Generate")}
 												</Button>
-												<Button size="xs" variant="ghost" onClick={handleClearMldsa65}>
+												<Button onClick={handleClearMldsa65} variant="ghost" size="xs">
 													{t("clear")}
 												</Button>
 											</div>
@@ -6589,9 +6257,7 @@ export const InboundFormModal: FC<Props> = ({
 										<div className="flex flex-col gap-3 xray-dialog-section">
 											<div className="flex items-center justify-between">
 												<div className="font-medium">{t("inbounds.fallbacks")}</div>
-												<Button variant="solid" size="xs" onClick={handleAddFallback}>
-													{t("inbounds.fallbacks.add")}
-												</Button>
+												<button type="button" aria-label={t("inbounds.fallbacks.add")} title={t("inbounds.fallbacks.add")} onClick={handleAddFallback} className={buttonVariants({ variant: "outline", size: "icon-sm" })}><Plus className="size-4" /></button>
 											</div>
 											{fallbackFields.length === 0 ? (
 												<p className="text-[0.875rem] text-gray-500">
@@ -6604,15 +6270,13 @@ export const InboundFormModal: FC<Props> = ({
 															<p className="font-semibold">
 																{t("inbounds.fallbacks.type")} #{index + 1}
 															</p>
-															<Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeFallback(index)}>
+															<Button onClick={() => removeFallback(index)} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10">
 																{t("delete")}
 															</Button>
 														</div>
 														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 															<FormControl>
-																<FormLabel>
-																	{t("inbounds.fallbacks.dest")}
-																</FormLabel>
+																<FormLabel helpKey="inbounds.fallbacks.destHelp">{t("inbounds.fallbacks.dest")}</FormLabel>
 																<Input
 																	placeholder="example.com:443"
 																	{...register(
@@ -6621,7 +6285,7 @@ export const InboundFormModal: FC<Props> = ({
 																/>
 															</FormControl>
 															<FormControl>
-																<FormLabel>{t("path")}</FormLabel>
+																<FormLabel helpKey="pathHelp">{t("path")}</FormLabel>
 																<Input
 																	{...register(
 																		`fallbacks.${index}.path` as const,
@@ -6630,9 +6294,7 @@ export const InboundFormModal: FC<Props> = ({
 																/>
 															</FormControl>
 															<FormControl>
-																<FormLabel>
-																	{t("inbounds.fallbacks.type")}
-																</FormLabel>
+																<FormLabel helpKey="inbounds.fallbacks.typeHelp">{t("inbounds.fallbacks.type")}</FormLabel>
 																<Input
 																	{...register(
 																		`fallbacks.${index}.type` as const,
@@ -6641,9 +6303,7 @@ export const InboundFormModal: FC<Props> = ({
 																/>
 															</FormControl>
 															<FormControl>
-																<FormLabel>
-																	{t("inbounds.fallbacks.alpn")}
-																</FormLabel>
+																<FormLabel helpKey="inbounds.fallbacks.alpnHelp">{t("inbounds.fallbacks.alpn")}</FormLabel>
 																<Input
 																	{...register(
 																		`fallbacks.${index}.alpn` as const,
@@ -6674,31 +6334,25 @@ export const InboundFormModal: FC<Props> = ({
 														<div className="font-medium">
 															{t("inbounds.sniffing")}
 														</div>
-													<Tooltip label={t("inbounds.sniffingHint")}>
-															<QuestionMarkCircleIcon className="w-[16px] h-[16px]" />
-														</Tooltip>
+													<FieldHint>{t("inbounds.sniffingHint")}</FieldHint>
 													</div>
-													<Switch {...register("sniffingEnabled")} />
+													<Controller control={control} name={"sniffingEnabled"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 												</div>
 												{sniffingEnabled && (
 													<div className="flex flex-col gap-3">
 														<FormControl>
-															<FormLabel>
-																{t("inbounds.sniffingDestinations")}
-															</FormLabel>
+															<FormLabel helpKey="inbounds.sniffingDestinationsHelp">{t("inbounds.sniffingDestinations")}</FormLabel>
 															<Controller
 																control={control}
 																name="sniffingDestinations"
 																render={({ field }) => (
-																	<CheckboxGroup value={field.value ?? []} onChange={field.onChange}>
+																	<div className="flex flex-col gap-2">
 																		<div className="flex flex-row items-center gap-4">
 																			{sniffingOptions.map((option) => (
-																				<Checkbox key={option.value} value={option.value}>
-																					{option.label}
-																				</Checkbox>
+																				<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox key={option.value} checked={(field.value ?? []).includes(option.value)} onCheckedChange={(checked) => field.onChange(checked === true ? [...(field.value ?? []), option.value] : (field.value ?? []).filter((item: string) => item !== option.value))} /><span>{option.label}</span></label>
 																			))}
 																		</div>
-																	</CheckboxGroup>
+																	</div>
 																)}
 															/>
 														</FormControl>
@@ -6721,28 +6375,24 @@ export const InboundFormModal: FC<Props> = ({
 															</FormControl>
 														</div>
 														<FormControl className="flex items-center">
-															<FormLabel className="mb-0">
-																{t("inbounds.sniffingRouteOnly")}
-															</FormLabel>
-															<Switch {...register("sniffingRouteOnly")} />
+															<FormLabel className="mb-0" helpKey="inbounds.sniffingRouteOnlyHelp">{t("inbounds.sniffingRouteOnly")}</FormLabel>
+															<Controller control={control} name={"sniffingRouteOnly"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 														</FormControl>
 														<FormControl className="flex items-center">
-															<FormLabel className="mb-0">
-																{t("inbounds.sniffingMetadataOnly")}
-															</FormLabel>
-															<Switch {...register("sniffingMetadataOnly")} />
+															<FormLabel className="mb-0" helpKey="inbounds.sniffingMetadataOnlyHelp">{t("inbounds.sniffingMetadataOnly")}</FormLabel>
+															<Controller control={control} name={"sniffingMetadataOnly"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
 														</FormControl>
 													</div>
 												)}
 											</div>
 										)}
 								</div>
-							</TabPanel>
-							<TabPanel className="px-0">
+							</TabsContent>
+							<TabsContent value="1" forceMount className="mt-0 data-[state=inactive]:hidden">
 								<div className="flex flex-col items-stretch gap-4">
 									{jsonError && (
-										<Alert status="error">
-											<AlertIcon />
+										<Alert variant="destructive">
+											<CircleAlert className="size-4" aria-hidden="true" />
 											{jsonError}
 										</Alert>
 									)}
@@ -6754,8 +6404,8 @@ export const InboundFormModal: FC<Props> = ({
 										/>
 									</div>
 								</div>
-							</TabPanel>
-							<TabPanel className="px-0">
+							</TabsContent>
+							<TabsContent value="2" forceMount className="mt-0 data-[state=inactive]:hidden">
 								<Controller
 									control={control}
 									name="targetIds"
@@ -6775,41 +6425,24 @@ export const InboundFormModal: FC<Props> = ({
 										return (
 											<div className="flex flex-col items-stretch gap-3">
 												{customTargetIds.length > 0 && (
-													<Checkbox checked={allCustomSelected} isIndeterminate={someCustomSelected} onChange={() =>
-															field.onChange(
-																allCustomSelected
-																	? selectedIds.filter(
-																			(id) => !customTargetIds.includes(id),
-																		)
-																	: [
-																			...selectedIds,
-																			...customTargetIds.filter(
-																				(id) => !selectedIds.includes(id),
-																			),
-																		],
-															)
-														}>
-														{t("inbounds.selectAllCustomNodes")}
-													</Checkbox>
+													<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={allCustomSelected || (someCustomSelected ? "indeterminate" : false)} onCheckedChange={() => field.onChange(allCustomSelected ? selectedIds.filter((id) => !customTargetIds.includes(id)) : [...selectedIds, ...customTargetIds.filter((id) => !selectedIds.includes(id))])} /><span>{t("inbounds.selectAllCustomNodes")}</span></label>
 												)}
-												<CheckboxGroup value={selectedIds} onChange={(value) => field.onChange(value)}>
+												<div className="flex flex-col gap-2">
 													<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 														{availableTargets.map((target) => (
 															<div key={target.id} className={cn("border rounded-md p-3", sectionBorder)}>
-																<Checkbox value={target.id}>
-																	<div className="flex flex-row items-center gap-2">
+																<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={selectedIds.includes(target.id)} onCheckedChange={(checked) => field.onChange(checked === true ? [...selectedIds, target.id] : selectedIds.filter((id) => id !== target.id))} /><span><div className="flex flex-row items-center gap-2">
 																		<p>
 																			{target.type === "master"
 																				? t("default")
 																				: target.name}
 																		</p>
-																		<Tag size="sm" colorScheme="gray">
+																		<Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-500/20 dark:text-gray-200">
 																			{target.type === "master"
 																				? t("default")
 																				: target.mode}
-																		</Tag>
-																	</div>
-																</Checkbox>
+																		</Badge>
+																	</div></span></label>
 															</div>
 														))}
 													</div>
@@ -6818,61 +6451,52 @@ export const InboundFormModal: FC<Props> = ({
 															{String(errors.targetIds.message)}
 														</p>
 													)}
-												</CheckboxGroup>
+												</div>
 											</div>
 										);
 									}}
 								/>
-							</TabPanel>
-						</TabPanels>
-					</Tabs>
+							</TabsContent>
 					{isEditMode && initialValue?.tag ? (
 						<EntityNotePanel entityType="inbound" entityKey={initialValue.tag} />
 					) : null}
-				</XrayModalBody>
-				<XrayModalFooter className={cn(isEditMode && onDelete ? "justify-between" : "justify-end")}>
-					{isEditMode && onDelete && (
-						<div className="flex flex-row items-center gap-3">
+					</div>
+				</Tabs>
+				<DialogFooter className="flex-row flex-wrap items-center justify-between gap-2 border-t px-5 py-3">
+					{isEditMode && onDelete ? (
+						<div className="flex flex-row flex-wrap items-center gap-2">
 							<DeleteConfirmDialog
 								description={t("inbounds.confirmDelete")}
 								loading={isDeleting}
 								disabled={isSubmitting}
 								onConfirm={onDelete}
 							>
-								<Button size="md" variant="ghost" colorScheme="red" disabled={isSubmitting}>
+								<button type="button" disabled={isSubmitting} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-destructive")}>
 									{t("delete")}
-								</Button>
+								</button>
 							</DeleteConfirmDialog>
-							{onClone && (
-								<Button size="md" variant="outline" onClick={onClone} disabled={isSubmitting}>
+							{onClone ? (
+								<button type="button" onClick={onClone} disabled={isSubmitting} className={buttonVariants({ variant: "outline", size: "sm" })}>
 									{t("hostsPage.clone")}
-								</Button>
-							)}
+								</button>
+							) : null}
 						</div>
-					)}
-					<div className="flex flex-row items-center gap-3">
-						{isEditMode ? (
-							<>
-								<Button size="md" variant="ghost" onClick={onClose}>
-									{t("hostsPage.cancel")}
-								</Button>
-								<Button size="md" colorScheme="primary" loading={isSubmitting} disabled={hasBlockingErrorsWithJson} onClick={handleSubmit(submitForm)}>
-									{t("save")}
-								</Button>
-							</>
-						) : (
-							<>
-								<Button size="md" variant="ghost" onClick={onClose}>
-									{t("hostsPage.cancel")}
-								</Button>
-								<Button size="md" colorScheme="primary" loading={isSubmitting} disabled={hasBlockingErrorsWithJson} onClick={handleSubmit(submitForm)}>
-									{isCloneMode ? t("inbounds.cloneSubmit") : t("create")}
-								</Button>
-							</>
-						)}
+					) : null}
+					<div className="ms-auto flex flex-row flex-wrap items-center gap-2">
+						<button type="button" onClick={onClose} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+							{t("hostsPage.cancel")}
+						</button>
+						<button
+							type="button"
+							onClick={handleSubmit(submitForm)}
+							disabled={isSubmitting || hasBlockingErrorsWithJson}
+							className={buttonVariants({ size: "sm" })}
+						>
+							{isEditMode ? t("save") : isCloneMode ? t("inbounds.cloneSubmit") : t("create")}
+						</button>
 					</div>
-				</XrayModalFooter>
-			</XrayModalContent>
-		</Modal>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 };

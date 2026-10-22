@@ -1,16 +1,16 @@
-import { Button, IconButton } from "components/shadcn/button";
-import { Tooltip } from "components/shadcn/tooltip";
-import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
-import { Portal } from "components/shadcn/portal";
+import { Button } from "components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { Checkbox } from "components/ui/checkbox";
+import { Skeleton } from "components/ui/skeleton";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { SlidersHorizontal, Copy } from "lucide-react";
+
 import { useBreakpointValue } from "hooks/useBreakpointValue";
-import { Checkbox } from "components/shadcn/selection";
+
 import { RowActionButton } from "./row-actions";
-import { Skeleton, SkeletonText } from "components/shadcn/feedback";
+
 import { cn } from "lib/cn";
-import {
-	AdjustmentsHorizontalIcon,
-	DocumentDuplicateIcon,
-} from "@heroicons/react/24/outline";
 import {
 	type CellContext,
 	type ColumnDef,
@@ -23,19 +23,7 @@ import {
 	type SortingState,
 	useReactTable,
 } from "@tanstack/react-table";
-import {
-	Children,
-	Fragment,
-	type KeyboardEvent as ReactKeyboardEvent,
-	type CSSProperties,
-		type MouseEvent as ReactMouseEvent,
-	type ReactNode,
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { Children, Fragment, type KeyboardEvent as ReactKeyboardEvent, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState, ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import { copyTextToClipboard } from "utils/clipboard";
 import { createStableCellRegistry } from "utils/stableCell";
@@ -110,7 +98,7 @@ const installSelectAllShortcut = () => {
 
 const ActionsHeaderIcon = () => (
 	<div aria-hidden="true" className="inline-flex items-center justify-end w-full text-panel-text-muted rb-actions-header-icon">
-		<AdjustmentsHorizontalIcon className="w-3.5 h-3.5" />
+		<SlidersHorizontal className="w-3.5 h-3.5" />
 	</div>
 );
 
@@ -276,10 +264,10 @@ const DataTableCellContent = <TData,>({
 				{children}
 			</div>
 			{shouldCopy && (
-				<IconButton aria-label={t("a11y.copyValue")} size="xs" variant="ghost" onClick={(event) => {
+				<Button aria-label={t("a11y.copyValue")} onClick={(event) => {
 						event.stopPropagation();
 						void copyTextToClipboard(fullText);
-					}} className="shrink-0 rb-cell-copy" >{<DocumentDuplicateIcon className="w-3.5 h-3.5" />}</IconButton>
+					}} variant="ghost" size="xs" className={cn("size-7 p-0", "shrink-0 rb-cell-copy")}>{<Copy className="w-3.5 h-3.5" />}</Button>
 			)}
 		</div>
 	);
@@ -287,13 +275,14 @@ const DataTableCellContent = <TData,>({
 	if (!shouldTooltip) return content;
 
 	return (
-		<Tooltip hasArrow openDelay={350} label={
+		<Tooltip>
+<TooltipTrigger asChild><span className="inline-flex max-w-full">{content}</span></TooltipTrigger>
+<TooltipContent>{
 				<div dir="auto" className="max-w-[360px] max-h-[180px] overflow-y-auto whitespace-pre-wrap [word-break:break-word]">
 					{fullText}
 				</div>
-			}>
-			{content}
-		</Tooltip>
+			}</TooltipContent>
+</Tooltip>
 	);
 };
 
@@ -305,25 +294,40 @@ const getActionLabelText = (label: RowActionItem["label"]) =>
 /** Inline actions show as icons up to this count; the rest move into the overflow menu. */
 const INLINE_ROW_ACTIONS = 4;
 
+const RenderActionMenu = ({
+	icon,
+	label,
+	danger,
+	className,
+	render,
+}: {
+	icon: ReactElement;
+	label: string;
+	danger?: boolean;
+	className?: string;
+	render: (onClose: () => void) => ReactNode;
+}) => {
+	const [open, setOpen] = useState(false);
+	return (
+		<DropdownMenu open={open} onOpenChange={setOpen}>
+			<DropdownMenuTrigger asChild>
+				<RowActionButton label={label} icon={icon} danger={danger} className={className} />
+			</DropdownMenuTrigger>
+			<DropdownMenuContent
+				align="end"
+				className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto z-[2500] rounded-lg shadow-2xl"
+			>
+				{render(() => setOpen(false))}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+};
+
 const InlineRowAction = ({ action }: { action: RowActionItem }) => {
 	const label = getActionLabelText(action.label) || "Action";
-	const icon = action.icon ?? <DocumentDuplicateIcon />;
+	const icon = action.icon ?? <Copy />;
 	if (action.render) {
-		const renderAction = action.render;
-		return (
-			<Menu placement="auto-end" strategy="fixed" autoSelect={false} isLazy>
-				{({ onClose }) => (
-					<>
-						<MenuButton as={RowActionButton} label={label} icon={icon} danger={action.isDanger} className={toneClass(action.color)} />
-						<Portal>
-							<MenuList className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto z-[2500] rounded-lg shadow-2xl">
-								{renderAction(onClose)}
-							</MenuList>
-						</Portal>
-					</>
-				)}
-			</Menu>
-		);
+		return <RenderActionMenu icon={icon} label={label} danger={action.isDanger} className={toneClass(action.color)} render={action.render} />;
 	}
 	return (
 		<RowActionButton
@@ -343,9 +347,10 @@ const InlineRowAction = ({ action }: { action: RowActionItem }) => {
 const InlineRowActions = ({ actions }: { actions: RowActionItem[] }) => {
 	if (actions.length === 0) return null;
 	const orderedActions = orderRowActions(actions);
-	const hasOverflow = orderedActions.length > INLINE_ROW_ACTIONS;
-	const inlineActions = hasOverflow ? orderedActions.slice(0, INLINE_ROW_ACTIONS - 1) : orderedActions;
-	const overflowActions = hasOverflow ? orderedActions.slice(INLINE_ROW_ACTIONS - 1) : [];
+	const pinnedActions = orderedActions.filter((action) => action.pinned);
+	const hasPinned = pinnedActions.length > 0;
+	const hasOverflow = hasPinned ? orderedActions.length > pinnedActions.length : orderedActions.length > INLINE_ROW_ACTIONS;
+	const inlineActions = hasPinned ? pinnedActions : hasOverflow ? orderedActions.slice(0, INLINE_ROW_ACTIONS - 1) : orderedActions;
 
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops row clicks, it is not a control
@@ -354,7 +359,7 @@ const InlineRowActions = ({ actions }: { actions: RowActionItem[] }) => {
 			{inlineActions.map((action) => (
 				<InlineRowAction key={action.id} action={action} />
 			))}
-			{overflowActions.length > 0 ? <RowActionsMenu actions={overflowActions} label="More actions" /> : null}
+			<RowActionsMenu actions={orderedActions} label="More actions" />
 		</div>
 	);
 };
@@ -440,13 +445,16 @@ export function DataTable<TData>({
 		row: TData | null;
 		x: number;
 		y: number;
-	}>({ row: null, x: 0, y: 0 });
+		open: boolean;
+	}>({ row: null, x: 0, y: 0, open: false });
 	const resolvedActionsDisplay =
 		actionsDisplay ??
 		(rowActions || renderRowActions ? "inline" : "none");
 	const hasActions = resolvedActionsDisplay !== "none" && Boolean(rowActions || renderRowActions);
 	// Inline icons need the column to fit them, so the column sizes to its content.
 	const resolvedActionsColumnWidth = resolvedActionsDisplay === "inline" ? "max-content" : actionsColumnWidth;
+	const resolveColumnWidth = (isSelectColumn: boolean, isActionsColumn: boolean, columnWidth: string | number | undefined) =>
+		isSelectColumn ? selectionColumnWidth : isActionsColumn ? resolvedActionsColumnWidth : columnWidth;
 	const alwaysShowActions = actionsAlwaysVisible || resolvedActionsDisplay === "inline";
 	const activeBreakpoint =
 		useBreakpointValue<DataTableBreakpoint>({
@@ -493,7 +501,7 @@ export function DataTable<TData>({
 		? getResolvedRowActions(contextMenu.row)
 		: [];
 	const closeContextMenu = useCallback(() => {
-		setContextMenu({ row: null, x: 0, y: 0 });
+		setContextMenu((current) => ({ ...current, open: false }));
 	}, []);
 	const handleTableContextMenu = (
 		event: ReactMouseEvent,
@@ -503,14 +511,14 @@ export function DataTable<TData>({
 		if (!isMobile && actions.length > 0) {
 			event.preventDefault();
 			event.stopPropagation();
-			setContextMenu({ row, x: event.clientX, y: event.clientY });
+			setContextMenu({ row, x: event.clientX, y: event.clientY, open: true });
 		}
 	};
 	const isEditableTarget = (target: EventTarget | null) => {
 		return isEditableDomTarget(target);
 	};
 	useEffect(() => {
-		if (!contextMenu.row) return;
+		if (!contextMenu.open) return;
 		const handleEscape = (event: KeyboardEvent) => {
 			if (event.key === "Escape") closeContextMenu();
 		};
@@ -530,7 +538,7 @@ export function DataTable<TData>({
 			window.removeEventListener("keydown", handleEscape);
 			window.removeEventListener("scroll", handleScroll, true);
 		};
-	}, [closeContextMenu, contextMenu.row]);
+	}, [closeContextMenu, contextMenu.open]);
 	const renderConfiguredActions = useCallback(
 		(row: TData) => {
 			if (resolvedActionsDisplay === "none") return null;
@@ -609,10 +617,10 @@ export function DataTable<TData>({
 			dataColumns.unshift({
 				id: "__select",
 				header: ({ table }) => (
-					<Checkbox size="sm" checked={table.getIsAllRowsSelected()} isIndeterminate={table.getIsSomeRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} aria-label={selectAllLabel} />
+					<Checkbox checked={table.getIsAllRowsSelected() || (table.getIsSomeRowsSelected() ? "indeterminate" : false)} onCheckedChange={(checked) => table.toggleAllRowsSelected(checked === true)} aria-label={selectAllLabel} />
 				),
 				cell: ({ row }) => (
-					<Checkbox size="sm" checked={row.getIsSelected()} disabled={!row.getCanSelect()} onChange={row.getToggleSelectedHandler()} onClick={(event) => event.stopPropagation()} aria-label={selectRowLabel} />
+					<Checkbox checked={row.getIsSelected()} disabled={!row.getCanSelect()} onCheckedChange={(checked) => row.toggleSelected(checked === true)} onClick={(event) => event.stopPropagation()} aria-label={selectRowLabel} />
 				),
 				enableSorting: false,
 			});
@@ -771,7 +779,7 @@ export function DataTable<TData>({
 					? action.disabled(selectedRows, selectedIds)
 					: action.disabled;
 			return (
-				<Button key={action.id} size="sm" variant={action.variant ?? "outline"} colorScheme={action.isDanger ? "red" : undefined} loading={action.loading} disabled={isDisabled} onClick={() => action.onClick?.(selectedRows, selectedIds)}>{action.icon}
+				<Button key={action.id} disabled={isDisabled} onClick={() => action.onClick?.(selectedRows, selectedIds)} size="sm" loading={action.loading} variant={action.isDanger ? "destructive" : "outline"}>{action.icon}
 					{action.label}
 				</Button>
 			);
@@ -851,7 +859,7 @@ export function DataTable<TData>({
 						<div className="flex flex-row items-center gap-2.5 min-w-0! rb-resource-mobile-head">
 							{enableSelection && (
 								<div className="flex items-center shrink-0 rb-resource-mobile-head-select">
-									<Checkbox checked={table.getIsAllRowsSelected()} isIndeterminate={table.getIsSomeRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} aria-label={selectAllLabel} />
+									<Checkbox checked={table.getIsAllRowsSelected() || (table.getIsSomeRowsSelected() ? "indeterminate" : false)} onCheckedChange={(checked) => table.toggleAllRowsSelected(checked === true)} aria-label={selectAllLabel} />
 								</div>
 							)}
 							<div className="min-w-0! flex-1">
@@ -876,7 +884,7 @@ export function DataTable<TData>({
 					{showLoadingState
 						? loadingRowKeys.map((rowKey) => (
 								<div key={rowKey.id} className="rb-resource-card">
-									<SkeletonText noOfLines={1} className="w-[50%]" />
+									
 									<Skeleton className="h-3 w-[80%] mt-3" />
 									<Skeleton className="h-3 w-[62%] mt-2" />
 								</div>
@@ -912,7 +920,7 @@ export function DataTable<TData>({
 										<div className="flex flex-row items-center gap-2.5 min-w-0! rb-resource-card-main">
 											{enableSelection && (
 												<div className="flex items-center shrink-0">
-													<Checkbox checked={row.getIsSelected()} disabled={!row.getCanSelect()} onChange={row.getToggleSelectedHandler()} onClick={(event) => event.stopPropagation()} aria-label={selectRowLabel} />
+													<Checkbox checked={row.getIsSelected()} disabled={!row.getCanSelect()} onCheckedChange={(checked) => row.toggleSelected(checked === true)} onClick={(event) => event.stopPropagation()} aria-label={selectRowLabel} />
 												</div>
 											)}
 											<div className="min-w-0! flex-1">
@@ -1015,11 +1023,7 @@ export function DataTable<TData>({
 											activeBreakpoint,
 										);
 										return (
-											<th key={header.id} style={{ width: isSelectColumn
-														? selectionColumnWidth
-														: isActionsColumn
-															? resolvedActionsColumnWidth
-															: columnWidth, minWidth: isSelectColumn
+											<th key={header.id} style={{ width: resolveColumnWidth(isSelectColumn, isActionsColumn, columnWidth), minWidth: isSelectColumn
 														? selectionColumnWidth
 														: isActionsColumn
 															? resolvedActionsColumnWidth
@@ -1115,11 +1119,7 @@ export function DataTable<TData>({
 																? "end"
 																: isSelectColumn
 																	? "center"
-																	: alignToTextAlign(cellAlign), width: isSelectColumn
-																? selectionColumnWidth
-																: isActionsColumn
-																	? resolvedActionsColumnWidth
-																	: columnWidth, minWidth: isSelectColumn
+																	: alignToTextAlign(cellAlign), width: resolveColumnWidth(isSelectColumn, isActionsColumn, columnWidth), minWidth: isSelectColumn
 																? selectionColumnWidth
 																: isActionsColumn
 																	? resolvedActionsColumnWidth
@@ -1190,10 +1190,12 @@ export function DataTable<TData>({
 				</BulkActionBar>
 			)}
 			{contextMenu.row && contextMenuActions.length > 0 && (
-				<Menu open autoSelect={false} placement="bottom-start" strategy="fixed" onClose={closeContextMenu}>
-					<MenuButton as="div" style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }} className="fixed w-[1px] h-[1px] opacity-0 pointer-events-none" />
-					<Portal>
-						<MenuList data-rb-context-menu="" onClick={(event) => event.stopPropagation()} onContextMenu={(event) => {
+				<DropdownMenu open={contextMenu.open} onOpenChange={(open) => { if (!open) closeContextMenu(); }}>
+					<DropdownMenuTrigger asChild>
+						<div style={{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }} className="fixed w-[1px] h-[1px] opacity-0 pointer-events-none" />
+					</DropdownMenuTrigger>
+					
+						<DropdownMenuContent data-rb-context-menu="" onClick={(event) => event.stopPropagation()} onContextMenu={(event) => {
 								event.preventDefault();
 								event.stopPropagation();
 							}} className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto overflow-x-hidden overscroll-contain z-[2500]">
@@ -1203,18 +1205,18 @@ export function DataTable<TData>({
 										{action.render(closeContextMenu)}
 									</Fragment>
 								) : (
-									<MenuItem key={action.id} icon={action.icon} disabled={action.disabled} className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))} onClick={(event) => {
+									<DropdownMenuItem key={action.id} disabled={action.disabled} onSelect={(event) => {
 											event.stopPropagation();
 											closeContextMenu();
 											action.onClick?.();
-										}}>
-										{action.label}
-									</MenuItem>
+										}} className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))}>
+										{action.icon}{action.label}
+									</DropdownMenuItem>
 								),
 							)}
-						</MenuList>
-					</Portal>
-				</Menu>
+						</DropdownMenuContent>
+					
+				</DropdownMenu>
 			)}
 		</div>
 	);

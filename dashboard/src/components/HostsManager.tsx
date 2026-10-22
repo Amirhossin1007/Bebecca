@@ -1,33 +1,34 @@
+import { Field, FieldLabel } from "components/ui/field";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { Badge } from "components/ui/badge";
+import { Input } from "components/ui/input";
+import { Button } from "components/ui/button";
+import { Spinner } from "components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { DropdownMenuItem } from "components/ui/dropdown-menu";
+import { Checkbox } from "components/ui/checkbox";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
 import type { SortingState } from "@tanstack/react-table";
 import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
-import { FormControl, FormErrorMessage, FormHelperText, FormLabel } from "components/shadcn/field";
-import { Popover, PopoverArrow, PopoverBody, PopoverCloseButton, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
-import { Portal } from "components/shadcn/portal";
-import { Badge, Tag } from "components/shadcn/badge";
-import { useToast } from "components/shadcn/toast";
-import { Input, InputGroup, InputRightElement } from "components/shadcn/input";
-import { Button } from "components/shadcn/button";
-import { Accordion, AccordionButton, AccordionIcon, AccordionItem, AccordionPanel } from "components/shadcn/accordion";
-import { Card } from "components/shadcn/card";
-import { Checkbox, Switch } from "components/shadcn/selection";
-import { Spinner } from "components/shadcn/feedback";
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
-import { Tooltip } from "components/shadcn/tooltip";
-import { MenuItem } from "components/shadcn/menu";
-import { withClass } from "components/shadcn/icon";
+
+import { FieldHint } from "components/ui/field-hint";
+import { FormField } from "components/ui/form-field";
+import { OverviewBand } from "components/ui/overview-band";
+import { SegmentedControl } from "components/ui/segmented-control";
+import { tlsAlpnOptions } from "utils/inbounds";
+import { Input as UiInput } from "components/ui/input";
+import { Badge as UiBadge } from "components/ui/badge";
+import { Switch as UiSwitch } from "components/ui/switch";
+import { buttonVariants } from "components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "components/ui/collapsible";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
+import { ChevronDown, Network, RefreshCw, CircleCheck, Info, Pencil, Plus, Trash2, CircleX } from "lucide-react";
+
 import { cn } from "lib/cn";
 import {
-	ArrowPathIcon,
-	CheckCircleIcon,
-	InformationCircleIcon,
-	PencilIcon,
-	PlusIcon,
-	TrashIcon,
-	XCircleIcon,
-} from "@heroicons/react/24/outline";
-import {
-	proxyALPN,
 	proxyFingerprint,
 	proxyHostSecurity,
 } from "constants/Proxies";
@@ -80,16 +81,8 @@ import {
 	DataTable,
 	type DataTableColumn,
 	type DataTableRowAction,
-	ResourceListCard,
 	ResourceRefreshButton,
-	type ResourceSummaryItem,
 } from "./ui";
-import {
-	XrayModalBody,
-	XrayModalContent,
-	XrayModalFooter,
-	XrayModalHeader,
-} from "./xray/XrayDialog";
 
 const FinalMaskEditor = lazy(async () => ({
 	default: (await import("./FinalMaskEditor")).FinalMaskEditor,
@@ -285,11 +278,11 @@ const emptyCreateHostValues = (inboundTag: string): CreateHostValues => ({
 	inboundTag,
 });
 
-const EditIcon = withClass(PencilIcon, "w-4 h-4");
+const EditIcon = withClass(Pencil, "w-4 h-4");
 
-const AddIcon = withClass(PlusIcon, "w-4 h-4");
+const AddIcon = withClass(Plus, "w-4 h-4");
 
-const InfoIcon = withClass(InformationCircleIcon, "w-4 h-4 text-gray-400 cursor-pointer");
+const InfoIcon = withClass(Info, "w-4 h-4 text-gray-400 cursor-pointer");
 
 const DYNAMIC_TOKENS: Array<{ token: string; labelKey: string }> = [
 	{ token: "{SERVER_IP}", labelKey: "hostsDialog.currentServer" },
@@ -325,10 +318,10 @@ const RotationControls: FC<RotationControlsProps> = ({
 	const { t } = useTranslation();
 	return (
 		<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-			<FormControl>
-				<FormLabel className="text-[0.75rem] text-gray-500 mb-1">
+			<Field>
+				<FieldLabel className="text-[0.75rem] text-gray-500 mb-1">
 					{t("hostsDialog.rotationMode")}
-				</FormLabel>
+				</FieldLabel>
 				<SearchableTagSelect
 					size="sm"
 					value={mode}
@@ -342,13 +335,13 @@ const RotationControls: FC<RotationControlsProps> = ({
 					placeholder={t("hostsDialog.rotationMode")}
 					onChange={(value) => onModeChange(String(value))}
 				/>
-			</FormControl>
-			<FormControl>
-				<FormLabel className="text-[0.75rem] text-gray-500 mb-1">
+			</Field>
+			<Field>
+				<FieldLabel className="text-[0.75rem] text-gray-500 mb-1">
 					{t("hostsDialog.rotationTTLSeconds")}
-				</FormLabel>
+				</FieldLabel>
 				<NumericInput size="sm" value={ttl ?? ""} min={1} max={2592000} fieldProps={{ className: "[placeholder:120]" }} disabled={mode !== "ttl"} onChange={(_, num) => onTTLChange(Number.isNaN(num) ? null : num)} />
-			</FormControl>
+			</Field>
 		</div>
 	);
 };
@@ -377,10 +370,6 @@ const getNodeAddressOptions = (
 			});
 			return options;
 		}, []);
-
-const alpnAutocompleteOptions = proxyALPN
-	.map((option) => option.value)
-	.filter(Boolean);
 
 const inboundPortPlaceholder = (inbound?: InboundOption) =>
 	inbound?.port ? `Inbound default: ${inbound.port}` : "Inherited from inbound";
@@ -421,17 +410,17 @@ const DynamicTokensPopover: FC = () => {
 	const { t } = useTranslation();
 
 	return (
-		<Popover isLazy placement="right">
-			<PopoverTrigger>
+		<Popover>
+			<PopoverTrigger asChild>
 				<div className="-mt-1">
 					<InfoIcon />
 				</div>
 			</PopoverTrigger>
-			<Portal>
+			
 				<PopoverContent className="max-w-[20rem] text-[0.75rem]">
-					<PopoverArrow />
-					<PopoverCloseButton />
-					<PopoverBody>
+					
+					
+					<div className="p-3">
 						<div className="pr-5 leading-[1.4]">
 							<p className="mb-2">{t("hostsDialog.desc")}</p>
 							{DYNAMIC_TOKENS.map(({ token, labelKey }) => (
@@ -441,9 +430,9 @@ const DynamicTokensPopover: FC = () => {
 								</p>
 							))}
 						</div>
-					</PopoverBody>
+					</div>
 				</PopoverContent>
-			</Portal>
+			
 		</Popover>
 	);
 };
@@ -496,7 +485,7 @@ const CertificateFingerprintField: FC<{
 	onChange: (value: string) => void;
 }> = ({ data, port, value, onChange }) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const [isGenerating, setIsGenerating] = useState(false);
 	const address = rotationTextToOptions(data.address)[0] ?? "";
 	const serverName =
@@ -516,12 +505,7 @@ const CertificateFingerprintField: FC<{
 				},
 			);
 			onChange(result.fingerprint);
-			toast({
-				title: t("hostsDialog.certificateFingerprintGenerated"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("hostsDialog.certificateFingerprintGenerated"));
 		} catch (error) {
 			generateErrorMessage(error, toast);
 		} finally {
@@ -530,15 +514,15 @@ const CertificateFingerprintField: FC<{
 	};
 
 	return (
-		<FormControl isInvalid={!certificatePinsValid(value)}>
-			<FormLabel>{t("hostsDialog.pinnedPeerCertSha256")}</FormLabel>
+		<Field data-invalid={!certificatePinsValid(value)}>
+			<FieldLabel>{t("hostsDialog.pinnedPeerCertSha256")}</FieldLabel>
 			<div className="flex flex-row items-stretch gap-2">
-				<Input dir="ltr" value={value} placeholder={t("hostsDialog.pinnedPeerCertSha256Hint")} onChange={(event) => onChange(event.target.value)} className="min-w-0!" />
-				<Button size="sm" variant="outline" disabled={!address} loading={isGenerating} onClick={generate} className="shrink-0 self-center">{<ArrowPathIcon className="w-[14px]" />}
+				<Input dir="ltr" value={value} onChange={(event) => onChange(event.target.value)} className="min-w-0!" />
+				<Button disabled={!address} onClick={generate} variant="outline" size="sm" loading={isGenerating} className="shrink-0 self-center">{<RefreshCw className="w-[14px]" />}
 					{t("hostsDialog.generateCertificateFingerprint")}
 				</Button>
 			</div>
-		</FormControl>
+		</Field>
 	);
 };
 
@@ -846,20 +830,12 @@ const HostFormSection: FC<{
 	badge?: string;
 	children: ReactNode;
 }> = ({ title, description, badge, children }) => (
-	<section>
-		<div className="flex flex-row items-center mb-1.5 gap-2 flex-wrap">
-			<h3 className="text-[0.875rem] font-semibold">
-				{title}
-			</h3>
-			{badge && (
-				<Badge colorScheme="gray" variant="subtle" className="text-[10px] normal-case">
-					{badge}
-				</Badge>
-			)}
+	<section className="flex flex-col gap-4 rounded-lg border p-4">
+		<div className="flex flex-wrap items-center gap-2">
+			<h3 className="text-sm font-semibold">{title}</h3>
+			{badge ? <UiBadge variant="outline">{badge}</UiBadge> : null}
+			<FieldHint>{description}</FieldHint>
 		</div>
-		<p className="mb-5 max-w-[48rem] text-[0.75rem] text-panel-text-muted">
-			{description}
-		</p>
 		{children}
 	</section>
 );
@@ -869,35 +845,22 @@ const HostAdvancedSection: FC<{
 	description: string;
 	badge?: string;
 	children: ReactNode;
-}> = ({ title, description, badge, children }) => (
-	<Accordion allowToggle>
-		<AccordionItem className="border-0">
-			<Card className="border-panel-border! rounded-xl bg-panel-surface overflow-hidden">
-				<h3>
-					<AccordionButton className="px-3 md:px-4 py-3 min-h-[48px] text-start hover:bg-panel-surface-muted aria-expanded:bg-panel-surface-muted">
-						<AccordionIcon className="me-3 shrink-0" />
-						<div className="flex flex-row items-center flex-1 min-w-0! gap-2 flex-wrap">
-							<p className="text-[0.875rem] font-semibold leading-[1.375]">
-								{title}
-							</p>
-							{badge && (
-								<Badge colorScheme="gray" variant="subtle" className="text-[10px] normal-case">
-									{badge}
-								</Badge>
-							)}
-						</div>
-					</AccordionButton>
-				</h3>
-				<AccordionPanel className="px-4 md:px-5 pt-4 pb-5 border-t border-panel-border!">
-					<p className="mb-5 max-w-[48rem] text-[0.75rem] text-panel-text-muted">
-						{description}
-					</p>
-					{children}
-				</AccordionPanel>
-			</Card>
-		</AccordionItem>
-	</Accordion>
-);
+}> = ({ title, description, badge, children }) => {
+	const [open, setOpen] = useState(false);
+	return (
+		<Collapsible open={open} onOpenChange={setOpen} className="rounded-lg border">
+			<div className="flex items-center justify-between gap-3 px-4 py-3">
+				<CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-2 text-start">
+					<ChevronDown className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")} />
+					<span className="text-sm font-semibold">{title}</span>
+					{badge ? <UiBadge variant="outline">{badge}</UiBadge> : null}
+				</CollapsibleTrigger>
+				<FieldHint>{description}</FieldHint>
+			</div>
+			<CollapsibleContent className="flex flex-col gap-5 border-t px-4 py-4">{children}</CollapsibleContent>
+		</Collapsible>
+	);
+};
 
 const HostToggle: FC<{
 	label: string;
@@ -906,22 +869,89 @@ const HostToggle: FC<{
 	onChange: (checked: boolean) => void;
 	danger?: boolean;
 }> = ({ label, description, checked: isChecked, onChange, danger = false }) => (
-	<div className={cn("border rounded-lg px-4 py-3", danger && isChecked ? "border-orange-400!" : "")}>
-		<div className="flex items-center justify-between gap-4">
-			<div className="min-w-0!">
-				<p className="text-[0.875rem] font-semibold">
-					{label}
-				</p>
-				<p className="mt-1 text-[0.75rem] text-gray-500">
-					{description}
-				</p>
-			</div>
-			<Switch aria-label={label} checked={isChecked} onChange={(event) => onChange(event.target.checked)} className="shrink-0" />
+	<div className={cn("flex items-center justify-between gap-4 rounded-lg border px-4 py-3", danger && isChecked && "border-orange-400")}>
+		<div className="flex min-w-0 items-center gap-1.5">
+			<span className="text-sm font-medium">{label}</span>
+			<FieldHint>{description}</FieldHint>
 		</div>
+		<UiSwitch aria-label={label} checked={isChecked} onCheckedChange={onChange} className="shrink-0" />
 	</div>
 );
 
-type HostFormProps = {
+const HOST_DIALOG_CONTENT_CLASS =
+	"flex max-h-[min(780px,calc(100dvh-10rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl max-md:inset-x-3 max-md:top-[4.5rem] max-md:bottom-24 max-md:max-h-none max-md:w-auto max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0";
+
+type HostDialogShellProps = {
+	open: boolean;
+	onClose: () => void;
+	title: ReactNode;
+	subtitle?: string;
+	initialFocusRef?: RefObject<HTMLInputElement | null>;
+	form: ReactNode;
+	json: ReactNode;
+	footer: ReactNode;
+};
+
+const HostDialogShell: FC<HostDialogShellProps> = ({
+	open: isOpen,
+	onClose,
+	title,
+	subtitle,
+	initialFocusRef,
+	form,
+	json,
+	footer,
+}) => {
+	const { t } = useTranslation();
+	const [tab, setTab] = useState("form");
+	return (
+		<Dialog
+			open={isOpen}
+			onOpenChange={(next) => {
+				if (!next) onClose();
+			}}
+		>
+			<DialogContent
+				className={HOST_DIALOG_CONTENT_CLASS}
+				onOpenAutoFocus={(event) => {
+					if (initialFocusRef?.current) {
+						event.preventDefault();
+						initialFocusRef.current.focus();
+					}
+				}}
+			>
+				<DialogHeader className="flex-row items-center gap-3 border-b px-5 py-3.5 pe-12 text-start sm:text-start">
+					<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+						<Network className="size-4" />
+					</div>
+					<div className="min-w-0">
+						<DialogTitle className="truncate text-base">{title}</DialogTitle>
+						{subtitle ? <DialogDescription className="truncate">{subtitle}</DialogDescription> : null}
+					</div>
+				</DialogHeader>
+				<Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
+					<div className="border-b px-5 pt-2.5 pb-2.5">
+						<TabsList className="w-full">
+							<TabsTrigger value="form">{t("form")}</TabsTrigger>
+							<TabsTrigger value="json">{t("json")}</TabsTrigger>
+						</TabsList>
+					</div>
+					<div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+						<TabsContent value="form" className="mt-0">
+							{form}
+						</TabsContent>
+						<TabsContent value="json" className="mt-0">
+							{json}
+						</TabsContent>
+					</div>
+				</Tabs>
+				<DialogFooter className="flex-row flex-wrap items-center justify-between gap-2 border-t px-5 py-3">
+					{footer}
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+};type HostFormProps = {
 	data: HostData;
 	inboundTag: string;
 	inboundOptions: InboundOption[];
@@ -1016,306 +1046,264 @@ const HostForm: FC<HostFormProps> = ({
 			: "/";
 
 	return (
-		<div className="flex flex-col gap-6 md:gap-8">
+		<div className="flex flex-col gap-5">
 			<HostFormSection
 				title={t("hostsPage.section.connection")}
 				description={t("hostsPage.section.connectionDescription")}
 				badge={t("hostsPage.required")}
 			>
-				<div className="flex flex-col items-stretch gap-4">
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<FormControl required>
-							<FormLabel>{t("hostsPage.inboundLabel")}</FormLabel>
-							<SearchableTagSelect
-								value={inboundTag}
-								options={inboundOptions}
-								placeholder={t("hostsPage.inboundLabel")}
-								onChange={(value) => onChangeInbound(String(value))}
-							/>
-							<FormHelperText>{t("hostsPage.inboundHint")}</FormHelperText>
-						</FormControl>
-						<FormControl required isInvalid={Boolean(remarkError)}>
-							<FormLabel>{t("hostsDialog.remark")}</FormLabel>
-							<InputGroup>
-								<Input ref={initialFocusRef} value={data.remark} maxLength={isWireGuardInbound ? 15 : undefined} placeholder={t("hostsPage.remarkPlaceholder")} onChange={(event) => onChange("remark", event.target.value)} />
-								<InputRightElement className="w-auto pr-2 pointer-events-auto">
-									{!isProfileHostInbound && <DynamicTokensPopover />}
-								</InputRightElement>
-							</InputGroup>
-							{remarkError ? (
-								<FormErrorMessage>{t(remarkError)}</FormErrorMessage>
-							) : (
-								<FormHelperText>{t("hostsPage.remarkHint")}</FormHelperText>
-							)}
-						</FormControl>
-					</div>
-
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						<FormControl required className={cn(isVirtualTunnelInbound ? "md:[grid-column:1_/_-1]" : "md:[grid-column:auto]")}>
-							<FormLabel>{t("hostsDialog.address")}</FormLabel>
-							<MultiValueAutocomplete
-								value={data.address}
-								options={nodeAddressOptions}
-								placeholder={t("hostsDialog.addressPlaceholder")}
-								onChange={(value) => onChange("address", value)}
-								rightElement={<DynamicTokensPopover />}
-							/>
-							<FormHelperText>{t("hostsPage.addressHint")}</FormHelperText>
-						</FormControl>
-						{!isVirtualTunnelInbound && (
-							<FormControl>
-								<FormLabel>{t("port")}</FormLabel>
-								<NumericInput
-									value={data.port ?? ""}
-									min={1}
-									max={65535}
-									allowMouseWheel
-									fieldProps={{
-										placeholder: inboundPortPlaceholder(selectedInbound),
-									}}
-									onChange={(_, num) =>
-										onChange("port", Number.isNaN(num) ? null : num)
-									}
-								/>
-								<FormHelperText>{t("hostsPage.portHint")}</FormHelperText>
-							</FormControl>
-						)}
-					</div>
-
-					{hasMultipleRotationValues(data.address) && (
-						<RotationControls
-							mode={data.address_selection_mode}
-							ttl={data.address_ttl_seconds}
-							onModeChange={(value) =>
-								onChange("address_selection_mode", value)
-							}
-							onTTLChange={(value) => onChange("address_ttl_seconds", value)}
+				<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+					<FormField label={t("hostsPage.inboundLabel")} description={t("hostsPage.inboundHint")}>
+						<SearchableTagSelect
+							value={inboundTag}
+							options={inboundOptions}
+							placeholder={t("hostsPage.inboundLabel")}
+							onChange={(value) => onChangeInbound(String(value))}
 						/>
-					)}
-
-					{isWireGuardInbound && (
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<FormControl required>
-								<FormLabel>{t("hostsDialog.dnsPrimary")}</FormLabel>
-								<Input value={data.dns_primary} placeholder="1.1.1.1" onChange={(event) =>
-										onChange("dns_primary", event.target.value)
-									} />
-							</FormControl>
-							<FormControl required>
-								<FormLabel>{t("hostsDialog.dnsSecondary")}</FormLabel>
-								<Input value={data.dns_secondary} placeholder="8.8.8.8" onChange={(event) =>
-										onChange("dns_secondary", event.target.value)
-									} />
-							</FormControl>
+					</FormField>
+					<FormField
+						label={t("hostsDialog.remark")}
+						description={t("hostsPage.remarkHint")}
+						error={remarkError ? t(remarkError) : undefined}
+					>
+						<div className="relative">
+							<UiInput
+								ref={initialFocusRef}
+								value={data.remark}
+								maxLength={isWireGuardInbound ? 15 : undefined}
+								placeholder={t("hostsPage.remarkPlaceholder")}
+								aria-invalid={Boolean(remarkError) || undefined}
+								className={cn(!isProfileHostInbound && "pe-10")}
+								onChange={(event) => onChange("remark", event.target.value)}
+							/>
+							{!isProfileHostInbound ? (
+								<div className="absolute inset-y-0 end-1.5 flex items-center">
+									<DynamicTokensPopover />
+								</div>
+							) : null}
 						</div>
-					)}
+					</FormField>
+					<FormField
+						label={t("hostsDialog.address")}
+						description={t("hostsPage.addressHint")}
+						className={cn(isVirtualTunnelInbound && "md:col-span-2")}
+					>
+						<MultiValueAutocomplete
+							value={data.address}
+							options={nodeAddressOptions}
+							placeholder={t("hostsDialog.addressPlaceholder")}
+							onChange={(value) => onChange("address", value)}
+							rightElement={<DynamicTokensPopover />}
+						/>
+					</FormField>
+					{!isVirtualTunnelInbound ? (
+						<FormField label={t("port")} description={t("hostsPage.portHint")}>
+							<NumericInput
+								value={data.port ?? ""}
+								min={1}
+								max={65535}
+								fieldProps={{
+									placeholder: inboundPortPlaceholder(selectedInbound),
+								}}
+								onChange={(_, num) => onChange("port", Number.isNaN(num) ? null : num)}
+							/>
+						</FormField>
+					) : null}
 				</div>
+
+				{hasMultipleRotationValues(data.address) ? (
+					<RotationControls
+						mode={data.address_selection_mode}
+						ttl={data.address_ttl_seconds}
+						onModeChange={(value) => onChange("address_selection_mode", value)}
+						onTTLChange={(value) => onChange("address_ttl_seconds", value)}
+					/>
+				) : null}
+
+				{isWireGuardInbound ? (
+					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<FormField label={t("hostsDialog.dnsPrimary")}>
+							<UiInput value={data.dns_primary} placeholder="1.1.1.1" onChange={(event) => onChange("dns_primary", event.target.value)} />
+						</FormField>
+						<FormField label={t("hostsDialog.dnsSecondary")}>
+							<UiInput value={data.dns_secondary} placeholder="8.8.8.8" onChange={(event) => onChange("dns_secondary", event.target.value)} />
+						</FormField>
+					</div>
+				) : null}
 			</HostFormSection>
 
-			{supportsStreamSecurity && (
+			{supportsStreamSecurity ? (
 				<HostFormSection
 					title={t("hostsPage.section.security")}
 					description={t("hostsPage.section.securityDescription")}
 				>
-					<div className="flex flex-col items-stretch gap-4">
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							<FormControl>
-								<FormLabel>{t("hostsDialog.security")}</FormLabel>
+					<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+						<FormField label={t("hostsDialog.security")}>
+	<SegmentedControl<string>
+		label={t("hostsDialog.security")}
+		value={data.security}
+		options={proxyHostSecurity.map((option) => ({
+			value: option.value,
+			label: option.title,
+		}))}
+		onChange={(value) => onChange("security", value)}
+	/>
+</FormField>
+						{showsSNI ? (
+							<FormField label={t("hostsDialog.sni")}>
+								<MultiValueAutocomplete
+									value={data.sni}
+									placeholder={t("hostsPage.inheritHint")}
+									onChange={(value) => onChange("sni", value)}
+								/>
+							</FormField>
+						) : null}
+						{showsALPN ? (
+							<FormField label={t("hostsDialog.alpn")}>
+	<SearchableTagSelect
+		mode="multiple"
+		value={data.alpn ? data.alpn.split(",") : []}
+		options={tlsAlpnOptions}
+		placeholder={t("inbounds.tls.selectAlpn")}
+		searchPlaceholder={t("inbounds.tls.searchAlpn")}
+		onChange={(value) => onChange("alpn", [value].flat().filter(Boolean).join(","))}
+	/>
+</FormField>
+						) : null}
+						{showsFingerprint ? (
+							<FormField label={t("hostsDialog.fingerprint")}>
 								<SearchableTagSelect
-									value={data.security}
-									options={proxyHostSecurity.map((option) => ({
+									value={data.fingerprint}
+									options={proxyFingerprint.map((option) => ({
 										value: option.value,
 										label: option.title,
 									}))}
-									placeholder={t("hostsDialog.security")}
-									onChange={(value) => onChange("security", String(value))}
+									placeholder={t("hostsDialog.fingerprint")}
+									onChange={(value) => onChange("fingerprint", String(value))}
 								/>
-							</FormControl>
-							{showsSNI && (
-								<FormControl>
-									<FormLabel>{t("hostsDialog.sni")}</FormLabel>
-									<MultiValueAutocomplete
-										value={data.sni}
-										placeholder={t("hostsDialog.sniPlaceholder")}
-										onChange={(value) => onChange("sni", value)}
-									/>
-									<FormHelperText>{t("hostsPage.inheritHint")}</FormHelperText>
-								</FormControl>
-							)}
-							{showsALPN && (
-								<FormControl>
-									<FormLabel>{t("hostsDialog.alpn")}</FormLabel>
-									<MultiValueAutocomplete
-										value={data.alpn}
-										options={alpnAutocompleteOptions}
-										placeholder={t("hostsDialog.alpnPlaceholder")}
-										onChange={(value) => onChange("alpn", value)}
-									/>
-								</FormControl>
-							)}
-							{showsFingerprint && (
-								<FormControl>
-									<FormLabel>{t("hostsDialog.fingerprint")}</FormLabel>
-									<SearchableTagSelect
-										value={data.fingerprint}
-										options={proxyFingerprint.map((option) => ({
-											value: option.value,
-											label: option.title,
-										}))}
-										placeholder={t("hostsDialog.fingerprint")}
-										onChange={(value) => onChange("fingerprint", String(value))}
-									/>
-								</FormControl>
-							)}
-							{showsCertificateVerification && (
-								<>
-									<FormControl>
-										<FormLabel>
-											{t("hostsDialog.verifyPeerCertByName")}
-										</FormLabel>
-										<Input dir="ltr" value={data.verify_peer_cert_by_name} onChange={(event) =>
-												onChange("verify_peer_cert_by_name", event.target.value)
-											} />
-									</FormControl>
-									<CertificateFingerprintField
-										data={data}
-										port={data.port ?? selectedInbound?.port ?? 443}
-										value={data.pinned_peer_cert_sha256}
-										onChange={(value) =>
-											onChange("pinned_peer_cert_sha256", value)
-										}
-									/>
-								</>
-							)}
-							{showsRequestHost && (
-								<FormControl>
-									<FormLabel>{requestHostLabel}</FormLabel>
-									<MultiValueAutocomplete
-										value={data.host}
-										placeholder={t("hostsDialog.hostPlaceholder")}
-										onChange={(value) => onChange("host", value)}
-										rightElement={<DynamicTokensPopover />}
-									/>
-									<FormHelperText>{t("hostsPage.inheritHint")}</FormHelperText>
-								</FormControl>
-							)}
-							{showsRequestPath && (
-								<FormControl>
-									<FormLabel>{requestPathLabel}</FormLabel>
-									<Input dir="ltr" value={data.path} placeholder={requestPathPlaceholder} onChange={(event) => onChange("path", event.target.value)} />
-									{!["grpc", "kcp", "quic"].includes(transport) && (
-										<FormHelperText>{t("hostsPage.pathHint")}</FormHelperText>
-									)}
-								</FormControl>
-							)}
-						</div>
-
-						{((showsSNI && hasMultipleRotationValues(data.sni)) ||
-							(showsRequestHost && hasMultipleRotationValues(data.host))) && (
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-								{showsSNI && hasMultipleRotationValues(data.sni) && (
-									<RotationControls
-										mode={data.sni_selection_mode}
-										ttl={data.sni_ttl_seconds}
-										onModeChange={(value) =>
-											onChange("sni_selection_mode", value)
-										}
-										onTTLChange={(value) => onChange("sni_ttl_seconds", value)}
-									/>
-								)}
-								{showsRequestHost && hasMultipleRotationValues(data.host) && (
-									<RotationControls
-										mode={data.host_selection_mode}
-										ttl={data.host_ttl_seconds}
-										onModeChange={(value) =>
-											onChange("host_selection_mode", value)
-										}
-										onTTLChange={(value) => onChange("host_ttl_seconds", value)}
-									/>
-								)}
-							</div>
-						)}
+							</FormField>
+						) : null}
+						{showsCertificateVerification ? (
+							<>
+								<FormField label={t("hostsDialog.verifyPeerCertByName")}>
+									<UiInput dir="ltr" value={data.verify_peer_cert_by_name} onChange={(event) => onChange("verify_peer_cert_by_name", event.target.value)} />
+								</FormField>
+								<CertificateFingerprintField
+									data={data}
+									port={data.port ?? selectedInbound?.port ?? 443}
+									value={data.pinned_peer_cert_sha256}
+									onChange={(value) => onChange("pinned_peer_cert_sha256", value)}
+								/>
+							</>
+						) : null}
+						{showsRequestHost ? (
+							<FormField label={requestHostLabel}>
+								<MultiValueAutocomplete
+									value={data.host}
+									placeholder={t("hostsPage.inheritHint")}
+									onChange={(value) => onChange("host", value)}
+									rightElement={<DynamicTokensPopover />}
+								/>
+							</FormField>
+						) : null}
+						{showsRequestPath ? (
+							<FormField
+								label={requestPathLabel}
+								description={!["grpc", "kcp", "quic"].includes(transport) ? t("hostsPage.pathHint") : undefined}
+							>
+								<UiInput dir="ltr" value={data.path} placeholder={requestPathPlaceholder} onChange={(event) => onChange("path", event.target.value)} />
+							</FormField>
+						) : null}
 					</div>
-				</HostFormSection>
-			)}
 
-			{!isVirtualTunnelInbound && hasAdvancedSettings && (
+					{(showsSNI && hasMultipleRotationValues(data.sni)) || (showsRequestHost && hasMultipleRotationValues(data.host)) ? (
+						<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+							{showsSNI && hasMultipleRotationValues(data.sni) ? (
+								<RotationControls
+									mode={data.sni_selection_mode}
+									ttl={data.sni_ttl_seconds}
+									onModeChange={(value) => onChange("sni_selection_mode", value)}
+									onTTLChange={(value) => onChange("sni_ttl_seconds", value)}
+								/>
+							) : null}
+							{showsRequestHost && hasMultipleRotationValues(data.host) ? (
+								<RotationControls
+									mode={data.host_selection_mode}
+									ttl={data.host_ttl_seconds}
+									onModeChange={(value) => onChange("host_selection_mode", value)}
+									onTTLChange={(value) => onChange("host_ttl_seconds", value)}
+								/>
+							) : null}
+						</div>
+					) : null}
+				</HostFormSection>
+			) : null}
+
+			{!isVirtualTunnelInbound && hasAdvancedSettings ? (
 				<HostAdvancedSection
 					title={t("hostsPage.section.advanced")}
 					description={t("hostsPage.section.advancedDescription")}
-					badge={
-						maskCount
-							? `${maskCount} ${t("hostsPage.configured")}`
-							: t("hostsPage.optional")
-					}
+					badge={maskCount ? `${maskCount} ${t("hostsPage.configured")}` : t("hostsPage.optional")}
 				>
-					<div className="flex flex-col items-stretch gap-6">
-						{capabilities.supported && (
-							<div>
-								<p className="mb-1 text-[0.875rem] font-semibold">
-									{t("hostsDialog.finalMask")}
-								</p>
-								<p className="mb-4 text-[0.75rem] text-panel-text-muted">
-									{t("hostsPage.section.finalMaskDescription")}
-								</p>
-								<Suspense fallback={<Spinner size="sm" />}>
-									<FinalMaskEditor
-										value={sanitizedFinalMask}
-										onChange={(value) => onChange("finalmask", value)}
-										capabilities={capabilities}
-									/>
-								</Suspense>
-								{finalMaskError && (
-									<p className="mt-3 text-[0.875rem] text-red-500">
-										{finalMaskError}
-									</p>
-								)}
-							</div>
-						)}
+					{capabilities.supported ? (
+						<FormField
+							label={t("hostsDialog.finalMask")}
+							description={t("hostsPage.section.finalMaskDescription")}
+							error={finalMaskError ?? undefined}
+						>
+							<Suspense fallback={<Spinner />}>
+								<FinalMaskEditor
+									value={sanitizedFinalMask}
+									onChange={(value) => onChange("finalmask", value)}
+									capabilities={capabilities}
+								/>
+							</Suspense>
+						</FormField>
+					) : null}
 
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-							{usesTLS && (
-								<HostToggle
-									label={t("hostsDialog.allowinsecure")}
-									description={t("hostsPage.allowInsecureHint")}
-									checked={data.allowinsecure}
-									danger
-									onChange={(checked) => onChange("allowinsecure", checked)}
-								/>
-							)}
-							{capabilities.mux && (
-								<HostToggle
-									label={t("hostsDialog.muxEnable")}
-									description={t("hostsPage.muxHint")}
-									checked={data.mux_enable}
-									onChange={(checked) => onChange("mux_enable", checked)}
-								/>
-							)}
-							{showsRequestHost && (
-								<HostToggle
-									label={t("hostsDialog.randomUserAgent")}
-									description={t("hostsPage.randomUserAgentHint")}
-									checked={data.random_user_agent}
-									onChange={(checked) => onChange("random_user_agent", checked)}
-								/>
-							)}
-							{showsSNI && showsRequestHost && (
-								<HostToggle
-									label={t("hostsDialog.useSniAsHost")}
-									description={t("hostsPage.useSniAsHostHint")}
-									checked={data.use_sni_as_host}
-									onChange={(checked) => onChange("use_sni_as_host", checked)}
-								/>
-							)}
-						</div>
+					<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+						{usesTLS ? (
+							<HostToggle
+								label={t("hostsDialog.allowinsecure")}
+								description={t("hostsPage.allowInsecureHint")}
+								checked={data.allowinsecure}
+								danger
+								onChange={(checked) => onChange("allowinsecure", checked)}
+							/>
+						) : null}
+						{capabilities.mux ? (
+							<HostToggle
+								label={t("hostsDialog.muxEnable")}
+								description={t("hostsPage.muxHint")}
+								checked={data.mux_enable}
+								onChange={(checked) => onChange("mux_enable", checked)}
+							/>
+						) : null}
+						{showsRequestHost ? (
+							<HostToggle
+								label={t("hostsDialog.randomUserAgent")}
+								description={t("hostsPage.randomUserAgentHint")}
+								checked={data.random_user_agent}
+								onChange={(checked) => onChange("random_user_agent", checked)}
+							/>
+						) : null}
+						{showsSNI && showsRequestHost ? (
+							<HostToggle
+								label={t("hostsDialog.useSniAsHost")}
+								description={t("hostsPage.useSniAsHostHint")}
+								checked={data.use_sni_as_host}
+								onChange={(checked) => onChange("use_sni_as_host", checked)}
+							/>
+						) : null}
 					</div>
 				</HostAdvancedSection>
-			)}
-			{supportsStreamSecurity && (
+			) : null}
+
+			{supportsStreamSecurity ? (
 				<HostAdvancedSection title={t("hostsDialog.clientSettings")} description={t("hostsDialog.clientSettingsHint")}>
 					<HostClientSettingsEditor value={data.client_settings} onChange={(value) => onChange("client_settings", value)} usesTLS={usesTLS} protocol={selectedInbound?.protocol} network={selectedInbound?.network} />
 				</HostAdvancedSection>
-			)}
+			) : null}
 		</div>
 	);
 };
@@ -1473,89 +1461,81 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 	}
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside" isCentered returnFocusOnClose={false}>
-			<ModalOverlay className="bg-blackAlpha-400" />
-			<XrayModalContent className="mx-3 [&_.xray-dialog-section_label]:whitespace-nowrap [&_.xray-dialog-section_label]:mb-1.5">
-				<ModalCloseButton />
-				<XrayModalHeader
-					subtitle={isCloneMode ? t("hostsPage.clone.description") : undefined}
-				>
-					<AppleEmojiText>
-						{isCloneMode
-							? t("hostsPage.clone.title")
-							: host.data.remark || t("hostsPage.untitledHost")}
-					</AppleEmojiText>
-				</XrayModalHeader>
-				<XrayModalBody>
-					<Tabs isLazy variant="unstyled" className="xray-dialog-auto-sections">
-						<TabList>
-							<Tab>{t("form")}</Tab>
-							<Tab>{t("json")}</Tab>
-						</TabList>
-						<TabPanels>
-							<TabPanel className="px-0">
-								<HostForm
-									data={host.data}
-									inboundTag={host.inboundTag}
-									inboundOptions={inboundOptions}
-									nodes={nodes}
-									onChange={(key, value) => onChange(host.uid, key, value)}
-									onChangeInbound={(value) => onChangeInbound(host.uid, value)}
-								/>
-							</TabPanel>
-							<TabPanel className="px-0">
-								<div className="flex flex-col items-stretch gap-3">
-									<Suspense fallback={<Spinner size="sm" />}>
-										<JsonEditor
-											json={jsonText}
-											onChange={handleJsonEditorChange}
-										/>
-									</Suspense>
-									{jsonError && (
-										<p className="text-[0.875rem] text-red-500">
-											{jsonError}
-										</p>
-									)}
-								</div>
-							</TabPanel>
-						</TabPanels>
-					</Tabs>
-					{!isCloneMode && host?.data.id ? (
-						<EntityNotePanel entityType="host" entityKey={host.data.id} />
-					) : null}
-				</XrayModalBody>
-				<XrayModalFooter className="justify-between">
+		<HostDialogShell
+			open={isOpen}
+			onClose={onClose}
+			title={<AppleEmojiText>{isCloneMode ? t("hostsPage.clone.title") : host.data.remark || t("hostsPage.untitledHost")}</AppleEmojiText>}
+			subtitle={isCloneMode ? t("hostsPage.clone.description") : undefined}
+			form={
+				<div className="flex flex-col gap-5">
+					<HostForm
+						data={host.data}
+						inboundTag={host.inboundTag}
+						inboundOptions={inboundOptions}
+						nodes={nodes}
+						onChange={(key, value) => onChange(host.uid, key, value)}
+						onChangeInbound={(value) => onChangeInbound(host.uid, value)}
+					/>
+					{!isCloneMode && host?.data.id ? <EntityNotePanel entityType="host" entityKey={host.data.id} /> : null}
+				</div>
+			}
+			json={
+				<div className="flex flex-col items-stretch gap-3">
+					<Suspense fallback={<Spinner />}>
+						<JsonEditor json={jsonText} onChange={handleJsonEditorChange} />
+					</Suspense>
+					{jsonError ? <p className="text-sm text-destructive">{jsonError}</p> : null}
+				</div>
+			}
+			footer={
+				<>
 					{isCloneMode ? (
-						<Button size="sm" variant="ghost" onClick={onClose}>
+						<button type="button" onClick={onClose} className={buttonVariants({ variant: "ghost", size: "sm" })}>
 							{t("hostsPage.cancel")}
-						</Button>
+						</button>
 					) : (
 						<DeleteConfirmDialog
 							description={t("hostsPage.deleteConfirmation")}
 							loading={deleting}
 							onConfirm={() => onDelete(host.uid)}
 						>
-							<Button size="sm" variant="ghost" colorScheme="red">{<DeleteIcon />}
+							<button type="button" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "text-destructive")}>
+								<DeleteIcon />
 								{t("delete")}
-							</Button>
+							</button>
 						</DeleteConfirmDialog>
 					)}
-					<div className="flex flex-row items-center gap-3">
-						{!isCloneMode && onClone && (
-							<Button size="sm" variant="outline" onClick={() => onClone(host.uid)} disabled={saving || deleting}>
+					<div className="ms-auto flex flex-row flex-wrap items-center gap-2">
+						{!isCloneMode && onClone ? (
+							<button
+								type="button"
+								onClick={() => onClone(host.uid)}
+								disabled={saving || deleting}
+								className={buttonVariants({ variant: "outline", size: "sm" })}
+							>
 								{t("hostsPage.clone")}
-							</Button>
-						)}
-						<Button size="sm" variant="outline" onClick={() => onReset(host.uid)} disabled={!dirty || saving}>
+							</button>
+						) : null}
+						<button
+							type="button"
+							onClick={() => onReset(host.uid)}
+							disabled={!dirty || saving}
+							className={buttonVariants({ variant: "outline", size: "sm" })}
+						>
 							{t("reset")}
-						</Button>
-						<Button size="sm" colorScheme="primary" onClick={() => onSave(host.uid)} disabled={primaryDisabled} loading={saving}>
+						</button>
+						<button
+							type="button"
+							onClick={() => onSave(host.uid)}
+							disabled={primaryDisabled || saving}
+							className={buttonVariants({ size: "sm" })}
+						>
 							{primaryLabel}
-						</Button>
+						</button>
 					</div>
-				</XrayModalFooter>
-			</XrayModalContent>
-		</Modal>
+				</>
+			}
+		/>
 	);
 };
 
@@ -1694,61 +1674,41 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 	};
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="4xl" initialFocusRef={initialRef} scrollBehavior="inside" isCentered returnFocusOnClose={false}>
-			<ModalOverlay className="bg-blackAlpha-400" />
-			<XrayModalContent className="mx-3 [&_.xray-dialog-section_label]:whitespace-nowrap [&_.xray-dialog-section_label]:mb-1.5">
-				<XrayModalHeader subtitle={t("hostsPage.create.description")}>
-					{t("hostsPage.create.title")}
-				</XrayModalHeader>
-				<ModalCloseButton />
-				<XrayModalBody>
-					<Tabs isLazy variant="unstyled" className="xray-dialog-auto-sections">
-						<TabList>
-							<Tab>{t("form")}</Tab>
-							<Tab>{t("json")}</Tab>
-						</TabList>
-						<TabPanels>
-							<TabPanel className="px-0">
-								<HostForm
-									data={formState}
-									inboundTag={formState.inboundTag}
-									inboundOptions={inboundOptions}
-									nodes={nodes}
-									initialFocusRef={initialRef}
-									onChange={(key, value) =>
-										setFormState((current) => ({ ...current, [key]: value }))
-									}
-									onChangeInbound={(value) =>
-										setFormState((current) => ({
-											...current,
-											inboundTag: value,
-										}))
-									}
-								/>
-							</TabPanel>
-							<TabPanel className="px-0">
-								<div className="flex flex-col items-stretch gap-3">
-									<Suspense fallback={<Spinner size="sm" />}>
-										<JsonEditor
-											json={jsonText}
-											onChange={handleJsonEditorChange}
-										/>
-									</Suspense>
-									{jsonError && (
-										<p className="text-[0.875rem] text-red-500">
-											{jsonError}
-										</p>
-									)}
-								</div>
-							</TabPanel>
-						</TabPanels>
-					</Tabs>
-				</XrayModalBody>
-				<XrayModalFooter className="justify-end">
-					<Button size="md" variant="ghost" onClick={onClose}>
+		<HostDialogShell
+			open={isOpen}
+			onClose={onClose}
+			title={t("hostsPage.create.title")}
+			subtitle={t("hostsPage.create.description")}
+			initialFocusRef={initialRef}
+			form={
+				<HostForm
+					data={formState}
+					inboundTag={formState.inboundTag}
+					inboundOptions={inboundOptions}
+					nodes={nodes}
+					initialFocusRef={initialRef}
+					onChange={(key, value) => setFormState((current) => ({ ...current, [key]: value }))}
+					onChangeInbound={(value) => setFormState((current) => ({ ...current, inboundTag: value }))}
+				/>
+			}
+			json={
+				<div className="flex flex-col items-stretch gap-3">
+					<Suspense fallback={<Spinner />}>
+						<JsonEditor json={jsonText} onChange={handleJsonEditorChange} />
+					</Suspense>
+					{jsonError ? <p className="text-sm text-destructive">{jsonError}</p> : null}
+				</div>
+			}
+			footer={
+				<>
+					<button type="button" onClick={onClose} className={buttonVariants({ variant: "ghost", size: "sm" })}>
 						{t("hostsPage.cancel")}
-					</Button>
-					<Button size="md" colorScheme="primary" onClick={handleSubmit} loading={isSubmitting} disabled={
+					</button>
+					<button
+						type="button"
+						onClick={handleSubmit}
+						disabled={
+							isSubmitting ||
 							Boolean(jsonError) ||
 							!finalMaskValid ||
 							Boolean(hostClientSettingsError(formState.client_settings)) ||
@@ -1757,20 +1717,20 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 							!formState.remark.trim() ||
 							Boolean(remarkError) ||
 							!rotationTextToOptions(formState.address).length ||
-							(isWireGuardInbound &&
-								(!formState.dns_primary.trim() ||
-									!formState.dns_secondary.trim()))
-						}>
+							(isWireGuardInbound && (!formState.dns_primary.trim() || !formState.dns_secondary.trim()))
+						}
+						className={cn(buttonVariants({ size: "sm" }), "ms-auto")}
+					>
 						{t("hostsPage.create.submit")}
-					</Button>
-				</XrayModalFooter>
-			</XrayModalContent>
-		</Modal>
+					</button>
+				</>
+			}
+		/>
 	);
 };
 export const HostsManager: FC = () => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const hosts = useHosts((state) => state.hosts);
 	const fetchHosts = useHosts((state) => state.fetchHosts);
 	const isLoading = useHosts((state) => state.loading);
@@ -1816,15 +1776,9 @@ export const HostsManager: FC = () => {
 			if (!errors.length) {
 				return false;
 			}
-			toast({
-				title: t("hostsPage.error.invalidHost"),
-				description: errors[0].startsWith("hostsPage.")
+			toast.error(t("hostsPage.error.invalidHost"), { description: errors[0].startsWith("hostsPage.")
 					? t(errors[0])
-					: errors[0],
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+					: errors[0] });
 			return true;
 		},
 		[t, toast],
@@ -1989,20 +1943,10 @@ export const HostsManager: FC = () => {
 			);
 			await setHosts(payload);
 			await fetchHosts();
-			toast({
-				title: t("hostsPage.saved"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("hostsPage.saved"));
 			setSelectedHostUid(null);
 		} catch (_error) {
-			toast({
-				title: t("hostsPage.error.save"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("hostsPage.error.save"));
 		} finally {
 			setSavingHostUid(null);
 		}
@@ -2096,12 +2040,7 @@ export const HostsManager: FC = () => {
 			rotationTextToOptions(cloneHost.data.address_options)[0] ||
 			"";
 		if (!cloneHost.inboundTag || !remark || !address) {
-			toast({
-				title: t("hostsPage.clone.error"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("hostsPage.clone.error"));
 			return;
 		}
 
@@ -2132,21 +2071,11 @@ export const HostsManager: FC = () => {
 			);
 			await setHosts(payload);
 			await fetchHosts();
-			toast({
-				title: t("hostsPage.clone.created"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("hostsPage.clone.created"));
 			setCloneHost(null);
 		} catch (_error) {
 			applyHostItems(previousHosts);
-			toast({
-				title: t("hostsPage.clone.error"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("hostsPage.clone.error"));
 		} finally {
 			setSavingHostUid(null);
 		}
@@ -2178,12 +2107,7 @@ export const HostsManager: FC = () => {
 			await fetchHosts();
 		} catch (_error) {
 			applyHostItems(previousHosts);
-			toast({
-				title: t("hostsPage.error.save"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("hostsPage.error.save"));
 		} finally {
 			setSavingHostUid(null);
 		}
@@ -2204,23 +2128,13 @@ export const HostsManager: FC = () => {
 			);
 			await setHosts(payload);
 			await fetchHosts();
-			toast({
-				title: t("hostsPage.deleted"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("hostsPage.deleted"));
 			if (selectedHostUid === uid) {
 				setSelectedHostUid(null);
 			}
 		} catch (_error) {
 			applyHostItems(previousHosts);
-			toast({
-				title: t("hostsPage.error.delete"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("hostsPage.error.delete"));
 		} finally {
 			setDeletingUid(null);
 		}
@@ -2258,22 +2172,12 @@ export const HostsManager: FC = () => {
 			await setHosts(payload);
 			await fetchHosts();
 			setSelectedHostUids([]);
-			toast({
-				title: isActive
+			toast.success(isActive
 					? t("hostsPage.bulkEnabled")
-					: t("hostsPage.bulkDisabled"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-			});
+					: t("hostsPage.bulkDisabled"));
 		} catch (_error) {
 			applyHostItems(previousHosts);
-			toast({
-				title: t("hostsPage.error.save"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("hostsPage.error.save"));
 		} finally {
 			setBulkAction(null);
 		}
@@ -2302,20 +2206,10 @@ export const HostsManager: FC = () => {
 			await setHosts(payload);
 			await fetchHosts();
 			setSelectedHostUids([]);
-			toast({
-				title: t("hostsPage.bulkDeleted"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("hostsPage.bulkDeleted"));
 		} catch (_error) {
 			applyHostItems(previousHosts);
-			toast({
-				title: t("hostsPage.error.delete"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("hostsPage.error.delete"));
 		} finally {
 			setBulkAction(null);
 		}
@@ -2356,57 +2250,63 @@ export const HostsManager: FC = () => {
 			);
 			await setHosts(payload);
 			await fetchHosts();
-			toast({
-				title: t("hostsPage.created"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("hostsPage.created"));
 			setCreateOpen(false);
 		} catch (_error) {
-			toast({
-				title: t("hostsPage.error.create"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("hostsPage.error.create"));
 		} finally {
 			setSavingHostUid(null);
 		}
 	};
 
-	const hostSummaryItems = useMemo<ResourceSummaryItem[]>(() => {
+	const { i18n } = useTranslation();
+	const locale = i18n.language || "en";
+
+	const hostOverview = useMemo(() => {
 		const total = allHosts.length;
 		const disabled = allHosts.filter((host) => host.data.is_disabled).length;
-		const enabled = total - disabled;
 		const inboundCount = new Set(allHosts.map((host) => host.inboundTag)).size;
-		return [
-			{
+		const withSni = allHosts.filter((host) => Boolean(host.data.sni?.trim())).length;
+		const tones = ["bg-panel-info", "bg-panel-accent", "bg-panel-text-muted/60"];
+		const segments = proxyHostSecurity.map((option, index) => ({
+			key: option.value,
+			label: option.title,
+			value: allHosts.filter(
+				(host) => (host.data.security || "inbound_default") === option.value,
+			).length,
+			tone: tones[index],
+		}));
+		const isFiltered = displayedHosts.length !== total;
+
+		return {
+			total: {
 				label: t("total"),
 				value: total,
-				colorScheme: "gray",
+				caption: isFiltered
+					? `${t("usersPage.filtered")}: ${displayedHosts.length}`
+					: `${t("pages.xray.Inbounds")}: ${inboundCount}`,
 			},
-			{
-				label: t("nodes.enabled"),
-				value: enabled,
-				colorScheme: "green",
+			rows: [
+				{
+					key: "enabled",
+					label: t("nodes.enabled"),
+					value: total - disabled,
+					tone: "bg-panel-success",
+				},
+				{
+					key: "disabled",
+					label: t("nodes.disabled"),
+					value: disabled,
+					tone: "bg-panel-danger",
+				},
+			],
+			distribution: { label: t("hostsDialog.security"), segments },
+			extra: {
+				label: t("hostsDialog.sni"),
+				value: withSni,
+				caption: total ? `${Math.round((withSni / total) * 100)}%` : undefined,
 			},
-			{
-				label: t("nodes.disabled"),
-				value: disabled,
-				colorScheme: "red",
-			},
-			{
-				label: t("pages.xray.Inbounds"),
-				value: inboundCount,
-				colorScheme: "purple",
-			},
-			{
-				label: t("usersPage.filtered"),
-				value: displayedHosts.length,
-				colorScheme: "teal",
-			},
-		];
+		};
 	}, [allHosts, displayedHosts.length, t]);
 
 	const renderRotationValues = useCallback(
@@ -2418,22 +2318,25 @@ export const HostsManager: FC = () => {
 			const visible = values.slice(0, 2);
 			const hiddenCount = values.length - visible.length;
 			return (
-				<Tooltip label={values.join(", ")} disabled={values.length <= visible.length} hasArrow placement="top">
+				<Tooltip>
+<TooltipTrigger asChild>
 					<div className="flex flex-row items-center gap-1 flex-wrap max-w-full">
 						{visible.map((item) => (
-							<Tag key={item} size="sm" className="max-w-[120px]">
+							<Badge key={item} className="max-w-[120px]">
 								<span className="truncate">
 									{item}
 								</span>
-							</Tag>
+							</Badge>
 						))}
 						{hiddenCount > 0 && (
-							<Tag size="sm" colorScheme="blue">
+							<Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-200">
 								+{hiddenCount}
-							</Tag>
+							</Badge>
 						)}
 					</div>
-				</Tooltip>
+				</TooltipTrigger>
+<TooltipContent>{values.join(", ")}</TooltipContent>
+</Tooltip>
 			);
 		},
 		[],
@@ -2458,11 +2361,14 @@ export const HostsManager: FC = () => {
 					const hostName = host.data.remark || t("hostsPage.untitledHost");
 					return (
 						<div className="flex flex-col gap-0.5 min-w-0!">
-							<Tooltip label={<AppleEmojiText>{hostName}</AppleEmojiText>} disabled={hostName.length <= 24}>
+							<Tooltip>
+<TooltipTrigger asChild>
 								<p className="font-semibold truncate">
 									<AppleEmojiText>{hostName}</AppleEmojiText>
 								</p>
-							</Tooltip>
+							</TooltipTrigger>
+<TooltipContent>{<AppleEmojiText>{hostName}</AppleEmojiText>}</TooltipContent>
+</Tooltip>
 							<div className="flex flex-row items-center gap-1 flex-wrap">
 								{host.data.id != null && (
 									<p className="text-[0.75rem] text-panel-text-muted">
@@ -2470,9 +2376,9 @@ export const HostsManager: FC = () => {
 									</p>
 								)}
 								{dirty && (
-									<Tag size="sm" colorScheme="orange">
+									<Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-500/20 dark:text-orange-200">
 										{t("hostsPage.unsaved")}
-									</Tag>
+									</Badge>
 								)}
 							</div>
 						</div>
@@ -2551,9 +2457,12 @@ export const HostsManager: FC = () => {
 								{host.inboundTag}
 							</p>
 							{(!inbound || inbound.validationError) && (
-								<Tooltip label={inbound?.validationError || t("diagnostics.missingInbound", { tag: host.inboundTag })} hasArrow>
-									<Tag size="sm" colorScheme="red" className="w-fit">{t("diagnostics.broken")}</Tag>
-								</Tooltip>
+								<Tooltip>
+<TooltipTrigger asChild>
+									<Badge className={cn("bg-destructive/10 text-destructive", "w-fit")}>{t("diagnostics.broken")}</Badge>
+								</TooltipTrigger>
+<TooltipContent>{inbound?.validationError || t("diagnostics.missingInbound", { tag: host.inboundTag })}</TooltipContent>
+</Tooltip>
 							)}
 							<p className="text-[0.75rem] text-panel-text-muted truncate">
 								{inbound
@@ -2601,9 +2510,9 @@ export const HostsManager: FC = () => {
 				mobilePriority: 6,
 				mobileMetaLabel: t("hostsDialog.security"),
 				cell: (host) => (
-					<Tag size="sm" colorScheme="blue">
+					<Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-200">
 						{host.data.security || "inbound_default"}
-					</Tag>
+					</Badge>
 				),
 			},
 		],
@@ -2623,9 +2532,9 @@ export const HostsManager: FC = () => {
 				id: "toggle",
 				label: isActive ? t("phpmyadmin.disableAction") : t("hostsPage.enable"),
 				icon: isActive ? (
-					<XCircleIcon className="w-[16px]" />
+					<CircleX className="w-[16px]" />
 				) : (
-					<CheckCircleIcon className="w-[16px]" />
+					<CircleCheck className="w-[16px]" />
 				),
 				onClick: () => toggleActive(host.uid, !isActive),
 				disabled: isPostLoading,
@@ -2633,7 +2542,7 @@ export const HostsManager: FC = () => {
 			{
 				id: "delete",
 				label: t("delete"),
-				icon: <TrashIcon className="w-[16px]" />,
+				icon: <Trash2 className="w-[16px]" />,
 				isDanger: true,
 				render: (_row, onMenuClose) => (
 					<DeleteConfirmDialog
@@ -2644,9 +2553,9 @@ export const HostsManager: FC = () => {
 							onMenuClose();
 						}}
 					>
-						<MenuItem icon={<TrashIcon className="w-[16px]" />} disabled={isPostLoading} onClick={(event) => event.stopPropagation()} className="text-red-400">
+						<DropdownMenuItem disabled={isPostLoading} onSelect={(event) => event.stopPropagation()} className="text-red-400">
 							{t("delete")}
-						</MenuItem>
+						</DropdownMenuItem>
 					</DeleteConfirmDialog>
 				),
 			},
@@ -2655,36 +2564,42 @@ export const HostsManager: FC = () => {
 
 	return (
 		<div className="flex flex-col items-stretch gap-4">
-			<ResourceListCard
-				title={t("hostsPage.listHeader")}
-				summaryItems={hostSummaryItems}
-				actions={
-					<Button colorScheme="primary" size="sm" onClick={() => setCreateOpen(true)} disabled={!inboundOptions.length} className="h-[36px] px-3 rounded-[4px]">{<AddIcon />}
-						{t("hostsPage.addHost")}
-					</Button>
-				}
-				footerActions={
-					<ResourceRefreshButton
-						aria-label={t("hostsPage.refresh")}
-						label={t("hostsPage.refresh")}
-						icon={<ArrowPathIcon className="w-[16px]" />}
-						loading={isRefreshing}
-						onClick={fetchHosts}
-					/>
-				}
-			>
-				<div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center flex-wrap">
-					<SearchInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("hostsPage.searchPlaceholder")} containerProps={{ className: "w-full md:w-[320px]" }} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} />
+			<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden">
+				<OverviewBand
+					total={hostOverview.total}
+					rows={hostOverview.rows}
+					distribution={hostOverview.distribution}
+					extra={hostOverview.extra}
+					locale={locale}
+				/>
+				<div className="border-t border-panel-border! p-3">
+					<div className="flex flex-col gap-2 md:flex-row md:items-center">
+						<div className="min-w-0 flex-1"><div className="flex flex-col gap-2 md:flex-row md:items-center">
+					<div className="flex min-w-0 flex-1 flex-row items-center gap-2">
+					<SearchInput value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("hostsPage.searchPlaceholder")} containerProps={{ className: "min-w-0 flex-1 md:w-[320px] md:flex-none" }} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} />
 					<DataTableSortMenu
 						options={buildSortOptions(hostColumns, displayedHosts)}
 						sorting={hostSorting}
 						onSortingChange={setHostSorting}
 					/>
-					<Checkbox checked={includeDisabled} onChange={(event) => setIncludeDisabled(event.target.checked)}>
-						{t("hostsPage.showDisabled")}
-					</Checkbox>
+					</div>
+					<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={includeDisabled} onCheckedChange={(checked: boolean) => setIncludeDisabled(checked)} /><span>{t("hostsPage.showDisabled")}</span></label>
+				</div></div>
+						<div className="flex shrink-0 items-center justify-end gap-1">
+							<ResourceRefreshButton
+								aria-label={t("hostsPage.refresh")}
+								label={t("hostsPage.refresh")}
+								icon={<RefreshCw className="w-[16px]" />}
+								loading={isRefreshing}
+								onClick={fetchHosts}
+							/>
+							<Button onClick={() => setCreateOpen(true)} disabled={!inboundOptions.length} size="sm" className="h-[36px] px-3 rounded-[4px]">{<AddIcon />}
+								{t("hostsPage.addHost")}
+							</Button>
+						</div>
+					</div>
 				</div>
-			</ResourceListCard>
+			</div>
 
 			<DataTable
 				ariaLabel={t("hostsPage.tabHosts")}
@@ -2724,18 +2639,18 @@ export const HostsManager: FC = () => {
 					);
 					return (
 						<>
-							<Button size="sm" variant="outline" loading={bulkAction === "enable"} disabled={
+							<Button disabled={
 									Boolean(bulkAction) ||
 									isPostLoading ||
 									enableTargets.length === 0
-								} onClick={() => handleBulkToggleHosts(enableTargets, true)}>{<CheckCircleIcon className="w-[16px]" />}
+								} onClick={() => handleBulkToggleHosts(enableTargets, true)} variant="outline" size="sm" loading={bulkAction === "enable"}>{<CircleCheck className="w-[16px]" />}
 								{t("hostsPage.enable")}
 							</Button>
-							<Button size="sm" variant="outline" loading={bulkAction === "disable"} disabled={
+							<Button disabled={
 									Boolean(bulkAction) ||
 									isPostLoading ||
 									disableTargets.length === 0
-								} onClick={() => handleBulkToggleHosts(disableTargets, false)}>{<XCircleIcon className="w-[16px]" />}
+								} onClick={() => handleBulkToggleHosts(disableTargets, false)} variant="outline" size="sm" loading={bulkAction === "disable"}>{<CircleX className="w-[16px]" />}
 								{t("phpmyadmin.disableAction")}
 							</Button>
 							<DeleteConfirmDialog
@@ -2746,11 +2661,11 @@ export const HostsManager: FC = () => {
 								disabled={selectedRows.length === 0}
 								onConfirm={() => handleBulkDeleteHosts(selectedRows)}
 							>
-								<Button size="sm" variant="outline" colorScheme="red" loading={bulkAction === "delete"} disabled={
+								<Button disabled={
 										Boolean(bulkAction) ||
 										isPostLoading ||
 										selectedRows.length === 0
-									}>{<TrashIcon className="w-[16px]" />}
+									} variant="outline" size="sm" loading={bulkAction === "delete"} className="border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10">{<Trash2 className="w-[16px]" />}
 									{t("delete")}
 								</Button>
 							</DeleteConfirmDialog>

@@ -9,25 +9,16 @@ import { DataTableSortMenu, type SortOption } from "components/ui/DataTableSortM
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectItemText, SelectTrigger, SelectValue } from "components/ui/select";
 import { useAdminsStore } from "contexts/AdminsContext";
-import { useBreakpointValue } from "hooks/useBreakpointValue";
 import useGetUser from "hooks/useGetUser";
 import { cn } from "lib/cn";
 import { AdminManagementPermission, AdminRole } from "types/Admin";
 
 const ALL = "all";
 
-/** The admin toolbar: search, sort, filters and create on one row, mirroring the users toolbar. */
 export const AdminsFilterBar: FC = () => {
 	const { t } = useTranslation();
 	const filters = useAdminsStore((state) => state.filters);
 	const onFilterChange = useAdminsStore((state) => state.onFilterChange);
-	const openAdminDialog = useAdminsStore((state) => state.openAdminDialog);
-	const { userData } = useGetUser();
-	const isMobile = useBreakpointValue({ base: true, sm: false }) ?? false;
-	const canManageAdmins = Boolean(
-		userData.permissions?.admin_management?.[AdminManagementPermission.Edit] ||
-			userData.role === AdminRole.FullAccess,
-	);
 
 	const [search, setSearch] = useState(filters.search ?? "");
 	const debouncedSearch = useMemo(
@@ -100,8 +91,9 @@ export const AdminsFilterBar: FC = () => {
 
 	return (
 		<div className="max-sm:contents sm:flex items-center gap-2 w-full min-w-0!">
+			<div className="flex min-w-0 items-center gap-2 max-sm:basis-full sm:flex-[1_1_auto] sm:max-w-[440px]">
 			<SearchInput
-				containerProps={{ className: "max-sm:basis-full sm:flex-[1_1_auto] min-w-0! max-w-[100%] sm:max-w-[380px]" }}
+				containerProps={{ className: "min-w-0 flex-1" }}
 				placeholder={t("admins.searchPlaceholder")}
 				value={search}
 				onChange={(event) => {
@@ -119,8 +111,8 @@ export const AdminsFilterBar: FC = () => {
 				}}
 				loading={false}
 			/>
-
 			<DataTableSortMenu options={sortOptions} sorting={sorting} onSortingChange={handleSortChange} />
+			</div>
 
 			<Popover>
 				<PopoverTrigger asChild>
@@ -157,24 +149,34 @@ export const AdminsFilterBar: FC = () => {
 					</div>
 				</PopoverContent>
 			</Popover>
-
-			{!isMobile ? <div className="flex-[1_1_auto] min-w-0!" /> : null}
-
-			{canManageAdmins ? (
-				<button
-					type="button"
-					aria-label={t("admins.addAdmin")}
-					onClick={() => openAdminDialog()}
-					className={cn(
-						buttonVariants({ size: isMobile ? "icon" : "default" }),
-						"shrink-0 bg-panel-accent text-white shadow-xs hover:bg-panel-accent-hover",
-						!isMobile && "gap-2 px-4 font-semibold",
-					)}
-				>
-					<Plus className="size-4" />
-					{!isMobile ? t("admins.addAdmin") : null}
-				</button>
-			) : null}
 		</div>
+	);
+};
+
+export const AdminsCreateButton: FC = () => {
+	const { t } = useTranslation();
+	const openAdminDialog = useAdminsStore((state) => state.openAdminDialog);
+	const { userData } = useGetUser();
+	const canManageAdmins = Boolean(
+		userData.permissions?.admin_management?.[AdminManagementPermission.Edit] ||
+			userData.role === AdminRole.FullAccess,
+	);
+
+	if (!canManageAdmins) return null;
+
+	return (
+		<button
+			type="button"
+			aria-label={t("admins.addAdmin")}
+			onClick={() => openAdminDialog()}
+			className={cn(
+				buttonVariants({ size: "default" }),
+				"shrink-0 bg-panel-accent text-white shadow-xs hover:bg-panel-accent-hover",
+				"gap-2 px-4 font-semibold whitespace-nowrap",
+			)}
+		>
+			<Plus className="size-4" />
+			{t("admins.addAdmin")}
+		</button>
 	);
 };

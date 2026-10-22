@@ -1,3 +1,7 @@
+import { Button } from "components/ui/button";
+import { CircleAlert, CircleCheck, Info } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { TriangleAlert } from "lucide-react";
 import {
 	Dialog,
 	DialogContent,
@@ -5,11 +9,9 @@ import {
 	DialogFooter,
 	DialogTitle,
 } from "components/ui/dialog";
-import { Button } from "components/shadcn/button";
-import { withClass } from "components/shadcn/icon";
+
 import { useDisclosure } from "hooks/useDisclosure";
 import { cn } from "lib/cn";
-import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import {
 	cloneElement,
 	type MouseEvent,
@@ -20,7 +22,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 
-const WarningIcon = withClass(ExclamationTriangleIcon, "w-6 h-6");
+const WarningIcon = withClass(TriangleAlert, "w-6 h-6");
 
 export type ConfirmDialogProps = {
 	open: boolean;
@@ -84,24 +86,10 @@ export const ConfirmDialog = ({
 					</div>
 				</div>
 				<DialogFooter className="mt-2 flex-wrap justify-end gap-1.5 rb-confirm-dialog-actions">
-					<Button
-						ref={cancelRef}
-						variant="solid"
-						size="sm"
-						onClick={onClose}
-						disabled={isLoading}
-						className="h-[34px] min-h-[34px] min-w-[76px]! px-3 text-[0.875rem]"
-					>
+					<Button ref={cancelRef} onClick={onClose} disabled={isLoading} size="sm" className="h-[34px] min-h-[34px] min-w-[76px]! px-3 text-[0.875rem]">
 						{cancelLabel ?? t("cancel")}
 					</Button>
-					<Button
-						colorScheme={colorScheme}
-						loading={isLoading}
-						disabled={isConfirmDisabled}
-						size="sm"
-						onClick={onConfirm}
-						className="h-[34px] min-h-[34px] min-w-[76px]! px-3 text-[0.875rem]"
-					>
+					<Button variant={colorScheme === "red" ? "destructive" : "default"} disabled={isConfirmDisabled} onClick={onConfirm} size="sm" loading={isLoading} className="h-[34px] min-h-[34px] min-w-[76px]! px-3 text-[0.875rem]">
 						{confirmLabel ?? t("confirm")}
 					</Button>
 				</DialogFooter>

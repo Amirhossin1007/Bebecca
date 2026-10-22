@@ -14,7 +14,7 @@ export const ExpandedHeading = ({
 	title: ReactNode;
 	first?: boolean;
 }) => (
-	<p className={cn("[grid-column:1_/_-1] text-[0.75rem] font-semibold text-panel-text-secondary pb-1", first ? "pt-0" : "pt-3")}>
+	<p className={cn("[grid-column:1_/_-1] flex items-center gap-2 pb-0.5 text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-panel-text-muted after:h-px after:flex-1 after:bg-panel-border", first ? "pt-0" : "pt-2")}>
 		{title}
 	</p>
 );
@@ -22,11 +22,13 @@ export const ExpandedHeading = ({
 export const ExpandedMeta = ({
 	label,
 	value,
+	wide,
 }: {
 	label: ReactNode;
 	value: ReactNode;
+	wide?: boolean;
 }) => (
-	<div className="min-w-0! rb-resource-meta">
+	<div className={cn("min-w-0! rb-resource-meta", wide && "[grid-column:1_/_-1]")}>
 		<span className="text-panel-text-muted">
 			{label}
 		</span>

@@ -1,4 +1,7 @@
-import { Badge } from "components/shadcn/badge";
+import { toneClass } from "lib/tone";
+import { Badge } from "components/ui/badge";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
 import { cn } from "lib/cn";
 import { statusColors } from "constants/UserSettings";
 import type { FC } from "react";
@@ -25,7 +28,7 @@ export const NodeModalStatusBadge: FC<UserStatusProps> = ({
 	const Icon = statusColors[userStatus].icon;
 	return (
 		<>
-			<Badge colorScheme={statusColors[userStatus].statusColor} className={cn("rounded-full inline-flex px-3 py-1 items-center justify-center flex-nowrap leading-[1] whitespace-nowrap max-w-full", compact ? "gap-x-1" : "gap-x-2", compact ? "min-w-[64px]!" : "min-w-[72px]!", "rb-status-badge")}>
+			<Badge className={cn(toneClass(statusColors[userStatus].statusColor), cn("rounded-full inline-flex px-3 py-1 items-center justify-center flex-nowrap leading-[1] whitespace-nowrap max-w-full", compact ? "gap-x-1" : "gap-x-2", compact ? "min-w-[64px]!" : "min-w-[72px]!", "rb-status-badge"))}>
 				<Icon className={cn("shrink-0", compact ? "w-3" : "w-4")} />
 				{showDetail && (
 					<p className={cn("capitalize font-medium tracking-[0] whitespace-nowrap text-center", compact ? "text-[.7rem]" : "text-[.875rem]", compact ? "leading-[1rem]" : "leading-[1.25rem]", "rb-status-badge-text")}>

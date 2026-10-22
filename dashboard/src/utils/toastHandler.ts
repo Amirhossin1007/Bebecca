@@ -1,8 +1,11 @@
-import type { ToastFunction } from "components/shadcn/toast";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
 import type { FieldValues, UseFormReturn } from "react-hook-form";
+import { toast as sonnerToast } from "sonner";
 import { getAPIErrorMessage } from "service/http";
 
 type ErrorRecord = Record<string, unknown>;
+type ToastFunction = typeof sonnerToast;
 
 const asRecord = (value: unknown): ErrorRecord | undefined =>
 	value && typeof value === "object" ? (value as ErrorRecord) : undefined;
@@ -68,28 +71,15 @@ export const generateErrorMessage = (
 			: undefined;
 	const message = validationMessage || getAPIErrorMessage(e) || getErrorMessage(e);
 	const status = response?.status;
-	return toast({
-		title:
-			message ??
+	return toast.error(message ??
 			(typeof status === "number"
 				? `Request failed (HTTP ${status})`
-				: "Request failed"),
-		status: "error",
-		isClosable: true,
-		position: "top",
-		duration: 3000,
-	});
+				: "Request failed"), { duration: 3000 });
 };
 
 export const generateSuccessMessage = (
 	message: string,
 	toast: ToastFunction,
 ) => {
-	return toast({
-		title: message,
-		status: "success",
-		isClosable: true,
-		position: "top",
-		duration: 3000,
-	});
+	return toast.success(message, { duration: 3000 });
 };

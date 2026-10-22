@@ -1,19 +1,22 @@
+import { toast } from "components/ui/sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { type SubmitStatus, useSubmitTimers } from "hooks/useSubmitTimers";
 import dayjs from "dayjs";
 import { Eye, EyeOff, Search, ShieldPlus, Sparkles, UserPen } from "lucide-react";
-import { type FC, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { type Resolver, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
-import { useToast } from "components/shadcn/toast";
+
 import { EntityNotePanel } from "components/EntityNotePanel";
 import { buttonVariants } from "components/ui/button";
 import { Badge } from "components/ui/badge";
-import { Checkbox } from "components/ui/checkbox";
 import { DateTimeField } from "components/ui/date-time-field";
+import { DataSizeField } from "components/ui/data-size-field";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "components/ui/dialog";
 import { FormField } from "components/ui/form-field";
 import { Input } from "components/ui/input";
+import { CheckRow } from "components/ui/check-row";
 import { NumberField } from "components/ui/number-field";
 import { Select, SelectContent, SelectItem, SelectItemText, SelectTrigger, SelectValue } from "components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
@@ -25,6 +28,7 @@ import { fetch } from "service/http";
 import type { AdminCreatePayload, AdminPermissions, AdminUpdatePayload } from "types/Admin";
 import { AdminRole, AdminStatus, AdminTrafficLimitMode } from "types/Admin";
 import type { ServiceSummary } from "types/Service";
+import { copyTextToClipboard } from "utils/clipboard";
 import { relativeExpiryDate } from "utils/dateFormatter";
 import { addQuickExpiry } from "utils/expiry";
 import { formatBytes } from "utils/formatByte";
@@ -37,7 +41,6 @@ const MB_IN_BYTES = 1024 * 1024;
 const SUCCESS_CLOSE_DELAY_MS = 1000;
 const DEFAULT_MATCH = { matchCase: false, matchWholeWord: false } as const;
 
-type SubmitStatus = "idle" | "loading" | "success" | "error";
 type TabValue = "details" | "permissions";
 
 const clonePermissions = (role: AdminRole): AdminPermissions => getDefaultPermissionsForRole(role);
@@ -136,37 +139,13 @@ type AdminFormValues = {
 };
 
 /** A checkbox with its text, the whole line is the click target. */
-const CheckRow = ({
-	checked,
-	onChange,
-	disabled,
-	indeterminate,
-	children,
-}: {
-	checked: boolean;
-	onChange: (next: boolean) => void;
-	disabled?: boolean;
-	indeterminate?: boolean;
-	children: ReactNode;
-}) => (
-	<label className={cn("flex items-start gap-2.5 text-sm", disabled && "opacity-50")}>
-		<Checkbox
-			className="mt-0.5"
-			checked={indeterminate ? "indeterminate" : checked}
-			disabled={disabled}
-			onCheckedChange={(next) => onChange(next === true)}
-		/>
-		<span className="min-w-0">{children}</span>
-	</label>
-);
-
 export const AdminDialog: FC = () => {
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const { userData } = useGetUser();
 	const canCreateFullAccess = userData.role === AdminRole.FullAccess;
 	const canManage2FA = canCreateFullAccess || Boolean(userData.permissions.admin_management.manage_2fa);
-	const toast = useToast();
+	
 	const admins = useAdminsStore((state) => state.admins);
 	const adminFromStore = useAdminsStore((state) => state.adminInDialog);
 	const isOpen = useAdminsStore((state) => state.isAdminDialogOpen);
@@ -228,7 +207,7 @@ export const AdminDialog: FC = () => {
 					.trim()
 					.optional()
 					.transform((value) => (value === "" ? undefined : value))
-					.refine((value) => value === undefined || /^\d+$/.test(value), t("admins.validation.dataLimitNumeric")),
+					.refine((value) => value === undefined || /^\d+(\.\d+)?$/.test(value), t("admins.validation.dataLimitNumeric")),
 				users_limit: z
 					.string()
 					.trim()
@@ -297,8 +276,7 @@ export const AdminDialog: FC = () => {
 	const [serviceSearch, setServiceSearch] = useState("");
 	const [adminExpireDate, setAdminExpireDate] = useState<Date | null>(null);
 	const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
-	const submitResetTimerRef = useRef<number | null>(null);
-	const successCloseTimerRef = useRef<number | null>(null);
+	const { closeTimerRef: successCloseTimerRef, clearSubmitTimers, showSubmitError } = useSubmitTimers(setSubmitStatus);
 	const adminExpireUnix = useMemo(() => (adminExpireDate ? dayjs(adminExpireDate).utc().unix() : null), [adminExpireDate]);
 	const adminExpireInfo = useMemo(() => relativeExpiryDate(adminExpireUnix ?? null), [adminExpireUnix]);
 
@@ -382,8 +360,12 @@ export const AdminDialog: FC = () => {
 	}, [generateRandomString, mode, setValue]);
 
 	const handleGeneratePassword = useCallback(() => {
-		setValue("password", generateRandomString(12), { shouldDirty: true, shouldValidate: true });
-	}, [generateRandomString, setValue]);
+		const password = generateRandomString(12);
+		setValue("password", password, { shouldDirty: true, shouldValidate: true });
+		void copyTextToClipboard(password)
+			.then(() => toast.success(t("copied")))
+			.catch(() => undefined);
+	}, [generateRandomString, setValue, t, toast]);
 
 	const handleServiceToggle = (serviceId: number) => {
 		const next = selectedServicesSet.has(serviceId)
@@ -398,32 +380,6 @@ export const AdminDialog: FC = () => {
 			shouldValidate: true,
 		});
 	};
-
-	const clearSubmitTimers = useCallback(() => {
-		if (submitResetTimerRef.current !== null) {
-			window.clearTimeout(submitResetTimerRef.current);
-			submitResetTimerRef.current = null;
-		}
-		if (successCloseTimerRef.current !== null) {
-			window.clearTimeout(successCloseTimerRef.current);
-			successCloseTimerRef.current = null;
-		}
-	}, []);
-
-	useEffect(() => clearSubmitTimers, [clearSubmitTimers]);
-
-	const showSubmitError = useCallback(() => {
-		if (successCloseTimerRef.current !== null) {
-			window.clearTimeout(successCloseTimerRef.current);
-			successCloseTimerRef.current = null;
-		}
-		if (submitResetTimerRef.current !== null) window.clearTimeout(submitResetTimerRef.current);
-		setSubmitStatus("error");
-		submitResetTimerRef.current = window.setTimeout(() => {
-			setSubmitStatus("idle");
-			submitResetTimerRef.current = null;
-		}, 900);
-	}, []);
 
 	const handleCloseAdminDialog = useCallback(() => {
 		clearSubmitTimers();
@@ -532,7 +488,7 @@ export const AdminDialog: FC = () => {
 				? String(nextPermissions.users.max_ip_limit_per_user)
 				: "",
 			maxDataLimitPerUserGb: formatBytesToGbString(nextPermissions.users.max_data_limit_per_user),
-			data_limit: admin?.data_limit !== undefined && admin?.data_limit !== null ? String(Math.floor(admin.data_limit / GB_IN_BYTES)) : "",
+			data_limit: admin?.data_limit !== undefined && admin?.data_limit !== null ? String(Math.round((admin.data_limit / GB_IN_BYTES) * 1e9) / 1e9) : "",
 			users_limit: admin?.users_limit !== undefined && admin?.users_limit !== null ? String(admin.users_limit) : "",
 			services: admin?.services ?? [],
 			service_limits: Object.fromEntries(
@@ -591,12 +547,7 @@ export const AdminDialog: FC = () => {
 			const selectedRole: AdminRole = values.role ?? AdminRole.Standard;
 			let permissionPayload: AdminPermissions | undefined;
 			if (selectedRole === AdminRole.Reseller) {
-				toast({
-					status: "warning",
-					title: t("common.comingSoon"),
-					description: t("admins.roles.resellerDescription"),
-					isClosable: true,
-				});
+				toast.warning(t("common.comingSoon"), { description: t("admins.roles.resellerDescription") });
 				showSubmitError();
 				return;
 			}
@@ -696,12 +647,28 @@ export const AdminDialog: FC = () => {
 					});
 				const requestedServices = values.services ?? [];
 				const serviceLimitPayload = values.use_service_traffic_limits ? buildServiceLimitPayload() : undefined;
-				const globalDataLimit = values.data_limit ? Number(values.data_limit) * GB_IN_BYTES : null;
+				const globalDataLimit = values.data_limit ? Math.round(Number(values.data_limit) * GB_IN_BYTES) : null;
 				const globalUsersLimit = values.users_limit ? Number(values.users_limit) : null;
 				const globalDeleteUserUsageLimit = values.delete_user_usage_limit
 					? Number(values.delete_user_usage_limit) * MB_IN_BYTES
 					: null;
 				const isFullAccess = selectedRole === AdminRole.FullAccess;
+
+				const sharedPayload = {
+					services: values.services || [],
+					telegram_id: values.telegram_id ? Number(values.telegram_id) : undefined,
+					data_limit: values.use_service_traffic_limits ? undefined : globalDataLimit,
+					traffic_limit_mode:
+						isFullAccess || values.use_service_traffic_limits ? undefined : values.traffic_limit_mode,
+					use_service_traffic_limits: isFullAccess ? undefined : values.use_service_traffic_limits,
+					show_user_traffic: isFullAccess ? undefined : values.show_user_traffic,
+					delete_user_usage_limit_enabled: isFullAccess
+						? undefined
+						: Boolean(permissionsValue.users.delete && values.delete_user_usage_limit_enabled),
+					delete_user_usage_limit: globalDeleteUserUsageLimit,
+					expire: expireValue,
+					users_limit: values.use_service_traffic_limits ? undefined : globalUsersLimit,
+				};
 
 				if (mode === "create") {
 					const payload: AdminCreatePayload = {
@@ -710,19 +677,7 @@ export const AdminDialog: FC = () => {
 						role: selectedRole,
 						require_2fa: canManage2FA ? values.require_2fa : undefined,
 						permissions: permissionPayload ?? clonePermissions(selectedRole),
-						services: values.services || [],
-						telegram_id: values.telegram_id ? Number(values.telegram_id) : undefined,
-						data_limit: values.use_service_traffic_limits ? undefined : globalDataLimit,
-						traffic_limit_mode:
-							isFullAccess || values.use_service_traffic_limits ? undefined : values.traffic_limit_mode,
-						use_service_traffic_limits: isFullAccess ? undefined : values.use_service_traffic_limits,
-						show_user_traffic: isFullAccess ? undefined : values.show_user_traffic,
-						delete_user_usage_limit_enabled: isFullAccess
-							? undefined
-							: Boolean(permissionsValue.users.delete && values.delete_user_usage_limit_enabled),
-						delete_user_usage_limit: globalDeleteUserUsageLimit,
-						expire: expireValue,
-						users_limit: values.use_service_traffic_limits ? undefined : globalUsersLimit,
+						...sharedPayload,
 					};
 					const createdAdmin = await createAdmin(payload);
 					let shouldFetch = true;
@@ -763,19 +718,7 @@ export const AdminDialog: FC = () => {
 						role: selectedRole,
 						require_2fa: canManage2FA ? values.require_2fa : undefined,
 						permissions: isFullAccess ? undefined : permissionPayload,
-						services: values.services || [],
-						telegram_id: values.telegram_id ? Number(values.telegram_id) : undefined,
-						data_limit: values.use_service_traffic_limits ? undefined : globalDataLimit,
-						traffic_limit_mode:
-							isFullAccess || values.use_service_traffic_limits ? undefined : values.traffic_limit_mode,
-						use_service_traffic_limits: isFullAccess ? undefined : values.use_service_traffic_limits,
-						show_user_traffic: isFullAccess ? undefined : values.show_user_traffic,
-						delete_user_usage_limit_enabled: isFullAccess
-							? undefined
-							: Boolean(permissionsValue.users.delete && values.delete_user_usage_limit_enabled),
-						delete_user_usage_limit: globalDeleteUserUsageLimit,
-						expire: expireValue,
-						users_limit: values.use_service_traffic_limits ? undefined : globalUsersLimit,
+						...sharedPayload,
 						service_limits: serviceLimitPayload,
 					};
 					if (values.password) {
@@ -930,7 +873,6 @@ export const AdminDialog: FC = () => {
 				label={t("password")}
 				htmlFor="admin-password"
 				error={errors.password?.message as string | undefined}
-				description={mode === "edit" ? t("admins.passwordOptionalHint") : undefined}
 				className="sm:col-span-2"
 			>
 				<div className="flex items-start gap-2">
@@ -938,7 +880,7 @@ export const AdminDialog: FC = () => {
 						<Input
 							id="admin-password"
 							type={showPassword ? "text" : "password"}
-							placeholder={t("admins.passwordPlaceholder")}
+							placeholder={mode === "edit" ? t("admins.passwordOptionalHint") : t("admins.passwordPlaceholder")}
 							className="pe-10"
 							{...register("password")}
 						/>
@@ -1007,28 +949,26 @@ export const AdminDialog: FC = () => {
 
 			<FormField
 				label={t("admins.dataLimit")}
-				description={t("admins.dataLimitHint")}
 				error={errors.data_limit?.message as string | undefined}
 				className={cn(usePerServiceTrafficLimits && "opacity-60")}
 			>
-				<NumberField
-					inputMode="numeric"
-					unit="GB"
-					value={dataLimitValue}
-					disabled={usePerServiceTrafficLimits}
-					invalid={!!errors.data_limit}
-					onChange={(raw) => setValue("data_limit", raw, { shouldDirty: true, shouldValidate: true })}
-				/>
+				<DataSizeField
+						valueGb={dataLimitValue}
+						placeholder={t("admins.dataLimitHint")}
+						disabled={usePerServiceTrafficLimits}
+						invalid={!!errors.data_limit}
+						onChangeGb={(raw) => setValue("data_limit", raw, { shouldDirty: true, shouldValidate: true })}
+					/>
 			</FormField>
 
 			<FormField
 				label={t("admins.usersLimit")}
-				description={t("admins.usersLimitHint")}
 				error={errors.users_limit?.message as string | undefined}
 			>
 				<NumberField
 					inputMode="numeric"
 					value={usersLimitValue}
+					placeholder={t("admins.usersLimitHint")}
 					disabled={usePerServiceTrafficLimits}
 					invalid={!!errors.users_limit}
 					onChange={(raw) => setValue("users_limit", raw, { shouldDirty: true, shouldValidate: true })}

@@ -1,11 +1,13 @@
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
-import { Input } from "components/shadcn/input";
-import { Tag } from "components/shadcn/badge";
-import { Button } from "components/shadcn/button";
-import { Spinner } from "components/shadcn/feedback";
+import { Field, FieldDescription, FieldLabel } from "components/ui/field";
+import { Input } from "components/ui/input";
+import { Badge } from "components/ui/badge";
+import { Button } from "components/ui/button";
+import { Spinner } from "components/ui/spinner";
+import { Dialog } from "components/ui/dialog";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Zap } from "lucide-react";
+
 import { cn } from "lib/cn";
-import { BoltIcon } from "@heroicons/react/24/outline";
 import { type FC, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { fetch as apiFetch } from "service/http";
@@ -118,11 +120,11 @@ export const RouteTestModal: FC<RouteTestModalProps> = ({
 	};
 
 	return (
-		<Modal open={isOpen} onClose={onClose} isCentered size="lg">
-			<ModalOverlay />
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
 			<XrayModalContent>
 				<XrayModalHeader>{t("pages.xray.routeTest.title")}</XrayModalHeader>
-				<ModalCloseButton />
+				
 				<XrayModalBody>
 					<div className="flex flex-col items-stretch gap-3">
 						<XrayDialogSection>
@@ -132,16 +134,16 @@ export const RouteTestModal: FC<RouteTestModalProps> = ({
 									: t("pages.xray.routeTest.description", { target: targetName })}
 							</p>
 						</XrayDialogSection>
-						<FormControl required>
-							<FormLabel>{t("pages.xray.routeTest.url")}</FormLabel>
-							<Input value={testURL} placeholder="https://example.com/" onChange={(event) => setTestURL(event.target.value)} />
-							<FormHelperText>{t("pages.xray.routeTest.urlHint")}</FormHelperText>
-						</FormControl>
-						<FormControl>
-							<FormLabel>{t("pages.xray.routeTest.inboundTag")}</FormLabel>
+						<Field>
+							<FieldLabel>{t("pages.xray.routeTest.url")}</FieldLabel>
+							<Input value={testURL} onChange={(event) => setTestURL(event.target.value)} />
+							<FieldDescription>{t("pages.xray.routeTest.urlHint")}</FieldDescription>
+						</Field>
+						<Field>
+							<FieldLabel>{t("pages.xray.routeTest.inboundTag")}</FieldLabel>
 							<Input value={inboundTag} onChange={(event) => setInboundTag(event.target.value)} />
-							<FormHelperText>{t("pages.xray.routeTest.inboundHint")}</FormHelperText>
-						</FormControl>
+							<FieldDescription>{t("pages.xray.routeTest.inboundHint")}</FieldDescription>
+						</Field>
 						{result && (
 							<XrayDialogSection>
 								<div className="flex flex-col items-stretch gap-2">
@@ -152,19 +154,19 @@ export const RouteTestModal: FC<RouteTestModalProps> = ({
 									</p>
 									{result.success && (
 										<div className="flex flex-row items-center gap-2 flex-wrap">
-											<Tag size="sm">{result.delay ?? 0} ms</Tag>
-											{result.statusCode ? <Tag size="sm">HTTP {result.statusCode}</Tag> : null}
-											{result.outboundTag ? <Tag size="sm" colorScheme="blue">{result.outboundTag}</Tag> : null}
-											{result.groupTags?.map((tag) => <Tag key={tag} size="sm" colorScheme="orange">{tag}</Tag>)}
+											<Badge>{result.delay ?? 0} ms</Badge>
+											{result.statusCode ? <Badge>HTTP {result.statusCode}</Badge> : null}
+											{result.outboundTag ? <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-200">{result.outboundTag}</Badge> : null}
+											{result.groupTags?.map((tag) => <Badge key={tag} className="bg-orange-100 text-orange-800 hover:bg-orange-200 dark:bg-orange-500/20 dark:text-orange-200">{tag}</Badge>)}
 										</div>
 									)}
 									{result.outboundTraffic?.length ? (
 										<div className="flex flex-wrap gap-2">
 											{result.outboundTraffic.map((traffic) => (
 												<div key={traffic.tag}>
-													<Tag size="sm" colorScheme="green">
+													<Badge className="bg-green-600 text-white">
 														{traffic.tag}: {formatBytes(traffic.up + traffic.down)}
-													</Tag>
+													</Badge>
 												</div>
 											))}
 										</div>
@@ -175,12 +177,12 @@ export const RouteTestModal: FC<RouteTestModalProps> = ({
 					</div>
 				</XrayModalBody>
 				<XrayModalFooter>
-					<Button size="md" variant="ghost" onClick={onClose}>{t("close")}</Button>
-					<Button size="md" colorScheme="primary" onClick={runTest} disabled={isTesting || isMasterTarget || !testURL.trim()}>{isTesting ? <Spinner size="xs" /> : <BoltIcon />}
+					<Button onClick={onClose} variant="ghost">{t("close")}</Button>
+					<Button onClick={runTest} disabled={isTesting || isMasterTarget || !testURL.trim()}>{isTesting ? <Spinner /> : <Zap />}
 						{t("pages.xray.routeTester.test")}
 					</Button>
 				</XrayModalFooter>
 			</XrayModalContent>
-		</Modal>
+		</Dialog>
 	);
 };

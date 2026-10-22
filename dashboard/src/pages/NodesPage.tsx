@@ -1,14 +1,20 @@
-import { Tag } from "components/shadcn/badge";
-import { Progress } from "components/shadcn/feedback";
-import { useToast } from "components/shadcn/toast";
+import { barClass } from "lib/tone";
+import { toneClass } from "lib/tone";
+import { Badge } from "components/ui/badge";
+import { Progress } from "components/ui/progress";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "components/ui/hover-card";
+import { Button } from "components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { Alert, AlertDescription } from "components/ui/alert";
+import { Dialog, DialogContent, DialogFooter, DialogHeader } from "components/ui/dialog";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { Plus as AddIcon, Download, RefreshCw, BookOpen, CircleCheck, Cpu, Trash2 as DeleteIcon, Copy, Pencil as EditIcon, Globe, Ban, ShieldCheck, Wrench } from "lucide-react";
+
 import { useClipboard } from "hooks/useClipboard";
 import { useDisclosure } from "hooks/useDisclosure";
-import { Popover, PopoverArrow, PopoverBody, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
-import { Button, ButtonGroup, IconButton } from "components/shadcn/button";
-import { Tooltip } from "components/shadcn/tooltip";
-import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
-import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
-import { withClass } from "components/shadcn/icon";
+
 import { cn } from "lib/cn";
 import {
 	ExpandedDetails,
@@ -16,25 +22,11 @@ import {
 	ExpandedMeta,
 } from "components/ui/ExpandedPanel";
 import { DataTableSortMenu, type SortOption } from "components/ui/DataTableSortMenu";
-import {
-	PlusIcon as AddIcon,
-	ArrowDownTrayIcon,
-	ArrowPathIcon,
-	BookOpenIcon,
-	CheckCircleIcon,
-	CpuChipIcon,
-	TrashIcon as DeleteIcon,
-	DocumentDuplicateIcon,
-	PencilIcon as EditIcon,
-	GlobeAltIcon,
-	NoSymbolIcon,
-	ShieldCheckIcon,
-	WrenchScrewdriverIcon,
-} from "@heroicons/react/24/outline";
 import type { SortingState } from "@tanstack/react-table";
 import { AppleEmojiText } from "components/common/AppleEmojiText";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
+import { OverviewBand } from "components/ui/overview-band";
 import { useDashboard } from "contexts/DashboardContext";
 import {
 	FetchNodesQueryKey,
@@ -69,10 +61,8 @@ import {
 import {
 	DataTable,
 	PageLoadingSkeleton,
-	ResourceSummaryPills,
 	type DataTableColumn,
 	type DataTableRowAction,
-	type ResourceSummaryItem,
 } from "../components/ui";
 import { CoreVersionDialog } from "../components/CoreVersionDialog";
 import type { BuildCatalog } from "../components/BuildVersionSelect";
@@ -99,16 +89,16 @@ dayjs.extend(utc);
 const AddIconStyled = withClass(AddIcon, "w-4 h-4");
 const DeleteIconStyled = withClass(DeleteIcon, "w-4 h-4");
 const EditIconStyled = withClass(EditIcon, "w-4 h-4");
-const ArrowPathIconStyled = withClass(ArrowPathIcon, "w-4 h-4");
-const CopyIconStyled = withClass(DocumentDuplicateIcon, "w-4 h-4");
-const DownloadIconStyled = withClass(ArrowDownTrayIcon, "w-4 h-4");
-const TutorialIconStyled = withClass(BookOpenIcon, "w-4 h-4");
-const EnableIconStyled = withClass(CheckCircleIcon, "w-4 h-4");
-const DisableIconStyled = withClass(NoSymbolIcon, "w-4 h-4");
-const CoreIconStyled = withClass(CpuChipIcon, "w-4 h-4");
-const GeoIconStyled = withClass(GlobeAltIcon, "w-4 h-4");
-const CertificateIconStyled = withClass(ShieldCheckIcon, "w-4 h-4");
-const ServiceIconStyled = withClass(WrenchScrewdriverIcon, "w-4 h-4");
+const ArrowPathIconStyled = withClass(RefreshCw, "w-4 h-4");
+const CopyIconStyled = withClass(Copy, "w-4 h-4");
+const DownloadIconStyled = withClass(Download, "w-4 h-4");
+const TutorialIconStyled = withClass(BookOpen, "w-4 h-4");
+const EnableIconStyled = withClass(CircleCheck, "w-4 h-4");
+const DisableIconStyled = withClass(Ban, "w-4 h-4");
+const CoreIconStyled = withClass(Cpu, "w-4 h-4");
+const GeoIconStyled = withClass(Globe, "w-4 h-4");
+const CertificateIconStyled = withClass(ShieldCheck, "w-4 h-4");
+const ServiceIconStyled = withClass(Wrench, "w-4 h-4");
 
 const EMPTY_CELL_VALUE = "-";
 
@@ -208,10 +198,10 @@ const ProtocolStatusList = ({
 	<div className="flex-wrap flex gap-2">
 		{statuses?.length ? (
 			statuses.map((status) => (
-				<Tag key={status.protocol} size="sm" colorScheme={protocolColorScheme(status.state)} title={status.detail}>
+				<Badge key={status.protocol} title={status.detail} className={toneClass(protocolColorScheme(status.state))}>
 					{status.protocol} · {status.state}
 					{status.inbounds > 0 ? ` (${status.inbounds})` : ""}
-				</Tag>
+				</Badge>
 			))
 		) : (
 			<p className="text-[0.875rem] text-panel-text-muted">
@@ -292,7 +282,7 @@ const NodeMetricDisplay = ({
 				</p>
 			) : null}
 			{progressValue !== undefined && (
-				<Progress value={progressValue} size="xs" colorScheme={colorScheme} className="rounded-full w-[46px] mx-auto bg-blackAlpha-100 dark:bg-whiteAlpha-200" />
+				<Progress value={progressValue} indicatorClassName={barClass(colorScheme)} className="rounded-full w-[46px] mx-auto bg-blackAlpha-100 dark:bg-whiteAlpha-200" />
 			)}
 		</div>
 	);
@@ -511,7 +501,8 @@ const isNodeSortKey = (value: string): value is NodeSortKey =>
 	nodeSortKeys.includes(value as NodeSortKey);
 
 export const NodesPage: FC = () => {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const locale = i18n.language || "en";
 	const navigate = useNavigate();
 	const { userData, getUserIsSuccess } = useGetUser();
 	const canManageNodes =
@@ -538,7 +529,7 @@ export const NodesPage: FC = () => {
 	const deleteNode = useNodes((state) => state.deleteNode);
 	const setDeletingNode = useNodes((state) => state.setDeletingNode);
 	const queryClient = useQueryClient();
-	const toast = useToast();
+	
 	const refreshHosts = useHosts((state) => state.fetchHosts);
 	const nodePanelBg = "bg-panel-surface";
 	const nodePanelBorder = "border-panel-border!";
@@ -750,15 +741,9 @@ export const NodesPage: FC = () => {
 			body: impact.cleanupPayload,
 		});
 		refreshHosts();
-		toast({
-			title: t("nodes.hostAddressCleanupApplied", {
+		toast.success(t("nodes.hostAddressCleanupApplied", {
 				count: impact.cleanupCount,
-			}),
-			status: "success",
-			isClosable: true,
-			position: "top",
-			duration: 2400,
-		});
+			}), { duration: 2400 });
 	};
 
 	const renderHostImpactMessage = (
@@ -1003,13 +988,7 @@ export const NodesPage: FC = () => {
 		}
 		try {
 			await navigator.clipboard.writeText(text);
-			toast({
-				title: t("nodes.copySuccess", { label }),
-				status: "success",
-				isClosable: true,
-				position: "top",
-				duration: 1800,
-			});
+			toast.success(t("nodes.copySuccess", { label }), { duration: 1800 });
 		} catch (error) {
 			generateErrorMessage(error, toast);
 		}
@@ -1030,12 +1009,7 @@ export const NodesPage: FC = () => {
 			(node) => node.id != null && node.node_install_mode === "binary",
 		);
 		if (targetNodes.length === 0) {
-			toast({
-				title: t("nodes.noBinaryNodesForServiceUpdate"),
-				status: "warning",
-				isClosable: true,
-				position: "top",
-			});
+			toast.warning(t("nodes.noBinaryNodesForServiceUpdate"));
 			return;
 		}
 		setServiceUpdateTarget({ type: "bulk", nodes: targetNodes });
@@ -1215,12 +1189,7 @@ export const NodesPage: FC = () => {
 				);
 			}
 			if (failedCount > 0) {
-				toast({
-					title: t("nodes.bulkActionFailed", { count: failedCount }),
-					status: "error",
-					isClosable: true,
-					position: "top",
-				});
+				toast.error(t("nodes.bulkActionFailed", { count: failedCount }));
 			}
 			return;
 		}
@@ -1262,12 +1231,7 @@ export const NodesPage: FC = () => {
 			);
 		}
 		if (failedCount > 0) {
-			toast({
-				title: t("nodes.updateAllNodeServicesFailed", { count: failedCount }),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("nodes.updateAllNodeServicesFailed", { count: failedCount }));
 		}
 	};
 
@@ -1293,12 +1257,7 @@ export const NodesPage: FC = () => {
 					(node) => node.id != null && node.status === "connected",
 				);
 			if (targetNodes.length === 0) {
-				toast({
-					title: t("nodes.coreVersionDialog.noConnectedNodes"),
-					status: "warning",
-					isClosable: true,
-					position: "top",
-				});
+				toast.warning(t("nodes.coreVersionDialog.noConnectedNodes"));
 				return;
 			}
 
@@ -1336,16 +1295,10 @@ export const NodesPage: FC = () => {
 					);
 				}
 				if (failed > 0) {
-					toast({
-						title: t("nodes.coreVersionDialog.bulkPartialError", {
+					toast.error(t("nodes.coreVersionDialog.bulkPartialError", {
 							failed,
 							total,
-						}),
-						status: "error",
-						isClosable: true,
-						position: "top",
-						duration: 4000,
-					});
+						}), { duration: 4000 });
 				}
 
 				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
@@ -1436,12 +1389,7 @@ export const NodesPage: FC = () => {
 					(node) => node.id != null && node.status === "connected",
 				) ?? [];
 			if (targetNodes.length === 0) {
-				toast({
-					title: t("nodes.geoDialog.noConnectedNodes"),
-					status: "warning",
-					isClosable: true,
-					position: "top",
-				});
+				toast.warning(t("nodes.geoDialog.noConnectedNodes"));
 				return;
 			}
 			setBulkNodeActionLoading("bulk-geo");
@@ -1470,12 +1418,7 @@ export const NodesPage: FC = () => {
 					);
 				}
 				if (failed > 0) {
-					toast({
-						title: t("nodes.geoDialog.bulkPartialError", { count: failed }),
-						status: "error",
-						isClosable: true,
-						position: "top",
-					});
+					toast.error(t("nodes.geoDialog.bulkPartialError", { count: failed }));
 				}
 				queryClient.invalidateQueries({ queryKey: [FetchNodesQueryKey] });
 				closeGeoDialog();
@@ -1640,12 +1583,7 @@ export const NodesPage: FC = () => {
 		nodesForAction: NodeType[],
 	) => {
 		if (nodesForAction.length === 0) {
-			toast({
-				title: t("nodes.noSelectedNodesForAction"),
-				status: "warning",
-				isClosable: true,
-				position: "top",
-			});
+			toast.warning(t("nodes.noSelectedNodesForAction"));
 			return;
 		}
 		if (type === "bulk-update") {
@@ -1669,56 +1607,34 @@ export const NodesPage: FC = () => {
 		});
 	};
 
-	const nodeSummaryItems = useMemo<ResourceSummaryItem[]>(() => {
+	const nodeOverview = useMemo(() => {
 		const summary = summarizeNodes(nodes ?? []);
-		const items: ResourceSummaryItem[] = [
-			{ label: t("total"), value: summary.total, colorScheme: "gray" },
-			{
-				label: t("status.connected"),
-				value: summary.connected,
-				colorScheme: "green",
+		return {
+			total: {
+				label: t("total"),
+				value: summary.total,
+				caption: `${t("nodes.disabled")}: ${summary.disabled}`,
 			},
-		];
-		if (summary.connecting > 0) {
-			items.push({
-				label: t("nodeModal.status.connecting"),
-				value: summary.connecting,
-				colorScheme: "yellow",
-			});
-		}
-		if (summary.error > 0) {
-			items.push({
-				label: t("nodeModal.status.error"),
-				value: summary.error,
-				colorScheme: "red",
-			});
-		}
-		if (summary.limited > 0) {
-			items.push({
-				label: t("status.limited"),
-				value: summary.limited,
-				colorScheme: "orange",
-			});
-		}
-		items.push(
-			{
-				label: t("nodes.disabled"),
-				value: summary.disabled,
-				colorScheme: "gray",
+			rows: [
+				{ key: "connected", label: t("nodeModal.status.connected"), value: summary.connected, tone: "bg-panel-success" },
+				{ key: "error", label: t("nodeModal.status.error"), value: summary.error, tone: "bg-panel-danger" },
+			],
+			distribution: {
+				label: t("nodes.sections.health"),
+				segments: [
+					{ key: "connected", label: t("nodeModal.status.connected"), value: summary.connected, tone: "bg-panel-success" },
+					{ key: "connecting", label: t("nodeModal.status.connecting"), value: summary.connecting, tone: "bg-panel-info" },
+					{ key: "error", label: t("nodeModal.status.error"), value: summary.error, tone: "bg-panel-danger" },
+					{ key: "limited", label: t("nodeModal.status.limited"), value: summary.limited, tone: "bg-panel-warning" },
+					{ key: "disabled", label: t("nodeModal.status.disabled"), value: summary.disabled, tone: "bg-panel-text-muted/60" },
+				],
 			},
-			{
+			extra: {
 				label: t("summary.usage"),
 				value: formatBytes(summary.usage, 2),
-				colorScheme: "blue",
-				helper: `↑ ${formatBytes(summary.upload, 2)} · ↓ ${formatBytes(summary.download, 2)}`,
+				caption: `↑ ${formatBytes(summary.uploadSpeed, 2)}/s · ↓ ${formatBytes(summary.downloadSpeed, 2)}/s`,
 			},
-			{
-				label: t("summary.speed"),
-				value: `↑ ${formatBytes(summary.uploadSpeed, 2)}/s · ↓ ${formatBytes(summary.downloadSpeed, 2)}/s`,
-				colorScheme: "cyan",
-			},
-		);
-		return items;
+		};
 	}, [nodes, t]);
 
 	const hasConnectedNodes = useMemo(
@@ -1936,15 +1852,15 @@ export const NodesPage: FC = () => {
 			return statusBadge;
 		}
 		return (
-			<Popover trigger="hover" placement="top" openDelay={250} closeDelay={150} isLazy closeOnBlur={false}>
-				<PopoverTrigger>
+			<HoverCard openDelay={250} closeDelay={150}>
+				<HoverCardTrigger asChild>
 					<span>{statusBadge}</span>
-				</PopoverTrigger>
-				<PopoverContent className="max-w-[360px] px-2 py-1 text-[0.875rem]">
-					<PopoverArrow />
-					<PopoverBody>{node.message}</PopoverBody>
-				</PopoverContent>
-			</Popover>
+				</HoverCardTrigger>
+				<HoverCardContent side="top" className="w-auto max-w-[360px] px-2 py-1 text-[0.875rem]">
+					
+					<div className="p-3">{node.message}</div>
+				</HoverCardContent>
+			</HoverCard>
 		);
 	};
 
@@ -2026,12 +1942,12 @@ export const NodesPage: FC = () => {
 				mobileMetaLabel: t("nodes.columns.xrayVersion"),
 				cell: (node) =>
 					node.xray_version ? (
-						<Tag as="button" {...{ type: "button" }} colorScheme="blue" size="sm" onClick={(event) => {
+						<Badge asChild><button type="button" onClick={(event) => {
 								event.stopPropagation();
 								if (node.id) setVersionDialogTarget({ type: "node", node });
-							}} className="max-w-full overflow-hidden whitespace-nowrap cursor-pointer hover:opacity-[0.82]">
+							}} className={cn("bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-200", "max-w-full overflow-hidden whitespace-nowrap cursor-pointer hover:opacity-[0.82]")}>
 							{`Xray ${node.xray_version}`}
-						</Tag>
+						</button></Badge>
 					) : (
 						<span className="text-panel-text-muted">
 							-
@@ -2084,11 +2000,11 @@ export const NodesPage: FC = () => {
 					return (
 						<div className="flex flex-col items-start justify-center gap-1 min-w-0! max-w-full overflow-hidden">
 							{nodeRuntimeDisplayVersion ? (
-								<Tag colorScheme="green" size="sm" className="max-w-full overflow-hidden whitespace-nowrap justify-start">
+								<Badge className={cn("bg-green-600 text-white", "max-w-full overflow-hidden whitespace-nowrap justify-start")}>
 									{t("nodes.nodeServiceVersionTag", {
 										version: nodeRuntimeDisplayVersion,
 									})}
-								</Tag>
+								</Badge>
 							) : (
 								<span className="text-[0.875rem] text-panel-text-muted">
 									-
@@ -2098,26 +2014,26 @@ export const NodesPage: FC = () => {
 								{nodeInstallLabel}
 							</p>
 							{nodeServiceUpdateAvailable && (
-								<Button size="xs" variant="link" colorScheme="orange" onClick={(event) => {
+								<Button onClick={(event) => {
 										event.stopPropagation();
 										handleUpdateNodeService(node);
-									}} loading={
+									}} disabled={!nodeId || !nodeHostActionsAvailable} variant="link" size="xs" loading={
 										isUpdatingService &&
 										nodeId != null &&
 										updatingServiceNodeId === nodeId
-									} disabled={!nodeId || !nodeHostActionsAvailable} className="shrink-0">{<DownloadIconStyled />}
+									} className={cn("text-orange-600 hover:underline dark:text-orange-300", "shrink-0")}>{<DownloadIconStyled />}
 									{t("nodes.nodeUpdateAvailable")}
 								</Button>
 							)}
 							{rebootRequired && (
-								<Button size="xs" variant="link" colorScheme="red" onClick={(event) => {
+								<Button onClick={(event) => {
 										event.stopPropagation();
 										handleRebootNodeHost(node);
-									}} loading={
+									}} disabled={!nodeId || !nodeHostActionsAvailable} variant="link" size="xs" loading={
 										isRebootingHost &&
 										nodeId != null &&
 										rebootingHostNodeId === nodeId
-									} disabled={!nodeId || !nodeHostActionsAvailable} className="shrink-0">{<ArrowPathIconStyled />}
+									} className={cn("text-destructive hover:underline", "shrink-0")}>{<ArrowPathIconStyled />}
 									{t("nodes.rebootRequired")}
 								</Button>
 							)}
@@ -2301,10 +2217,10 @@ export const NodesPage: FC = () => {
 				cell: (node) => {
 					const certificateBundle = getNodeInstallBundle(node);
 					return (
-						<IconButton aria-label={t("nodes.copyCertificate")} size="sm" variant="ghost" disabled={!certificateBundle} onClick={(event) => {
+						<Button aria-label={t("nodes.copyCertificate")} disabled={!certificateBundle} onClick={(event) => {
 								event.stopPropagation();
 								copyToClipboard(certificateBundle, t("nodes.certificate"));
-							}} className="text-panel-text-muted" >{<CopyIconStyled />}</IconButton>
+							}} variant="ghost" size="sm" className={cn("size-8 p-0", "text-panel-text-muted")}>{<CopyIconStyled />}</Button>
 					);
 				},
 			},
@@ -2346,7 +2262,7 @@ export const NodesPage: FC = () => {
 					<ExpandedMeta label={t("nodes.columns.nodeRuntime")} value={getNodeRuntimeDisplayVersion(node) || "-"} />
 					<ExpandedMeta label={t("nodes.xrayProcess")} value={node.xray_pid ? `PID ${node.xray_pid}` : "-"} />
 					<ExpandedMeta label={t("nodes.xrayUptime")} value={formatNodeUptime(node.xray_uptime_seconds)} />
-					<ExpandedMeta label={t("nodes.capabilities")} value={node.capabilities?.join(", ") || "-"} />
+					<ExpandedMeta label={t("nodes.capabilities")} value={node.capabilities?.join(", ") || "-"} wide />
 					<ExpandedMeta label={t("nodes.note")} value={node.note || "-"} />
 					<ExpandedMeta label={t("nodes.lastMessage")} value={node.message || "-"} />
 					<ExpandedHeading title={t("nodes.protocolHealth")} />
@@ -2359,11 +2275,14 @@ export const NodesPage: FC = () => {
 				<div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions">
 					<div className="flex flex-row items-center gap-1 flex-wrap rb-inline-actions">
 						{actions.map((action) => (
-							<Tooltip key={action.id} label={action.label}>
+							<Tooltip>
+<TooltipTrigger asChild>
 								<span>
-									<IconButton aria-label={String(action.label)} variant="ghost" size="sm" disabled={typeof action.disabled === "function" ? action.disabled(node) : action.disabled} onClick={() => action.onClick?.(node)} className="min-w-[30px]! h-[30px]" >{action.icon}</IconButton>
+									<Button aria-label={String(action.label)} disabled={typeof action.disabled === "function" ? action.disabled(node) : action.disabled} onClick={() => action.onClick?.(node)} variant="ghost" size="sm" className={cn("size-8 p-0", "min-w-[30px]! h-[30px]")}>{action.icon}</Button>
 								</span>
-							</Tooltip>
+							</TooltipTrigger>
+<TooltipContent>{action.label}</TooltipContent>
+</Tooltip>
 						))}
 					</div>
 				</div>
@@ -2533,19 +2452,19 @@ export const NodesPage: FC = () => {
 						<option value={96}>96</option>
 						<option value={100}>100</option>
 					</Select>
-					<ButtonGroup size="sm" isAttached variant="outline">
-						<Button variant="solid" size="md" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage <= 1}>
+					<div className="inline-flex items-center gap-2">
+						<Button onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage <= 1}>
 							{t("previous")}
 						</Button>
-						<Button variant="solid" size="md" disabled>
+						<Button disabled>
 							{currentPage} / {totalPages}
 						</Button>
-						<Button variant="solid" size="md" onClick={() =>
+						<Button onClick={() =>
 								setPage((value) => Math.min(totalPages, value + 1))
 							} disabled={currentPage >= totalPages}>
 							{t("next")}
 						</Button>
-					</ButtonGroup>
+					</div>
 				</div>
 			</div>
 		) : null;
@@ -2574,48 +2493,27 @@ export const NodesPage: FC = () => {
 	return (
 		<div className={cn("flex flex-col gap-5 items-stretch", selectedNodeIds.length > 0 ? "pb-32" + " " + "md:pb-24" : "pb-0")}>
 			{hasError && (
-				<Alert status="error" className="rounded-md">
-					<AlertIcon />
+				<Alert variant="destructive" className="rounded-md">
+					<CircleAlert className="size-4" aria-hidden="true" />
 					<AlertDescription>{errorMessage}</AlertDescription>
 				</Alert>
 			)}
 
-			<div className={cn("hover:md:shadow-sm hover:md:border-panel-border-strong!", cn("flex flex-col gap-3 w-full border rounded-2xl p-4 md:p-5 [transition:box-shadow_0.2s_ease,_border-color_0.2s_ease]", nodePanelBorder, nodePanelBg))}>
-				<div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-start justify-between">
-					<div className="flex flex-col items-start gap-1 min-w-0! xl:min-w-[210px]!">
-						<p className="font-semibold">{t("nodes.manageNodesHeader")}</p>
-						<ResourceSummaryPills items={nodeSummaryItems} />
-					</div>
-					<div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full xl:w-auto min-w-0! max-w-full">
-						<Button variant="outline" size="sm" onClick={() =>
-								navigate(
-									`/tutorials?doc=${encodeURIComponent(
-										"admin/nodes/#section-nodes-admin-guide",
-									)}`,
-								)
-							} className="h-[36px] px-3 min-w-0! w-full">{<TutorialIconStyled />}
-							{t("nodes.toolbarTutorial")}
-						</Button>
-						<Button variant="outline" size="sm" onClick={() => setVersionDialogTarget({ type: "bulk" })} disabled={!hasConnectedNodes || !hostActionsAvailable} className="h-[36px] px-3 min-w-0! w-full">{<CoreIconStyled />}
-							{t("nodes.toolbarUpdateCore")}
-						</Button>
-						<Button variant="outline" size="sm" onClick={handleUpdateAllNodeServices} loading={updatingBulkService} disabled={
-								!hostActionsAvailable || !hasBinaryNodes || updatingBulkService
-							} className="h-[36px] px-3 min-w-0! w-full">{<DownloadIconStyled />}
-							{t("nodes.toolbarUpdateServices")}
-						</Button>
-						<Button colorScheme="primary" size="sm" onClick={() => setAddNodeOpen(true)} className="h-[36px] px-3 min-w-0! w-full">{<AddIconStyled />}
-							{t("nodes.addNode")}
-						</Button>
-					</div>
-				</div>
-
-				<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
-
-				<div className="flex flex-col xl:flex-row gap-3 items-stretch xl:items-center justify-between">
-					<div className="flex flex-row gap-2 items-center flex-1 flex-wrap">
-						<SearchInput containerProps={{ className: "w-full md:w-[300px] xl:w-[320px] flex-[0_0_100%] md:flex-[0_0_auto]" }} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder={t("nodes.searchPlaceholder")} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} />
-						<Select size="sm" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-[calc(50%_-_4px)] md:w-[150px]">
+			<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden">
+				<OverviewBand total={nodeOverview.total} rows={nodeOverview.rows} distribution={nodeOverview.distribution} extra={nodeOverview.extra} locale={locale} />
+				<div className="border-t border-panel-border! p-3">
+					<div className="flex flex-col gap-2 xl:flex-row xl:items-center">
+						<div className="min-w-0 flex-1">
+							<div className="grid min-w-0 flex-1 grid-cols-2 items-center gap-2 xl:flex xl:flex-row">
+						<div className="col-span-2 flex min-w-0 flex-1 flex-row items-center gap-2 xl:col-span-1">
+							<SearchInput containerProps={{ className: "min-w-0 flex-1 xl:w-[320px] xl:flex-none" }} value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder={t("nodes.searchPlaceholder")} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} />
+							<DataTableSortMenu
+								options={nodeSortOptions}
+								sorting={nodeSorting}
+								onSortingChange={handleNodeTableSorting}
+							/>
+						</div>
+						<Select size="sm" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="w-full xl:w-[150px]">
 							<option value="all">{t("nodes.filters.allStatuses")}</option>
 							<option value="connected">{t("status.connected")}</option>
 							<option value="connecting">
@@ -2625,29 +2523,53 @@ export const NodesPage: FC = () => {
 							<option value="disabled">{t("status.disabled")}</option>
 							<option value="limited">{t("status.limited")}</option>
 						</Select>
-						<Select size="sm" value={installModeFilter} onChange={(event) => setInstallModeFilter(event.target.value)} className="w-[calc(50%_-_4px)] md:w-[150px]">
+						<Select size="sm" value={installModeFilter} onChange={(event) => setInstallModeFilter(event.target.value)} className="w-full xl:w-[150px]">
 							<option value="all">{t("nodes.filters.allModes")}</option>
 							<option value="binary">{t("nodes.installMode.binary")}</option>
 							<option value="docker">{t("nodes.installMode.docker")}</option>
 							<option value="unknown">{t("status.unknown")}</option>
 						</Select>
-						<DataTableSortMenu
-							options={nodeSortOptions}
-							sorting={nodeSorting}
-							onSortingChange={handleNodeTableSorting}
-						/>
-						<div className="w-[calc(50%_-_4px)] md:w-auto flex justify-end md:justify-start">
-							<Tooltip label={t("nodes.refreshNodes")}>
-								<IconButton aria-label={t("nodes.refreshNodes")} variant="ghost" size="sm" onClick={() => refetchNodes()} loading={isFetching} >{<ArrowPathIconStyled />}</IconButton>
-							</Tooltip>
+					</div>
 						</div>
+						<div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:shrink-0">
+						<div className="flex flex-wrap items-center gap-1.5">
+						<Button onClick={() =>
+								navigate(
+									`/tutorials?doc=${encodeURIComponent(
+										"admin/nodes/#section-nodes-admin-guide",
+									)}`,
+								)
+							} variant="outline" size="sm" className="h-[36px] px-3">{<TutorialIconStyled />}
+							{t("nodes.toolbarTutorial")}
+						</Button>
+						<Button onClick={() => setVersionDialogTarget({ type: "bulk" })} disabled={!hasConnectedNodes || !hostActionsAvailable} variant="outline" size="sm" className="h-[36px] px-3">{<CoreIconStyled />}
+							{t("nodes.toolbarUpdateCore")}
+						</Button>
+						<Button onClick={handleUpdateAllNodeServices} disabled={
+								!hostActionsAvailable || !hasBinaryNodes || updatingBulkService
+							} variant="outline" size="sm" loading={updatingBulkService} className="h-[36px] px-3">{<DownloadIconStyled />}
+							{t("nodes.toolbarUpdateServices")}
+						</Button>
+						</div>
+						<div className="ms-auto flex items-center gap-1.5">
+						<Tooltip>
+<TooltipTrigger asChild>
+							<Button aria-label={t("nodes.refreshNodes")} onClick={() => refetchNodes()} variant="ghost" size="sm" loading={isFetching} className="size-8 p-0">{<ArrowPathIconStyled />}</Button>
+						</TooltipTrigger>
+<TooltipContent>{t("nodes.refreshNodes")}</TooltipContent>
+</Tooltip>
+						<Button onClick={() => setAddNodeOpen(true)} size="sm" className="h-[36px] px-3">{<AddIconStyled />}
+							{t("nodes.addNode")}
+						</Button>
+					</div>
+					</div>
 					</div>
 				</div>
 			</div>
 
 			{!hostActionsAvailable && (
-				<Alert status="warning" variant="subtle" className="rounded-md">
-					<AlertIcon />
+				<Alert className="rounded-md">
+					<TriangleAlert className="size-4" aria-hidden="true" />
 					<AlertDescription>
 						{t("nodes.binaryMigrationRequired")}
 					</AlertDescription>
@@ -2699,30 +2621,30 @@ export const NodesPage: FC = () => {
 					})}
 					renderBulkActions={() => (
 						<>
-							<Button size="sm" variant="outline" onClick={selectAllFilteredNodes} disabled={allFilteredSelected}>
+							<Button onClick={selectAllFilteredNodes} disabled={allFilteredSelected} variant="outline" size="sm">
 								{t("nodes.selectAllFiltered")}
 							</Button>
-							<Button size="sm" variant="outline" onClick={selectOnlyActiveNodes} disabled={
+							<Button onClick={selectOnlyActiveNodes} disabled={
 									activeFilteredNodeIds.length === 0 || onlyActiveFilteredSelected
-								}>{<EnableIconStyled />}
+								} variant="outline" size="sm">{<EnableIconStyled />}
 								{t("nodes.selectOnlyActive")}
 							</Button>
-							<Button size="sm" variant="outline" onClick={() =>
+							<Button onClick={() =>
 									openBulkActionConfirm("bulk-enable", selectableSelectedNodes())
-								} disabled={Boolean(bulkNodeActionLoading)}>{<EnableIconStyled />}
+								} disabled={Boolean(bulkNodeActionLoading)} variant="outline" size="sm">{<EnableIconStyled />}
 								{t("nodes.enableNode")}
 							</Button>
-							<Button size="sm" variant="outline" onClick={() =>
+							<Button onClick={() =>
 									openBulkActionConfirm("bulk-disable", selectableSelectedNodes())
-								} disabled={Boolean(bulkNodeActionLoading)}>{<DisableIconStyled />}
+								} disabled={Boolean(bulkNodeActionLoading)} variant="outline" size="sm">{<DisableIconStyled />}
 								{t("nodes.disableNode")}
 							</Button>
-							<Button size="sm" variant="outline" onClick={() =>
+							<Button onClick={() =>
 									openBulkActionConfirm("bulk-reset", selectableSelectedNodes())
-								} disabled={Boolean(bulkNodeActionLoading)}>{<ArrowPathIconStyled />}
+								} disabled={Boolean(bulkNodeActionLoading)} variant="outline" size="sm">{<ArrowPathIconStyled />}
 								{t("nodes.resetUsage")}
 							</Button>
-							<Button size="sm" variant="outline" onClick={() =>
+							<Button onClick={() =>
 									openBulkActionConfirm(
 										"bulk-restart",
 										selectedConnectedBinaryNodes(),
@@ -2730,18 +2652,18 @@ export const NodesPage: FC = () => {
 								} disabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}>{<ServiceIconStyled />}
+								} variant="outline" size="sm">{<ServiceIconStyled />}
 								{t("nodes.restartServiceAction")}
 							</Button>
-							<Button size="sm" variant="outline" onClick={() =>
+							<Button onClick={() =>
 									openBulkActionConfirm("bulk-update", selectedBinaryNodes())
 								} disabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedBinaryNodes().length === 0
-								}>{<DownloadIconStyled />}
+								} variant="outline" size="sm">{<DownloadIconStyled />}
 								{t("nodes.updateServiceAction")}
 							</Button>
-							<Button size="sm" variant="outline" onClick={() =>
+							<Button onClick={() =>
 									setVersionDialogTarget({
 										type: "bulk",
 										nodes: selectedConnectedBinaryNodes(),
@@ -2749,10 +2671,10 @@ export const NodesPage: FC = () => {
 								} disabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}>{<CoreIconStyled />}
+								} variant="outline" size="sm">{<CoreIconStyled />}
 								{t("nodes.updateCoreAction")}
 							</Button>
-							<Button size="sm" variant="outline" onClick={() =>
+							<Button onClick={() =>
 									setGeoDialogTarget({
 										type: "bulk",
 										nodes: selectedConnectedBinaryNodes(),
@@ -2760,10 +2682,10 @@ export const NodesPage: FC = () => {
 								} disabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}>{<GeoIconStyled />}
+								} variant="outline" size="sm">{<GeoIconStyled />}
 								{t("nodes.updateGeoAction")}
 							</Button>
-							<Button size="sm" variant="outline" onClick={() =>
+							<Button onClick={() =>
 									openBulkActionConfirm(
 										"bulk-reboot",
 										selectedConnectedBinaryNodes(),
@@ -2771,12 +2693,12 @@ export const NodesPage: FC = () => {
 								} disabled={
 									Boolean(bulkNodeActionLoading) ||
 									selectedConnectedBinaryNodes().length === 0
-								}>{<ArrowPathIconStyled />}
+								} variant="outline" size="sm">{<ArrowPathIconStyled />}
 								{t("nodes.rebootHostAction")}
 							</Button>
-							<Button size="sm" colorScheme="red" variant="outline" onClick={() =>
+							<Button onClick={() =>
 									openBulkActionConfirm("bulk-delete", selectableSelectedNodes())
-								} disabled={Boolean(bulkNodeActionLoading)}>{<DeleteIconStyled />}
+								} disabled={Boolean(bulkNodeActionLoading)} variant="outline" size="sm" className="border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10">{<DeleteIconStyled />}
 								{t("delete")}
 							</Button>
 						</>
@@ -2896,19 +2818,19 @@ export const NodesPage: FC = () => {
 				loading={isUpdating}
 			/>
 			{newNodeCertificate && (
-				<Modal open onClose={() => setNewNodeCertificate(null)} size="md">
-					<ModalOverlay className="bg-blackAlpha-500" />
-					<ModalContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 max-w-[calc(100vw_-_32px)] sm:max-w-[520px]", nodePanelBg, nodePanelBorder)}>
-						<ModalHeader className="px-6 pt-6 pb-2">
+				<Dialog open onOpenChange={(open) => { if (!open) (() => setNewNodeCertificate(null))(); }}>
+					
+					<DialogContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 max-w-[calc(100vw_-_32px)] sm:max-w-[520px]", nodePanelBg, nodePanelBorder)}>
+						<DialogHeader className="px-6 pt-6 pb-2">
 							<div className="flex flex-row items-center gap-3">
 								<div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900 dark:text-primary-200">
 									<CertificateIconStyled />
 								</div>
 								<p>{t("nodes.newNodePublicKeyTitle")}</p>
 							</div>
-						</ModalHeader>
-						<ModalCloseButton />
-						<ModalBody className="px-6 pb-2">
+						</DialogHeader>
+						
+						<div className={cn("px-5 py-4 overflow-y-auto", "px-6 pb-2")}>
 							<div className="flex flex-col items-stretch gap-4">
 								<p className="text-[0.875rem] text-gray-600 dark:text-gray-300">
 									{t("nodes.newNodePublicKeyDesc")}
@@ -2926,22 +2848,16 @@ export const NodesPage: FC = () => {
 											)}
 										</div>
 										<div className="flex flex-row items-center gap-2">
-											<Button size="sm" variant="outline" onClick={() => {
+											<Button onClick={() => {
 													if (!generatedCertificateBundleValue) return;
 													copyGeneratedCertificateBundle();
-													toast({
-														title: t("copied"),
-														status: "success",
-														isClosable: true,
-														position: "top",
-														duration: 2000,
-													});
-												}} disabled={!generatedCertificateBundleValue}>{<CopyIconStyled />}
+													toast.success(t("copied"), { duration: 2000 });
+												}} disabled={!generatedCertificateBundleValue} variant="outline" size="sm">{<CopyIconStyled />}
 												{generatedCertificateBundleCopied
 													? t("copied")
 													: t("copy")}
 											</Button>
-											<Button size="sm" variant="outline" onClick={() => {
+											<Button onClick={() => {
 													if (!generatedCertificateBundleValue) return;
 													const blob = new Blob(
 														[generatedCertificateBundleValue],
@@ -2955,7 +2871,7 @@ export const NodesPage: FC = () => {
 													anchor.download = "node_install_bundle.pem";
 													anchor.click();
 													URL.revokeObjectURL(url);
-												}} disabled={!generatedCertificateBundleValue}>{<DownloadIconStyled />}
+												}} disabled={!generatedCertificateBundleValue} variant="outline" size="sm">{<DownloadIconStyled />}
 												{t("nodes.download-node-install-bundle")}
 											</Button>
 										</div>
@@ -2965,14 +2881,14 @@ export const NodesPage: FC = () => {
 									</div>
 								</div>
 							</div>
-						</ModalBody>
-						<ModalFooter className={cn("bg-blackAlpha-50 dark:bg-whiteAlpha-50 border-t px-6 py-4", nodePanelBorder)}>
-							<Button size="md" onClick={() => setNewNodeCertificate(null)} colorScheme="primary">
+						</div>
+						<DialogFooter className={cn("bg-blackAlpha-50 dark:bg-whiteAlpha-50 border-t px-6 py-4", nodePanelBorder)}>
+							<Button onClick={() => setNewNodeCertificate(null)}>
 								{t("close")}
 							</Button>
-						</ModalFooter>
-					</ModalContent>
-				</Modal>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
 			)}
 		</div>
 	);

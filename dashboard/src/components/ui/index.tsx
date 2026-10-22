@@ -1,4 +1,6 @@
-import { Button } from "components/shadcn/button";
+import { Button } from "components/ui/button";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
 import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "lib/cn";
 import {
@@ -95,7 +97,7 @@ export const TabSystem: FC<TabSystemProps> = ({ tabs, ...props }) => {
 	return (
 		<div role="tablist" {...props} className={"[webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&_>_button]:flex-[0_0_auto] flex gap-6 min-h-10 px-2 md:px-3 overflow-x-auto overflow-y-hidden max-w-full whitespace-nowrap rb-tab-system"}>
 			{tabs.map((tab) => (
-				<Button key={tab.value} ref={tab.isActive ? activeTabRef : undefined} role="tab" aria-selected={tab.isActive} variant="ghost" size="sm" onClick={tab.onClick} className={cn("px-0 h-10 rounded-[0px] border-b-2 font-bold hover:bg-transparent hover:text-panel-accent-hover", tab.isActive ? "border-panel-accent!" : "border-transparent!", tab.isActive ? "text-panel-accent" : "text-panel-text")}>
+				<Button key={tab.value} ref={tab.isActive ? activeTabRef : undefined} role="tab" aria-selected={tab.isActive} onClick={tab.onClick} variant="ghost" size="sm" className={cn("px-0 h-10 rounded-[0px] border-b-2 font-bold hover:bg-transparent hover:text-panel-accent-hover", tab.isActive ? "border-panel-accent!" : "border-transparent!", tab.isActive ? "text-panel-accent" : "text-panel-text")}>
 					{tab.label}
 				</Button>
 			))}

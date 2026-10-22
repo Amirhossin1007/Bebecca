@@ -1,7 +1,8 @@
+import { Spinner } from "components/ui/spinner";
+import { Button } from "components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { useColorMode } from "lib/color-mode";
-import { Spinner } from "components/shadcn/feedback";
-import { Button } from "components/shadcn/button";
-import { Tooltip } from "components/shadcn/tooltip";
+
 import { InfoIcon } from "components/common/InfoIcon";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { ChartBox } from "components/common/ChartBox";
@@ -442,11 +443,11 @@ const AdminsUsage: FC = () => {
 								const isActive =
 									selectedAdmin === item.username && isSelectable;
 								return (
-									<Button key={`${item.admin_id ?? "na"}-${username}`} size="sm" variant={isActive ? "solid" : "outline"} colorScheme="primary" onClick={() => {
+									<Button key={`${item.admin_id ?? "na"}-${username}`} onClick={() => {
 											if (isSelectable && item.username) {
 												setSelectedAdmin(item.username);
 											}
-										}} disabled={!isSelectable} className="justify-between">
+										}} disabled={!isSelectable} size="sm" className="justify-between" variant={isActive ? "default" : "outline"}>
 										<div className="flex flex-row items-center gap-2 justify-between w-full">
 											<p>{username}</p>
 											<p className="text-[0.875rem] text-gray-500 dark:text-gray-300">
@@ -472,13 +473,16 @@ const AdminsUsage: FC = () => {
 								? t("myaccount.dailyCreatedTraffic")
 								: t("admins.dailyUsage")}
 						</p>
-						<Tooltip label={
+						<Tooltip>
+<TooltipTrigger asChild>
+							<InfoIcon aria-label="info" className="text-gray-500 dark:text-gray-400 cursor-help" />
+						</TooltipTrigger>
+<TooltipContent>{
 								isCreatedTrafficBasis
 									? t("admins.dailyCreatedTrafficTooltip")
 									: t("admins.dailyUsageTooltip")
-							}>
-							<InfoIcon aria-label="info" className="text-gray-500 dark:text-gray-400 cursor-help" />
-						</Tooltip>
+							}</TooltipContent>
+</Tooltip>
 					</div>
 				}
 				headerActions={

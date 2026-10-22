@@ -1,16 +1,13 @@
-import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
-import { Tag, TagCloseButton, TagLabel } from "components/shadcn/badge";
-import { Input } from "components/shadcn/input";
-import { Portal } from "components/shadcn/portal";
-import { Button } from "components/shadcn/button";
-import { withClass } from "components/shadcn/icon";
+import { Button } from "components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { Badge } from "components/ui/badge";
+import { Input } from "components/ui/input";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { Check as CheckIcon, ChevronDown as ChevronDownIcon, X as XMarkIcon } from "lucide-react";
+
 import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "lib/cn";
-import {
-	CheckIcon,
-	ChevronDownIcon,
-	XMarkIcon,
-} from "@heroicons/react/24/outline";
 import {
 	type ChangeEvent,
 	Fragment,
@@ -241,6 +238,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 		);
 		const [customInput, setCustomInput] = useState("");
 		const [multiOpen, setMultiOpen] = useState(false);
+		const [singleOpen, setSingleOpen] = useState(false);
 		const multiContainerRef = useRef<HTMLDivElement | null>(null);
 		const nestedMenuScrollRef = useRef<{ left: number; top: number } | null>(
 			null,
@@ -325,19 +323,19 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 		);
 		const buttonText = selectedLabels[0] || placeholder || "";
 
-		const borderColor = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
-		const focusBorderColor = "focus-within:border-primary-500! dark:focus-within:border-primary-300!";
-		const focusRing = "focus-within:[box-shadow:0_0_0_1px_var(--primary-500)] dark:focus-within:[box-shadow:0_0_0_1px_var(--primary-300)]";
-		const hoverBorder = "hover:border-primary-500! dark:hover:border-primary-300!";
-		const controlBg = "bg-white dark:bg-whiteAlpha-50";
+		const borderColor = "border-input";
+		const focusBorderColor = "focus-within:border-ring";
+		const focusRing = "focus-within:ring-[3px] focus-within:ring-ring/50";
+		const hoverBorder = "";
+		const controlBg = "bg-transparent dark:bg-input/30";
 		const menuBg = "bg-white dark:bg-surface-dark";
 		const hoverBg = "hover:bg-blackAlpha-50 dark:hover:bg-whiteAlpha-100";
 		const selectedBg = "bg-primary-50 dark:bg-whiteAlpha-100";
 		const tagBg = "bg-primary-50 dark:bg-whiteAlpha-100";
 		const tagColor = "text-primary-700 dark:text-primary-200";
-		const mutedColor = "text-gray-500 dark:text-gray-400";
+		const mutedColor = "text-muted-foreground";
 		const invalidBorderColor = "border-red-500! dark:border-red-300!";
-		const controlHeight = size === "md" ? "min-h-[40px]" : "min-h-[36px]";
+		const controlHeight = "min-h-9";
 		const disabledState = isDisabled || Boolean(disabled);
 		const resolvedBorderColor = isInvalid ? invalidBorderColor : borderColor;
 
@@ -382,6 +380,13 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 				target: { name, value: selectedValues[0] ?? "" },
 				type: "blur",
 			});
+		};
+
+		const handleSingleOpenChange = (open: boolean) => {
+			setSingleOpen(open);
+			if (open) return;
+			setSearch("");
+			emitBlur();
 		};
 
 		const updateMultipleValues = (nextValues: string[]) => {
@@ -477,11 +482,13 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 
 			if (mode === "single") {
 				return (
-					<MenuItem key={key} className={rowClass} disabled={opts.disabled} onClick={() => {
-							if (!opts.disabled) onSelect();
-						}}>
+					<button key={key} type="button" data-option="" disabled={opts.disabled} onClick={() => {
+							if (opts.disabled) return;
+							onSelect();
+							if (closeOnSelect ?? true) handleSingleOpenChange(false);
+						}} className={cn(rowClass, "block w-full text-start cursor-pointer")}>
 						{content}
-					</MenuItem>
+					</button>
 				);
 			}
 
@@ -581,22 +588,18 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 						<div className="flex flex-wrap gap-1.5 items-center">
 							{selectedValues.map((item) => (
 								<div key={item}>
-									<Tag size="sm" className={cn("min-h-[22px] rounded-full", tagBg, tagColor)}>
-										<TagLabel className="max-w-[150px] truncate text-[0.75rem]">
+									<Badge className={cn("min-h-[22px] rounded-full", tagBg, tagColor)}>
+										
 											{renderLabel(
 												optionByValue.get(item.toLowerCase())?.label ?? item,
 											)}
-										</TagLabel>
-										<TagCloseButton aria-label={`${removeLabel} ${item}`} onMouseDown={(event) => event.preventDefault()} onClick={() => removeValue(item)} />
-									</Tag>
+										
+										
+									</Badge>
 								</div>
 							))}
 							<div className="flex-1 min-w-[140px]!">
-								<Input variant="unstyled" size="sm" value={customInput} placeholder={
-										selectedValues.length
-											? t("hostsDialog.addAnotherValue")
-											: placeholder
-									} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" data-form-type="other" onFocus={() => setMultiOpen(true)} onChange={(event) =>
+								<Input value={customInput} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" data-form-type="other" onFocus={() => setMultiOpen(true)} onChange={(event) =>
 										handleCustomInputChange(event.target.value)
 									} onKeyDown={handleCustomKeyDown} disabled={disabledState} className="h-[24px] text-[0.875rem] bg-transparent! border-0! rounded-[0px]! [outline:0]! shadow-none! min-h-[24px]! px-0! py-0! focus:shadow-none! focus-visible:shadow-none!" />
 							</div>
@@ -608,25 +611,51 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 						)}
 					</div>
 					{multiOpen && !disabledState && multiMenuRect && (
-						<Portal>
+						<>
 							{/* biome-ignore lint/a11y/noStaticElementInteractions: menu surface: stops mousedown so the field keeps focus; the options carry the interaction */}
-							<div dir={direction} style={{ left: `${multiMenuRect.left}px`, top: multiMenuRect.top === undefined ? undefined : `${multiMenuRect.top}px`, bottom: multiMenuRect.bottom === undefined ? undefined : `${multiMenuRect.bottom}px`, width: `${multiMenuRect.width}px` }} onMouseDown={(event) => event.preventDefault()} className={cn("[scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", cn("fixed z-[16060] border rounded-md shadow-xl max-h-[240px] overflow-y-auto p-1", menuBg))}>
+							<div dir={direction} style={{ left: `${multiMenuRect.left}px`, top: multiMenuRect.top === undefined ? undefined : `${multiMenuRect.top}px`, bottom: multiMenuRect.bottom === undefined ? undefined : `${multiMenuRect.bottom}px`, width: `${multiMenuRect.width}px` }} onMouseDown={(event) => event.preventDefault()} className={cn("[scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", cn("pointer-events-auto fixed z-[16060] border rounded-md shadow-xl max-h-[240px] overflow-y-auto p-1", menuBg))}>
 								{optionList}
 							</div>
-						</Portal>
+						</>
 					)}
 				</div>
 			);
 		}
 
+		const handleSingleListKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+			if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+			const items = Array.from(
+				event.currentTarget.querySelectorAll<HTMLButtonElement>(
+					"button[data-option]:not(:disabled)",
+				),
+			);
+			if (!items.length) return;
+			event.preventDefault();
+			const index = items.indexOf(document.activeElement as HTMLButtonElement);
+			const next =
+				event.key === "ArrowDown"
+					? (index + 1) % items.length
+					: index <= 0
+						? items.length - 1
+						: index - 1;
+			items[next]?.focus();
+		};
+
 		const singleMenuList = (
-			<MenuList dir={direction} className={cn(borderColor, "[scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", cn("min-w-[100%]! max-w-[min(420px,_calc(100vw_-_24px))] max-h-[260px] overflow-y-auto p-1 rounded-md shadow-xl z-[16050]", menuBg))}>
+			<PopoverContent
+				align={isRTL ? "end" : "start"}
+				onOpenAutoFocus={(event) => {
+					event.preventDefault(); (event.target as HTMLElement).querySelector<HTMLElement>(showSearch ? "input" : "[data-option]:not(:disabled)")?.focus();
+				}}
+				onKeyDown={handleSingleListKeyDown}
+				className={cn(borderColor, "[scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", cn("w-(--radix-popover-trigger-width) max-w-[min(420px,_calc(100vw_-_24px))] max-h-[260px] overflow-y-auto p-1 rounded-md shadow-xl z-[16050]", menuBg))}
+			>
 				{showSearch && (
 					<SearchInput id={`${inputId}-search`} name={`${inputId}-search-${mode}`} size="sm" containerProps={{ className: "mb-1" }} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={searchPlaceholder ?? t("search")} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} role="combobox" aria-autocomplete="list" data-lpignore="true" data-1p-ignore="true" data-form-type="other" inputMode="text" list={`${inputId}-empty-list`} autoFocus matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} className="h-[30px] text-[0.875rem] bg-transparent" />
 				)}
 				<datalist id={`${inputId}-empty-list`} />
 				{optionList}
-			</MenuList>
+			</PopoverContent>
 		);
 
 		return (
@@ -639,31 +668,14 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					value={selectedValues[0] ?? ""}
 					readOnly
 				/>
-				<Menu autoSelect={false} closeOnSelect={closeOnSelect ?? true} open={disabledState ? false : undefined} isLazy matchWidth placement={isRTL ? "bottom-end" : "bottom-start"} strategy="fixed" onOpen={() => {
-						if (!portalled) {
-							nestedMenuScrollRef.current = {
-								left: window.scrollX,
-								top: window.scrollY,
-							};
-						}
-					}} onClose={() => {
-						setSearch("");
-						emitBlur();
-						const scroll = nestedMenuScrollRef.current;
-						nestedMenuScrollRef.current = null;
-						if (scroll) {
-							requestAnimationFrame(() =>
-								window.scrollTo(scroll.left, scroll.top),
-							);
-						}
-					}}>
-					<MenuButton as={Button} size={size} disabled={disabledState} variant="outline" className={cn(controlBg, resolvedBorderColor, focusBorderColor, focusRing, hoverBorder, "w-full rounded-md justify-between text-start", rightElement ? "pr-16" : "", controlHeight, selectedValues.length ? "font-medium" : "font-normal")}>
+				<Popover open={singleOpen && !disabledState} onOpenChange={handleSingleOpenChange}>
+					<PopoverTrigger asChild><Button size={size === "md" ? "default" : size} disabled={disabledState} variant="outline" className={cn(controlBg, resolvedBorderColor, focusBorderColor, focusRing, hoverBorder, "w-full rounded-md justify-between text-start [&>span]:w-full [&>span]:justify-between", rightElement ? "pr-16" : "", controlHeight, selectedValues.length ? "font-medium" : "font-normal")}>
 						<span className={cn("truncate", selectedValues.length ? "" : (mutedColor))}>
 							{renderLabel(buttonText)}
 						</span>
-					{<ChevronDown />}</MenuButton>
-					{portalled ? <Portal>{singleMenuList}</Portal> : singleMenuList}
-				</Menu>
+					{<ChevronDown />}</Button></PopoverTrigger>
+					{portalled ? <><div className="pointer-events-auto contents">{singleMenuList}</div></> : singleMenuList}
+				</Popover>
 				{rightElement && (
 					<div className={cn("absolute top-[50%] [transform:translateY(-50%)] z-[1]", isRTL ? "left-[8px]" : "", isRTL ? "" : "right-[36px]")}>
 						{rightElement}

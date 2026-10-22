@@ -1,11 +1,11 @@
-import { useToast } from "components/shadcn/toast";
-import { Button } from "components/shadcn/button";
-import { Spinner } from "components/shadcn/feedback";
-import { withClass } from "components/shadcn/icon";
-import {
-	ArrowPathIcon,
-	LockClosedIcon,
-} from "@heroicons/react/24/outline";
+import { Button } from "components/ui/button";
+import { Spinner } from "components/ui/spinner";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { cn } from "lib/cn";
+import { RefreshCw, Lock } from "lucide-react";
+
 import { AppDialog } from "components/dialogs/AppDialog";
 import { Icon } from "components/Icon";
 import { Pagination } from "components/Pagination";
@@ -14,7 +14,7 @@ import {
 	PageHeader,
 	PageLoadingSkeleton,
 } from "components/ui";
-import { UsersFilterBar } from "components/users";
+import { UsersCreateButton, UsersFilterBar } from "components/users";
 import { RefreshSplitButton } from "components/users/RefreshSplitButton";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
@@ -30,8 +30,6 @@ import {
 import { Trans, useTranslation } from "react-i18next";
 import { fetch } from "service/http";
 import { AdminStatus } from "types/Admin";
-
-const AUTO_REFRESH_INTERVALS = [3_000, 5_000, 10_000, 30_000] as const;
 
 const UserDialog = lazy(async () => ({
 	default: (await import("components/UserDialog")).UserDialog,
@@ -51,13 +49,13 @@ type OnlineUsersResponse =
 			speeds: Record<string, { upload_speed: number; download_speed: number }>;
 	  };
 
-const ResetIcon = withClass(ArrowPathIcon, "w-5 h-5");
+const ResetIcon = withClass(RefreshCw, "w-5 h-5");
 
-const DisabledIcon = withClass(LockClosedIcon, "h-12 w-12");
+const DisabledIcon = withClass(Lock, "h-12 w-12");
 
 const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const {
 		resetUsageUser,
 		revokeSubscriptionUser,
@@ -85,25 +83,13 @@ const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 			setLoading(true);
 			(isRevoke ? revokeSubscription(user) : resetDataUsage(user))
 				.then(() => {
-					toast({
-						title: t(
+					toast.success(t(
 							isRevoke ? "revokeUserSub.success" : "resetUserUsage.success",
 							{ username: user.username },
-						),
-						status: "success",
-						isClosable: true,
-						position: "top",
-						duration: 3000,
-					});
+						), { duration: 3000 });
 				})
 				.catch(() => {
-					toast({
-						title: t(isRevoke ? "revokeUserSub.error" : "resetUserUsage.error"),
-						status: "error",
-						isClosable: true,
-						position: "top",
-						duration: 3000,
-					});
+					toast.error(t(isRevoke ? "revokeUserSub.error" : "resetUserUsage.error"), { duration: 3000 });
 				})
 				.finally(() => {
 					setLoading(false);
@@ -112,16 +98,16 @@ const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 	};
 
 	return (
-		<AppDialog isCentered open={Boolean(user)} onClose={onClose} size="sm" title={
+		<AppDialog open={Boolean(user)} onClose={onClose} size="sm" title={
 				<Icon color="blue">
 					<ResetIcon />
 				</Icon>
-			} overlayProps={{ className: "bg-blackAlpha-300" }} contentProps={{ className: "mx-3" }} headerProps={{ className: "pt-6" }} closeButtonProps={{ className: "mt-3" }} footerProps={{ className: "flex" }} footer={
+			} contentProps={{ className: "mx-3" }} headerProps={{ className: "pt-6" }} footerProps={{ className: "flex" }} footer={
 				<>
-					<Button size="sm" onClick={onClose} variant="outline" className="mr-3 w-full">
+					<Button onClick={onClose} variant="outline" size="sm" className="mr-3 w-full">
 						{t("cancel")}
 					</Button>
-					<Button size="sm" colorScheme="blue" onClick={onSubmit} className="w-full">{loading ? <Spinner size="xs" /> : undefined}
+					<Button onClick={onSubmit} size="sm" className={cn("bg-blue-600 text-white shadow-xs hover:bg-blue-700", "w-full")}>{loading ? <Spinner /> : undefined}
 						{t(isRevoke ? "revoke" : "reset")}
 					</Button>
 				</>
@@ -306,24 +292,18 @@ export const UsersPage: FC = () => {
 			<UsersTable
 				toolbar={<UsersFilterBar />}
 				headerActions={
-					<RefreshSplitButton
-						// One control: the icon refreshes now, the chevron opens the interval menu.
-						onRefresh={() => {
-							refetchUsers(true);
-							void refreshOnlineUsers();
-						}}
-						loading={loading}
-						interval={autoRefreshInterval}
-						onIntervalChange={setAutoRefreshInterval}
-						intervals={AUTO_REFRESH_INTERVALS}
-						labels={{
-							refresh: t("refresh"),
-							autoRefresh: t("usersTable.autoRefresh"),
-							off: t("usersTable.autoRefreshOff"),
-							every: (seconds: number) =>
-								t("usersTable.autoRefreshEvery", { seconds }),
-						}}
-					/>
+					<>
+						<RefreshSplitButton
+							onRefresh={() => {
+								refetchUsers(true);
+								void refreshOnlineUsers();
+							}}
+							loading={loading}
+							interval={autoRefreshInterval}
+							onIntervalChange={setAutoRefreshInterval}
+						/>
+						<UsersCreateButton />
+					</>
 				}
 			/>
 			<Pagination />

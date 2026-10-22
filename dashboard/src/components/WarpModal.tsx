@@ -1,10 +1,15 @@
-import { useToast } from "components/shadcn/toast";
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
-import { Button } from "components/shadcn/button";
-import { Input, Textarea } from "components/shadcn/input";
-import { Badge } from "components/shadcn/badge";
-import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
+import { toneClass } from "lib/tone";
+import { Alert, AlertDescription } from "components/ui/alert";
+import { Button } from "components/ui/button";
+import { Input } from "components/ui/input";
+import { Badge } from "components/ui/badge";
+import { Field, FieldDescription, FieldLabel } from "components/ui/field";
+import { Textarea } from "components/ui/textarea";
+import { Dialog } from "components/ui/dialog";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
+
 import { cn } from "lib/cn";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -292,7 +297,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 	onDelete,
 }) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 
 	const [form, setForm] = useState<WarpFormState>({ ...DEFAULT_WARP_FORM });
 	const [warpAccount, setWarpAccount] = useState<WarpAccount | null>(null);
@@ -322,14 +327,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 			setWarpRemote(null);
 			setWarpOutboundCandidate(null);
 		} catch (error: any) {
-			toast({
-				title: t("pages.xray.warp.loadFailed"),
-				description: error?.data?.detail || error?.message,
-				status: "error",
-				duration: 4000,
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("pages.xray.warp.loadFailed"), { description: error?.data?.detail || error?.message, duration: 4000 });
 		} finally {
 			setIsAccountLoading(false);
 		}
@@ -365,13 +363,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 		const keys = generateWireguardKeypair();
 		updateFormField("privateKey", keys.privateKey);
 		updateFormField("publicKey", keys.publicKey);
-		toast({
-			title: t("pages.xray.warp.keysGenerated"),
-			status: "info",
-			duration: 2500,
-			isClosable: true,
-			position: "top",
-		});
+		toast.info(t("pages.xray.warp.keysGenerated"), { duration: 2500 });
 	};
 
 	const handleInsertReserved = () => {
@@ -413,22 +405,9 @@ export const WarpModal: FC<WarpModalProps> = ({
 			setWarpAccount(response.account);
 			setWarpRemote(response.config);
 			hydrateFromRemote(response.account, response.config);
-			toast({
-				title: t("pages.xray.warp.registerSuccess"),
-				status: "success",
-				duration: 4000,
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("pages.xray.warp.registerSuccess"), { duration: 4000 });
 		} catch (error: any) {
-			toast({
-				title: t("pages.xray.warp.registerFailed"),
-				description: error?.data?.detail || error?.message,
-				status: "error",
-				duration: 5000,
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("pages.xray.warp.registerFailed"), { description: error?.data?.detail || error?.message, duration: 5000 });
 		} finally {
 			setIsRegistering(false);
 		}
@@ -436,13 +415,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 
 	const handleFetchInfo = async () => {
 		if (!warpAccount) {
-			toast({
-				title: t("pages.xray.warp.accountMissing"),
-				status: "warning",
-				duration: 3000,
-				isClosable: true,
-				position: "top",
-			});
+			toast.warning(t("pages.xray.warp.accountMissing"), { duration: 3000 });
 			return;
 		}
 		setIsFetchingInfo(true);
@@ -453,22 +426,9 @@ export const WarpModal: FC<WarpModalProps> = ({
 			);
 			setWarpRemote(response.config);
 			hydrateFromRemote(warpAccount, response.config);
-			toast({
-				title: t("pages.xray.warp.infoFetched"),
-				status: "success",
-				duration: 3000,
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("pages.xray.warp.infoFetched"), { duration: 3000 });
 		} catch (error: any) {
-			toast({
-				title: t("pages.xray.warp.infoFailed"),
-				description: error?.data?.detail || error?.message,
-				status: "error",
-				duration: 5000,
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("pages.xray.warp.infoFailed"), { description: error?.data?.detail || error?.message, duration: 5000 });
 		} finally {
 			setIsFetchingInfo(false);
 		}
@@ -488,22 +448,9 @@ export const WarpModal: FC<WarpModalProps> = ({
 				},
 			);
 			setWarpAccount(response.account);
-			toast({
-				title: t("pages.xray.warp.licenseUpdated"),
-				status: "success",
-				duration: 3000,
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("pages.xray.warp.licenseUpdated"), { duration: 3000 });
 		} catch (error: any) {
-			toast({
-				title: t("pages.xray.warp.licenseFailed"),
-				description: error?.data?.detail || error?.message,
-				status: "error",
-				duration: 5000,
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("pages.xray.warp.licenseFailed"), { description: error?.data?.detail || error?.message, duration: 5000 });
 		} finally {
 			setIsUpdatingLicense(false);
 		}
@@ -517,22 +464,9 @@ export const WarpModal: FC<WarpModalProps> = ({
 			setWarpRemote(null);
 			setWarpOutboundCandidate(null);
 			onDelete();
-			toast({
-				title: t("pages.xray.warp.accountRemoved"),
-				status: "success",
-				duration: 3000,
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("pages.xray.warp.accountRemoved"), { duration: 3000 });
 		} catch (error: any) {
-			toast({
-				title: t("pages.xray.warp.removeFailed"),
-				description: error?.data?.detail || error?.message,
-				status: "error",
-				duration: 5000,
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("pages.xray.warp.removeFailed"), { description: error?.data?.detail || error?.message, duration: 5000 });
 		} finally {
 			setIsDeletingAccount(false);
 		}
@@ -544,25 +478,13 @@ export const WarpModal: FC<WarpModalProps> = ({
 		}
 		const outboundJson = warpOutboundCandidate.toJson();
 		onSave(outboundJson);
-		toast({
-			title: t("pages.xray.warp.outboundApplied"),
-			status: "success",
-			duration: 2500,
-			isClosable: true,
-			position: "top",
-		});
+		toast.success(t("pages.xray.warp.outboundApplied"), { duration: 2500 });
 	};
 
 	const handleManualDelete = () => {
 		onDelete();
 		setForm({ ...DEFAULT_WARP_FORM });
-		toast({
-			title: t("pages.xray.warp.removeOutbound"),
-			status: "info",
-			duration: 2500,
-			isClosable: true,
-			position: "top",
-		});
+		toast.info(t("pages.xray.warp.removeOutbound"), { duration: 2500 });
 	};
 
 	const handleManualSave = () => {
@@ -571,13 +493,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 			!form.publicKey.trim() ||
 			!form.endpoint.trim()
 		) {
-			toast({
-				title: t("pages.xray.warp.validationMissing"),
-				status: "error",
-				isClosable: true,
-				duration: 3500,
-				position: "top",
-			});
+			toast.error(t("pages.xray.warp.validationMissing"), { duration: 3500 });
 			return;
 		}
 		const outboundJson = buildOutboundFromForm(form);
@@ -591,17 +507,17 @@ export const WarpModal: FC<WarpModalProps> = ({
 	);
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="xl" scrollBehavior="inside">
-			<ModalOverlay className="bg-blackAlpha-300" />
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
 			<XrayModalContent>
 				<XrayModalHeader>
 					{t("pages.xray.warp.manage")}
 				</XrayModalHeader>
-				<ModalCloseButton />
+				
 				<XrayModalBody>
 					<div className="flex flex-col gap-5 items-stretch">
-						<Alert status="info" className="rounded-md">
-							<AlertIcon />
+						<Alert className="rounded-md">
+							<Info className="size-4" aria-hidden="true" />
 							<AlertDescription>
 								{t("pages.xray.warp.manualNote")}
 							</AlertDescription>
@@ -637,10 +553,10 @@ export const WarpModal: FC<WarpModalProps> = ({
 										/>
 									</div>
 									<div className="flex flex-row items-center gap-3 flex-wrap">
-										<Button size="md" variant="outline" onClick={handleFetchInfo} loading={isFetchingInfo}>
+										<Button onClick={handleFetchInfo} variant="outline" loading={isFetchingInfo}>
 											{t("pages.xray.warp.fetchInfo")}
 										</Button>
-										<Button size="md" variant="ghost" colorScheme="red" onClick={handleDeleteAccount} loading={isDeletingAccount}>
+										<Button onClick={handleDeleteAccount} variant="ghost" loading={isDeletingAccount} className="text-destructive hover:bg-destructive/10">
 											{t("pages.xray.warp.removeAccount")}
 										</Button>
 									</div>
@@ -650,7 +566,7 @@ export const WarpModal: FC<WarpModalProps> = ({
 									<p className={cn("text-[0.875rem]", helperColor)}>
 										{t("pages.xray.warp.registerDescription")}
 									</p>
-									<Button size="md" colorScheme="primary" onClick={handleRegister} loading={isRegistering || isAccountLoading}>
+									<Button onClick={handleRegister} loading={isRegistering || isAccountLoading}>
 										{t("pages.xray.warp.registerAction")}
 									</Button>
 								</div>
@@ -663,8 +579,8 @@ export const WarpModal: FC<WarpModalProps> = ({
 									{t("pages.xray.warp.licenseSection")}
 								</p>
 								<div className="flex flex-row gap-3 items-stretch flex-wrap">
-									<Input value={licenseInput} onChange={(event) => setLicenseInput(event.target.value)} placeholder="ABCD-1234..." size="sm" />
-									<Button size="md" colorScheme="primary" onClick={handleUpdateLicense} loading={isUpdatingLicense} disabled={!licenseInput.trim()}>
+									<Input value={licenseInput} onChange={(event) => setLicenseInput(event.target.value)} />
+									<Button onClick={handleUpdateLicense} disabled={!licenseInput.trim()} loading={isUpdatingLicense}>
 										{t("pages.xray.warp.updateLicense")}
 									</Button>
 								</div>
@@ -680,13 +596,13 @@ export const WarpModal: FC<WarpModalProps> = ({
 									{t("pages.xray.warp.remoteConfig")}
 								</p>
 								{warpRemote ? (
-									<Badge colorScheme={warpRemote.enabled ? "green" : "yellow"}>
+									<Badge className={toneClass(warpRemote.enabled ? "green" : "yellow")}>
 										{warpRemote.enabled
 											? t("status.active")
 											: t("core.pending")}
 									</Badge>
 								) : (
-									<Badge colorScheme="gray">{t("core.empty")}</Badge>
+									<Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-500/20 dark:text-gray-200">{t("core.empty")}</Badge>
 								)}
 							</div>
 							{warpRemote ? (
@@ -741,10 +657,10 @@ export const WarpModal: FC<WarpModalProps> = ({
 										</>
 									)}
 									<div className="flex flex-row items-center gap-3 flex-wrap">
-										<Button size="md" colorScheme="primary" onClick={applyOutboundCandidate} disabled={!warpOutboundCandidate}>
+										<Button onClick={applyOutboundCandidate} disabled={!warpOutboundCandidate}>
 											{t("pages.xray.warp.applyGenerated")}
 										</Button>
-										<Button size="md" variant="ghost" onClick={() => setWarpRemote(null)}>
+										<Button onClick={() => setWarpRemote(null)} variant="ghost">
 											{t("reset")}
 										</Button>
 									</div>
@@ -761,79 +677,79 @@ export const WarpModal: FC<WarpModalProps> = ({
 								{t("pages.xray.warp.manualTitle")}
 							</p>
 							<div className="flex flex-col gap-4">
-								<FormControl required>
-									<FormLabel>{t("pages.xray.outbound.tag")}</FormLabel>
-									<Input size="sm" value={form.tag} onChange={(event) =>
+								<Field>
+									<FieldLabel>{t("pages.xray.outbound.tag")}</FieldLabel>
+									<Input value={form.tag} onChange={(event) =>
 											updateFormField("tag", event.target.value)
-										} placeholder="warp" />
-								</FormControl>
+										} />
+								</Field>
 
-								<FormControl required>
-									<FormLabel>{t("pages.xray.warp.privateKey")}</FormLabel>
-									<Textarea size="sm" value={form.privateKey} onChange={(event) =>
+								<Field>
+									<FieldLabel>{t("pages.xray.warp.privateKey")}</FieldLabel>
+									<Textarea value={form.privateKey} onChange={(event) =>
 											updateFormField("privateKey", event.target.value)
 										} rows={2} />
-								</FormControl>
+								</Field>
 
-								<FormControl required>
-									<FormLabel>{t("pages.xray.warp.publicKey")}</FormLabel>
-									<Textarea size="sm" value={form.publicKey} onChange={(event) =>
+								<Field>
+									<FieldLabel>{t("pages.xray.warp.publicKey")}</FieldLabel>
+									<Textarea value={form.publicKey} onChange={(event) =>
 											updateFormField("publicKey", event.target.value)
 										} rows={2} />
-								</FormControl>
+								</Field>
 
-								<FormControl>
-									<Button size="sm" colorScheme="primary" onClick={handleGenerateKeys}>
+								<Field>
+									<Button onClick={handleGenerateKeys} size="sm">
 										{t("pages.xray.warp.generateKeys")}
 									</Button>
 									<p className={cn("text-[0.75rem] mt-1", helperColor)}>
 										{t("pages.xray.warp.generateKeysHint")}
 									</p>
-								</FormControl>
+								</Field>
 
-								<FormControl required>
-									<FormLabel>{t("pages.xray.warp.endpoint")}</FormLabel>
-									<Input size="sm" value={form.endpoint} onChange={(event) =>
+								<Field>
+									<FieldLabel>{t("pages.xray.warp.endpoint")}</FieldLabel>
+									<Input value={form.endpoint} onChange={(event) =>
 											updateFormField("endpoint", event.target.value)
-										} placeholder="engage.cloudflareclient.com:2408" />
-								</FormControl>
+										} />
+								</Field>
 
-								<FormControl>
-									<FormLabel>
+								<Field>
+									<FieldLabel>
 										{t("pages.xray.warp.addressV4")}
-									</FormLabel>
-									<Input size="sm" value={form.addressV4} onChange={(event) =>
+									</FieldLabel>
+									<Input value={form.addressV4} onChange={(event) =>
 											updateFormField("addressV4", event.target.value)
-										} placeholder="172.16.0.2" />
-									<FormHelperText>
+										} />
+									<FieldDescription>
 										{t("pages.xray.warp.addressV4Hint")}
-									</FormHelperText>
-								</FormControl>
+									</FieldDescription>
+								</Field>
 
-								<FormControl>
-									<FormLabel>
+								<Field>
+									<FieldLabel>
 										{t("pages.xray.warp.addressV6")}
-									</FormLabel>
-									<Input size="sm" value={form.addressV6} onChange={(event) =>
+									</FieldLabel>
+									<Input value={form.addressV6} onChange={(event) =>
 											updateFormField("addressV6", event.target.value)
-										} placeholder="2606:4700:****:****::****" />
-								</FormControl>
+										} />
+								</Field>
 
-								<FormControl>
-									<FormLabel>{t("pages.xray.warp.reserved")}</FormLabel>
-									<Input size="sm" value={form.reserved} onChange={(event) =>
+								<Field>
+									<FieldLabel>{t("pages.xray.warp.reserved")}</FieldLabel>
+									<Input value={form.reserved} onChange={(event) =>
 											updateFormField("reserved", event.target.value)
-										} placeholder="0,0,0" />
-									<FormHelperText>
+										} />
+									<FieldDescription>
 										{t("pages.xray.warp.reservedHint")}
-									</FormHelperText>
-									<Button size="xs" variant="ghost" onClick={handleInsertReserved} className="mt-2">
+									</FieldDescription>
+									<Button onClick={handleInsertReserved} variant="ghost" size="xs" className="mt-2">
 										{t("pages.xray.warp.randomReserved")}
 									</Button>
-								</FormControl>
+								</Field>
 
-								<FormControl>
-									<FormLabel>{t("pages.xray.warp.mtu")}</FormLabel>
+								<Field>
+									<FieldLabel>{t("pages.xray.warp.mtu")}</FieldLabel>
 									<NumericInput
 										size="sm"
 										min={576}
@@ -843,38 +759,38 @@ export const WarpModal: FC<WarpModalProps> = ({
 											updateFormField("mtu", value || 1420)
 										}
 									/>
-								</FormControl>
+								</Field>
 
-								<FormControl>
-									<FormLabel>
+								<Field>
+									<FieldLabel>
 										{t("pages.xray.warp.notes")}
-									</FormLabel>
-									<Textarea size="sm" rows={2} value={form.notes} onChange={(event) =>
+									</FieldLabel>
+									<Textarea rows={2} value={form.notes} onChange={(event) =>
 											updateFormField("notes", event.target.value)
 										} />
-								</FormControl>
+								</Field>
 							</div>
 						</div>
 					</div>
 				</XrayModalBody>
 				<XrayModalFooter className="flex justify-between">
 					{isEditingOutbound ? (
-						<Button size="md" colorScheme="red" variant="outline" onClick={handleManualDelete}>
+						<Button onClick={handleManualDelete} variant="outline" className="border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10">
 							{t("delete")}
 						</Button>
 					) : (
 						<span />
 					)}
 					<div className="flex flex-row items-center gap-3">
-						<Button size="md" variant="ghost" onClick={onClose}>
+						<Button onClick={onClose} variant="ghost">
 							{t("cancel")}
 						</Button>
-						<Button size="md" colorScheme="primary" onClick={handleManualSave}>
+						<Button onClick={handleManualSave}>
 							{isEditingOutbound ? t("save") : t("add")}
 						</Button>
 					</div>
 				</XrayModalFooter>
 			</XrayModalContent>
-		</Modal>
+		</Dialog>
 	);
 };

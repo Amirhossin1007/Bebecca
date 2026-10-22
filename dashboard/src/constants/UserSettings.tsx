@@ -1,18 +1,15 @@
-import { withClass } from "components/shadcn/icon";
-import {
-	ClockIcon,
-	ExclamationCircleIcon,
-	NoSymbolIcon,
-	WifiIcon,
-} from "@heroicons/react/24/outline";
+import { CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { Clock, CircleAlert, Ban, Wifi } from "lucide-react";
+
 import type { ComponentType } from "react";
 import type { DataLimitResetStrategy } from "types/User";
 
-const ActiveStatusIcon = withClass(WifiIcon, "[stroke-width:2px] w-4 h-4");
-const DisabledStatusIcon = withClass(NoSymbolIcon, "[stroke-width:2px] w-4 h-4");
-const LimitedStatusIcon = withClass(ExclamationCircleIcon, "[stroke-width:2px] w-4 h-4");
-const ExpiredStatusIcon = withClass(ClockIcon, "[stroke-width:2px] w-4 h-4");
-const On_holdStatusIcon = withClass(ClockIcon, "[stroke-width:2px] w-4 h-4");
+const ActiveStatusIcon = withClass(Wifi, "[stroke-width:2px] w-4 h-4");
+const DisabledStatusIcon = withClass(Ban, "[stroke-width:2px] w-4 h-4");
+const LimitedStatusIcon = withClass(CircleAlert, "[stroke-width:2px] w-4 h-4");
+const ExpiredStatusIcon = withClass(Clock, "[stroke-width:2px] w-4 h-4");
+const On_holdStatusIcon = withClass(Clock, "[stroke-width:2px] w-4 h-4");
 
 export const resetStrategy: { title: string; value: DataLimitResetStrategy }[] =
 	[

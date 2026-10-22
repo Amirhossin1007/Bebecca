@@ -1,29 +1,22 @@
-import { useToast } from "components/shadcn/toast";
+import { Button } from "components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { Dialog, DialogContent, DialogFooter, DialogHeader } from "components/ui/dialog";
+import { Input } from "components/ui/input";
+import { Textarea } from "components/ui/textarea";
+import { toast } from "components/ui/sonner";
+import { withClass } from "lib/withClass";
+import { SlidersHorizontal, RefreshCw, Key, Pencil, Play, CirclePlus, ShieldCheck, Trash2, Ban } from "lucide-react";
+
 import { useDisclosure } from "hooks/useDisclosure";
-import { Button, IconButton } from "components/shadcn/button";
-import { Collapse } from "components/shadcn/collapse";
+import { useIntervalRefresh } from "hooks/useIntervalRefresh";
+
 import { useBreakpointValue } from "hooks/useBreakpointValue";
-import { Tooltip } from "components/shadcn/tooltip";
-import { Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay } from "components/shadcn/dialog";
-import { Input, InputGroup, InputRightElement, Textarea } from "components/shadcn/input";
-import { withClass } from "components/shadcn/icon";
+
 import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "lib/cn";
-import {
-	AdjustmentsHorizontalIcon,
-	ArrowPathIcon,
-	ChevronRightIcon,
-	KeyIcon,
-	PencilIcon,
-	PlayIcon,
-	PlusCircleIcon,
-	ShieldCheckIcon,
-	TrashIcon,
-} from "@heroicons/react/24/outline";
-import { NoSymbolIcon } from "@heroicons/react/24/solid";
 import type { SortingState } from "@tanstack/react-table";
-import classNames from "classnames";
 import { useAdminsStore } from "contexts/AdminsContext";
+import { AddTrafficDialog } from "components/AddTrafficDialog";
 import { AdminsOverviewBand } from "components/admins/AdminsOverviewBand";
 import { DataTableColumnMenu } from "components/ui/DataTableColumnMenu";
 import { RefreshSplitButton } from "components/users/RefreshSplitButton";
@@ -32,7 +25,6 @@ import useGetUser from "hooks/useGetUser";
 import {
 	type FC,
 	type ReactNode,
-	useCallback,
 	useEffect,
 	useMemo,
 	useRef,
@@ -68,14 +60,6 @@ import {
 
 const ADMIN_DATA_LIMIT_EXHAUSTED_REASON_KEY = "admin_data_limit_exhausted";
 const ADMIN_TIME_LIMIT_EXHAUSTED_REASON_KEY = "admin_time_limit_exhausted";
-const ADMIN_TRAFFIC_OPTIONS = [
-	{ label: "100GB", gigabytes: 100 },
-	{ label: "500GB", gigabytes: 500 },
-	{ label: "1TB", gigabytes: 1024 },
-	{ label: "2TB", gigabytes: 2048 },
-	{ label: "5TB", gigabytes: 5120 },
-];
-
 const QUICK_ACTIONS_MIN_TABLE_WIDTH = 1250;
 const SPEED_MIN_TABLE_WIDTH = 1280;
 type AdminSpeedMap = Record<
@@ -83,12 +67,12 @@ type AdminSpeedMap = Record<
 	{ upload_speed: number; download_speed: number }
 >;
 
-const ResetIcon = withClass(ArrowPathIcon, "[stroke-width:2px] w-3 h-3");
-const DisableIcon = withClass(NoSymbolIcon, "[stroke-width:2px] w-3 h-3");
-const EnableIcon = withClass(PlayIcon, "[stroke-width:2px] w-3 h-3");
-const DeleteIcon = withClass(TrashIcon, "[stroke-width:2px] w-3 h-3");
-const QuickPassIcon = withClass(KeyIcon, "[stroke-width:2px] w-3 h-3");
-const AddDataIcon = withClass(PlusCircleIcon, "[stroke-width:2px] w-3 h-3");
+const ResetIcon = withClass(RefreshCw, "[stroke-width:2px] w-3 h-3");
+const DisableIcon = withClass(Ban, "[stroke-width:2px] w-3 h-3");
+const EnableIcon = withClass(Play, "[stroke-width:2px] w-3 h-3");
+const DeleteIcon = withClass(Trash2, "[stroke-width:2px] w-3 h-3");
+const QuickPassIcon = withClass(Key, "[stroke-width:2px] w-3 h-3");
+const TrafficIcon = withClass(CirclePlus, "[stroke-width:2px] w-3 h-3");
 
 const AdminStatusBadge: FC<{ status: AdminStatus }> = ({ status }) => {
 	const { t } = useTranslation();
@@ -134,8 +118,6 @@ const AdminRoleBadge: FC<{ role: AdminRole }> = ({ role }) => {
 	);
 };
 
-const AUTO_REFRESH_INTERVALS = [3_000, 5_000, 10_000, 30_000] as const;
-
 const pickLeader = (list: Admin[], value: (admin: Admin) => number) => {
 	let best: { username: string; value: number } | null = null;
 	for (const admin of list) {
@@ -168,20 +150,21 @@ const getAdminIsLimited = (admin: Admin) =>
 
 type AdminsTableProps = ComponentPropsWithoutRef<"table"> & {
 	toolbar?: ReactNode;
+	headerActions?: ReactNode;
 };
 
 export const AdminsTable: FC<AdminsTableProps> = ({
 	toolbar,
+	headerActions,
 	...props
 }) => {
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const locale = i18n.language || "en";
-	const toast = useToast();
+	
 	const { userData } = useGetUser();
 	const dialogBg = "bg-surface-light dark:bg-surface-dark";
 	const dialogBorderColor = "border-light-border! dark:border-gray-700!";
-	const inlineMenuBg = "bg-blackAlpha-50 dark:bg-whiteAlpha-50";
 	const adminOptions = useAdminsStore((state) => state.adminOptions);
 	const admins = useAdminsStore((state) => state.admins);
 	const loading = useAdminsStore((state) => state.loading);
@@ -190,11 +173,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	const fetchAdmins = useAdminsStore((state) => state.fetchAdmins);
 	const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
 	const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(5_000);
-	useEffect(() => {
-		if (!autoRefreshInterval) return;
-		const timer = window.setInterval(() => void fetchAdmins(undefined, { force: true }), autoRefreshInterval);
-		return () => window.clearInterval(timer);
-	}, [autoRefreshInterval, fetchAdmins]);
+	useIntervalRefresh(autoRefreshInterval, true, () => void fetchAdmins(undefined, { force: true }));
 	const deleteAdmin = useAdminsStore((state) => state.deleteAdmin);
 	const resetUsage = useAdminsStore((state) => state.resetUsage);
 	const resetDeletedUsersUsage = useAdminsStore(
@@ -237,9 +216,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		null,
 	);
 	const [contextAction, setContextAction] = useState<string | null>(null);
-	const [openTrafficMenuFor, setOpenTrafficMenuFor] = useState<string | null>(
-		null,
-	);
+	const [trafficAdmin, setTrafficAdmin] = useState<Admin | null>(null);
 	const [quickPassInfo, setQuickPassInfo] = useState<{
 		username: string;
 		password: string;
@@ -393,9 +370,6 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		closePermissionsModal();
 	};
 
-	const closeContextMenu = useCallback(() => {
-		setOpenTrafficMenuFor(null);
-	}, []);
 	const closeDeleteDialogAndReset = () => {
 		closeDeleteDialog();
 		setAdminToDelete(null);
@@ -403,7 +377,6 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	const startDeleteAdmin = (admin: Admin) => {
 		setAdminToDelete(admin);
 		openDeleteDialog();
-		closeContextMenu();
 	};
 	const confirmDeleteAdmin = async () => {
 		if (!adminToDelete) {
@@ -428,31 +401,14 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		fetchAdminOptions(undefined, { force: false });
 	}, [fetchAdminOptions]);
 
-	const handleAddDataLimit = async (
-		admin: Admin,
-		gigabytes: number,
-		onDone?: () => void,
-	) => {
-		if (
-			admin.data_limit === null ||
-			admin.data_limit === 0 ||
-			admin.data_limit === undefined
-		) {
-			return;
-		}
-		setContextAction(`addData-${gigabytes}`);
-		const delta = gigabytes * 1024 * 1024 * 1024;
-		const nextLimit = admin.data_limit + delta;
+	const handleAddTrafficToAdmin = async (admin: Admin, deltaBytes: number) => {
 		try {
-			await updateAdmin(admin.username, { data_limit: nextLimit });
+			await updateAdmin(admin.username, { data_limit: (admin.data_limit ?? 0) + deltaBytes });
 			generateSuccessMessage(t("admins.addTrafficSuccess"), toast);
 			fetchAdmins();
 		} catch (error) {
 			generateErrorMessage(error, toast);
-		} finally {
-			setContextAction(null);
-			onDone?.();
-			closeContextMenu();
+			throw error;
 		}
 	};
 
@@ -494,7 +450,6 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			return;
 		}
 		setQuickPassAdmin(admin);
-		closeContextMenu();
 		openQuickPassConfirm();
 	};
 
@@ -566,58 +521,6 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			disabledReasonLabel,
 		};
 	};
-	const renderAddTrafficSubmenu = (admin: Admin, onDone?: () => void) => {
-		const isOpen = openTrafficMenuFor === admin.username;
-		const closeAfterSelection = () => {
-			setOpenTrafficMenuFor(null);
-			onDone?.();
-		};
-		return (
-			<div>
-				<Button size="md" variant="ghost" loading={contextAction?.startsWith("addData-")} disabled={contextAction?.startsWith("addData-")} aria-expanded={isOpen} onClick={(event) => {
-						event.preventDefault();
-						event.stopPropagation();
-						setOpenTrafficMenuFor((current) =>
-							current === admin.username ? null : admin.username,
-						);
-					}} className="justify-start w-full">
-					<div className="flex flex-row items-center w-full justify-between gap-3">
-						<div className="flex flex-row items-center gap-2 min-w-0!">
-							<AddDataIcon />
-							<span className="truncate">
-								{t("services.userActions.traffic.add")}
-							</span>
-						</div>
-						<ChevronRightIcon style={{
-								flexShrink: 0,
-								transform: isOpen
-									? "rotate(90deg)"
-									: isRTL
-										? "rotate(180deg)"
-										: undefined,
-								transition: "transform 0.15s ease",
-							}} className="w-[14px]" />
-					</div>
-				</Button>
-				<Collapse in={isOpen} unmountOnExit>
-					<div className={cn("grid grid-cols-2 sm:grid-cols-3 gap-1 mt-1 p-2 border rounded-md", inlineMenuBg, dialogBorderColor)}>
-						{ADMIN_TRAFFIC_OPTIONS.map((option) => (
-							<Button key={option.label} size="sm" variant="ghost" onClick={(event) => {
-									event.stopPropagation();
-									handleAddDataLimit(
-										admin,
-										option.gigabytes,
-										closeAfterSelection,
-									);
-								}} loading={contextAction === `addData-${option.gigabytes}`} disabled={contextAction?.startsWith("addData-")} className="justify-center">
-								{option.label}
-							</Button>
-						))}
-					</div>
-				</Collapse>
-			</div>
-		);
-	};
 	const { className, ...restProps } = props;
 	const baseTableSx: Record<string, unknown> = {
 		width: "100%",
@@ -635,7 +538,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		},
 	};
 	const tableClassName = isRTL
-		? classNames(className, "rb-rtl-table")
+		? cn(className, "rb-rtl-table")
 		: className;
 	const tableProps = {
 		...restProps,
@@ -933,14 +836,16 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			actions.push(
 				{
 					id: "edit",
+					pinned: true,
 					label: t("edit"),
-					icon: <PencilIcon className="w-[16px]" />,
+					icon: <Pencil className="w-[16px]" />,
 					onClick: () => openAdminDialog(admin),
 				},
 				{
 					id: "permissions",
+					pinned: true,
 					label: t("admins.editPermissionsButton"),
-					icon: <AdjustmentsHorizontalIcon className="w-[16px]" />,
+					icon: <SlidersHorizontal className="w-[16px]" />,
 					onClick: () => handleOpenPermissionsModal(admin),
 				},
 				{
@@ -959,7 +864,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			actions.push({
 				id: "security",
 				label: t("admins.security.action"),
-				icon: <ShieldCheckIcon className="w-[16px]" />,
+				icon: <ShieldCheck className="w-[16px]" />,
 				onClick: () => {
 					setSecurityAdmin(admin);
 					securityDialog.onOpen();
@@ -971,7 +876,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			actions.push({
 				id: "apiKeys",
 				label: t("admins.apiKeys.action"),
-				icon: <KeyIcon className="w-[16px]" />,
+				icon: <Key className="w-[16px]" />,
 				onClick: () => {
 					setAPIKeysAdmin(admin);
 					apiKeysDialog.onOpen();
@@ -994,6 +899,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		if (meta.showEnable) {
 			actions.push({
 				id: "enable",
+				pinned: true,
 				label: t("admins.enableAdmin"),
 				icon: <EnableIcon />,
 				onClick: () => handleEnableAdmin(admin),
@@ -1006,6 +912,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		if (meta.showDisable) {
 			actions.push({
 				id: "disable",
+				pinned: true,
 				label: t("admins.disableAdmin"),
 				icon: <DisableIcon />,
 				onClick: () => startDisableAdmin(admin),
@@ -1019,7 +926,8 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 			actions.push({
 				id: "addTraffic",
 				label: t("services.userActions.traffic.add"),
-				render: (_row, onClose) => renderAddTrafficSubmenu(admin, onClose),
+				icon: <TrafficIcon />,
+				onClick: () => setTrafficAdmin(admin),
 			});
 		}
 
@@ -1036,6 +944,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		if (meta.showDelete) {
 			actions.push({
 				id: "delete",
+				pinned: true,
 				label: t("delete"),
 				icon: <DeleteIcon />,
 				onClick: () => startDeleteAdmin(admin),
@@ -1064,11 +973,14 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 							<div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions">
 							<div className="flex flex-row items-center gap-1 flex-wrap rb-inline-actions">
 								{actions.map((action) => (
-									<Tooltip key={action.id} label={action.label}>
+									<Tooltip>
+<TooltipTrigger asChild>
 										<span>
-											<IconButton aria-label={String(action.label)} variant="ghost" size="sm" disabled={typeof action.disabled === "function" ? action.disabled(admin) : action.disabled} onClick={() => action.onClick?.(admin)} className="min-w-[30px]! h-[30px]" >{action.icon}</IconButton>
+											<Button aria-label={String(action.label)} disabled={typeof action.disabled === "function" ? action.disabled(admin) : action.disabled} onClick={() => action.onClick?.(admin)} variant="ghost" size="sm" className={cn("size-8 p-0", "min-w-[30px]! h-[30px]")}>{action.icon}</Button>
 										</span>
-									</Tooltip>
+									</TooltipTrigger>
+<TooltipContent>{action.label}</TooltipContent>
+</Tooltip>
 								))}
 							</div>
 						</div>
@@ -1101,20 +1013,14 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 						<div className="flex flex-wrap items-center gap-2">
 							<div className="max-sm:contents sm:flex-[1_1_240px] min-w-0!">{toolbar}</div>
 							<div className="flex flex-row items-center gap-1 shrink-0">
+								<DataTableColumnMenu columns={adminColumns} visibility={columnVisibility} onChange={setColumnVisibility} />
 								<RefreshSplitButton
 									onRefresh={() => void fetchAdmins(undefined, { force: true })}
 									loading={loading}
 									interval={autoRefreshInterval}
 									onIntervalChange={setAutoRefreshInterval}
-									intervals={AUTO_REFRESH_INTERVALS}
-									labels={{
-										refresh: t("refresh"),
-										autoRefresh: t("usersTable.autoRefresh"),
-										off: t("usersTable.autoRefreshOff"),
-										every: (seconds: number) => t("usersTable.autoRefreshEvery", { seconds }),
-									}}
 								/>
-								<DataTableColumnMenu columns={adminColumns} visibility={columnVisibility} onChange={setColumnVisibility} />
+								{headerActions}
 							</div>
 						</div>
 					</div>
@@ -1211,19 +1117,19 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				loading={contextAction === "quickPassword"}
 			/>
 
-			<Modal open={isQuickPassOpen} onClose={handleCloseQuickPass} isCentered>
-				<ModalOverlay className="bg-blackAlpha-500" />
-				<ModalContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 max-w-[calc(100vw_-_32px)] sm:max-w-[440px]", dialogBg, dialogBorderColor)}>
-					<ModalHeader className="px-6 pt-6 pb-2">
+			<Dialog open={isQuickPassOpen} onOpenChange={(open) => { if (!open) (handleCloseQuickPass)(); }}>
+				
+				<DialogContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 max-w-[calc(100vw_-_32px)] sm:max-w-[440px]", dialogBg, dialogBorderColor)}>
+					<DialogHeader className="px-6 pt-6 pb-2">
 						<div className="flex flex-row items-center gap-3">
 							<div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900 dark:text-primary-200">
 								<QuickPassIcon />
 							</div>
 							<p>{t("admins.quickPasswordModal.title")}</p>
 						</div>
-					</ModalHeader>
-					<ModalCloseButton />
-					<ModalBody className="px-6 pb-2">
+					</DialogHeader>
+					
+					<div className={cn("px-5 py-4 overflow-y-auto", "px-6 pb-2")}>
 						<div className="flex flex-col gap-3">
 							<div>
 								<p className="text-[0.875rem] text-gray-500">
@@ -1235,40 +1141,36 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 								<p className="text-[0.875rem] text-gray-500">
 									{t("admins.quickPasswordModal.password")}
 								</p>
-								<InputGroup>
+								<div className="relative flex w-full items-center">
 									<Input value={quickPassInfo?.password ?? ""} readOnly />
-									<InputRightElement>
-										<Button size="sm" variant="ghost" onClick={async () => {
+									<div className="absolute inset-y-0 end-0 z-10 flex items-center pe-3">
+										<Button onClick={async () => {
 												if (quickPassInfo?.password) {
 													try {
 														await copyTextToClipboard(quickPassInfo.password);
-														toast({
-															title: t("copied"),
-															status: "success",
-															duration: 1200,
-														});
+														toast.success(t("copied"), { duration: 1200 });
 													} catch (error) {
 														generateErrorMessage(error, toast);
 													}
 												}
-											}}>
+											}} variant="ghost" size="sm">
 											{t("copy")}
 										</Button>
-									</InputRightElement>
-								</InputGroup>
+									</div>
+								</div>
 							</div>
 							<p className="text-[0.75rem] text-orange-400">
 								{t("admins.quickPasswordModal.notice")}
 							</p>
 						</div>
-					</ModalBody>
-					<ModalFooter className={cn("bg-blackAlpha-50 dark:bg-whiteAlpha-50 border-t px-6 py-4", dialogBorderColor)}>
-						<Button size="md" colorScheme="primary" onClick={handleCloseQuickPass}>
+					</div>
+					<DialogFooter className={cn("bg-blackAlpha-50 dark:bg-whiteAlpha-50 border-t px-6 py-4", dialogBorderColor)}>
+						<Button onClick={handleCloseQuickPass}>
 							{t("close")}
 						</Button>
-					</ModalFooter>
-				</ModalContent>
-			</Modal>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 			<ConfirmDialog
 				open={isDisableDialogOpen}
 				onClose={closeDisableDialogAndReset}
@@ -1281,7 +1183,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 								username: adminToDisable?.username ?? "",
 							})}
 						</p>
-						<Textarea value={disableReason} onChange={(event) => setDisableReason(event.target.value)} placeholder={t("admins.disableAdminReasonPlaceholder")} />
+						<Textarea value={disableReason} onChange={(event) => setDisableReason(event.target.value)} />
 					</div>
 				}
 				confirmLabel={t("admins.disableAdminConfirm")}
@@ -1315,6 +1217,11 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					apiKeysDialog.onClose();
 					setAPIKeysAdmin(null);
 				}}
+			/>
+			<AddTrafficDialog
+				target={trafficAdmin ? { kind: "admin", name: trafficAdmin.username } : null}
+				onClose={() => setTrafficAdmin(null)}
+				onApply={(deltaBytes) => (trafficAdmin ? handleAddTrafficToAdmin(trafficAdmin, deltaBytes) : Promise.resolve())}
 			/>
 		</>
 	);

@@ -1,5 +1,9 @@
-import { Alert, AlertIcon } from "components/shadcn/alert";
-import { Tag } from "components/shadcn/badge";
+import { toneClass } from "lib/tone";
+import { Alert } from "components/ui/alert";
+import { Badge } from "components/ui/badge";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
+
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -35,29 +39,29 @@ export const SystemDiagnostics = ({
 				{visibleIssues.length})
 			</p>
 			{Boolean(error) && (
-				<Alert status="error" className="rounded-xl">
-					<AlertIcon />
+				<Alert variant="destructive" className="rounded-xl">
+					<CircleAlert className="size-4" aria-hidden="true" />
 					{getAPIErrorMessage(error)}
 				</Alert>
 			)}
 			{visibleIssues.map((issue, index) => (
-				<Alert as={Link} to={diagnosticHref(issue)} role="link" aria-label={`${issue.resource}: ${issue.message}`} key={`${issue.target_id}-${issue.resource_type}-${index}`} status={diagnosticSeverity(issue) === "warning" ? "warning" : "error"} className="rounded-xl items-start no-underline hover:no-underline hover:shadow-md focus-visible:[outline:2px_solid] focus-visible:outline-blue-400 focus-visible:[outline-offset:2px]">
-					<AlertIcon className="mt-1" />
+				<Link key={`${issue.target_id}-${issue.resource_type}-${index}`} to={diagnosticHref(issue)} aria-label={`${issue.resource}: ${issue.message}`} className="block no-underline"><Alert className="rounded-xl items-start no-underline hover:no-underline hover:shadow-md focus-visible:[outline:2px_solid] focus-visible:outline-blue-400 focus-visible:[outline-offset:2px]">
+					<Info className="size-4" aria-hidden="true" />
 					<div className="min-w-0! flex-1">
 						<div className="flex flex-row items-center flex-wrap gap-2 mb-2">
-							<Tag colorScheme={
+							<Badge className={toneClass(
 									diagnosticSeverity(issue) === "warning" ? "orange" : "red"
-								} size="sm">
+								)}>
 								{t(`diagnostics.level.${diagnosticSeverity(issue)}`)}
-							</Tag>
-							<Tag colorScheme={
+							</Badge>
+							<Badge className={toneClass(
 									diagnosticSeverity(issue) === "warning" ? "orange" : "red"
-								} size="sm">
+								)}>
 								{t(
 									`diagnostics.source.${issue.resource_type}`,
 									issue.resource_type,
 								)}
-							</Tag>
+							</Badge>
 							<p className="font-semibold">{issue.resource}</p>
 							<p dir="ltr" className="text-[0.75rem]">
 								{issue.target_id}
@@ -70,7 +74,7 @@ export const SystemDiagnostics = ({
 							{issue.message}
 						</p>
 					</div>
-				</Alert>
+				</Alert></Link>
 			))}
 		</div>
 	);

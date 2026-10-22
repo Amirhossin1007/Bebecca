@@ -1,4 +1,6 @@
-import { Tooltip } from "components/shadcn/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
 import { cn } from "lib/cn";
 import { useTranslation } from "react-i18next";
 import IrancellLogo from "../assets/operators/irancell-svgrepo-com.svg";
@@ -110,9 +112,10 @@ export const OperatorIdentity = ({
 	);
 
 	return compact && owner && owner !== shortName ? (
-		<Tooltip label={owner} hasArrow>
-			{identity}
-		</Tooltip>
+		<Tooltip>
+<TooltipTrigger asChild><span className="inline-flex max-w-full">{identity}</span></TooltipTrigger>
+<TooltipContent>{owner}</TooltipContent>
+</Tooltip>
 	) : (
 		identity
 	);

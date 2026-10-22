@@ -77,7 +77,7 @@ describe("errors page", () => {
 		});
 		const html = render();
 		for (const text of [
-			"errors",
+			"diagnostics.menu",
 			"stopped-core-detail",
 			"backup-detail",
 			"warning-detail",

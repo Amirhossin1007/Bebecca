@@ -1,5 +1,7 @@
+import { Spinner } from "components/ui/spinner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { useColorMode } from "lib/color-mode";
-import { Spinner } from "components/shadcn/feedback";
+
 import { cn } from "lib/cn";
 import useGetUser from "hooks/useGetUser";
 import { useState, useEffect } from "react";

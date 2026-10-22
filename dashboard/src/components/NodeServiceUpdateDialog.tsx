@@ -1,6 +1,9 @@
-import { Button } from "components/shadcn/button";
-import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
-import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
+import { Button } from "components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "components/ui/field";
+import { Alert, AlertDescription } from "components/ui/alert";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
+
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { AppDialog } from "components/dialogs/AppDialog";
 import { useEffect, useState } from "react";
@@ -67,15 +70,14 @@ export const NodeServiceUpdateDialog = ({
 		<AppDialog
 			open={isOpen}
 			onClose={onClose}
-			isCentered
 			size="md"
 			title={title}
 			footer={
 				<>
-					<Button size="md" variant="ghost" onClick={onClose} disabled={isSubmitting} className="mr-3">
+					<Button onClick={onClose} disabled={isSubmitting} variant="ghost" className="mr-3">
 						{t("cancel")}
 					</Button>
-					<Button size="md" colorScheme="primary" onClick={() => onSubmit(channel, version || undefined)} loading={isSubmitting}>
+					<Button onClick={() => onSubmit(channel, version || undefined)} loading={isSubmitting}>
 						{t("nodes.updateServiceAction")}
 					</Button>
 				</>
@@ -94,8 +96,8 @@ export const NodeServiceUpdateDialog = ({
 						})}
 					</p>
 				)}
-				<FormControl>
-					<FormLabel>{t("dashboard.maintenance.updateChannel")}</FormLabel>
+				<Field>
+					<FieldLabel>{t("dashboard.maintenance.updateChannel")}</FieldLabel>
 					<Select
 						value={channel}
 						onChange={(event) => {
@@ -113,14 +115,14 @@ export const NodeServiceUpdateDialog = ({
 							{t("dashboard.maintenance.updateChannelDev")}
 						</option>
 					</Select>
-					<FormHelperText>
+					<FieldDescription>
 						{selectedVersion
 							? t("dashboard.maintenance.updateTargetHint", {
 									version: selectedVersion,
 								})
 							: t("dashboard.maintenance.updateTargetUnknown")}
-					</FormHelperText>
-					</FormControl>
+					</FieldDescription>
+					</Field>
 					<BuildVersionSelect
 						catalog={catalog}
 						value={version}
@@ -133,16 +135,16 @@ export const NodeServiceUpdateDialog = ({
 						}}
 					/>
 					{version && version !== targetVersion && (
-						<Alert status="warning" className="rounded-xl text-[0.875rem]">
-							<AlertIcon />
+						<Alert className="rounded-xl text-[0.875rem]">
+							<TriangleAlert className="size-4" aria-hidden="true" />
 							<AlertDescription>
 								{t("dashboard.maintenance.versionSwitchWarning")}
 							</AlertDescription>
 						</Alert>
 					)}
 				{channel === "dev" && (
-					<Alert status="warning" className="rounded-xl text-[0.875rem]">
-						<AlertIcon />
+					<Alert className="rounded-xl text-[0.875rem]">
+						<TriangleAlert className="size-4" aria-hidden="true" />
 						<AlertDescription>
 							{t("dashboard.maintenance.devChannelWarning")}
 						</AlertDescription>

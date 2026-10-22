@@ -1,13 +1,18 @@
-import { Button } from "components/shadcn/button";
-import { Badge } from "components/shadcn/badge";
-import { useToast } from "components/shadcn/toast";
-import { FormControl, FormLabel } from "components/shadcn/field";
-import { Input, Textarea } from "components/shadcn/input";
-import { Checkbox, Radio, RadioGroup, Switch } from "components/shadcn/selection";
-import { Tab, TabList, TabPanel, TabPanels, Tabs } from "components/shadcn/tabs";
+import { Button } from "components/ui/button";
+import { Badge } from "components/ui/badge";
+import { Field, FieldLabel } from "components/ui/field";
+import { Input } from "components/ui/input";
+import { Textarea } from "components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "components/ui/radio-group";
+import { Checkbox } from "components/ui/checkbox";
+import { Switch } from "components/ui/switch";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
+
 import { cn } from "lib/cn";
 import dayjs from "dayjs";
-import { PageHeader } from "components/ui";
+import { PageHeader, TabSystem } from "components/ui";
 import useGetUser from "hooks/useGetUser";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -46,7 +51,7 @@ const InboxPanel = () => {
 						total: inbox.data?.total ?? 0,
 					})}
 				</p>
-				<Button size="sm" variant="outline" disabled={!inbox.data?.unread} loading={markAll.isPending} onClick={() => markAll.mutate()}>
+				<Button disabled={!inbox.data?.unread} onClick={() => markAll.mutate()} variant="outline" size="sm" loading={markAll.isPending}>
 					{t("notifications.inbox.markAllRead")}
 				</Button>
 			</div>
@@ -59,7 +64,7 @@ const InboxPanel = () => {
 						<div className="flex flex-row items-center gap-2">
 							<p className="font-semibold">{item.title}</p>
 							{item.read_at === null && (
-								<Badge colorScheme="blue">
+								<Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-200">
 									{t("notifications.inbox.unread")}
 								</Badge>
 							)}
@@ -78,7 +83,7 @@ const InboxPanel = () => {
 							})}
 						</p>
 						{item.read_at === null && (
-							<Button size="xs" variant="ghost" onClick={() => markOne.mutate(item.id)}>
+							<Button onClick={() => markOne.mutate(item.id)} variant="ghost" size="xs">
 								{t("notifications.inbox.markRead")}
 							</Button>
 						)}
@@ -91,7 +96,7 @@ const InboxPanel = () => {
 
 const SendPanel = () => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const queryClient = useQueryClient();
 	const recipients = useQuery({ queryKey: ["notifications", "recipients"], queryFn: () =>
 		getNotificationRecipients() });
@@ -102,20 +107,14 @@ const SendPanel = () => {
 	const [audience, setAudience] = useState<"all" | "selected">("all");
 	const [selected, setSelected] = useState<number[]>([]);
 	const mutation = useMutation({ mutationFn: sendNotification, onSuccess: (result) => {
-			toast({
-				status: "success",
-				title: t("notifications.send.sent", { count: result.recipients }),
-			});
+			toast.success(t("notifications.send.sent", { count: result.recipients }));
 			setTitle("");
 			setBody("");
 			setSelected([]);
 			queryClient.invalidateQueries({ queryKey: ["notifications"] });
 		},
 		onError: (error) => {
-			toast({
-				status: "error",
-				title: getAPIErrorMessage(error) ?? t("notifications.send.failed"),
-			});
+			toast.error(getAPIErrorMessage(error) ?? t("notifications.send.failed"));
 		}, });
 
 	const toggle = (id: number) => {
@@ -129,39 +128,35 @@ const SendPanel = () => {
 	return (
 		<div className="flex flex-col gap-6">
 			<div className="flex flex-col gap-4 max-w-[42rem]">
-				<FormControl required>
-					<FormLabel>{t("notifications.send.title")}</FormLabel>
+				<Field>
+					<FieldLabel>{t("notifications.send.title")}</FieldLabel>
 					<Input value={title} onChange={(e) => setTitle(e.target.value)} />
-				</FormControl>
-				<FormControl required>
-					<FormLabel>{t("notifications.send.body")}</FormLabel>
+				</Field>
+				<Field>
+					<FieldLabel>{t("notifications.send.body")}</FieldLabel>
 					<Textarea value={body} rows={4} onChange={(e) => setBody(e.target.value)} />
-				</FormControl>
-				<FormControl>
-					<FormLabel>{t("notifications.send.audience")}</FormLabel>
-					<RadioGroup value={audience} onChange={(value) => setAudience(value as "all" | "selected")}>
+				</Field>
+				<Field>
+					<FieldLabel>{t("notifications.send.audience")}</FieldLabel>
+					<RadioGroup value={audience} onValueChange={(value) => setAudience(value as "all" | "selected")}>
 						<div className="flex flex-row gap-6">
-							<Radio value="all">{t("notifications.send.audienceAll")}</Radio>
-							<Radio value="selected">
-								{t("notifications.send.audienceSelected")}
-							</Radio>
+							<label className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem value="all" /><span>{t("notifications.send.audienceAll")}</span></label>
+							<label className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem value="selected" /><span>{t("notifications.send.audienceSelected")}</span></label>
 						</div>
 					</RadioGroup>
-				</FormControl>
+				</Field>
 				{audience === "selected" && (
 					<div className="flex flex-col gap-2 max-h-[240px] overflow-y-auto">
 						{(recipients.data?.items ?? []).map((admin) => (
-							<Checkbox key={admin.id} checked={selected.includes(admin.id)} onChange={() => toggle(admin.id)}>
-								{admin.username}
+							<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox key={admin.id} checked={selected.includes(admin.id)} onCheckedChange={() => toggle(admin.id)} /><span>{admin.username}
 								<span className="text-[0.75rem] text-gray-500 ms-2">
 									{admin.role}
-								</span>
-							</Checkbox>
+								</span></span></label>
 						))}
 					</div>
 				)}
 				<div className="flex flex-row items-center gap-2">
-					<Button size="md" colorScheme="blue" loading={mutation.isPending} disabled={
+					<Button disabled={
 							!title.trim() ||
 							!body.trim() ||
 							(audience === "selected" && selected.length === 0)
@@ -172,7 +167,7 @@ const SendPanel = () => {
 								audience,
 								admin_ids: selected,
 							})
-						}>
+						} loading={mutation.isPending} className="bg-blue-600 text-white shadow-xs hover:bg-blue-700">
 						{t("notifications.send.submit")}
 					</Button>
 				</div>
@@ -211,7 +206,7 @@ const SendPanel = () => {
 
 const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const queryClient = useQueryClient();
 	const [enabled, setEnabled] = useState(rule.enabled);
 	const [threshold, setThreshold] = useState(String(rule.threshold));
@@ -223,14 +218,11 @@ const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 			title: string;
 			body: string;
 		}) => updateNotificationRule(rule.key, payload), onSuccess: () => {
-				toast({ status: "success", title: t("notifications.rules.saved") });
+				toast.success(t("notifications.rules.saved"));
 				queryClient.invalidateQueries({ queryKey: ["notifications", "rules"] });
 			},
 			onError: (error) => {
-				toast({
-					status: "error",
-					title: getAPIErrorMessage(error) ?? t("notifications.rules.failed"),
-				});
+				toast.error(getAPIErrorMessage(error) ?? t("notifications.rules.failed"));
 			}, });
 
 	const submit = () =>
@@ -262,30 +254,30 @@ const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 				</p>
 				<div className="flex flex-row items-center gap-2">
 					<p className="text-[0.875rem]">{t("notifications.rules.enabled")}</p>
-					<Switch checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+					<Switch checked={enabled} onCheckedChange={(checked: boolean) => setEnabled(checked)} />
 				</div>
 			</div>
 			<div className="flex flex-col gap-3">
 				{rule.unit !== "none" && (
-					<FormControl className="max-w-[200px]">
-						<FormLabel>
+					<Field className="max-w-[200px]">
+						<FieldLabel>
 							{t("notifications.rules.threshold")} (
 							{rule.unit === "percent"
 								? t("notifications.rules.unitPercent")
 								: t("notifications.rules.unitDays")}
 							)
-						</FormLabel>
+						</FieldLabel>
 						<Input type="number" min={1} max={rule.unit === "percent" ? 100 : 365} value={threshold} onChange={(e) => setThreshold(e.target.value)} />
-					</FormControl>
+					</Field>
 				)}
-				<FormControl>
-					<FormLabel>{t("notifications.send.title")}</FormLabel>
+				<Field>
+					<FieldLabel>{t("notifications.send.title")}</FieldLabel>
 					<Input value={title} onChange={(e) => setTitle(e.target.value)} />
-				</FormControl>
-				<FormControl>
-					<FormLabel>{t("notifications.send.body")}</FormLabel>
+				</Field>
+				<Field>
+					<FieldLabel>{t("notifications.send.body")}</FieldLabel>
 					<Textarea rows={3} value={body} onChange={(e) => setBody(e.target.value)} />
-				</FormControl>
+				</Field>
 				<p className="text-[0.75rem] text-gray-500">
 					{t("notifications.rules.placeholders", {
 						list: rule.placeholders.map((item) => `{${item}}`).join(", "),
@@ -299,10 +291,10 @@ const RuleEditor = ({ rule }: { rule: NotificationRule }) => {
 					)}
 				</p>
 				<div className="flex flex-row items-center gap-2">
-					<Button size="sm" colorScheme="blue" loading={save.isPending} onClick={submit}>
+					<Button onClick={submit} size="sm" loading={save.isPending} className="bg-blue-600 text-white shadow-xs hover:bg-blue-700">
 						{t("notifications.rules.save")}
 					</Button>
-					<Button size="sm" variant="outline" onClick={resetToDefaults}>
+					<Button onClick={resetToDefaults} variant="outline" size="sm">
 						{t("notifications.rules.reset")}
 					</Button>
 				</div>
@@ -333,6 +325,13 @@ export default function NotificationsPage() {
 	const canSend =
 		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
 	const isFullAccess = userData.role === AdminRole.FullAccess;
+	const [tab, setTab] = useState<"inbox" | "send" | "rules">("inbox");
+	const sections = [
+		{ id: "inbox" as const, label: t("notifications.tabs.inbox"), visible: true },
+		{ id: "send" as const, label: t("notifications.tabs.send"), visible: canSend },
+		{ id: "rules" as const, label: t("notifications.tabs.rules"), visible: isFullAccess },
+	].filter((section) => section.visible);
+	const current = sections.some((section) => section.id === tab) ? tab : "inbox";
 
 	return (
 		<div className="flex flex-col gap-5">
@@ -340,28 +339,18 @@ export default function NotificationsPage() {
 				title={t("notifications.menu")}
 				description={t("notifications.description")}
 			/>
-			<Tabs variant="enclosed" isLazy>
-				<TabList>
-					<Tab>{t("notifications.tabs.inbox")}</Tab>
-					{canSend && <Tab>{t("notifications.tabs.send")}</Tab>}
-					{isFullAccess && <Tab>{t("notifications.tabs.rules")}</Tab>}
-				</TabList>
-				<TabPanels>
-					<TabPanel className="px-0">
-						<InboxPanel />
-					</TabPanel>
-					{canSend && (
-						<TabPanel className="px-0">
-							<SendPanel />
-						</TabPanel>
-					)}
-					{isFullAccess && (
-						<TabPanel className="px-0">
-							<RulesPanel />
-						</TabPanel>
-					)}
-				</TabPanels>
-			</Tabs>
+			<TabSystem
+				tabs={sections.map((section) => ({
+					value: section.id,
+					label: section.label,
+					isActive: current === section.id,
+					onClick: () => setTab(section.id),
+				}))}
+				className="overflow-x-auto overflow-y-hidden max-w-full master-settings-tabs"
+			/>
+			{current === "inbox" && <InboxPanel />}
+			{current === "send" && <SendPanel />}
+			{current === "rules" && <RulesPanel />}
 		</div>
 	);
 }

@@ -62,6 +62,7 @@ export type DataTableRowAction<TData> = {
 	disabled?: boolean | ((row: TData) => boolean);
 	isDanger?: boolean;
 	color?: string;
+	pinned?: boolean;
 };
 
 export type DataTableBulkAction<TData> = {

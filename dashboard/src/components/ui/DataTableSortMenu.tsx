@@ -1,14 +1,10 @@
-import { Popover, PopoverBody, PopoverContent, PopoverTrigger } from "components/shadcn/popover";
-import { Button, IconButton } from "components/shadcn/button";
-import { Icon } from "components/shadcn/icon";
-import { Portal } from "components/shadcn/portal";
+import { createElement } from "react";
+import { Button } from "components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, X } from "lucide-react";
+
 import { cn } from "lib/cn";
-import {
-	ArrowDownIcon,
-	ArrowUpIcon,
-	ArrowsUpDownIcon,
-	XMarkIcon,
-} from "@heroicons/react/24/outline";
 import type { SortingState } from "@tanstack/react-table";
 import { useTranslation } from "react-i18next";
 import type { DataTableColumn, DataTableSortType } from "./DataTable.types";
@@ -95,18 +91,18 @@ export const DataTableSortMenu = ({
 	};
 
 	return (
-		<Popover placement="bottom-end" isLazy>
-			<PopoverTrigger>
+		<Popover>
+			<PopoverTrigger asChild>
 				<div className="relative inline-flex shrink-0">
-					<IconButton aria-label={t("dataTable.sortOptions", "Sort options")} variant="outline" size="sm" className="h-9 w-9 rounded-full" >{<Icon as={ArrowsUpDownIcon} className="size-4" />}</IconButton>
+					<Button aria-label={t("dataTable.sortOptions", "Sort options")} variant="outline" size="sm" className={cn("size-8 p-0", "h-9 w-9 rounded-full")}>{<ArrowUpDown className="size-4" />}</Button>
 					{activeSort ? (
 						<div className="top-[-2px] absolute end-[-2px] w-[8px] h-[8px] rounded-full bg-primary-400 pointer-events-none" />
 					) : null}
 				</div>
 			</PopoverTrigger>
-			<Portal>
+			
 				<PopoverContent className="w-[300px] rounded-xl z-[2000]">
-					<PopoverBody className="p-2">
+					<div className={cn("p-3", "p-2")}>
 						<p className={cn("px-1 pb-1.5 text-[0.75rem] font-semibold", mutedColor)}>
 							{t("sort.title", "Sort by")}
 						</p>
@@ -123,7 +119,7 @@ export const DataTableSortMenu = ({
 											{[false, true].map((desc) => {
 												const selected = isActive && activeSort?.desc === desc;
 												return (
-													<Button key={String(desc)} size="xs" variant={selected ? "solid" : "outline"} colorScheme={selected ? "primary" : undefined} aria-pressed={selected} onClick={() => applySort(option.id, desc)} className="h-[22px] px-2 text-[0.75rem] font-medium rounded-full">{<Icon as={desc ? ArrowDownIcon : ArrowUpIcon} className="size-3" />}
+													<Button key={String(desc)} aria-pressed={selected} onClick={() => applySort(option.id, desc)} size="xs" className="h-[22px] px-2 text-[0.75rem] font-medium rounded-full" variant={selected ? "default" : "outline"}>{createElement(desc ? ArrowDown : ArrowUp, { className: "size-3" })}
 														{desc ? descLabel : ascLabel}
 													</Button>
 												);
@@ -134,13 +130,13 @@ export const DataTableSortMenu = ({
 							})}
 						</div>
 						{activeSort ? (
-							<Button size="xs" variant="ghost" onClick={() => onSortingChange([])} className="w-full mt-2">{<Icon as={XMarkIcon} className="size-3.5" />}
+							<Button onClick={() => onSortingChange([])} variant="ghost" size="xs" className="w-full mt-2">{<X className="size-3.5" />}
 								{t("sort.clear", "Clear sort")}
 							</Button>
 						) : null}
-					</PopoverBody>
+					</div>
 				</PopoverContent>
-			</Portal>
+			
 		</Popover>
 	);
 };

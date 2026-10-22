@@ -1,4 +1,7 @@
-import { Button } from "components/shadcn/button";
+import { Button } from "components/ui/button";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { cn } from "lib/cn";
+
 import { PageLoadingSkeleton } from "../components/ui";
 import { type ComponentType, lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -93,7 +96,7 @@ const RouteErrorPage = () => {
 				<p className="bg-whiteAlpha-100 border border-whiteAlpha-200! rounded-md text-red-200 font-mono text-[0.875rem] p-4 w-full whitespace-pre-wrap">
 					{routeErrorMessage(error)}
 				</p>
-				<Button size="md" colorScheme="blue" onClick={() => navigate("/")}>
+				<Button onClick={() => navigate("/")} className="bg-blue-600 text-white shadow-xs hover:bg-blue-700">
 					{t("router.backToDashboard")}
 				</Button>
 			</div>

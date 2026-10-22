@@ -1,12 +1,7 @@
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { ChevronDown, RefreshCw } from "lucide-react";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "components/shadcn/dropdown-menu";
+
 import { buttonVariants } from "components/ui/button";
 import { cn } from "lib/cn";
 import type { FC } from "react";
@@ -18,14 +13,9 @@ type RefreshSplitButtonProps = {
 	/** Current auto-refresh interval in ms; `0` means off. */
 	interval: number;
 	onIntervalChange: (interval: number) => void;
-	intervals: readonly number[];
-	labels: {
-		refresh: string;
-		autoRefresh: string;
-		off: string;
-		every: (seconds: number) => string;
-	};
 };
+
+export const AUTO_REFRESH_INTERVALS = [3_000, 5_000, 10_000, 30_000] as const;
 
 const spinKeyframes = `
 @keyframes rb-refresh-spin { to { transform: rotate(360deg); } }
@@ -53,14 +43,12 @@ export const RefreshSplitButton: FC<RefreshSplitButtonProps> = ({
 	loading: isLoading,
 	interval,
 	onIntervalChange,
-	intervals,
-	labels,
 }) => {
-	const { i18n } = useTranslation();
+	const { t, i18n } = useTranslation();
 	ensureKeyframes();
 
 	const active = interval > 0;
-	const intervalLabel = active ? labels.every(interval / 1000) : labels.off;
+	const intervalLabel = active ? t("usersTable.autoRefreshEvery", { seconds: interval / 1000 }) : t("usersTable.autoRefreshOff");
 
 	return (
 		<div className="inline-flex h-9 items-stretch overflow-hidden rounded-full bg-panel-elevated shadow-xs ring-1 ring-inset ring-panel-border">
@@ -68,8 +56,8 @@ export const RefreshSplitButton: FC<RefreshSplitButtonProps> = ({
 				type="button"
 				onClick={onRefresh}
 				disabled={isLoading}
-				aria-label={labels.refresh}
-				title={labels.refresh}
+				aria-label={t("refresh")}
+				title={t("refresh")}
 				className={cn(
 					buttonVariants({ variant: "ghost", size: "icon" }),
 					"rounded-none text-panel-text-secondary hover:bg-whiteAlpha-100 hover:text-panel-text",
@@ -85,8 +73,8 @@ export const RefreshSplitButton: FC<RefreshSplitButtonProps> = ({
 				<DropdownMenuTrigger asChild>
 					<button
 						type="button"
-						aria-label={`${labels.autoRefresh}: ${intervalLabel}`}
-						title={`${labels.autoRefresh}: ${intervalLabel}`}
+						aria-label={`${t("usersTable.autoRefresh")}: ${intervalLabel}`}
+						title={`${t("usersTable.autoRefresh")}: ${intervalLabel}`}
 						className={cn(
 							buttonVariants({ variant: "ghost", size: "icon" }),
 							"relative rounded-none text-panel-text-secondary hover:bg-whiteAlpha-100 hover:text-panel-text",
@@ -102,18 +90,14 @@ export const RefreshSplitButton: FC<RefreshSplitButtonProps> = ({
 					</button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent className={cn(i18n.dir() === "rtl" ? "items-start" : "items-end", "min-w-52")}>
-					<DropdownMenuLabel>{labels.autoRefresh}</DropdownMenuLabel>
+					<DropdownMenuLabel>{t("usersTable.autoRefresh")}</DropdownMenuLabel>
 					<DropdownMenuSeparator />
 					<DropdownMenuItem onSelect={() => onIntervalChange(0)} className={cn(!active && "font-semibold")}>
-						{labels.off}
+						{t("usersTable.autoRefreshOff")}
 					</DropdownMenuItem>
-					{intervals.map((value) => (
-						<DropdownMenuItem
-							key={value}
-							onSelect={() => onIntervalChange(value)}
-							className={cn(interval === value && "font-semibold text-panel-text")}
-						>
-							{labels.every(value / 1000)}
+					{AUTO_REFRESH_INTERVALS.map((value) => (
+						<DropdownMenuItem key={value} onSelect={() => onIntervalChange(value)} className={cn(interval === value && "font-semibold text-panel-text")}>
+							{t("usersTable.autoRefreshEvery", { seconds: value / 1000 })}
 						</DropdownMenuItem>
 					))}
 				</DropdownMenuContent>

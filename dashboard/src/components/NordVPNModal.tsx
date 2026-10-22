@@ -1,18 +1,17 @@
-import { useToast } from "components/shadcn/toast";
-import { Modal, ModalCloseButton, ModalOverlay } from "components/shadcn/dialog";
-import { Spinner } from "components/shadcn/feedback";
-import { FormControl, FormHelperText, FormLabel } from "components/shadcn/field";
-import { Input } from "components/shadcn/input";
-import { Button } from "components/shadcn/button";
-import { Alert, AlertDescription, AlertIcon } from "components/shadcn/alert";
-import { Badge, Tag } from "components/shadcn/badge";
+import { toneClass } from "lib/tone";
+import { Spinner } from "components/ui/spinner";
+import { Field, FieldDescription, FieldLabel } from "components/ui/field";
+import { Input } from "components/ui/input";
+import { Button } from "components/ui/button";
+import { Alert, AlertDescription } from "components/ui/alert";
+import { Badge } from "components/ui/badge";
+import { Dialog } from "components/ui/dialog";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { cn } from "lib/cn";
+import { RefreshCw, CloudDownload, Key, Trash2 } from "lucide-react";
+
 import { PanelSelect as Select } from "components/common/PanelSelect";
-import {
-	ArrowPathIcon,
-	CloudArrowDownIcon,
-	KeyIcon,
-	TrashIcon,
-} from "@heroicons/react/24/outline";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { fetch as apiFetch } from "service/http";
@@ -99,7 +98,7 @@ export const NordVPNModal: FC<Props> = ({
 	onDelete,
 }) => {
 	const { t } = useTranslation();
-	const toast = useToast();
+	
 	const [loading, setLoading] = useState(false);
 	const [nordData, setNordData] = useState<NordData | null>(null);
 	const [token, setToken] = useState("");
@@ -148,15 +147,10 @@ export const NordVPNModal: FC<Props> = ({
 				await fetchCountries();
 			}
 		} catch (error: any) {
-			toast({
-				title: parseAPIError(
+			toast.error(parseAPIError(
 					error,
 					t("pages.xray.nord.loadFailed"),
-				),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+				));
 		} finally {
 			setLoading(false);
 		}
@@ -178,22 +172,12 @@ export const NordVPNModal: FC<Props> = ({
 			const next = parseObj<NordData | null>(response, null);
 			setNordData(next);
 			await fetchCountries();
-			toast({
-				title: t("pages.xray.nord.loginSuccess"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("pages.xray.nord.loginSuccess"));
 		} catch (error: any) {
-			toast({
-				title: parseAPIError(
+			toast.error(parseAPIError(
 					error,
 					t("pages.xray.nord.loginFailed"),
-				),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+				));
 		} finally {
 			setLoading(false);
 		}
@@ -209,22 +193,12 @@ export const NordVPNModal: FC<Props> = ({
 			const next = parseObj<NordData | null>(response, null);
 			setNordData(next);
 			await fetchCountries();
-			toast({
-				title: t("pages.xray.nord.keySaved"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-			});
+			toast.success(t("pages.xray.nord.keySaved"));
 		} catch (error: any) {
-			toast({
-				title: parseAPIError(
+			toast.error(parseAPIError(
 					error,
 					t("pages.xray.nord.keyFailed"),
-				),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+				));
 		} finally {
 			setLoading(false);
 		}
@@ -249,15 +223,10 @@ export const NordVPNModal: FC<Props> = ({
 			setCityID("");
 			setServerID("");
 		} catch (error: any) {
-			toast({
-				title: parseAPIError(
+			toast.error(parseAPIError(
 					error,
 					t("pages.xray.nord.deleteFailed"),
-				),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+				));
 		} finally {
 			setLoading(false);
 		}
@@ -308,23 +277,13 @@ export const NordVPNModal: FC<Props> = ({
 			);
 			setServers(nextServers);
 			if (nextServers.length === 0) {
-				toast({
-					title: t("pages.xray.nord.noServers"),
-					status: "warning",
-					isClosable: true,
-					position: "top",
-				});
+				toast.warning(t("pages.xray.nord.noServers"));
 			}
 		} catch (error: any) {
-			toast({
-				title: parseAPIError(
+			toast.error(parseAPIError(
 					error,
 					t("pages.xray.nord.serversFailed"),
-				),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+				));
 		} finally {
 			setLoading(false);
 		}
@@ -338,12 +297,7 @@ export const NordVPNModal: FC<Props> = ({
 			(item) => item.name === "public_key",
 		)?.value;
 		if (!publicKey) {
-			toast({
-				title: t("pages.xray.nord.noPublicKey"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-			});
+			toast.error(t("pages.xray.nord.noPublicKey"));
 			return null;
 		}
 		return {
@@ -362,31 +316,25 @@ export const NordVPNModal: FC<Props> = ({
 		const outbound = buildOutbound();
 		if (!outbound) return;
 		onSave(outbound, nordOutboundIndex >= 0 ? nordOutboundIndex : null);
-		toast({
-			title:
-				nordOutboundIndex >= 0
+		toast.success(nordOutboundIndex >= 0
 					? t("pages.xray.nord.outboundUpdated")
-					: t("pages.xray.nord.outboundAdded"),
-			status: "success",
-			isClosable: true,
-			position: "top",
-		});
+					: t("pages.xray.nord.outboundAdded"));
 		onClose();
 	};
 
 	const selectedServer = servers.find((item) => String(item.id) === serverID);
 
 	return (
-		<Modal open={isOpen} onClose={onClose} size="3xl" isCentered>
-			<ModalOverlay />
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
 			<XrayModalContent>
 				<XrayModalHeader>NordVPN NordLynx</XrayModalHeader>
-				<ModalCloseButton />
+				
 				<XrayModalBody>
 					<div className="flex flex-col gap-4 items-stretch">
 						{loading && (
 							<div className="flex flex-row items-center gap-2">
-								<Spinner size="sm" />
+								<Spinner />
 								<p className="text-[0.875rem] text-gray-500">
 									{t("loading")}
 								</p>
@@ -399,14 +347,14 @@ export const NordVPNModal: FC<Props> = ({
 										<p className="font-bold">
 											{t("pages.xray.warp.accessToken")}
 										</p>
-										<FormControl>
-											<FormLabel>{t("userDialog.links.subscriptionToken")}</FormLabel>
-											<Input value={token} onChange={(event) => setToken(event.target.value)} placeholder="NordVPN access token" />
-											<FormHelperText>
+										<Field>
+											<FieldLabel>{t("userDialog.links.subscriptionToken")}</FieldLabel>
+											<Input value={token} onChange={(event) => setToken(event.target.value)} />
+											<FieldDescription>
 												{t("pages.xray.nord.tokenHelp")}
-											</FormHelperText>
-										</FormControl>
-										<Button size="md" loading={loading} onClick={register} colorScheme="primary">{<KeyIcon className="w-[16px]" />}
+											</FieldDescription>
+										</Field>
+										<Button onClick={register} loading={loading}>{<Key className="w-[16px]" />}
 											{t("login")}
 										</Button>
 									</div>
@@ -416,13 +364,13 @@ export const NordVPNModal: FC<Props> = ({
 										<p className="font-bold">
 											{t("pages.xray.nord.manualKey")}
 										</p>
-										<FormControl>
-											<FormLabel>
+										<Field>
+											<FieldLabel>
 												{t("inbounds.wireguard.privateKey")}
-											</FormLabel>
-											<Input value={manualKey} onChange={(event) => setManualKey(event.target.value)} placeholder="NordLynx private key" />
-										</FormControl>
-										<Button variant="solid" size="md" loading={loading} onClick={saveManualKey}>{<CloudArrowDownIcon className="w-[16px]" />}
+											</FieldLabel>
+											<Input value={manualKey} onChange={(event) => setManualKey(event.target.value)} />
+										</Field>
+										<Button onClick={saveManualKey} loading={loading}>{<CloudDownload className="w-[16px]" />}
 											{t("save")}
 										</Button>
 									</div>
@@ -430,8 +378,8 @@ export const NordVPNModal: FC<Props> = ({
 							</div>
 						) : (
 							<div className="flex flex-col gap-4">
-								<Alert status="success" className="rounded-md">
-									<AlertIcon />
+								<Alert className="rounded-md">
+									<CircleCheck className="size-4" aria-hidden="true" />
 									<AlertDescription>
 										{t("pages.xray.nord.ready")}
 									</AlertDescription>
@@ -448,7 +396,7 @@ export const NordVPNModal: FC<Props> = ({
 											<tr>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">{t("pages.xray.warp.accessToken")}</td>
 												<td className="px-6 py-4 text-[0.875rem] leading-5 text-panel-text">
-													<Badge colorScheme="green">
+													<Badge className="bg-green-600 text-white">
 														{t("configured")}
 													</Badge>
 												</td>
@@ -464,13 +412,13 @@ export const NordVPNModal: FC<Props> = ({
 										</tr>
 									</tbody>
 								</table>
-								<Button size="md" colorScheme="red" variant="outline" loading={loading} onClick={deleteData} className="self-start">{<TrashIcon className="w-[16px]" />}
+								<Button onClick={deleteData} variant="outline" loading={loading} className={cn("border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10", "self-start")}>{<Trash2 className="w-[16px]" />}
 									{t("logout.variant2")}
 								</Button>
 								<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
 								<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-									<FormControl>
-										<FormLabel>{t("pages.xray.outbound.country")}</FormLabel>
+									<Field>
+										<FieldLabel>{t("pages.xray.outbound.country")}</FieldLabel>
 										<Select
 											value={countryID}
 											onChange={(event) => void fetchServers(event.target.value)}
@@ -485,9 +433,9 @@ export const NordVPNModal: FC<Props> = ({
 												</option>
 											))}
 										</Select>
-									</FormControl>
-									<FormControl disabled={cities.length === 0}>
-										<FormLabel>{t("pages.xray.outbound.city")}</FormLabel>
+									</Field>
+									<Field>
+										<FieldLabel>{t("pages.xray.outbound.city")}</FieldLabel>
 										<Select
 											value={cityID}
 											onChange={(event) => setCityID(event.target.value)}
@@ -501,9 +449,9 @@ export const NordVPNModal: FC<Props> = ({
 												</option>
 											))}
 										</Select>
-									</FormControl>
-									<FormControl disabled={filteredServers.length === 0}>
-										<FormLabel>{t("pages.xray.outbound.server")}</FormLabel>
+									</Field>
+									<Field>
+										<FieldLabel>{t("pages.xray.outbound.server")}</FieldLabel>
 										<Select
 											value={serverID}
 											onChange={(event) => setServerID(event.target.value)}
@@ -517,15 +465,15 @@ export const NordVPNModal: FC<Props> = ({
 												</option>
 											))}
 										</Select>
-									</FormControl>
+									</Field>
 								</div>
 								{selectedServer && (
 									<div className="flex flex-row items-center gap-2 flex-wrap">
-										<Tag colorScheme={loadColor(selectedServer.load)}>
+										<Badge className={toneClass(loadColor(selectedServer.load))}>
 											{selectedServer.load}% load
-										</Tag>
-										<Tag>{selectedServer.hostname}</Tag>
-										<Tag>{selectedServer.station}:51820</Tag>
+										</Badge>
+										<Badge>{selectedServer.hostname}</Badge>
+										<Badge>{selectedServer.station}:51820</Badge>
 									</div>
 								)}
 							</div>
@@ -533,18 +481,18 @@ export const NordVPNModal: FC<Props> = ({
 					</div>
 				</XrayModalBody>
 				<XrayModalFooter>
-					<Button size="md" variant="ghost" onClick={onClose}>
+					<Button onClick={onClose} variant="ghost">
 						{t("close")}
 					</Button>
 					{nordData?.private_key && (
 						<>
-							<Button size="md" disabled={!serverID} onClick={saveOutbound} colorScheme="primary">{<ArrowPathIcon className="w-[16px]" />}
+							<Button disabled={!serverID} onClick={saveOutbound}>{<RefreshCw className="w-[16px]" />}
 								{nordOutboundIndex >= 0
 									? t("pages.xray.nord.updateOutbound")
 									: t("pages.xray.nord.addOutbound")}
 							</Button>
 							{nordOutboundIndex >= 0 && (
-								<Button size="md" colorScheme="red" variant="outline" onClick={() => onDelete(nordOutboundIndex)}>
+								<Button onClick={() => onDelete(nordOutboundIndex)} variant="outline" className="border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10">
 									{t("delete")}
 								</Button>
 							)}
@@ -552,6 +500,6 @@ export const NordVPNModal: FC<Props> = ({
 					)}
 				</XrayModalFooter>
 			</XrayModalContent>
-		</Modal>
+		</Dialog>
 	);
 };

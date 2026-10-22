@@ -1,6 +1,9 @@
-import { Alert, AlertIcon } from "components/shadcn/alert";
-import { Tag } from "components/shadcn/badge";
-import { CloseButton } from "components/shadcn/button";
+import { Badge } from "components/ui/badge";
+import { Alert } from "components/ui/alert";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { cn } from "lib/cn";
+
+
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
 import { useAPIRequestErrors } from "service/http";
@@ -15,7 +18,7 @@ export const RequestErrors = () => {
 		<div role="alert" aria-live="polite" className="flex flex-col gap-2 mb-4">
 			{errors.map((item) => (
 				<div key={item.key} className="relative">
-					<Alert as={Link} to={
+					<Link to={
 							item.href ||
 							requestErrorHref(
 								item.key,
@@ -23,13 +26,13 @@ export const RequestErrors = () => {
 									? location.search
 									: "",
 							)
-						} role="link" aria-label={`${t("diagnostics.requestFailed")}: ${item.message}`} status="error" className="rounded-xl items-start no-underline hover:no-underline hover:shadow-md focus-visible:[outline:2px_solid] focus-visible:outline-blue-400 focus-visible:[outline-offset:2px]">
-						<AlertIcon className="mt-1" />
+} aria-label={`${t("diagnostics.requestFailed")}: ${item.message}`} className="block no-underline"><Alert variant="destructive" className="rounded-xl items-start no-underline hover:no-underline hover:shadow-md focus-visible:[outline:2px_solid] focus-visible:outline-blue-400 focus-visible:[outline-offset:2px]">
+						<CircleAlert className="size-4" aria-hidden="true" />
 						<div className="flex-1 min-w-0!">
 							<div className="flex flex-row items-center gap-2 justify-between pe-8">
-								<Tag colorScheme="red" size="sm">
+								<Badge className="bg-destructive/10 text-destructive">
 									{t("diagnostics.level.error")}
-								</Tag>
+								</Badge>
 								<p className="font-semibold">
 									{t("diagnostics.requestFailed")}
 								</p>
@@ -41,8 +44,8 @@ export const RequestErrors = () => {
 								{item.message}
 							</p>
 						</div>
-					</Alert>
-					<CloseButton size="sm" aria-label={t("close")} onClick={() => clear(item.key)} className="end-2 absolute top-2" />
+					</Alert></Link>
+					
 				</div>
 			))}
 		</div>

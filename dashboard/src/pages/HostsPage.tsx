@@ -1,5 +1,6 @@
-import { Icon } from "components/shadcn/icon";
-import { LinkIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Link, LayoutGrid } from "lucide-react";
+
 import { HostsManager } from "components/HostsManager";
 import { InboundsManager } from "components/InboundsManager";
 import { PageHeader, TabSystem } from "components/ui";
@@ -82,7 +83,7 @@ export const HostsPage: FC = () => {
 						onClick: () => handleTabChange(0),
 						label: (
 							<div className="flex flex-row items-center gap-2">
-								<Icon as={LinkIcon} className="w-4 h-4" />
+								<Link className="w-4 h-4" />
 								<span>{t("hostsPage.tabInbounds")}</span>
 							</div>
 						),
@@ -93,7 +94,7 @@ export const HostsPage: FC = () => {
 						onClick: () => handleTabChange(1),
 						label: (
 							<div className="flex flex-row items-center gap-2">
-								<Icon as={Squares2X2Icon} className="w-4 h-4" />
+								<LayoutGrid className="w-4 h-4" />
 								<span>{t("hostsPage.tabHosts")}</span>
 							</div>
 						),

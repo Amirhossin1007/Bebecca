@@ -1,15 +1,11 @@
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { MoveLeft, MoveRight, ChevronDown } from "lucide-react";
 import { Button as KitButton } from "components/ui/button";
 import { useBreakpointValue } from "hooks/useBreakpointValue";
-import { Menu, MenuButton, MenuItem, MenuList } from "components/shadcn/menu";
-import { Button, ButtonGroup } from "components/shadcn/button";
-import { Portal } from "components/shadcn/portal";
-import { withClass } from "components/shadcn/icon";
+
 import { cn } from "lib/cn";
-import {
-	ArrowLongLeftIcon,
-	ArrowLongRightIcon,
-	ChevronDownIcon,
-} from "@heroicons/react/24/outline";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import { type FC, useMemo } from "react";
@@ -20,9 +16,9 @@ import {
 	setUsersPerPageLimitSize,
 } from "utils/userPreferenceStorage";
 
-const PrevIcon = withClass(ArrowLongLeftIcon, "w-4 h-4");
-const NextIcon = withClass(ArrowLongRightIcon, "w-4 h-4");
-const ChevronIcon = withClass(ChevronDownIcon, "w-4 h-4");
+const PrevIcon = withClass(MoveLeft, "w-4 h-4");
+const NextIcon = withClass(MoveRight, "w-4 h-4");
+const ChevronIcon = withClass(ChevronDown, "w-4 h-4");
 
 export type PaginationProps = {
 	for?: "users" | "admins" | "services";
@@ -164,23 +160,23 @@ export const Pagination: FC<PaginationProps> = ({
 		<div className="items-center gap-2 justify-between mt-4 w-full max-w-full flex lg:gap-x-4 md:gap-x-0 md:gap-y-0 gap-y-4 md:flex-row flex-col rb-data-table-pagination">
 			<div className="order-2 md:order-1 w-full md:w-auto">
 				<div className="flex flex-row items-center gap-2 justify-center md:justify-start min-w-0!">
-					<Menu placement={isRTL ? "top-end" : "top-start"} strategy="fixed" gutter={8} isLazy>
-						<MenuButton as={Button} size="sm" variant="outline" className="min-w-[104px]! md:min-w-[112px]! max-w-[104px] md:max-w-[120px] justify-between px-3">
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild><KitButton size="sm" variant="outline" className="min-w-[104px]! md:min-w-[112px]! max-w-[104px] md:max-w-[120px] justify-between px-3">
 							{perPageNum}
-						{<ChevronIcon />}</MenuButton>
-						<Portal>
-							<MenuList dir={direction} className="z-[1800] min-w-[104px]! md:min-w-[112px]! max-w-[104px] md:max-w-[120px] py-1 rounded-lg shadow-2xl bg-panel-surface border-panel-border! overflow-hidden">
+						{<ChevronIcon />}</KitButton></DropdownMenuTrigger>
+						
+							<DropdownMenuContent className="z-[1800] min-w-[104px]! md:min-w-[112px]! max-w-[104px] md:max-w-[120px] py-1 rounded-lg shadow-2xl bg-panel-surface border-panel-border! overflow-hidden">
 								{PAGE_SIZE_OPTIONS.map((option) => {
 									const isSelected = option === perPageNum;
 									return (
-										<MenuItem key={option} onClick={() => handlePageSizeSelect(option)} className={cn("text-[0.875rem]", isSelected ? "font-bold" : "font-medium", isSelected ? "bg-primary-500" : "bg-transparent", isSelected ? "text-white" : "text-inherit", isSelected ? "hover:bg-primary-600" : "hover:bg-panel-hover", isSelected ? "focus:bg-primary-600" : "focus:bg-panel-hover")}>
+										<DropdownMenuItem key={option} onSelect={() => handlePageSizeSelect(option)} className={cn("text-[0.875rem]", isSelected ? "font-bold" : "font-medium", isSelected ? "bg-primary-500" : "bg-transparent", isSelected ? "text-white" : "text-inherit", isSelected ? "hover:bg-primary-600" : "hover:bg-panel-hover", isSelected ? "focus:bg-primary-600" : "focus:bg-panel-hover")}>
 											{option}
-										</MenuItem>
+										</DropdownMenuItem>
 									);
 								})}
-							</MenuList>
-						</Portal>
-					</Menu>
+							</DropdownMenuContent>
+						
+					</DropdownMenu>
 					<p className="whitespace-nowrap text-[0.875rem]">
 						{t("itemsPerPage")}
 					</p>
@@ -210,8 +206,7 @@ export const Pagination: FC<PaginationProps> = ({
 								<KitButton
 									size="sm"
 									key={pageIndex}
-									variant={pageIndex === page ? "solid" : "outline"}
-									colorScheme="primary"
+									variant={pageIndex === page ? "default" : "outline"}
 									onClick={() => changePage(pageIndex)}
 									className="rounded-md"
 								>

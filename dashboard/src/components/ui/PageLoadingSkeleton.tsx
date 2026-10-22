@@ -1,4 +1,6 @@
-import { Skeleton } from "components/shadcn/feedback";
+import { Skeleton } from "components/ui/skeleton";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
 import { cn } from "lib/cn";
 import type { FC } from "react";
 

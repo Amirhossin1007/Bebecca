@@ -1,6 +1,8 @@
+import { Spinner } from "components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { useColorMode } from "lib/color-mode";
-import { Spinner } from "components/shadcn/feedback";
-import { Tooltip } from "components/shadcn/tooltip";
+
 import {
 	buildUsageAreaOptions,
 	buildUsageDonutOptions,
@@ -513,12 +515,15 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 
 			<ChartBox
 				title={
-					<Tooltip label={t("services.adminUsageTrendHint")} placement="top" className="text-[0.875rem]">
+					<Tooltip>
+<TooltipTrigger asChild>
 						<div className="flex flex-row gap-2 items-center">
 							<p className="font-semibold">{t("services.adminUsageTrend")}</p>
 							<InfoIcon aria-label="info" className="text-gray-500 cursor-help" />
 						</div>
-					</Tooltip>
+					</TooltipTrigger>
+<TooltipContent>{t("services.adminUsageTrendHint")}</TooltipContent>
+</Tooltip>
 				}
 				headerActions={
 					<div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">

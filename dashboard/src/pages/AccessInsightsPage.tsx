@@ -1,27 +1,26 @@
+import { toneClass } from "lib/tone";
+import { Badge } from "components/ui/badge";
+import { Button } from "components/ui/button";
+import { Alert } from "components/ui/alert";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { cn } from "lib/cn";
 import type { SortingState } from "@tanstack/react-table";
 import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
-import { Badge } from "components/shadcn/badge";
-import { Button, ButtonGroup } from "components/shadcn/button";
-import { Alert, AlertIcon } from "components/shadcn/alert";
-import { Switch } from "components/shadcn/selection";
-import { Progress } from "components/shadcn/feedback";
-import { ArrowPathIcon, EyeIcon } from "@heroicons/react/24/outline";
+
+import { Activity, Eye } from "lucide-react";
 import { OperatorIdentity } from "components/OperatorIdentity";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
-import { AppDialog } from "components/dialogs/AppDialog";
-import {
-	DataTable,
-	PageLoadingSkeleton,
-	type DataTableColumn,
-	ResourceListCard,
-	ResourceRefreshButton,
-} from "components/ui";
+import { OverviewBand } from "components/ui/overview-band";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "components/ui/dialog";
+import { RefreshSplitButton } from "components/users/RefreshSplitButton";
+import { useIntervalRefresh } from "hooks/useIntervalRefresh";
+import { DataTable, PageLoadingSkeleton, DataTableColumn } from "components/ui";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";
 import {
 	type FC,
+	type ReactNode,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -42,7 +41,6 @@ import {
 } from "utils/searchMatch";
 
 const PAGE_SIZE = 30;
-const REFRESH_INTERVAL = 15_000;
 
 const uniqueStrings = (values: string[]) =>
 	Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
@@ -64,8 +62,18 @@ const protocolColor = (protocol: string) => {
 	}
 };
 
+const protocolTone = ["bg-panel-accent", "bg-panel-success", "bg-panel-info", "bg-panel-warning", "bg-panel-text-muted/60"];
+
+const DetailTile: FC<{ label: string; children: ReactNode }> = ({ label, children }) => (
+	<div className="flex min-w-0 flex-col items-start gap-1 rounded-lg border bg-panel-surface px-3 py-2">
+		<span className="text-[0.6875rem] font-medium text-panel-text-muted">{label}</span>
+		<div className="min-w-0 max-w-full text-sm font-semibold">{children}</div>
+	</div>
+);
+
 const AccessInsightsPage: FC = () => {
 	const { t, i18n } = useTranslation();
+	const locale = i18n.language || "en";
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const { userData, getUserIsSuccess } = useGetUser();
 	const canView =
@@ -78,7 +86,7 @@ const AccessInsightsPage: FC = () => {
 	const [nodeFilter, setNodeFilter] = useState("");
 	const [page, setPage] = useState(0);
 	const [loading, setLoading] = useState(false);
-	const [autoRefresh, setAutoRefresh] = useState(false);
+	const [autoRefreshInterval, setAutoRefreshInterval] = useState(0);
 	const [error, setError] = useState("");
 	const [selectedClient, setSelectedClient] =
 		useState<AccessInsightClient | null>(null);
@@ -134,14 +142,9 @@ const AccessInsightsPage: FC = () => {
 		void load();
 	}, [load]);
 
-	useEffect(() => {
-		if (!autoRefresh || !canView) return;
-		const timer = window.setInterval(() => {
-			if (document.visibilityState === "visible" && navigator.onLine)
-				void load();
-		}, REFRESH_INTERVAL);
-		return () => window.clearInterval(timer);
-	}, [autoRefresh, canView, load]);
+	useIntervalRefresh(autoRefreshInterval, canView, () => {
+		if (document.visibilityState === "visible" && navigator.onLine) void load();
+	});
 
 	const items = data?.items || [];
 	const protocolOptions = useMemo(
@@ -190,6 +193,11 @@ const AccessInsightsPage: FC = () => {
 			(left, right) => right[1] - left[1],
 		);
 	}, [filteredItems]);
+	const totalConnections = protocolTotals.reduce((sum, [, count]) => sum + count, 0);
+	const totalTraffic = filteredItems.reduce(
+		(sum, item) => sum + Number(item.used_traffic || 0),
+		0,
+	);
 	const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
 	const visibleItems = filteredItems.slice(
 		page * PAGE_SIZE,
@@ -199,6 +207,41 @@ const AccessInsightsPage: FC = () => {
 	useEffect(() => {
 		setPage((current) => Math.min(current, totalPages - 1));
 	}, [totalPages]);
+
+	const overview = {
+		total: {
+			label: t("pages.accessInsights.onlineUsers"),
+			value: data?.online_total ?? 0,
+			caption: `${t("pages.accessInsights.connections")}: ${totalConnections}`,
+		},
+		rows: [
+			{ key: "ips", label: t("pages.accessInsights.uniqueIps"), value: totalIPs, tone: "bg-panel-accent" },
+			{ key: "nodes", label: t("pages.accessInsights.activeNodes"), value: totalNodes, tone: "bg-panel-success" },
+		],
+		distribution: {
+			label: t("pages.accessInsights.protocols"),
+			segments: protocolTotals.slice(0, 4).map(([protocol, count], index) => ({
+				key: protocol,
+				label: protocol,
+				value: count,
+				tone: protocolTone[index],
+			})).concat(
+				protocolTotals.length > 4
+					? [{
+							key: "other",
+							label: t("overview.other"),
+							value: protocolTotals.slice(4).reduce((sum, [, count]) => sum + count, 0),
+							tone: protocolTone[4],
+						}]
+					: [],
+			),
+		},
+		extra: {
+			label: t("dataUsage"),
+			value: formatBytes(totalTraffic),
+			caption: `${t("pages.accessInsights.onlineSessions")}: ${filteredItems.length}`,
+		},
+	};
 
 	const [accessSorting, setAccessSorting] = useState<SortingState>([]);
 	const columns = useMemo<DataTableColumn<AccessInsightClient>[]>(
@@ -284,7 +327,7 @@ const AccessInsightsPage: FC = () => {
 				cell: (client) => (
 					<div className="flex flex-row items-center gap-1.5 flex-wrap">
 						{client.platforms.map((protocol) => (
-							<Badge key={protocol.platform} colorScheme={protocolColor(protocol.platform)} className="rounded-md">
+							<Badge key={protocol.platform} className={cn(toneClass(protocolColor(protocol.platform)), "rounded-md")}>
 								{protocol.platform} · {protocol.connections}
 							</Badge>
 						))}
@@ -313,7 +356,7 @@ const AccessInsightsPage: FC = () => {
 				minWidth: "86px",
 				mobilePriority: 4,
 				cell: (client) => (
-					<Button size="xs" variant="ghost" onClick={() => setSelectedClient(client)}>{<EyeIcon className="w-[15px]" />}
+					<Button onClick={() => setSelectedClient(client)} variant="ghost" size="xs">{<Eye className="w-[15px]" />}
 						{t("details")}
 					</Button>
 				),
@@ -329,8 +372,8 @@ const AccessInsightsPage: FC = () => {
 	if (!canView) {
 		return (
 			<div className="p-6">
-				<Alert status="warning" className="rounded-md">
-					<AlertIcon />
+				<Alert className="rounded-md">
+					<TriangleAlert className="size-4" aria-hidden="true" />
 					{t("pages.accessInsights.noPermission")}
 				</Alert>
 			</div>
@@ -343,16 +386,16 @@ const AccessInsightsPage: FC = () => {
 				<p className="text-[0.875rem] text-panel-text-muted">
 					{page + 1} / {totalPages}
 				</p>
-				<ButtonGroup size="sm" isAttached variant="outline">
-					<Button variant="solid" size="md" onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0}>
+				<div className="inline-flex items-center gap-2">
+					<Button onClick={() => setPage((current) => Math.max(0, current - 1))} disabled={page === 0}>
 						{t("previous")}
 					</Button>
-					<Button variant="solid" size="md" onClick={() =>
+					<Button onClick={() =>
 							setPage((current) => Math.min(totalPages - 1, current + 1))
 						} disabled={page >= totalPages - 1}>
 						{t("next")}
 					</Button>
-				</ButtonGroup>
+				</div>
 			</div>
 		) : null;
 	const selectedSources = uniqueStrings(selectedClient?.sources || []);
@@ -374,91 +417,63 @@ const AccessInsightsPage: FC = () => {
 	return (
 		<div dir={isRTL ? "rtl" : "ltr"} data-dir={isRTL ? "rtl" : "ltr"} className="flex flex-col gap-5 items-stretch">
 			<div className="flex flex-col gap-3">
-				<ResourceListCard
-					title={t("pages.accessInsights.onlineSessions")}
-					summaryItems={[
-						{
-							label: t("pages.accessInsights.onlineUsers"),
-							value: data?.online_total ?? 0,
-							colorScheme: "green",
-						},
-						{
-							label: t("pages.accessInsights.uniqueIps"),
-							value: totalIPs,
-							colorScheme: "blue",
-						},
-						{
-							label: t("pages.accessInsights.activeNodes"),
-							value: totalNodes,
-							colorScheme: "cyan",
-						},
-					]}
-					actions={
-						<div className="flex flex-row items-center gap-3 justify-between xl:justify-end">
-							<div className="flex flex-row items-center gap-2">
-								<Switch checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} aria-label={t("pages.accessInsights.autoRefresh")} />
-								<p className="text-[0.875rem]">
-									{t("pages.accessInsights.autoRefresh")}
-								</p>
+				<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden">
+					<OverviewBand
+						total={overview.total}
+						rows={overview.rows}
+						distribution={overview.distribution}
+						extra={overview.extra}
+						locale={locale}
+					/>
+					<div className="border-t border-panel-border! p-3">
+						<div className="flex flex-col gap-2 md:flex-row md:items-center">
+							<div className="flex min-w-0 flex-1 flex-row items-center gap-2">
+								<SearchInput containerProps={{ className: "min-w-0 flex-1" }} value={search} onChange={(event) => {
+										setSearch(event.target.value);
+										setPage(0);
+									}} placeholder={t("pages.accessInsights.liveSearch")} matchOptions={searchMatch} onMatchOptionsChange={(options) => {
+										setSearchMatch(options);
+										setPage(0);
+									}} />
+								<DataTableSortMenu
+									options={buildSortOptions(columns, visibleItems)}
+									sorting={accessSorting}
+									onSortingChange={setAccessSorting}
+								/>
 							</div>
-							<ResourceRefreshButton
-								aria-label={t("refresh")}
-								label={t("refresh")}
-								icon={<ArrowPathIcon className="w-[18px]" />}
-								onClick={() => void load()}
-								loading={loading}
-							/>
+							<div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-2 md:flex md:shrink-0 md:flex-row">
+								<Select value={protocolFilter} onChange={(event) => {
+										setProtocolFilter(event.target.value);
+										setPage(0);
+									}} aria-label={t("pages.accessInsights.allProtocols")} className="w-full md:w-[170px]">
+									<option value="">{t("pages.accessInsights.allProtocols")}</option>
+									{protocolOptions.map((protocol) => (
+										<option key={protocol} value={protocol}>
+											{protocol}
+										</option>
+									))}
+								</Select>
+								<Select value={nodeFilter} onChange={(event) => {
+										setNodeFilter(event.target.value);
+										setPage(0);
+									}} aria-label={t("pages.accessInsights.allNodes")} className="w-full md:w-[170px]">
+									<option value="">{t("pages.accessInsights.allNodes")}</option>
+									{nodeOptions.map((node) => (
+										<option key={node} value={node}>
+											{node}
+										</option>
+									))}
+								</Select>
+								<RefreshSplitButton
+									onRefresh={() => void load()}
+									loading={loading}
+									interval={autoRefreshInterval}
+									onIntervalChange={setAutoRefreshInterval}
+								/>
+							</div>
 						</div>
-					}
-					footerActions={
-						protocolTotals.length ? (
-							<div className="flex flex-row items-center gap-1.5 flex-wrap">
-								{protocolTotals.map(([protocol, count]) => (
-									<Badge key={protocol} colorScheme={protocolColor(protocol)} className="rounded-md">
-										{protocol} · {count}
-									</Badge>
-								))}
-							</div>
-						) : undefined
-					}
-				>
-					<div className="flex flex-col lg:flex-row gap-2 w-full max-w-[760px]">
-						<SearchInput containerProps={{ className: "flex-1" }} value={search} onChange={(event) => {
-								setSearch(event.target.value);
-								setPage(0);
-							}} placeholder={t("pages.accessInsights.liveSearch")} matchOptions={searchMatch} onMatchOptionsChange={(options) => {
-								setSearchMatch(options);
-								setPage(0);
-							}} />
-						<DataTableSortMenu
-							options={buildSortOptions(columns, visibleItems)}
-							sorting={accessSorting}
-							onSortingChange={setAccessSorting}
-						/>
-						<Select value={protocolFilter} onChange={(event) => {
-								setProtocolFilter(event.target.value);
-								setPage(0);
-							}} aria-label={t("pages.accessInsights.allProtocols")} className="w-full md:w-[180px]">
-							<option value="">{t("pages.accessInsights.allProtocols")}</option>
-							{protocolOptions.map((protocol) => (
-								<option key={protocol} value={protocol}>
-									{protocol}
-								</option>
-							))}
-						</Select>
-						<Select value={nodeFilter} onChange={(event) => {
-								setNodeFilter(event.target.value);
-								setPage(0);
-							}} aria-label={t("pages.accessInsights.allNodes")} className="w-full md:w-[180px]">
-							<option value="">{t("pages.accessInsights.allNodes")}</option>
-							{nodeOptions.map((node) => (
-								<option key={node} value={node}>
-									{node}
-								</option>
-							))}
-						</Select>
 					</div>
-				</ResourceListCard>
+				</div>
 
 				<DataTable
 					ariaLabel={t("pages.accessInsights.onlineSessions")}
@@ -484,112 +499,100 @@ const AccessInsightsPage: FC = () => {
 				/>
 			</div>
 
-			<AppDialog open={selectedClient !== null} onClose={() => setSelectedClient(null)} isCentered size="xl" title={`${t("details")}: ${selectedClient?.user_label || ""}`} contentProps={{ className: "max-h-[min(760px,_calc(100dvh_-_2rem))]" }} bodyProps={{ className: "pb-6" }}>
-				{selectedClient ? (
-					<div className="flex flex-col gap-5">
-						<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-							<div>
-								<p className="text-[0.75rem] text-panel-text-muted">
-									{t("status")}
-								</p>
-								<Badge colorScheme={
-										selectedClient.user_status === "active" ? "green" : "gray"
-									} className="mt-1">
-									{t(`status.${selectedClient.user_status || "active"}`, {
-										defaultValue: selectedClient.user_status || "-",
-									})}
-								</Badge>
-							</div>
-							<div>
-								<p className="text-[0.75rem] text-panel-text-muted">
-									{t("service")}
-								</p>
-								<p className="mt-1 text-[0.875rem] font-semibold truncate">
-									{selectedClient.service_name || "-"}
-								</p>
-							</div>
-							<div>
-								<p className="text-[0.75rem] text-panel-text-muted">
-									{t("pages.accessInsights.connections")}
-								</p>
-								<p className="mt-1 text-[0.875rem] font-semibold">
-									{selectedClient.connections}
-								</p>
-							</div>
-							<div>
-								<p className="text-[0.75rem] text-panel-text-muted">
-									{t("expire")}
-								</p>
-								<p dir="ltr" className="mt-1 text-[0.875rem] font-semibold">
-									{selectedClient.expire
-										? dayjs
-												.unix(selectedClient.expire)
-												.format("YYYY-MM-DD HH:mm")
-										: t("admins.expireNotSet")}
-								</p>
-							</div>
+			<Dialog open={selectedClient !== null} onOpenChange={(open) => { if (!open) setSelectedClient(null); }}>
+				<DialogContent
+					dir={isRTL ? "rtl" : "ltr"}
+					className="flex max-h-[min(760px,calc(100dvh-10rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl max-md:inset-x-3 max-md:w-auto max-md:top-[4.5rem] max-md:bottom-24 max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0"
+				>
+					<DialogHeader className="flex-row items-center gap-3 border-b px-5 py-3.5 pe-12 text-start sm:text-start">
+						<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+							<Activity className="size-4" />
 						</div>
+						<div className="min-w-0">
+							<DialogTitle className="truncate text-base">
+								{t("details")}: {selectedClient?.user_label || ""}
+							</DialogTitle>
+							<DialogDescription className="truncate">
+								{selectedClient?.service_name || "-"}
+							</DialogDescription>
+						</div>
+					</DialogHeader>
+					{selectedClient ? (
+						<div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+							<div className="flex flex-col gap-5">
+								<div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+									<DetailTile label={t("status")}>
+										<Badge className={toneClass(selectedClient.user_status === "active" ? "green" : "gray")}>
+											{t(`status.${selectedClient.user_status || "active"}`, {
+												defaultValue: selectedClient.user_status || "-",
+											})}
+										</Badge>
+									</DetailTile>
+									<DetailTile label={t("service")}>
+										<span className="truncate">{selectedClient.service_name || "-"}</span>
+									</DetailTile>
+									<DetailTile label={t("pages.accessInsights.connections")}>
+										{selectedClient.connections}
+									</DetailTile>
+									<DetailTile label={t("expire")}>
+										<span dir="ltr">
+											{selectedClient.expire
+												? dayjs.unix(selectedClient.expire).format("YYYY-MM-DD HH:mm")
+												: t("admins.expireNotSet")}
+										</span>
+									</DetailTile>
+								</div>
 
-						<div>
-							<div className="flex flex-row items-center gap-2 justify-between mb-2">
-								<p className="text-[0.875rem] font-semibold">
-									{t("dataUsage")}
-								</p>
-								<p dir="ltr" className="text-[0.75rem] text-panel-text-muted">
-									{formatBytes(selectedUsage)} /{" "}
-									{selectedLimit > 0
-										? formatBytes(selectedLimit)
-										: t("unlimited")}
-								</p>
-							</div>
-							<Progress value={selectedUsagePercent} isAnimated={false} size="sm" colorScheme={selectedUsagePercent >= 90 ? "red" : "green"} className="rounded-full" />
-							<p dir="ltr" className="mt-2 text-[0.75rem] text-panel-text-muted">
-								{t("remaining")}:{" "}
-								{selectedRemaining === null
-									? t("unlimited")
-									: formatBytes(selectedRemaining)}
-							</p>
-						</div>
+								<section className="flex flex-col gap-3 rounded-lg border bg-card/40 p-3.5">
+									<div className="flex flex-row items-center justify-between gap-2">
+										<p className="text-sm font-semibold">{t("dataUsage")}</p>
+										<p dir="ltr" className="text-xs text-muted-foreground">
+											{formatBytes(selectedUsage)} /{" "}
+											{selectedLimit > 0 ? formatBytes(selectedLimit) : t("unlimited")}
+										</p>
+									</div>
+									<div className="h-2 overflow-hidden rounded-full bg-panel-border">
+										<div
+											className={cn("h-full rounded-full transition-[width] duration-500", selectedUsagePercent >= 90 ? "bg-panel-danger" : "bg-panel-success")}
+											style={{ width: `${selectedUsagePercent}%` }}
+										/>
+									</div>
+									<p dir="ltr" className="text-xs text-muted-foreground">
+										{t("remaining")}:{" "}
+										{selectedRemaining === null ? t("unlimited") : formatBytes(selectedRemaining)}
+									</p>
+								</section>
 
-						<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
-						<div>
-							<div className="flex flex-row items-center gap-2 justify-between mb-2">
-								<p className="text-[0.875rem] font-semibold">
-									{t("pages.accessInsights.ips")}
-								</p>
-								<Badge variant="subtle">{selectedSources.length}</Badge>
-							</div>
-							<div className="flex flex-col items-stretch gap-0 max-h-[320px] overflow-y-auto">
-								{selectedSources.map((ip) => {
-									const operator = selectedOperatorByIP.get(ip);
-									const nodes = uniqueStrings(
-										selectedClient.source_nodes?.[ip] || [],
-									);
-									return (
-										<div key={ip} className="flex flex-row gap-2 py-2 border-b border-panel-border! items-center">
-											<div className="min-w-[132px]! md:min-w-[180px]!">
-												<p dir="ltr" className="font-mono text-[0.75rem] font-semibold">
-													{ip}
-												</p>
-												{nodes.length ? (
-													<p className="text-[0.75rem] text-panel-text-muted truncate">
-														{nodes.join(", ")}
-													</p>
-												) : null}
-											</div>
-											<OperatorIdentity
-												shortName={operator?.short_name}
-												owner={operator?.owner}
-												compact
-											/>
-										</div>
-									);
-								})}
+								<section className="flex flex-col gap-2">
+									<div className="flex flex-row items-center justify-between gap-2">
+										<p className="text-sm font-semibold">{t("pages.accessInsights.ips")}</p>
+										<Badge>{selectedSources.length}</Badge>
+									</div>
+									<div className="flex max-h-[320px] flex-col overflow-y-auto rounded-lg border">
+										{selectedSources.map((ip) => {
+											const operator = selectedOperatorByIP.get(ip);
+											const nodes = uniqueStrings(selectedClient.source_nodes?.[ip] || []);
+											return (
+												<div key={ip} className="flex flex-row items-center gap-2 border-b px-3 py-2 last:border-b-0">
+													<div className="min-w-[132px] md:min-w-[180px]">
+														<p dir="ltr" className="font-mono text-xs font-semibold">
+															{ip}
+														</p>
+														{nodes.length ? (
+															<p className="truncate text-xs text-muted-foreground">{nodes.join(", ")}</p>
+														) : null}
+													</div>
+													<OperatorIdentity shortName={operator?.short_name} owner={operator?.owner} compact />
+												</div>
+											);
+										})}
+									</div>
+								</section>
 							</div>
 						</div>
-					</div>
-				) : null}
-			</AppDialog>
+					) : null}
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 };

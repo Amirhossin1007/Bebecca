@@ -1,20 +1,22 @@
-import { ModalBody, ModalContent, ModalFooter, ModalHeader } from "components/shadcn/dialog";
+import { DialogContent, DialogFooter, DialogHeader } from "components/ui/dialog";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
 import type { ComponentPropsWithoutRef } from "react";
 import { cn } from "lib/cn";
 import type { FC, ReactNode } from "react";
 
 // UX credit: Xray edit dialogs follow the compact Ant Design/3x-ui form rhythm:
 // tight headers, section panels, small controls, and explicit footer actions.
-export const XrayModalContent: FC<Parameters<typeof ModalContent>[0]> = ({ className, children, ...props }) => (
-	<ModalContent className={cn("rb-xray-dialog", className)} {...props}>
+export const XrayModalContent: FC<Parameters<typeof DialogContent>[0]> = ({ className, children, ...props }) => (
+	<DialogContent {...props} className={cn("rb-xray-dialog", className)}>
 		{children}
-	</ModalContent>
+	</DialogContent>
 );
 
 export const XrayModalHeader: FC<
 	ComponentPropsWithoutRef<"div"> & { subtitle?: ReactNode }
 > = ({ children, subtitle, ...props }) => (
-	<ModalHeader {...props} className="px-4 md:px-5 py-3">
+	<DialogHeader {...props} className="px-4 md:px-5 py-3">
 		<p className="text-[1rem] font-semibold">
 			{children}
 		</p>
@@ -23,22 +25,22 @@ export const XrayModalHeader: FC<
 				{subtitle}
 			</p>
 		)}
-	</ModalHeader>
+	</DialogHeader>
 );
 
 export const XrayModalBody: FC<ComponentPropsWithoutRef<"div">> = ({ children, ...props }) => (
-	<ModalBody {...props} className="px-4 md:px-5 py-4">
+	<div className={cn("px-5 py-4 overflow-y-auto", "px-4 md:px-5 py-4")}>
 		{children}
-	</ModalBody>
+	</div>
 );
 
 export const XrayModalFooter: FC<ComponentPropsWithoutRef<"div">> = ({
 	children,
 	...props
 }) => (
-	<ModalFooter {...props} className="px-4 md:px-5 py-3 gap-2">
+	<DialogFooter {...props} className="px-4 md:px-5 py-3 gap-2">
 		{children}
-	</ModalFooter>
+	</DialogFooter>
 );
 
 export const XrayDialogSection: FC<

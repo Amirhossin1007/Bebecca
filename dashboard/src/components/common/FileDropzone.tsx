@@ -1,6 +1,8 @@
-import { Icon } from "components/shadcn/icon";
+import { createElement } from "react";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Upload, FileText } from "lucide-react";
+
 import { cn } from "lib/cn";
-import { ArrowUpTrayIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import {
 	type ChangeEvent,
 	type DragEvent,
@@ -134,7 +136,7 @@ export const FileDropzone = ({
 			/>
 			<div className="flex flex-row gap-4 items-center">
 				<div className={cn("border rounded-md p-2.5", iconBorder, iconBg)}>
-					<Icon as={hasSelection ? DocumentTextIcon : ArrowUpTrayIcon} className={cn("size-5", hasSelection ? "text-primary-400" : (mutedColor))} />
+					{createElement(hasSelection ? FileText : Upload, { className: cn("size-5", hasSelection ? "text-primary-400" : (mutedColor)) })}
 				</div>
 				<div className="flex flex-col items-stretch gap-1 min-w-0! flex-1">
 					<p className="text-[0.875rem] font-semibold truncate">

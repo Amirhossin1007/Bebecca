@@ -1,3 +1,4 @@
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import dayjs from "dayjs";
 import Duration from "dayjs/plugin/duration";
 import LocalizedFormat from "dayjs/plugin/localizedFormat";
@@ -11,7 +12,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "utils/react-query";
 import { updateThemeColor } from "utils/themeColor";
 import { ColorModeProvider } from "lib/color-mode";
-import { Toaster } from "components/shadcn/toast";
+import { Toaster } from "components/ui/sonner";
+import { TooltipProvider } from "components/ui/tooltip";
+
 import App from "./App";
 import "index.scss";
 import "tailwind.css";
@@ -65,8 +68,10 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 	<React.StrictMode>
 		<ColorModeProvider>
 			<QueryClientProvider client={queryClient}>
-				<App />
-				<Toaster />
+				<TooltipProvider delayDuration={300}>
+					<App />
+					<Toaster />
+				</TooltipProvider>
 			</QueryClientProvider>
 		</ColorModeProvider>
 	</React.StrictMode>,

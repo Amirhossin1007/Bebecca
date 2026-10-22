@@ -1,4 +1,7 @@
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { type SubmitStatus, useSubmitTimers } from "hooks/useSubmitTimers";
 import dayjs from "dayjs";
 import { Ban, Check, ChevronDown, Copy, Pencil, Plus, QrCode, RotateCcw, Sparkles, Trash2, UserPlus } from "lucide-react";
 import { type FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -6,7 +9,7 @@ import { Controller, type Resolver, useForm, useWatch } from "react-hook-form";
 import ReactApexChart from "react-apexcharts";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
-import { useToast } from "components/shadcn/toast";
+
 import { buttonVariants } from "components/ui/button";
 import { Alert, AlertDescription } from "components/ui/alert";
 import { Badge } from "components/ui/badge";
@@ -15,6 +18,7 @@ import { DateTimeField } from "components/ui/date-time-field";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "components/ui/dialog";
 import { FormField } from "components/ui/form-field";
 import { Input } from "components/ui/input";
+import { DataSizeField } from "components/ui/data-size-field";
 import { NumberField } from "components/ui/number-field";
 import { Label } from "components/ui/label";
 import { Select, SelectContent, SelectItem, SelectItemText, SelectTrigger, SelectValue } from "components/ui/select";
@@ -72,7 +76,6 @@ export type FormType = Pick<
 	speed_limit: number | null;
 };
 
-type SubmitStatus = "idle" | "loading" | "success" | "error";
 type TabValue = "details" | "usage" | "links";
 type AutoRenewRule = {
 	id: string;
@@ -326,7 +329,6 @@ const UnitInput = ({
 	/>
 );
 
-
 export const UserDialog: FC<UserDialogProps> = () => {
 	const editingUser = useDashboard((state) => state.editingUser);
 	const isCreatingNewUser = useDashboard((state) => state.isCreatingNewUser);
@@ -346,7 +348,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
-	const toast = useToast();
+	
 	const { colorMode } = useColorMode();
 	const { userData, getUserIsSuccess } = useGetUser();
 
@@ -371,8 +373,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const [otherInfoOpen, setOtherInfoOpen] = useState(false);
 	const [autoRenewOpen, setAutoRenewOpen] = useState(false);
 	const usageFetchSequence = useRef(0);
-	const submitResetTimerRef = useRef<number | null>(null);
-	const successCloseTimerRef = useRef<number | null>(null);
+	const { closeTimerRef: successCloseTimerRef, clearSubmitTimers, showSubmitError } = useSubmitTimers(setSubmitStatus);
 	const syncedUserRef = useRef(editingUser);
 	const bodyRef = useRef<HTMLDivElement>(null);
 	const scrollBodyToEnd = () =>
@@ -658,32 +659,11 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		return () => window.clearTimeout(timer);
 	}, [copiedKey]);
 
-	useEffect(
-		() => () => {
-			if (submitResetTimerRef.current !== null) window.clearTimeout(submitResetTimerRef.current);
-			if (successCloseTimerRef.current !== null) window.clearTimeout(successCloseTimerRef.current);
-		},
-		[],
-	);
-
 	const copyValue = (key: string, value: string) => {
 		void copyTextToClipboard(value)
 			.then(() => setCopiedKey(key))
 			.catch(() => undefined);
 	};
-
-	const showSubmitError = useCallback(() => {
-		if (successCloseTimerRef.current !== null) {
-			window.clearTimeout(successCloseTimerRef.current);
-			successCloseTimerRef.current = null;
-		}
-		if (submitResetTimerRef.current !== null) window.clearTimeout(submitResetTimerRef.current);
-		setSubmitStatus("error");
-		submitResetTimerRef.current = window.setTimeout(() => {
-			setSubmitStatus("idle");
-			submitResetTimerRef.current = null;
-		}, 900);
-	}, []);
 
 	const fetchUserForQr = useCallback(async (username: string) => {
 		try {
@@ -710,10 +690,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	);
 
 	const onClose = () => {
-		if (successCloseTimerRef.current !== null) {
-			window.clearTimeout(successCloseTimerRef.current);
-			successCloseTimerRef.current = null;
-		}
+		clearSubmitTimers();
 		onCreateUser(false);
 		onEditingUser(null);
 	};
@@ -928,13 +905,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 				.then(() => {
 					setSubmitStatus("success");
 					const qrUserPromise = fetchUserForQr(values.username);
-					toast({
-						title: t("userDialog.userCreated", { username: values.username }),
-						status: "success",
-						isClosable: true,
-						position: "top",
-						duration: 3000,
-					});
+					toast.success(t("userDialog.userCreated", { username: values.username }), { duration: 3000 });
 					successCloseTimerRef.current = window.setTimeout(() => {
 						onClose();
 						successCloseTimerRef.current = null;
@@ -976,13 +947,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		editUser(editingUser?.username, body as UserCreate)
 			.then(() => {
 				setSubmitStatus("success");
-				toast({
-					title: t("userDialog.userEdited", { username: values.username }),
-					status: "success",
-					isClosable: true,
-					position: "top",
-					duration: 3000,
-				});
+				toast.success(t("userDialog.userEdited", { username: values.username }), { duration: 3000 });
 				successCloseTimerRef.current = window.setTimeout(() => {
 					onClose();
 					successCloseTimerRef.current = null;
@@ -1006,13 +971,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		setDeleteLoading(true);
 		try {
 			await deleteUser(editingUser as unknown as UserListItem);
-			toast({
-				title: t("deleteUser.deleteSuccess", { username: editingUser.username }),
-				status: "success",
-				isClosable: true,
-				position: "top",
-				duration: 3000,
-			});
+			toast.success(t("deleteUser.deleteSuccess", { username: editingUser.username }), { duration: 3000 });
 			onClose();
 		} finally {
 			setDeleteLoading(false);
@@ -1137,13 +1096,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 						description={remainingDataInfo ? `${t("userDialog.remainingDataLabel")}: ${remainingDataInfo}` : undefined}
 						error={errors.data_limit?.message}
 					>
-						<UnitInput
+						<DataSizeField
 							id="user-data-limit"
-							value={field.value ? String(field.value) : ""}
-							onChange={(raw) => {
-								if (raw === "" || isDecimalDraft(raw)) field.onChange(raw);
-							}}
-							unit={DATA_UNIT}
+							valueGb={field.value ? String(field.value) : ""}
+							onChangeGb={(raw) => field.onChange(raw)}
 							disabled={disabled}
 							invalid={!!errors.data_limit}
 						/>
