@@ -3,17 +3,28 @@ import {
 	Flex,
 	HStack,
 	SimpleGrid,
-	Stack,
 	VStack,
 } from "@chakra-ui/react";
 import { type FC, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 export const PageLoadingSkeleton: FC = () => (
-	<VStack
-		spacing={{ base: 3.5, md: 4.5 }}
-		align="stretch"
+	<Box
 		w="full"
+		h={{
+			base: "calc(100dvh - 162px - env(safe-area-inset-bottom, 0px))",
+			md: "calc(100vh - 88px)",
+		}}
+		maxH={{
+			base: "calc(100dvh - 162px - env(safe-area-inset-bottom, 0px))",
+			md: "calc(100vh - 88px)",
+		}}
+		borderRadius="20px"
+		borderWidth="1px"
+		borderColor="panel.border"
+		bg="panel.surface"
+		boxShadow="0 1px 2px rgba(0, 0, 0, 0.03)"
+		className="rb-glass-item"
 		sx={{
 			"@keyframes rbGlassPulse": {
 				"0%, 100%": {
@@ -25,259 +36,11 @@ export const PageLoadingSkeleton: FC = () => (
 					transform: "scale(1.002)",
 				},
 			},
-			"& .rb-glass-item": {
+			"&.rb-glass-item": {
 				animation: "rbGlassPulse 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite",
 			},
 		}}
-	>
-		<Flex
-			align="center"
-			justify="space-between"
-			px={1}
-			py={0.5}
-			flexWrap="wrap"
-			gap={3}
-		>
-			<VStack align="flex-start" spacing={1.5}>
-				<Box
-					className="rb-glass-item"
-					w={{ base: "130px", sm: "170px" }}
-					h="24px"
-					borderRadius="8px"
-					bg="panel.surface"
-					borderWidth="1px"
-					borderColor="panel.border"
-				/>
-				<Box
-					className="rb-glass-item"
-					w={{ base: "75px", sm: "105px" }}
-					h="14px"
-					borderRadius="md"
-					bg="panel.surface"
-					borderWidth="1px"
-					borderColor="panel.border"
-				/>
-			</VStack>
-			<HStack spacing={2} align="center">
-				<Box
-					className="rb-glass-item"
-					w={{ base: "75px", sm: "95px" }}
-					h="32px"
-					borderRadius="full"
-					bg="panel.surface"
-					borderWidth="1px"
-					borderColor="panel.border"
-				/>
-				<Box
-					className="rb-glass-item"
-					w={{ base: "75px", sm: "95px" }}
-					h="32px"
-					borderRadius="full"
-					bg="panel.surface"
-					borderWidth="1px"
-					borderColor="panel.border"
-				/>
-			</HStack>
-		</Flex>
-
-		<SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap={{ base: 3, md: 4 }}>
-			{[1, 2, 3, 4].map((i) => (
-				<Box
-					key={i}
-					className="rb-glass-item"
-					bg="panel.surface"
-					borderRadius="20px"
-					borderWidth="1px"
-					borderColor="panel.border"
-					p={{ base: 4, sm: 5 }}
-					minH={{ base: "125px", md: "140px" }}
-					display="flex"
-					flexDirection="column"
-					justifyContent="space-between"
-					boxShadow="0 1px 2px rgba(0, 0, 0, 0.03)"
-					backdropFilter="blur(8px)"
-				>
-					<Flex justify="space-between" align="center" mb={2}>
-						<HStack spacing={2.5}>
-							<Box
-								w="32px"
-								h="32px"
-								borderRadius="10px"
-								bg="panel.elevated"
-								flexShrink={0}
-							/>
-							<Box
-								w={i === 1 ? "75px" : i === 2 ? "65px" : "85px"}
-								h="16px"
-								borderRadius="md"
-								bg="panel.elevated"
-							/>
-						</HStack>
-						<Box
-							w="45px"
-							h="20px"
-							borderRadius="full"
-							bg="panel.elevated"
-						/>
-					</Flex>
-
-					<Stack spacing={2} mt={2}>
-						<Box
-							w={i === 1 ? "110px" : "90px"}
-							h="26px"
-							borderRadius="md"
-							bg="panel.elevated"
-						/>
-						<Box
-							w="full"
-							h="4px"
-							borderRadius="full"
-							bg="panel.elevated"
-							opacity={0.6}
-						/>
-					</Stack>
-				</Box>
-			))}
-		</SimpleGrid>
-
-		<Box
-			className="rb-glass-item"
-			bg="panel.surface"
-			borderRadius="20px"
-			borderWidth="1px"
-			borderColor="panel.border"
-			overflow="hidden"
-			boxShadow="0 1px 2px rgba(0, 0, 0, 0.03)"
-			backdropFilter="blur(8px)"
-		>
-			<Flex
-				px={{ base: 4, sm: 5, md: 6 }}
-				py={3.5}
-				justify="space-between"
-				align="center"
-				borderBottomWidth="1px"
-				borderColor="panel.border"
-			>
-				<HStack spacing={2.5}>
-					<Box w="24px" h="24px" borderRadius="6px" bg="panel.elevated" />
-					<Box w="115px" h="16px" borderRadius="md" bg="panel.elevated" />
-				</HStack>
-				<Box
-					w={{ base: "80px", sm: "140px" }}
-					h="28px"
-					borderRadius="10px"
-					bg="panel.elevated"
-				/>
-			</Flex>
-
-			<Box p={{ base: 4, sm: 5, md: 6 }}>
-				<Stack spacing={0}>
-					{[
-						{ id: "skel-row-1", w1: "145px", w2: "85px", tagW: "65px" },
-						{ id: "skel-row-2", w1: "125px", w2: "95px", tagW: "75px" },
-						{ id: "skel-row-3", w1: "160px", w2: "80px", tagW: "60px" },
-						{ id: "skel-row-4", w1: "135px", w2: "90px", tagW: "70px" },
-					].map((row, idx) => (
-						<Flex
-							key={row.id}
-							justify="space-between"
-							align="center"
-							py={3}
-							borderBottomWidth={idx === 3 ? "0" : "1px"}
-							borderColor="panel.border"
-						>
-							<HStack spacing={3} minW={0}>
-								<Box
-									w="32px"
-									h="32px"
-									borderRadius="8px"
-									bg="panel.elevated"
-									flexShrink={0}
-								/>
-								<VStack align="flex-start" spacing={1}>
-									<Box w={row.w1} h="14px" borderRadius="md" bg="panel.elevated" />
-									<Box w={row.w2} h="11px" borderRadius="sm" bg="panel.elevated" opacity={0.7} />
-								</VStack>
-							</HStack>
-							<HStack spacing={2}>
-								<Box w={row.tagW} h="20px" borderRadius="full" bg="panel.elevated" />
-								<Box w="24px" h="24px" borderRadius="6px" bg="panel.elevated" />
-							</HStack>
-						</Flex>
-					))}
-				</Stack>
-			</Box>
-		</Box>
-
-		<SimpleGrid columns={{ base: 1, md: 2 }} gap={{ base: 3, md: 4 }}>
-			{[1, 2].map((cardIdx) => (
-				<Box
-					key={cardIdx}
-					className="rb-glass-item"
-					bg="panel.surface"
-					borderRadius="20px"
-					borderWidth="1px"
-					borderColor="panel.border"
-					overflow="hidden"
-					boxShadow="0 1px 2px rgba(0, 0, 0, 0.03)"
-					backdropFilter="blur(8px)"
-				>
-					<Flex
-						px={{ base: 4, sm: 5, md: 6 }}
-						py={3.5}
-						justify="space-between"
-						align="center"
-						borderBottomWidth="1px"
-						borderColor="panel.border"
-					>
-						<HStack spacing={2.5}>
-							<Box w="24px" h="24px" borderRadius="6px" bg="panel.elevated" />
-							<Box
-								w={cardIdx === 1 ? "110px" : "90px"}
-								h="16px"
-								borderRadius="md"
-								bg="panel.elevated"
-							/>
-						</HStack>
-					</Flex>
-					<Box p={{ base: 4, sm: 5, md: 6 }}>
-						<Stack spacing={3}>
-							{[1, 2].map((rowIdx) => (
-								<Flex
-									key={rowIdx}
-									justify="space-between"
-									align="center"
-									gap={3}
-								>
-									<HStack spacing={2.5}>
-										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box
-											w={rowIdx === 1 ? "85px" : "95px"}
-											h="14px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-									</HStack>
-									<Box
-										w={rowIdx === 1 ? "60px" : "80px"}
-										h="16px"
-										borderRadius="md"
-										bg="panel.elevated"
-									/>
-								</Flex>
-							))}
-						</Stack>
-					</Box>
-				</Box>
-			))}
-		</SimpleGrid>
-	</VStack>
+	/>
 );
 
 export const PanelLoadingSkeleton: FC = () => {
@@ -371,24 +134,17 @@ export const PanelLoadingSkeleton: FC = () => {
 					>
 						<HStack spacing={2.5} align="center">
 							<Box
-								w="32px"
-								h="32px"
-								borderRadius="10px"
+								w="30px"
+								h="30px"
+								borderRadius="8px"
 								bg="panel.elevated"
 								flexShrink={0}
 								className="rb-glass-item"
 							/>
 							<Box
-								w="76px"
+								w="78px"
 								h="18px"
 								borderRadius="md"
-								bg="panel.elevated"
-								className="rb-glass-item"
-							/>
-							<Box
-								w="38px"
-								h="18px"
-								borderRadius="full"
 								bg="panel.elevated"
 								className="rb-glass-item"
 							/>
@@ -741,6 +497,17 @@ export const PanelLoadingSkeleton: FC = () => {
 							</Box>
 						</VStack>
 					</Box>
+					<Box
+						w="full"
+						h="52px"
+						borderRadius="14px"
+						borderWidth="1px"
+						borderColor="panel.border"
+						bg="panel.elevated"
+						mt={2}
+						flexShrink={0}
+						className="rb-glass-item"
+					/>
 				</Flex>
 			</Box>
 		)}
@@ -827,8 +594,8 @@ export const PanelLoadingSkeleton: FC = () => {
 						>
 							<Box
 								display={{ base: "none", md: "block" }}
-								w="110px"
-								h="32px"
+								w="34px"
+								h="34px"
 								borderRadius="12px"
 								borderWidth="1px"
 								borderColor="panel.border"
@@ -867,7 +634,7 @@ export const PanelLoadingSkeleton: FC = () => {
 									flexShrink={0}
 								/>
 								<Box
-									w="65px"
+									w="70px"
 									h="12px"
 									borderRadius="sm"
 									bg="panel.elevated"
@@ -901,18 +668,23 @@ export const PanelLoadingSkeleton: FC = () => {
 					flex="1"
 					px={{ base: "3", md: "4" }}
 					pt="3"
-					pb={{ base: "40", md: "4" }}
+					pb={{ base: "20", md: "3" }}
 					minH="0"
 					w="full"
 					h="full"
 					display="flex"
 					flexDirection="column"
-					gap={3}
 				>
 					<Box
 						w="full"
-						h="calc(100vh - 120px)"
-						maxH="calc(100dvh - 120px)"
+						h={{
+							base: "calc(100dvh - 162px - env(safe-area-inset-bottom, 0px))",
+							md: "calc(100vh - 88px)",
+						}}
+						maxH={{
+							base: "calc(100dvh - 162px - env(safe-area-inset-bottom, 0px))",
+							md: "calc(100vh - 88px)",
+						}}
 						borderRadius="20px"
 						borderWidth="1px"
 						borderColor="panel.border"

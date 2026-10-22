@@ -3,25 +3,26 @@ import { mode, type StyleFunctionProps } from "@chakra-ui/theme-tools";
 
 const mobileSheetQuery = "@media screen and (max-width: 47.99em)";
 const mobileSheet = {
-	margin: "0 !important",
-	width: "100%",
-	maxWidth: "100% !important",
-	maxHeight: "92dvh",
+	margin: "auto !important",
+	width: "calc(100vw - 32px) !important",
+	maxWidth: "min(540px, calc(100vw - 32px)) !important",
+	maxHeight: "calc(100dvh - 32px) !important",
 	minHeight: "0",
-	borderBottomWidth: "0",
-	borderRadius: "16px 16px 0 0",
-	paddingBottom: "env(safe-area-inset-bottom)",
+	borderRadius: "20px !important",
 	animation: "rb-sheet-up 0.28s cubic-bezier(0.32, 0.72, 0, 1)",
 	"&::before": {
 		content: '""',
 		display: "block",
 		width: "36px",
-		height: "4px",
+		height: "4.5px",
 		borderRadius: "full",
 		bg: "panel.borderStrong",
 		mx: "auto",
 		mt: "8px",
+		mb: "4px",
 		flexShrink: 0,
+		touchAction: "none",
+		cursor: "grab",
 	},
 };
 
@@ -191,7 +192,13 @@ const sharedThemeConfig = {
 		},
 		Modal: {
 			baseStyle: (props: StyleFunctionProps) => ({
-				dialogContainer: { [mobileSheetQuery]: { alignItems: "flex-end !important" } },
+				dialogContainer: {
+					[mobileSheetQuery]: {
+						alignItems: "center !important",
+						justifyContent: "center !important",
+						padding: "1rem !important",
+					},
+				},
 				dialog: {
 					bg: mode("panel.surface", "panel.surface")(props),
 					borderWidth: "1px",

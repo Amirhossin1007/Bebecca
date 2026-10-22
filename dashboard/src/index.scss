@@ -904,24 +904,25 @@ body {
   }
 
   .chakra-modal__content-container:not(:has(.chakra-slide)) {
-    align-items: flex-end !important;
-    padding: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1rem !important;
     z-index: 16001 !important;
   }
 
   .chakra-modal__content:not(.chakra-slide) {
-    width: 100vw !important;
-    max-width: 100vw !important;
+    width: calc(100vw - 32px) !important;
+    max-width: min(540px, calc(100vw - 32px)) !important;
     min-height: 0 !important;
-    max-height: 92dvh !important;
-    margin: 0 !important;
-    border-radius: 16px 16px 0 0 !important;
+    max-height: calc(100dvh - 32px) !important;
+    margin: auto !important;
+    border-radius: 20px !important;
     display: flex;
     flex-direction: column;
     position: relative !important;
   }
 
-  .chakra-modal__content:not(.chakra-slide):not([data-modal-centered="true"]):not(.rb-confirm-dialog-content)::before {
+  .chakra-modal__content:not(.chakra-slide):not(.rb-confirm-dialog-content)::before {
     content: "";
     display: block;
     width: 36px;
@@ -935,26 +936,11 @@ body {
     cursor: grab;
   }
 
-  .chakra-modal__content:not(.chakra-slide):not([data-modal-centered="true"]):not(.rb-confirm-dialog-content) > .chakra-modal__header,
-  .chakra-modal__content:not(.chakra-slide):not([data-modal-centered="true"]):not(.rb-confirm-dialog-content) form > .chakra-modal__header {
+  .chakra-modal__content:not(.chakra-slide):not(.rb-confirm-dialog-content) > .chakra-modal__header,
+  .chakra-modal__content:not(.chakra-slide):not(.rb-confirm-dialog-content) form > .chakra-modal__header {
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
-  }
-
-  .chakra-modal__content-container:has([data-modal-centered="true"]),
-  .chakra-modal__content-container:has(.rb-confirm-dialog-content) {
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 1rem !important;
-  }
-
-  .chakra-modal__content[data-modal-centered="true"] {
-    width: calc(100vw - 32px) !important;
-    max-width: 540px !important;
-    border-radius: 20px !important;
-    margin: auto !important;
-    max-height: 88dvh !important;
   }
 
   .chakra-modal__content.rb-confirm-dialog-content {
