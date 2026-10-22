@@ -599,7 +599,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 								</div>
 							))}
 							<div className="flex-1 min-w-[140px]!">
-								<Input value={customInput} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" data-form-type="other" onFocus={() => setMultiOpen(true)} onChange={(event) =>
+								<Input placeholder={selectedValues.length ? t("hostsDialog.addAnotherValue") : placeholder} value={customInput} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" data-form-type="other" onFocus={() => setMultiOpen(true)} onChange={(event) =>
 										handleCustomInputChange(event.target.value)
 									} onKeyDown={handleCustomKeyDown} disabled={disabledState} className="h-[24px] text-[0.875rem] bg-transparent! border-0! rounded-[0px]! [outline:0]! shadow-none! min-h-[24px]! px-0! py-0! focus:shadow-none! focus-visible:shadow-none!" />
 							</div>

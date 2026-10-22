@@ -2480,6 +2480,8 @@ img.apple-emoji {
 }
 .rb-xray-dialog [role="tablist"] {
   display: flex;
+  justify-content: flex-start;
+  width: 100%;
   gap: 18px;
   border: 0;
   border-bottom: 1px solid var(--xray-border);
@@ -2499,11 +2501,12 @@ img.apple-emoji {
 }
 .rb-xray-dialog [role="tablist"]::-webkit-scrollbar { display: none; }
 .rb-xray-dialog [role="tab"] {
+  flex: 0 0 auto;
   flex-shrink: 0;
   border: 0;
   border-bottom: 2px solid transparent;
   border-radius: 0;
-  padding: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
   min-height: 34px;
   font-size: 13px;
   font-weight: 600;

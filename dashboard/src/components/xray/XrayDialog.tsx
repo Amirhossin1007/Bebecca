@@ -8,7 +8,7 @@ import type { FC, ReactNode } from "react";
 // UX credit: Xray edit dialogs follow the compact Ant Design/3x-ui form rhythm:
 // tight headers, section panels, small controls, and explicit footer actions.
 export const XrayModalContent: FC<Parameters<typeof DialogContent>[0]> = ({ className, children, ...props }) => (
-	<DialogContent {...props} className={cn("rb-xray-dialog", className)}>
+	<DialogContent {...props} className={cn("rb-xray-dialog gap-0 p-0", className)}>
 		{children}
 	</DialogContent>
 );

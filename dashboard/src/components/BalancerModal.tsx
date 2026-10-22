@@ -174,7 +174,7 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 	return (
 		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
 			
-			<XrayModalContent className="mx-3">
+			<XrayModalContent className="mx-3 sm:max-w-2xl">
 				<XrayModalHeader>
 					{mode === "edit"
 						? t("pages.xray.balancer.editBalancer")
