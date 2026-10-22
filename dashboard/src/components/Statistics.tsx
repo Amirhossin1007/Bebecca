@@ -1,35 +1,12 @@
-import {
-	Box,
-	type BoxProps,
-	Button,
-	Flex,
-	HStack,
-	Modal,
-	ModalBody,
-	ModalCloseButton,
-	ModalContent,
-	ModalHeader,
-	ModalOverlay,
-	Progress,
-	SimpleGrid,
-	Spinner,
-	Stack,
-	Text,
-	VStack,
-	useColorMode,
-	useColorModeValue,
-} from "@chakra-ui/react";
-import {
-	ArrowDownTrayIcon,
-	ArrowUpTrayIcon,
-	CircleStackIcon,
-	ClockIcon,
-	CpuChipIcon,
-	ServerStackIcon,
-	ShieldCheckIcon,
-	SignalIcon,
-	UserGroupIcon,
-} from "@heroicons/react/24/outline";
+import { Dialog, DialogContent, DialogHeader } from "components/ui/dialog";
+import { Button } from "components/ui/button";
+import { Spinner } from "components/ui/spinner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Download, Upload, Database, Clock, Cpu, Server, ShieldCheck, Signal, Users } from "lucide-react";
+import { useColorMode } from "lib/color-mode";
+
+import type { ComponentPropsWithoutRef } from "react";
+import { cn } from "lib/cn";
 import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
 import { AnimatePresence, motion } from "framer-motion";
@@ -46,7 +23,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery, useQueryClient } from "react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetch, reportAPIError, useAPIRequestErrors } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
@@ -58,7 +35,7 @@ import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 import { SystemDiagnostics, useSystemDiagnostics } from "./SystemDiagnostics";
 
-export const StatisticsQueryKey = "statistics-query-key";
+export const StatisticsQueryKey = ["statistics-query-key"] as const;
 
 const HistoryChart = lazy(() => import("react-apexcharts"));
 
@@ -139,16 +116,9 @@ const formatLocalizedDuration = (
 ): ReactNode => {
 	const text = formatDurationText(seconds, t);
 	return (
-		<Text
-			fontSize="13px"
-			fontWeight="700"
-			letterSpacing="-0.01em"
-			color="panel.text"
-			dir={isRTL ? "rtl" : "ltr"}
-			sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
-		>
+		<p dir={isRTL ? "rtl" : "ltr"} className="text-[13px] font-bold tracking-[-0.01em] text-panel-text [unicode-bidi:isolate] [font-variant-numeric:tabular-nums]">
 			{text}
-		</Text>
+		</p>
 	);
 };
 
@@ -352,20 +322,20 @@ const expandShortData = <T extends { timestamp: number }>(entries: T[]): T[] => 
 };
 
 const HistoryModal: FC<{
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	payload: HistoryModalPayload | null;
 	intervalSeconds: number;
 	onIntervalChange: (value: number) => void;
 	t: TFunction;
 	isRTL?: boolean;
-}> = ({ isOpen, onClose, payload, intervalSeconds, onIntervalChange, t, isRTL = false }) => {
+}> = ({ open: isOpen, onClose, payload, intervalSeconds, onIntervalChange, t, isRTL = false }) => {
 	const { colorMode } = useColorMode();
 	const [isSwitchingInterval, setIsSwitchingInterval] = useState(false);
 	const tabRefs = useRef<(HTMLDivElement | null)[]>([]);
 	const [pillStyle, setPillStyle] = useState<{ left: number; width: number }>({ left: 4, width: 0 });
-	const gridColor = useColorModeValue("rgba(0,0,0,0.06)", "rgba(255,255,255,0.06)");
-	const mutedTextColor = useColorModeValue("#64748b", "#94a3b8");
+	const gridColor = colorMode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+	const mutedTextColor = colorMode === "dark" ? "#94a3b8" : "#64748b";
 
 	const activeIntervalIndex = HISTORY_INTERVALS.findIndex((i) => i.seconds === intervalSeconds);
 
@@ -641,9 +611,9 @@ const HistoryModal: FC<{
 								<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px;">
 									<div style="display: flex; align-items: center; gap: 6px;">
 										<span style="width: 7px; height: 7px; border-radius: 50%; background: ${color}; box-shadow: 0 0 6px ${color}88; flex-shrink: 0;"></span>
-										<span style="color: var(--chakra-colors-panel-textSecondary, #94a3b8); font-size: 11px; font-weight: 500;">${name}</span>
+										<span style="color: var(--rb-panel-text-secondary, #94a3b8); font-size: 11px; font-weight: 500;">${name}</span>
 									</div>
-									<span style="color: var(--chakra-colors-panel-text, #ffffff); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr;">${displayVal}</span>
+									<span style="color: var(--rb-panel-text, #ffffff); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr;">${displayVal}</span>
 								</div>
 							`;
 						})
@@ -663,7 +633,7 @@ const HistoryModal: FC<{
 							font-family: inherit;
 							min-width: 140px;
 						">
-							<div style="color: var(--chakra-colors-panel-textMuted, #64748b); font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px; margin-bottom: 4px;">
+							<div style="color: var(--rb-panel-text-muted, #64748b); font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px; margin-bottom: 4px;">
 								${dateStr}
 							</div>
 							${linesHtml}
@@ -687,51 +657,17 @@ const HistoryModal: FC<{
 	);
 
 	return (
-		<Modal isOpen={isOpen} onClose={onClose} size="2xl" scrollBehavior="inside" isCentered>
-			<ModalOverlay bg="blackAlpha.700" backdropFilter="blur(16px)" />
-			<ModalContent
-				bg="panel.surface"
-				borderWidth="1px"
-				borderColor="panel.border"
-				borderRadius="20px"
-				boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 32px 80px rgba(0,0,0,0.6)"
-				mx={{ base: 3, sm: 6 }}
-				overflow="hidden"
-			>
-				<ModalHeader
-					display="flex"
-					alignItems="center"
-					justifyContent="space-between"
-					px={{ base: 4, md: 6 }}
-					py={{ base: 3.5, md: 4 }}
-					borderBottomWidth="1px"
-					borderColor="panel.border"
-					fontSize="sm"
-					fontWeight="700"
-				>
-					<Text color="panel.text">{t("dashboard.history.modalTitle", { metric: payload?.title ?? "" })}</Text>
-					<ModalCloseButton position="static" size="sm" />
-				</ModalHeader>
-				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
-					<Stack spacing={4}>
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
+			<DialogContent className="bg-panel-surface border border-panel-border! rounded-[20px] shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_32px_80px_rgba(0,0,0,0.6)] mx-3 sm:mx-6 overflow-hidden">
+				<DialogHeader className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-4 border-b border-panel-border! text-[0.875rem] font-bold">
+					<p className="text-panel-text">{t("dashboard.history.modalTitle", { metric: payload?.title ?? "" })}</p>
+					
+				</DialogHeader>
+				<div className={cn("px-5 py-4 overflow-y-auto", "px-4 md:px-6 py-4 md:py-5")}>
+					<div className="flex flex-col gap-4">
 						{hasEnoughPoints && (
-							<Box
-								p={1}
-								borderRadius="full"
-								bg="panel.elevated"
-								w={{ base: "full", md: "fit-content" }}
-								maxW="100%"
-								overflowX="auto"
-								position="relative"
-								display="inline-flex"
-								alignItems="center"
-								sx={{
-									"&::-webkit-scrollbar": {
-										display: "none",
-									},
-									scrollbarWidth: "none",
-								}}
-							>
+							<div className="[&::-webkit-scrollbar]:hidden [scrollbar-width:none] p-1 rounded-full bg-panel-elevated w-full md:w-fit max-w-[100%] overflow-x-auto relative inline-flex items-center">
 								{pillStyle.width > 0 && (
 									<motion.div
 										animate={{
@@ -748,7 +684,7 @@ const HistoryModal: FC<{
 											top: 4,
 											bottom: 4,
 											borderRadius: "9999px",
-											backgroundColor: "var(--chakra-colors-panel-surface)",
+											backgroundColor: "var(--rb-panel-surface)",
 											boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
 											zIndex: 1,
 											pointerEvents: "none",
@@ -759,131 +695,24 @@ const HistoryModal: FC<{
 									const isAvailable = idx === 0 || availableSpan >= interval.seconds * 0.5;
 									const isActive = intervalSeconds === interval.seconds;
 									return (
-										<Box
-											key={interval.seconds}
-											ref={(el: HTMLDivElement | null) => {
+										<div key={interval.seconds} ref={(el: HTMLDivElement | null) => {
 												tabRefs.current[idx] = el;
-											}}
-											flex={{ base: "1 1 0", md: "none" }}
-											position="relative"
-											display="inline-flex"
-											alignItems="center"
-											justifyContent="center"
-										>
-											<Button
-												size="xs"
-												h="26px"
-												w="full"
-												px={{ base: 1, sm: 3.5 }}
-												borderRadius="full"
-												variant="ghost"
-												bg="transparent !important"
-												color={isActive ? "panel.text" : "panel.textMuted"}
-												fontWeight={isActive ? "700" : "500"}
-												fontSize={{ base: "10px", sm: "11px" }}
-												whiteSpace="nowrap"
-												position="relative"
-												zIndex={2}
-												opacity={isAvailable ? 1 : 0.4}
-												cursor={isAvailable ? "pointer" : "not-allowed"}
-												_hover={{
-													md: {
-														color: "panel.text",
-													},
-												}}
-												_focusVisible={{
-													outline: "2px solid var(--rb-panel-accent)",
-													outlineOffset: "2px",
-												}}
-												onClick={() => {
+											}} className="flex-[1_1_0] md:flex-none relative inline-flex items-center justify-center">
+											<Button onClick={() => {
 													if (isAvailable && intervalSeconds !== interval.seconds) {
 														setIsSwitchingInterval(true);
 														onIntervalChange(interval.seconds);
 														setTimeout(() => setIsSwitchingInterval(false), 300);
 													}
-												}}
-											>
+												}} variant="ghost" size="xs" className={cn("h-[26px] w-full px-1 sm:px-3.5 rounded-full bg-transparent! text-[10px] sm:text-[11px] whitespace-nowrap relative z-[2] hover:md:text-panel-text focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", isActive ? "text-panel-text" : "text-panel-text-muted", isActive ? "font-bold" : "font-medium", isAvailable ? "opacity-100" : "opacity-40", isAvailable ? "cursor-pointer" : "cursor-not-allowed")}>
 												{t(interval.labelKey)}
 											</Button>
-										</Box>
+										</div>
 									);
 								})}
-							</Box>
+							</div>
 						)}
-						<Box
-							minH="300px"
-							w="100%"
-							position="relative"
-							dir="ltr"
-							pb={2}
-							sx={{
-								"& .apexcharts-canvas": {
-									direction: "ltr !important",
-								},
-								"& .apexcharts-yaxis-label": {
-									direction: "ltr !important",
-								},
-								"& .apexcharts-legend": {
-									direction: "ltr !important",
-									display: "flex !important",
-									justifyContent: "center !important",
-									gap: "18px !important",
-								},
-								"& .apexcharts-legend-series": {
-									display: "inline-flex !important",
-									alignItems: "center !important",
-									flexDirection: isRTL ? "row !important" : "row !important",
-									gap: "6px !important",
-									margin: "0 !important",
-								},
-								"& .apexcharts-legend-marker": {
-									order: isRTL ? 2 : 1,
-									margin: "0 !important",
-									position: "relative !important",
-									top: "auto !important",
-									left: "auto !important",
-									right: "auto !important",
-									bottom: "auto !important",
-									transform: "none !important",
-								},
-								"& .apexcharts-legend-text": {
-									order: isRTL ? 1 : 2,
-									margin: "0 !important",
-									padding: "0 !important",
-									position: "relative !important",
-									top: "auto !important",
-									left: "auto !important",
-									right: "auto !important",
-									bottom: "auto !important",
-								},
-								"& .apexcharts-tooltip": {
-									background: "transparent !important",
-									border: "none !important",
-									boxShadow: "none !important",
-									overflow: "visible !important",
-								},
-								"& .apexcharts-tooltip.apexcharts-theme-light": {
-									background: "transparent !important",
-									border: "none !important",
-									boxShadow: "none !important",
-								},
-								"& .apexcharts-tooltip.apexcharts-theme-dark": {
-									background: "transparent !important",
-									border: "none !important",
-									boxShadow: "none !important",
-								},
-								"& .apexcharts-legend-series.apexcharts-inactive-legend": {
-									opacity: "0.45 !important",
-									pointerEvents: "auto",
-								},
-								"& .apexcharts-legend-series.apexcharts-inactive-legend:hover": {
-									opacity: "0.75 !important",
-								},
-								"& .apexcharts-canvas:has(.apexcharts-inactive-legend:hover) .apexcharts-series": {
-									opacity: "1 !important",
-								},
-							}}
-						>
+						<div dir="ltr" className={cn("[&_.apexcharts-canvas]:[flex-direction:ltr]! [&_.apexcharts-yaxis-label]:[flex-direction:ltr]! [&_.apexcharts-legend]:[flex-direction:ltr]! [&_.apexcharts-legend]:flex! [&_.apexcharts-legend]:justify-center! [&_.apexcharts-legend]:gap-[18px]! [&_.apexcharts-legend-series]:inline-flex! [&_.apexcharts-legend-series]:items-center! [&_.apexcharts-legend-series]:gap-[6px]! [&_.apexcharts-legend-series]:m-0! [&_.apexcharts-legend-marker]:m-0! [&_.apexcharts-legend-marker]:relative! [&_.apexcharts-legend-marker]:top-auto! [&_.apexcharts-legend-marker]:left-auto! [&_.apexcharts-legend-marker]:right-auto! [&_.apexcharts-legend-marker]:bottom-auto! [&_.apexcharts-legend-marker]:[transform:none]! [&_.apexcharts-legend-text]:m-0! [&_.apexcharts-legend-text]:p-0! [&_.apexcharts-legend-text]:relative! [&_.apexcharts-legend-text]:top-auto! [&_.apexcharts-legend-text]:left-auto! [&_.apexcharts-legend-text]:right-auto! [&_.apexcharts-legend-text]:bottom-auto! [&_.apexcharts-tooltip]:bg-transparent! [&_.apexcharts-tooltip]:border! [&_.apexcharts-tooltip]:border-none! [&_.apexcharts-tooltip]:shadow-none! [&_.apexcharts-tooltip]:overflow-visible! [&_.apexcharts-tooltip.apexcharts-theme-light]:bg-transparent! [&_.apexcharts-tooltip.apexcharts-theme-light]:border! [&_.apexcharts-tooltip.apexcharts-theme-light]:border-none! [&_.apexcharts-tooltip.apexcharts-theme-light]:shadow-none! [&_.apexcharts-tooltip.apexcharts-theme-dark]:bg-transparent! [&_.apexcharts-tooltip.apexcharts-theme-dark]:border! [&_.apexcharts-tooltip.apexcharts-theme-dark]:border-none! [&_.apexcharts-tooltip.apexcharts-theme-dark]:shadow-none! [&_.apexcharts-legend-series.apexcharts-inactive-legend]:opacity-45! [&_.apexcharts-legend-series.apexcharts-inactive-legend]:pointer-events-auto [&_.apexcharts-legend-series.apexcharts-inactive-legend:hover]:opacity-75! [&_.apexcharts-canvas:has(.apexcharts-inactive-legend:hover)_.apexcharts-series]:opacity-100!", isRTL ? "[&_.apexcharts-legend-series]:flex-row!" : "[&_.apexcharts-legend-series]:flex-row!", isRTL ? "[&_.apexcharts-legend-marker]:order-2" : "[&_.apexcharts-legend-marker]:order-1", isRTL ? "[&_.apexcharts-legend-text]:order-1" : "[&_.apexcharts-legend-text]:order-2", "min-h-[300px] w-full relative pb-2")}>
 							<AnimatePresence>
 								{isSwitchingInterval && (
 									<motion.div
@@ -906,7 +735,7 @@ const HistoryModal: FC<{
 											justifyContent: "center",
 										}}
 									>
-										<Spinner size="md" color="panel.accent" thickness="2.5px" />
+										<Spinner className="text-panel-accent" />
 									</motion.div>
 								)}
 							</AnimatePresence>
@@ -917,34 +746,27 @@ const HistoryModal: FC<{
 							>
 								<Suspense
 									fallback={
-										<Flex h="280px" align="center" justify="center">
-											<Spinner size="md" color="panel.accent" />
-										</Flex>
+										<div className="flex h-[280px] items-center justify-center">
+											<Spinner className="text-panel-accent" />
+										</div>
 									}
 								>
 									{hasEnoughPoints && isOpen ? (
-										<HistoryChart
-											key={`${payload?.title}-${intervalSeconds}-${colorMode}`}
-											options={options}
-											series={chartSeries}
-											type="area"
-											height={300}
-											width="100%"
-										/>
+										<HistoryChart key={`${payload?.title}-${intervalSeconds}-${colorMode}`} options={options} series={chartSeries} type="area" className="h-300 w-full" />
 									) : (
-										<Flex h="300px" align="center" justify="center" direction="column" gap={2}>
-											<Text fontSize="13px" color="panel.textMuted">
+										<div className="flex-col flex h-[300px] items-center justify-center gap-2">
+											<p className="text-[13px] text-panel-text-muted">
 												{t("noData")}
-											</Text>
-										</Flex>
+											</p>
+										</div>
 									)}
 								</Suspense>
 							</motion.div>
-						</Box>
-					</Stack>
-				</ModalBody>
-			</ModalContent>
-		</Modal>
+						</div>
+					</div>
+				</div>
+			</DialogContent>
+		</Dialog>
 	);
 };
 
@@ -989,218 +811,76 @@ const ResourceCard: FC<{
 	const criticalColor = safe >= 90 ? "#ef4444" : safe >= 75 ? "#f59e0b" : accent;
 
 	return (
-		<Box
-			role="group"
-			bg="panel.surface"
-			borderWidth="1px"
-			borderColor="panel.border"
-			borderRadius="20px"
-			p={{ base: 4, sm: 5 }}
-			position="relative"
-			overflow="hidden"
-			display="flex"
-			flexDirection="column"
-			justifyContent="space-between"
-			boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
-			transition="border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease"
-			_hover={{
-				md: {
-					borderColor: "panel.borderStrong",
-					bg: "panel.elevated",
-					boxShadow: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.22)",
-				},
-			}}
-		>
-			<Box>
-				<Flex justify="space-between" align="center" mb={3}>
-					<HStack spacing={2.5} align="center">
-						<Flex
-							w="32px"
-							h="32px"
-							align="center"
-							justify="center"
-							borderRadius="9px"
-							bg="panel.elevated"
-							color="panel.textSecondary"
-							flexShrink={0}
-						>
+		// biome-ignore lint/a11y/useSemanticElements: role=group is the hook the group's styles use for the card's hover styles
+		<div role="group" className="bg-panel-surface border border-panel-border! rounded-[20px] p-4 sm:p-5 relative overflow-hidden flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] [transition:border-color_0.25s_ease,_background-color_0.25s_ease,_box-shadow_0.25s_ease] hover:md:border-panel-border-strong! hover:md:bg-panel-elevated hover:md:shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_12px_32px_-4px_rgba(0,_0,_0,_0.22)]">
+			<div>
+				<div className="flex justify-between items-center mb-3">
+					<div className="flex flex-row gap-2.5 items-center">
+						<div className="flex w-[32px] h-[32px] items-center justify-center rounded-[9px] bg-panel-elevated text-panel-text-secondary shrink-0">
 							{icon}
-						</Flex>
-						<Text fontSize="13px" fontWeight="600" color="panel.textSecondary" noOfLines={1}>
+						</div>
+						<p className="text-[13px] font-semibold text-panel-text-secondary truncate">
 							{label}
-						</Text>
-					</HStack>
+						</p>
+					</div>
 					{onHistory && (
-						<Button
-							size="xs"
-							h="22px"
-							px={2}
-							fontSize="11px"
-							variant="ghost"
-							borderRadius="full"
-							bg="panel.elevated"
-							color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
-							fontWeight={colorMode === "light" ? "600" : "500"}
-							transition="all 0.2s ease"
-							_groupHover={{
-								md: {
-									bg: "panel.surface",
-									color: colorMode === "light" ? "panel.text" : "panel.textSecondary",
-								},
-							}}
-							_hover={{
-								md: {
-									bg: "panel.border !important",
-									color: "panel.text !important",
-								},
-							}}
-							_active={{
-								bg: "panel.borderStrong !important",
-							}}
-							_focusVisible={{
-								outline: "2px solid var(--rb-panel-accent)",
-								outlineOffset: "2px",
-							}}
-							position="relative"
-							_after={{
-								content: '""',
-								position: "absolute",
-								top: "-10px",
-								bottom: "-10px",
-								left: "-10px",
-								right: "-10px",
-							}}
-							onClick={onHistory}
-						>
-							{historyLabel}
+						<Button onClick={onHistory} variant="ghost" size="xs" className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] [[role=group]:hover_&]:md:bg-panel-surface hover:md:bg-panel-border! hover:md:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium", colorMode === "light" ? "[[role=group]:hover_&]:md:text-panel-text" : "[[role=group]:hover_&]:md:text-panel-text-secondary"))}>
+							<span className="hidden sm:inline">{historyLabel}</span>
+							<Clock className="size-3.5 sm:hidden" aria-hidden="true" />
 						</Button>
 					)}
-				</Flex>
+				</div>
 
-				<Flex align="baseline" gap={1.5} mb={1} wrap="nowrap" justify="flex-start">
+				<div className="flex-nowrap flex items-baseline gap-1.5 mb-1 justify-start">
 					{totalValue ? (
-						<Flex
-							dir="ltr"
-							align="baseline"
-							gap={1.5}
-							sx={{ unicodeBidi: "isolate" }}
-						>
-							<Text
-								fontSize={{ base: "20px", sm: "22px" }}
-								fontWeight="800"
-								color="panel.text"
-								letterSpacing="-0.02em"
-								lineHeight="1.1"
-								sx={{ fontVariantNumeric: "tabular-nums" }}
-							>
+						<div dir="ltr" className="flex items-baseline gap-1.5 [unicode-bidi:isolate]">
+							<p className="text-[20px] sm:text-[22px] font-extrabold text-panel-text tracking-[-0.02em] leading-[1.1] [font-variant-numeric:tabular-nums]">
 								{value}
-							</Text>
-							<Text
-								fontSize="13px"
-								fontWeight="600"
-								color="panel.textMuted"
-								sx={{ fontVariantNumeric: "tabular-nums" }}
-							>
+							</p>
+							<p className="text-[13px] font-semibold text-panel-text-muted [font-variant-numeric:tabular-nums]">
 								/ {totalValue}
-							</Text>
-						</Flex>
+							</p>
+						</div>
 					) : (
-						<Flex align="baseline" gap={1.5} wrap="wrap">
-							<Text
-								fontSize={{ base: "20px", sm: "22px" }}
-								fontWeight="800"
-								color="panel.text"
-								letterSpacing="-0.02em"
-								lineHeight="1.1"
-								dir="ltr"
-								sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-							>
+						<div className="flex-wrap flex items-baseline gap-1.5">
+							<p dir="ltr" className="text-[20px] sm:text-[22px] font-extrabold text-panel-text tracking-[-0.02em] leading-[1.1] [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
 								{value}
-							</Text>
+							</p>
 							{metaValue !== undefined && metaUnit && (
-								<Flex
-									align="center"
-									dir={isRTL ? "rtl" : "ltr"}
-									gap={1}
-									sx={{ unicodeBidi: "isolate" }}
-								>
-									<Text
-										fontSize="13px"
-										fontWeight="600"
-										color="panel.textMuted"
-										dir="ltr"
-										sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-									>
+								<div dir={isRTL ? "rtl" : "ltr"} className="flex items-center gap-1 [unicode-bidi:isolate]">
+									<p dir="ltr" className="text-[13px] font-semibold text-panel-text-muted [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
 										{metaValue}
-									</Text>
-									<Text fontSize="12px" fontWeight="600" color="panel.textMuted">
+									</p>
+									<p className="text-[12px] font-semibold text-panel-text-muted">
 										{metaUnit}
-									</Text>
-								</Flex>
+									</p>
+								</div>
 							)}
-						</Flex>
+						</div>
 					)}
-				</Flex>
+				</div>
 				{subMeta && (
-					<Box mt={0.5}>
+					<div className="mt-0.5">
 						{subMeta}
-					</Box>
+					</div>
 				)}
-			</Box>
+			</div>
 
-			<Box mt={3}>
-				<Flex justify="space-between" align="center" mb={1.5}>
-					<Text
-						fontSize="11px"
-						fontWeight="600"
-						color="panel.textMuted"
-						dir="ltr"
-						sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
-					>
+			<div className="mt-3">
+				<div className="flex justify-between items-center mb-1.5">
+					<p dir="ltr" className="text-[11px] font-semibold text-panel-text-muted [unicode-bidi:isolate] [font-variant-numeric:tabular-nums]">
 						{formatPercent(safe, false)}
-					</Text>
-				</Flex>
-				<Progress
-					value={safe}
-					size="xs"
-					borderRadius="full"
-					bg="panel.elevated"
-					transition="background-color 0.25s ease"
-					_hover={{
-						md: {
-							bg: "panel.surface",
-						},
-					}}
-					_groupHover={{
-						md: {
-							bg: "panel.surface",
-						},
-					}}
-					sx={{
-						"& > div": {
-							bg: criticalColor,
-							transition: "width 0.6s ease, background-color 0.4s ease",
-							borderRadius: "full",
-						},
-					}}
-				/>
+					</p>
+				</div>
+				<div className="h-1 w-full overflow-hidden ${cls}"><div className="h-full rounded-full [transition:width_0.6s_ease,_background-color_0.4s_ease]" style={{ width: `${safe}%`, backgroundColor: criticalColor }} /></div>
 				{(footerLeft || footerRight) && (
-					<Flex
-						justify="space-between"
-						align="center"
-						mt={2}
-						fontSize="11px"
-						fontWeight="500"
-						color="panel.textMuted"
-						dir={isRTL ? "rtl" : "ltr"}
-						sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
-					>
-						<Text noOfLines={1}>{footerLeft}</Text>
-						<Text noOfLines={1}>{footerRight}</Text>
-					</Flex>
+					<div dir={isRTL ? "rtl" : "ltr"} className="flex justify-between items-center mt-2 text-[11px] font-medium text-panel-text-muted [unicode-bidi:isolate] [font-variant-numeric:tabular-nums]">
+						<p className="truncate">{footerLeft}</p>
+						<p className="truncate">{footerRight}</p>
+					</div>
 				)}
-			</Box>
-		</Box>
+			</div>
+		</div>
 	);
 };
 
@@ -1213,86 +893,35 @@ const StatRow: FC<{
 	tagColor?: string;
 	helper?: string;
 }> = ({ label, value, dimLabel, accent, tag, tagColor, helper }) => {
-	const accentColor = "var(--rb-panel-accent)";
+	const accentColor = "text-[var(--rb-panel-accent)]";
 	return (
-		<Flex
-			align="center"
-			justify="space-between"
-			py={2.5}
-			borderBottomWidth="1px"
-			borderColor="panel.border"
-			_last={{ borderBottomWidth: 0 }}
-			gap={3}
-		>
-			<HStack spacing={3} minW={0} flexWrap="nowrap">
+		<div className="flex items-center justify-between py-2.5 border-b border-panel-border! last:border-b-0 gap-3">
+			<div className="flex flex-row items-center gap-3 min-w-0! flex-nowrap">
 				{tagColor && (
-					<Box
-						flexShrink={0}
-						w="7px"
-						h="7px"
-						borderRadius="full"
-						bg={tagColor}
-						me="3px"
-						boxShadow={`0 0 6px ${tagColor}88`}
-					/>
+					<div style={{ backgroundColor: tagColor, boxShadow: `0 0 6px ${tagColor}88` }} className="shrink-0 w-[7px] h-[7px] rounded-full me-[3px]" />
 				)}
-				<Text
-					fontSize="13px"
-					fontWeight="600"
-					color={dimLabel ? "panel.textMuted" : "panel.textSecondary"}
-					noOfLines={1}
-				>
+				<p className={cn("text-[13px] font-semibold truncate", dimLabel ? "text-panel-text-muted" : "text-panel-text-secondary")}>
 					{label}
-				</Text>
+				</p>
 				{tag && (
-					<Flex
-						as="span"
-						align="center"
-						justify="center"
-						fontSize="10px"
-						px={1.5}
-						py={0.5}
-						borderRadius="md"
-						bg="panel.elevated"
-						color="panel.textMuted"
-						fontWeight="600"
-						dir="ltr"
-						transition="all 0.25s ease"
-						_groupHover={{
-							md: {
-								bg: "panel.surface",
-								color: "panel.textSecondary",
-							},
-						}}
-					>
-						<Text as="span" dir="ltr" sx={{ fontVariantNumeric: "tabular-nums" }}>
+					<span dir="ltr" className="flex items-center justify-center text-[10px] px-1.5 py-0.5 rounded-md bg-panel-elevated text-panel-text-muted font-semibold [transition:all_0.25s_ease] [[role=group]:hover_&]:md:bg-panel-surface [[role=group]:hover_&]:md:text-panel-text-secondary">
+						<span dir="ltr" className="[font-variant-numeric:tabular-nums]">
 							{tag.endsWith("%") ? `${tag.slice(0, -1)}%` : tag}
-						</Text>
-					</Flex>
+						</span>
+					</span>
 				)}
-			</HStack>
-			<VStack align="flex-end" spacing={0} flexShrink={0}>
-				<Text
-					fontSize="13px"
-					fontWeight="700"
-					color={accent ? accentColor : "panel.text"}
-					dir="ltr"
-					sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-				>
+			</div>
+			<div className="flex flex-col items-end gap-0 shrink-0">
+				<p dir="ltr" className={cn("text-[13px] font-bold [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]", accent ? (accentColor) : "text-panel-text")}>
 					{typeof value === "number" ? formatNumberValue(value) : value}
-				</Text>
+				</p>
 				{helper && (
-					<Text
-						fontSize="10px"
-						color="panel.textMuted"
-						dir="ltr"
-						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-					>
+					<p dir="ltr" className="text-[10px] text-panel-text-muted [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
 						{helper}
-					</Text>
+					</p>
 				)}
-			</VStack>
-		</Flex>
+			</div>
+		</div>
 	);
 };
 
@@ -1302,55 +931,31 @@ const SectionCard: FC<{
 	action?: ReactNode;
 	noHover?: boolean;
 	roleGroup?: boolean;
+	/** Extra classes for the content area, e.g. to centre a short card. */
+	contentClassName?: string;
 }> = ({
 	children,
 	title,
 	action,
 	noHover = false,
 	roleGroup = true,
+	contentClassName,
 }) => (
-	<Box
-		role={roleGroup ? "group" : undefined}
-		bg="panel.surface"
-		borderWidth="1px"
-		borderColor="panel.border"
-		borderRadius="20px"
-		overflow="hidden"
-		boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
-		transition="border-color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease"
-		_hover={
-			noHover
-				? undefined
-				: {
-						md: {
-							borderColor: "panel.borderStrong",
-							bg: "panel.elevated",
-							boxShadow: "inset 0 1px 1px 0 rgba(255, 255, 255, 0.08), 0 12px 32px -4px rgba(0, 0, 0, 0.22)",
-						},
-					}
-		}
-	>
+	<div role={roleGroup ? "group" : undefined} className={cn(noHover ? "" : "hover:md:border-panel-border-strong!" + " " + "hover:md:bg-panel-elevated" + " " + "hover:md:shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_12px_32px_-4px_rgba(0,_0,_0,_0.22)]", "bg-panel-surface border border-panel-border! rounded-[20px] overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] [transition:border-color_0.25s_ease,_background-color_0.25s_ease,_box-shadow_0.25s_ease] flex h-full flex-col")}>
 		{(title || action) && (
-			<Flex
-				px={{ base: 4, sm: 5, md: 6 }}
-				py={3.5}
-				align="center"
-				justify="space-between"
-				borderBottomWidth="1px"
-				borderColor="panel.border"
-			>
+			<div className="flex px-4 sm:px-5 md:px-6 py-3.5 items-center justify-between border-b border-panel-border!">
 				{title && (
-					<Text fontSize="13px" fontWeight="700" color="panel.text" letterSpacing="-0.01em">
+					<div className="text-[13px] font-bold text-panel-text tracking-[-0.01em]">
 						{title}
-					</Text>
+					</div>
 				)}
 				{action}
-			</Flex>
+			</div>
 		)}
-		<Box px={{ base: 4, sm: 5, md: 6 }} py={4}>
+		<div className={cn("flex-1 px-4 sm:px-5 md:px-6 py-4", contentClassName)}>
 			{children}
-		</Box>
-	</Box>
+		</div>
+	</div>
 );
 
 const AnimatedHeightWrapper: FC<{
@@ -1410,30 +1015,23 @@ const SpeedItem: FC<{
 	value: string;
 }> = ({ icon, label, value }) => {
 	return (
-		<Flex align="center" justify="space-between" gap={3}>
-			<HStack spacing={2.5} color="panel.textMuted">
-				<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
+		<div className="flex items-center justify-between gap-3">
+			<div className="flex flex-row items-center gap-2.5 text-panel-text-muted">
+				<div className="flex w-[28px] h-[28px] items-center justify-center rounded-[8px] bg-panel-elevated shrink-0">
 					{icon}
-				</Flex>
-				<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
+				</div>
+				<p className="text-[13px] font-semibold text-panel-text-secondary">
 					{label}
-				</Text>
-			</HStack>
-			<Text
-				fontSize="13px"
-				fontWeight="700"
-				letterSpacing="-0.01em"
-				color="panel.text"
-				dir="ltr"
-				sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-			>
+				</p>
+			</div>
+			<p dir="ltr" className="text-[13px] font-bold tracking-[-0.01em] text-panel-text [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
 				{value}
-			</Text>
-		</Flex>
+			</p>
+		</div>
 	);
 };
 
-export const Statistics: FC<BoxProps> = (props) => {
+export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 	const { version } = useDashboard();
 	const { userData } = useGetUser();
 	const { t, i18n } = useTranslation();
@@ -1442,36 +1040,26 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const { data: rawSystemData } = useQuery<SystemStats>({
 		queryKey: StatisticsQueryKey,
 		queryFn: () => fetch("/system"),
-		onSuccess: (stats) => {
-			const currentVersion = stats?.version;
-			if (currentVersion && version !== currentVersion) {
-				useDashboard.setState({ version: currentVersion });
-			}
-		},
 	});
 
-	const { data: maintenanceInfo } = useQuery<MaintenanceInfo>(
-		["dashboard-maintenance-info"],
-		() => fetch<MaintenanceInfo>("/maintenance/info", { timeout: 8000 }),
-		{
-			refetchOnWindowFocus: false,
-			staleTime: 5 * 60 * 1000,
-			retry: false,
-		},
-	);
+	// v5 removed onSuccess from useQuery: the side effect follows the data.
+	const fetchedVersion = rawSystemData?.version;
+	useEffect(() => {
+		if (fetchedVersion && version !== fetchedVersion) {
+			useDashboard.setState({ version: fetchedVersion });
+		}
+	}, [fetchedVersion, version]);
 
-	const { data: myUsersData } = useQuery<UsersListResponse>(
-		["dashboard-my-users-stats", userData.username],
-		() =>
+	const { data: maintenanceInfo } = useQuery<MaintenanceInfo>({ queryKey: ["dashboard-maintenance-info"], queryFn: () => fetch<MaintenanceInfo>("/maintenance/info", { timeout: 8000 }), refetchOnWindowFocus: false,
+			staleTime: 5 * 60 * 1000,
+			retry: false, });
+
+	const { data: myUsersData } = useQuery<UsersListResponse>({ queryKey: ["dashboard-my-users-stats", userData.username], queryFn: () =>
 			fetch<UsersListResponse>("/users", {
 				query: { admin: userData.username, limit: 1000 },
-			}),
-		{
-			enabled: Boolean(userData.username),
+			}), enabled: Boolean(userData.username),
 			staleTime: 10_000,
-			refetchInterval: 15_000,
-		},
-	);
+			refetchInterval: 15_000, });
 
 	const systemData = useMemo(() => sanitizeSystemStats(rawSystemData), [rawSystemData]);
 	useSystemMetricsStream(true);
@@ -1503,306 +1091,178 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	if (!systemData) {
 		return (
-			<Stack
-				spacing={{ base: 4, md: 5 }}
-				w="full"
-				dir={isRTL ? "rtl" : "ltr"}
-				sx={{
-					"@keyframes shimmer": {
-						"0%": { opacity: 0.35 },
-						"50%": { opacity: 0.75 },
-						"100%": { opacity: 0.35 },
-					},
-					"& .shimmer-box": {
-						animation: "shimmer 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-					},
-				}}
-			>
+			<div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col gap-4 md:gap-5 w-full">
 				{canSeeGlobal && <SystemDiagnostics issues={criticalIssues} criticalOnly />}
-				<Flex
-					align="center"
-					justify="space-between"
-					px={1}
-					flexWrap="wrap"
-					gap={3}
-					sx={{
-						"@media screen and (max-width: 767px)": {
-							"& > div:last-child": {
-								width: "100%",
-								justifyContent: "flex-start",
-							},
-						},
-					}}
-				>
-					<Flex
-						wrap="wrap"
-						gap={{ base: 2.5, md: 1 }}
-						sx={{
-							flexDirection: "column",
-							alignItems: "flex-start",
-							"@media screen and (max-width: 767px)": {
-								flexDirection: "row",
-								alignItems: "center",
-							},
-							"@media screen and (min-width: 768px) and (max-width: 991px)": {
-								"body:has([data-sidebar-collapsed='true']) &": {
-									flexDirection: "row",
-									alignItems: "center",
-								},
-								"body:not(:has([data-sidebar-collapsed='true'])) &": {
-									flexDirection: "column",
-									alignItems: "flex-start",
-								},
-							},
-							"@media screen and (min-width: 992px)": {
-								flexDirection: "column",
-								alignItems: "flex-start",
-							},
-						}}
-					>
-						<Box className="shimmer-box" w={{ base: "140px", sm: "170px" }} h="24px" bg="panel.surface" borderRadius="8px" borderWidth="1px" borderColor="panel.border" />
-						<HStack spacing={1.5}>
-							<Box className="shimmer-box" w="65px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-							<Box className="shimmer-box" w="85px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-							<Box className="shimmer-box" w="75px" h="18px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-						</HStack>
-					</Flex>
-					<Box w={{ base: "full", sm: "auto" }} flexShrink={0}>
-						<HStack display={{ base: "none", sm: "flex" }} spacing={2} align="center" justify="flex-end">
-							<Box className="shimmer-box" w="118px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-							<Box className="shimmer-box" w="100px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-							<Box className="shimmer-box" w="114px" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-						</HStack>
-						<Stack display={{ base: "flex", sm: "none" }} spacing={2} w="full">
-							<Box className="shimmer-box" w="full" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-							<Flex gap={2} w="full" align="center">
-								<Box className="shimmer-box" flex="1 1 50%" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-								<Box className="shimmer-box" flex="1 1 50%" h="32px" bg="panel.surface" borderRadius="full" borderWidth="1px" borderColor="panel.border" />
-							</Flex>
-						</Stack>
-					</Box>
-				</Flex>
+				<div className={"max-md:[&_>_div:last-child]:w-full max-md:[&_>_div:last-child]:justify-start flex items-center justify-between px-1 flex-wrap gap-3"}>
+					<div className={"flex-col items-start max-md:flex-row max-md:items-center min-[768px]:max-[991px]:[body:has([data-sidebar-collapsed='true'])_&]:flex-row min-[768px]:max-[991px]:[body:has([data-sidebar-collapsed='true'])_&]:items-center min-[768px]:max-[991px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:flex-col min-[768px]:max-[991px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:items-start lg:flex-col lg:items-start flex-wrap flex gap-2.5 md:gap-1"}>
+						<div className="w-[140px] sm:w-[170px] h-[24px] bg-panel-surface rounded-[8px] border border-panel-border! shimmer-box" />
+						<div className="flex flex-row items-center gap-1.5">
+							<div className="w-[65px] h-[18px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							<div className="w-[85px] h-[18px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							<div className="w-[75px] h-[18px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+						</div>
+					</div>
+					<div className="w-full sm:w-auto shrink-0">
+						<div className="flex-row hidden sm:flex gap-2 items-center justify-end">
+							<div className="w-[118px] h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							<div className="w-[100px] h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							<div className="w-[114px] h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+						</div>
+						<div className="flex-col flex sm:hidden gap-2 w-full">
+							<div className="w-full h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							<div className="flex gap-2 w-full items-center">
+								<div className="flex-[1_1_50%] h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+								<div className="flex-[1_1_50%] h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							</div>
+						</div>
+					</div>
+				</div>
 
-				<SimpleGrid
-					columns={{ base: 1, sm: 2, xl: 4 }}
-					gap={{ base: 3, md: 4 }}
-					sx={{
-						"@media screen and (min-width: 768px) and (max-width: 910px)": {
-							"body:not(:has([data-sidebar-collapsed='true'])) &": {
-								gridTemplateColumns: "1fr !important",
-							},
-						},
-					}}
-				>
+				<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
 					{[1, 2, 3, 4].map((i) => (
-						<Box
-							key={i}
-							className="shimmer-box"
-							bg="panel.surface"
-							borderRadius="20px"
-							borderWidth="1px"
-							borderColor="panel.border"
-							p={{ base: 4, sm: 5 }}
-							display="flex"
-							flexDirection="column"
-							justifyContent="space-between"
-							boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
-						>
-							<Box>
-								<Flex justify="space-between" align="center" mb={3}>
-									<HStack spacing={2.5} align="center">
-										<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" flexShrink={0} />
-										<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
-									</HStack>
-									{i <= 2 && <Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />}
-								</Flex>
-								<Flex align="baseline" gap={1.5} mb={1}>
-									<Box w="65px" h="24px" borderRadius="md" bg="panel.elevated" />
-									<Box w={i === 1 ? "45px" : "60px"} h="16px" borderRadius="md" bg="panel.elevated" />
-								</Flex>
+						<div key={i} className="bg-panel-surface rounded-[20px] border border-panel-border! p-4 sm:p-5 flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+							<div>
+								<div className="flex justify-between items-center mb-3">
+									<div className="flex flex-row gap-2.5 items-center">
+										<div className="w-[32px] h-[32px] rounded-[9px] bg-panel-elevated shrink-0" />
+										<div className="w-[90px] h-[16px] rounded-md bg-panel-elevated" />
+									</div>
+									{i <= 2 && <div className="w-[75px] h-[22px] rounded-full bg-panel-elevated" />}
+								</div>
+								<div className="flex items-baseline gap-1.5 mb-1">
+									<div className="w-[65px] h-[24px] rounded-md bg-panel-elevated" />
+									<div className={cn("h-[16px] rounded-md bg-panel-elevated", i === 1 ? "w-[45px]" : "w-[60px]")} />
+								</div>
 								{i === 1 && (
-									<Box mt={0.5}>
-										<Box w="150px" h="14px" borderRadius="md" bg="panel.elevated" />
-									</Box>
+									<div className="mt-0.5">
+										<div className="w-[150px] h-[14px] rounded-md bg-panel-elevated" />
+									</div>
 								)}
-							</Box>
-							<Box mt={3}>
-								<Flex justify="space-between" align="center" mb={1.5}>
-									<Box w="35px" h="13px" borderRadius="sm" bg="panel.elevated" />
-								</Flex>
-								<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" />
-								<Flex justify="space-between" align="center" mt={2.5} pt={2.5} borderTopWidth="1px" borderColor="panel.border">
-									<Box w="80px" h="14px" borderRadius="sm" bg="panel.elevated" />
-									<Box w="70px" h="14px" borderRadius="sm" bg="panel.elevated" />
-								</Flex>
-							</Box>
-						</Box>
+							</div>
+							<div className="mt-3">
+								<div className="flex justify-between items-center mb-1.5">
+									<div className="w-[35px] h-[13px] rounded-xs bg-panel-elevated" />
+								</div>
+								<div className="w-full h-[4px] rounded-full bg-panel-elevated" />
+								<div className="flex justify-between items-center mt-2.5 pt-2.5 border-t border-panel-border!">
+									<div className="w-[80px] h-[14px] rounded-xs bg-panel-elevated" />
+									<div className="w-[70px] h-[14px] rounded-xs bg-panel-elevated" />
+								</div>
+							</div>
+						</div>
 					))}
-				</SimpleGrid>
+				</div>
 
-				<SimpleGrid
-					columns={{ base: 1, md: 2 }}
-					gap={{ base: 3, md: 4 }}
-					sx={{
-						"@media screen and (min-width: 768px) and (max-width: 910px)": {
-							"body:not(:has([data-sidebar-collapsed='true'])) &": {
-								gridTemplateColumns: "1fr !important",
-							},
-						},
-					}}
-				>
-					<Box
-						className="shimmer-box"
-						bg="panel.surface"
-						borderRadius="20px"
-						borderWidth="1px"
-						borderColor="panel.border"
-						overflow="hidden"
-						boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
-					>
-						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
-							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-								<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
-							</HStack>
-							<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
-						</Flex>
-						<Box p={{ base: 4, sm: 5, md: 6 }}>
-							<Stack spacing={3}>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
-										<Box w="85px" h="15px" borderRadius="md" bg="panel.elevated" />
-									</HStack>
-									<Box w="80px" h="16px" borderRadius="md" bg="panel.elevated" />
-								</Flex>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
-										<Box w="90px" h="15px" borderRadius="md" bg="panel.elevated" />
-									</HStack>
-									<Box w="80px" h="16px" borderRadius="md" bg="panel.elevated" />
-								</Flex>
-							</Stack>
-						</Box>
-					</Box>
+				<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4"}>
+					<div className="bg-panel-surface rounded-[20px] border border-panel-border! overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+						<div className="flex px-4 sm:px-5 md:px-6 py-3.5 justify-between items-center border-b border-panel-border!">
+							<div className="flex flex-row items-center gap-2.5">
+								<div className="w-[26px] h-[26px] rounded-[7px] bg-panel-elevated" />
+								<div className="w-[110px] h-[16px] rounded-md bg-panel-elevated" />
+							</div>
+							<div className="w-[75px] h-[22px] rounded-full bg-panel-elevated" />
+						</div>
+						<div className="p-4 sm:p-5 md:p-6">
+							<div className="flex flex-col gap-3">
+								<div className="flex justify-between items-center gap-3">
+									<div className="flex flex-row items-center gap-2.5">
+										<div className="w-[28px] h-[28px] rounded-[8px] bg-panel-elevated shrink-0" />
+										<div className="w-[85px] h-[15px] rounded-md bg-panel-elevated" />
+									</div>
+									<div className="w-[80px] h-[16px] rounded-md bg-panel-elevated" />
+								</div>
+								<div className="flex justify-between items-center gap-3">
+									<div className="flex flex-row items-center gap-2.5">
+										<div className="w-[28px] h-[28px] rounded-[8px] bg-panel-elevated shrink-0" />
+										<div className="w-[90px] h-[15px] rounded-md bg-panel-elevated" />
+									</div>
+									<div className="w-[80px] h-[16px] rounded-md bg-panel-elevated" />
+								</div>
+							</div>
+						</div>
+					</div>
 
-					<Box
-						className="shimmer-box"
-						bg="panel.surface"
-						borderRadius="20px"
-						borderWidth="1px"
-						borderColor="panel.border"
-						overflow="hidden"
-						boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
-					>
-						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
-							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-								<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
-							</HStack>
-						</Flex>
-						<Box p={{ base: 4, sm: 5, md: 6 }}>
-							<Stack spacing={3}>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
-										<Box w="95px" h="15px" borderRadius="md" bg="panel.elevated" />
-									</HStack>
-									<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
-								</Flex>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box w="28px" h="28px" borderRadius="8px" bg="panel.elevated" flexShrink={0} />
-										<Box w="90px" h="15px" borderRadius="md" bg="panel.elevated" />
-									</HStack>
-									<Box w="95px" h="16px" borderRadius="md" bg="panel.elevated" />
-								</Flex>
-							</Stack>
-						</Box>
-					</Box>
-				</SimpleGrid>
+					<div className="bg-panel-surface rounded-[20px] border border-panel-border! overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+						<div className="flex px-4 sm:px-5 md:px-6 py-3.5 justify-between items-center border-b border-panel-border!">
+							<div className="flex flex-row items-center gap-2.5">
+								<div className="w-[26px] h-[26px] rounded-[7px] bg-panel-elevated" />
+								<div className="w-[90px] h-[16px] rounded-md bg-panel-elevated" />
+							</div>
+						</div>
+						<div className="p-4 sm:p-5 md:p-6">
+							<div className="flex flex-col gap-3">
+								<div className="flex justify-between items-center gap-3">
+									<div className="flex flex-row items-center gap-2.5">
+										<div className="w-[28px] h-[28px] rounded-[8px] bg-panel-elevated shrink-0" />
+										<div className="w-[95px] h-[15px] rounded-md bg-panel-elevated" />
+									</div>
+									<div className="w-[110px] h-[16px] rounded-md bg-panel-elevated" />
+								</div>
+								<div className="flex justify-between items-center gap-3">
+									<div className="flex flex-row items-center gap-2.5">
+										<div className="w-[28px] h-[28px] rounded-[8px] bg-panel-elevated shrink-0" />
+										<div className="w-[90px] h-[15px] rounded-md bg-panel-elevated" />
+									</div>
+									<div className="w-[95px] h-[16px] rounded-md bg-panel-elevated" />
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
 
-				<Box
-					className="shimmer-box"
-					bg="panel.surface"
-					borderRadius="20px"
-					borderWidth="1px"
-					borderColor="panel.border"
-					overflow="hidden"
-					boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
-				>
-					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
-						<HStack spacing={2.5}>
-							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-							<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
-						</HStack>
-						<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
-					</Flex>
-					<Box p={{ base: 4, sm: 5, md: 6 }}>
-						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
+				<div className="bg-panel-surface rounded-[20px] border border-panel-border! overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+					<div className="flex px-4 sm:px-5 md:px-6 py-3.5 justify-between items-center border-b border-panel-border!">
+						<div className="flex flex-row items-center gap-2.5">
+							<div className="w-[26px] h-[26px] rounded-[7px] bg-panel-elevated" />
+							<div className="w-[110px] h-[16px] rounded-md bg-panel-elevated" />
+						</div>
+						<div className="w-[75px] h-[22px] rounded-full bg-panel-elevated" />
+					</div>
+					<div className="p-4 sm:p-5 md:p-6">
+						<div className="grid grid-cols-2 gap-3 md:gap-4">
 							{[1, 2].map((i) => (
-								<Box
-									key={i}
-									bg="panel.surface"
-									borderRadius="20px"
-									borderWidth="1px"
-									borderColor="panel.border"
-									p={{ base: 4, sm: 5 }}
-									display="flex"
-									flexDirection="column"
-									justifyContent="space-between"
-									boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
-								>
-									<Box>
-										<Flex justify="space-between" align="center" mb={3}>
-											<HStack spacing={2.5} align="center">
-												<Box w="32px" h="32px" borderRadius="9px" bg="panel.elevated" flexShrink={0} />
-												<Box w={i === 1 ? "120px" : "130px"} h="16px" borderRadius="md" bg="panel.elevated" />
-											</HStack>
-										</Flex>
-										<Flex align="baseline" gap={1.5} mb={1}>
-											<Box w="55px" h="24px" borderRadius="md" bg="panel.elevated" />
-											<Box w="45px" h="16px" borderRadius="md" bg="panel.elevated" />
-										</Flex>
-									</Box>
-									<Box mt={3}>
-										<Flex justify="space-between" align="center" mb={1.5}>
-											<Box w="32px" h="13px" borderRadius="sm" bg="panel.elevated" />
-										</Flex>
-										<Box w="full" h="4px" borderRadius="full" bg="panel.elevated" />
-										<Flex justify="space-between" align="center" mt={2.5} pt={2.5} borderTopWidth="1px" borderColor="panel.border">
-											<Box w="75px" h="14px" borderRadius="sm" bg="panel.elevated" />
-											<Box w="70px" h="14px" borderRadius="sm" bg="panel.elevated" />
-										</Flex>
-									</Box>
-								</Box>
+								<div key={i} className="bg-panel-surface rounded-[20px] border border-panel-border! p-4 sm:p-5 flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)]">
+									<div>
+										<div className="flex justify-between items-center mb-3">
+											<div className="flex flex-row gap-2.5 items-center">
+												<div className="w-[32px] h-[32px] rounded-[9px] bg-panel-elevated shrink-0" />
+												<div className={cn("h-[16px] rounded-md bg-panel-elevated", i === 1 ? "w-[120px]" : "w-[130px]")} />
+											</div>
+										</div>
+										<div className="flex items-baseline gap-1.5 mb-1">
+											<div className="w-[55px] h-[24px] rounded-md bg-panel-elevated" />
+											<div className="w-[45px] h-[16px] rounded-md bg-panel-elevated" />
+										</div>
+									</div>
+									<div className="mt-3">
+										<div className="flex justify-between items-center mb-1.5">
+											<div className="w-[32px] h-[13px] rounded-xs bg-panel-elevated" />
+										</div>
+										<div className="w-full h-[4px] rounded-full bg-panel-elevated" />
+										<div className="flex justify-between items-center mt-2.5 pt-2.5 border-t border-panel-border!">
+											<div className="w-[75px] h-[14px] rounded-xs bg-panel-elevated" />
+											<div className="w-[70px] h-[14px] rounded-xs bg-panel-elevated" />
+										</div>
+									</div>
+								</div>
 							))}
-						</SimpleGrid>
-					</Box>
-				</Box>
+						</div>
+					</div>
+				</div>
 
-				<Box
-					className="shimmer-box"
-					bg="panel.surface"
-					borderRadius="20px"
-					borderWidth="1px"
-					borderColor="panel.border"
-					overflow="hidden"
-					boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
-				>
-					<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
-						<HStack spacing={2.5}>
-							<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-							<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
-						</HStack>
-						<HStack spacing={0.5} bg="panel.elevated" p={0.5} borderRadius="8px">
-							<Box w="65px" h="22px" borderRadius="6px" bg="panel.surface" />
-							<Box w="60px" h="22px" borderRadius="6px" bg="transparent" />
-						</HStack>
-					</Flex>
-					<Box p={{ base: 4, sm: 5, md: 6 }}>
-						<Stack spacing={0}>
+				<div className="bg-panel-surface rounded-[20px] border border-panel-border! overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+					<div className="flex px-4 sm:px-5 md:px-6 py-3.5 justify-between items-center border-b border-panel-border!">
+						<div className="flex flex-row items-center gap-2.5">
+							<div className="w-[26px] h-[26px] rounded-[7px] bg-panel-elevated" />
+							<div className="w-[90px] h-[16px] rounded-md bg-panel-elevated" />
+						</div>
+						<div className="flex flex-row items-center gap-0.5 bg-panel-elevated p-0.5 rounded-[8px]">
+							<div className="w-[65px] h-[22px] rounded-[6px] bg-panel-surface" />
+							<div className="w-[60px] h-[22px] rounded-[6px] bg-transparent" />
+						</div>
+					</div>
+					<div className="p-4 sm:p-5 md:p-6">
+						<div className="flex flex-col gap-0">
 							{[
 								{ id: "skel-u-total", hasTag: false, hasHelper: false, labelW: "55px", valW: "35px" },
 								{ id: "skel-u-active", hasTag: true, hasHelper: false, labelW: "55px", valW: "35px" },
@@ -1811,47 +1271,32 @@ export const Statistics: FC<BoxProps> = (props) => {
 								{ id: "skel-u-limited", hasTag: false, hasHelper: false, labelW: "70px", valW: "30px" },
 								{ id: "skel-u-expired", hasTag: false, hasHelper: false, labelW: "75px", valW: "30px" },
 							].map((row, idx) => (
-								<Flex
-									key={row.id}
-									justify="space-between"
-									align="center"
-									py={2.5}
-									borderBottomWidth={idx === 5 ? "0" : "1px"}
-									borderColor="panel.border"
-								>
-									<HStack spacing={3} minW={0}>
-										<Box w="7px" h="7px" borderRadius="full" bg="panel.elevated" me="3px" flexShrink={0} />
-										<Box w={row.labelW} h="14px" borderRadius="md" bg="panel.elevated" />
-										{row.hasTag && <Box w="36px" h="18px" borderRadius="md" bg="panel.elevated" />}
-									</HStack>
-									<VStack align="flex-end" spacing={0.5} flexShrink={0}>
-										<Box w={row.valW} h="16px" borderRadius="md" bg="panel.elevated" />
-										{row.hasHelper && <Box w="100px" h="12px" borderRadius="sm" bg="panel.elevated" mt={0.5} />}
-									</VStack>
-								</Flex>
+								<div key={row.id} className={cn("flex justify-between items-center py-2.5 border-panel-border!", idx === 5 ? "border-b-0" : "border-b")}>
+									<div className="flex flex-row items-center gap-3 min-w-0!">
+										<div className="w-[7px] h-[7px] rounded-full bg-panel-elevated me-[3px] shrink-0" />
+										<div style={{ width: row.labelW }} className="h-[14px] rounded-md bg-panel-elevated" />
+										{row.hasTag && <div className="w-[36px] h-[18px] rounded-md bg-panel-elevated" />}
+									</div>
+									<div className="flex flex-col items-end gap-0.5 shrink-0">
+										<div style={{ width: row.valW }} className="h-[16px] rounded-md bg-panel-elevated" />
+										{row.hasHelper && <div className="w-[100px] h-[12px] rounded-xs bg-panel-elevated mt-0.5" />}
+									</div>
+								</div>
 							))}
-						</Stack>
-					</Box>
-				</Box>
+						</div>
+					</div>
+				</div>
 
 				{canSeeGlobal && (
-					<Box
-						className="shimmer-box"
-						bg="panel.surface"
-						borderRadius="20px"
-						borderWidth="1px"
-						borderColor="panel.border"
-						overflow="hidden"
-						boxShadow="inset 0 1px 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px -6px rgba(0, 0, 0, 0.12)"
-					>
-						<Flex px={{ base: 4, sm: 5, md: 6 }} py={3.5} justify="space-between" align="center" borderBottomWidth="1px" borderColor="panel.border">
-							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-								<Box w="85px" h="16px" borderRadius="md" bg="panel.elevated" />
-							</HStack>
-						</Flex>
-						<Box p={{ base: 4, sm: 5, md: 6 }}>
-							<Stack spacing={0}>
+					<div className="bg-panel-surface rounded-[20px] border border-panel-border! overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+						<div className="flex px-4 sm:px-5 md:px-6 py-3.5 justify-between items-center border-b border-panel-border!">
+							<div className="flex flex-row items-center gap-2.5">
+								<div className="w-[26px] h-[26px] rounded-[7px] bg-panel-elevated" />
+								<div className="w-[85px] h-[16px] rounded-md bg-panel-elevated" />
+							</div>
+						</div>
+						<div className="p-4 sm:p-5 md:p-6">
+							<div className="flex flex-col gap-0">
 								{[
 									{ id: "skel-a-total", labelW: "75px", valW: "40px" },
 									{ id: "skel-a-full", labelW: "85px", valW: "40px" },
@@ -1859,26 +1304,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 									{ id: "skel-a-standard", labelW: "80px", valW: "40px" },
 									{ id: "skel-a-top", labelW: "75px", valW: "120px" },
 								].map((row, idx) => (
-									<Flex
-										key={row.id}
-										justify="space-between"
-										align="center"
-										py={2.5}
-										borderBottomWidth={idx === 4 ? "0" : "1px"}
-										borderColor="panel.border"
-									>
-										<HStack spacing={3} minW={0}>
-											<Box w="7px" h="7px" borderRadius="full" bg="panel.elevated" me="3px" flexShrink={0} />
-											<Box w={row.labelW} h="14px" borderRadius="md" bg="panel.elevated" />
-										</HStack>
-										<Box w={row.valW} h="16px" borderRadius="md" bg="panel.elevated" />
-									</Flex>
+									<div key={row.id} className={cn("flex justify-between items-center py-2.5 border-panel-border!", idx === 4 ? "border-b-0" : "border-b")}>
+										<div className="flex flex-row items-center gap-3 min-w-0!">
+											<div className="w-[7px] h-[7px] rounded-full bg-panel-elevated me-[3px] shrink-0" />
+											<div style={{ width: row.labelW }} className="h-[14px] rounded-md bg-panel-elevated" />
+										</div>
+										<div style={{ width: row.valW }} className="h-[16px] rounded-md bg-panel-elevated" />
+									</div>
 								))}
-							</Stack>
-						</Box>
-					</Box>
+							</div>
+						</div>
+					</div>
 				)}
-			</Stack>
+			</div>
 		);
 	}
 
@@ -1920,121 +1358,60 @@ export const Statistics: FC<BoxProps> = (props) => {
 		"-";
 
 	return (
-		<Stack
-			spacing={{ base: 4, md: 5 }}
-			w="full"
-			dir={isRTL ? "rtl" : "ltr"}
-			{...props}
-		>
+		<div dir={isRTL ? "rtl" : "ltr"} {...props} className="flex flex-col gap-4 md:gap-5 w-full">
 			{canSeeGlobal && <SystemDiagnostics issues={criticalIssues} criticalOnly />}
-			<Flex align="center" justify="space-between" flexWrap="wrap" gap={3} px={1}>
-				<Flex
-					wrap="wrap"
-					gap={{ base: 2.5, md: 1 }}
-					sx={{
-						flexDirection: "column",
-						alignItems: "flex-start",
-						"@media screen and (max-width: 767px)": {
-							flexDirection: "row",
-							alignItems: "center",
-						},
-						"@media screen and (min-width: 768px) and (max-width: 991px)": {
-							"body:has([data-sidebar-collapsed='true']) &": {
-								flexDirection: "row",
-								alignItems: "center",
-							},
-							"body:not(:has([data-sidebar-collapsed='true'])) &": {
-								flexDirection: "column",
-								alignItems: "flex-start",
-							},
-						},
-						"@media screen and (min-width: 992px)": {
-							flexDirection: "column",
-							alignItems: "flex-start",
-						},
-					}}
-				>
-					<Text fontSize={{ base: "18px", md: "20px" }} fontWeight="700" color="panel.text" letterSpacing="-0.02em">
+			<div className="flex items-center justify-between flex-wrap gap-3 px-1">
+				<div className={"flex-col items-start max-md:flex-row max-md:items-center min-[768px]:max-[991px]:[body:has([data-sidebar-collapsed='true'])_&]:flex-row min-[768px]:max-[991px]:[body:has([data-sidebar-collapsed='true'])_&]:items-center min-[768px]:max-[991px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:flex-col min-[768px]:max-[991px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:items-start lg:flex-col lg:items-start flex-wrap flex gap-2.5 md:gap-1"}>
+					<p className="text-[18px] md:text-[20px] font-bold text-panel-text tracking-[-0.02em]">
 						{t("dashboard.system.overview")}
-					</Text>
-					<Flex align="center" gap={2} direction="row">
-						<Box
-							w="7px"
-							h="7px"
-							borderRadius="full"
-							bg={systemData.xray_running && !hasXrayError ? "#22c55e" : "#ef4444"}
-							sx={{
+					</p>
+					<div className="flex-row flex items-center gap-2">
+						<div style={{
 								animation: systemData.xray_running && !hasXrayError ? "livePulse 3.5s ease-in-out infinite" : "none",
 								boxShadow: systemData.xray_running && !hasXrayError
 									? "0 0 5px rgba(34, 197, 94, 0.4)"
 									: "0 0 5px rgba(239, 68, 68, 0.4)",
-								"@keyframes livePulse": {
-									"0%, 100%": { opacity: 0.65, transform: "scale(1)" },
-									"50%": { opacity: 1, transform: "scale(1.08)", boxShadow: "0 0 8px rgba(34, 197, 94, 0.6)" },
-								},
-							}}
-						/>
-						<Text fontSize="12px" color="panel.textSecondary" fontWeight="600">
+							}} className={cn("w-[7px] h-[7px] rounded-full", systemData.xray_running && !hasXrayError ? "bg-[#22c55e]" : "bg-[#ef4444]")} />
+						<p className="text-[12px] text-panel-text-secondary font-semibold">
 							{hasXrayError ? t("diagnostics.statusError") : systemData.xray_running ? t("dashboard.system.statusRunning") : t("dashboard.system.statusStopped")}
-						</Text>
+						</p>
 						{systemData.os && (
-							<HStack spacing={1.5} align="center" color="panel.textSecondary" fontSize="12px" fontWeight="600">
-								<Text as="span">·</Text>
-								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+							<div className="flex flex-row gap-1.5 items-center text-panel-text-secondary text-[12px] font-semibold">
+								<span>·</span>
+								<span dir="ltr" className="[unicode-bidi:isolate]">
 									{systemData.os}
-								</Text>
-							</HStack>
+								</span>
+							</div>
 						)}
 						{exactVersion && exactVersion !== "-" && (
-							<HStack spacing={1.5} align="center" color="panel.textSecondary" fontSize="12px" fontWeight="600">
-								<Text as="span">·</Text>
-								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+							<div className="flex flex-row gap-1.5 items-center text-panel-text-secondary text-[12px] font-semibold">
+								<span>·</span>
+								<span dir="ltr" className="[unicode-bidi:isolate]">
 									{exactVersion}
-								</Text>
-							</HStack>
+								</span>
+							</div>
 						)}
-					</Flex>
-				</Flex>
+					</div>
+				</div>
 				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
-			</Flex>
+			</div>
 
-			<SimpleGrid
-				columns={{ base: 1, sm: 2, xl: 4 }}
-				gap={{ base: 3, md: 4 }}
-				sx={{
-					"@media screen and (min-width: 768px) and (max-width: 910px)": {
-						"body:not(:has([data-sidebar-collapsed='true'])) &": {
-							gridTemplateColumns: "1fr !important",
-						},
-					},
-				}}
-			>
+			<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
 				<ResourceCard
 					label={t("dashboard.system.cpuUsage")}
-					icon={<CpuChipIcon width={16} />}
+					icon={<Cpu className="w-[16px]" />}
 					value={formatPercent(systemData.cpu_usage, false)}
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
 					metaUnit={t("dashboard.system.core")}
 					subMeta={
 						systemData.load_avg && systemData.load_avg.length >= 3 ? (
-							<Flex
-								align="center"
-								gap={1.5}
-								fontSize="11px"
-								fontWeight="500"
-								color="panel.textMuted"
-								dir={isRTL ? "rtl" : "ltr"}
-							>
-								<Text as="span">{t("loadAverage")}:</Text>
-								<Text
-									as="span"
-									dir="ltr"
-									sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-								>
+							<div dir={isRTL ? "rtl" : "ltr"} className="flex items-center gap-1.5 text-[11px] font-medium text-panel-text-muted">
+								<span>{t("loadAverage")}:</span>
+								<span dir="ltr" className="[font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
 									{systemData.load_avg.slice(0, 3).map((v) => v.toFixed(2)).join(" · ")}
-								</Text>
-							</Flex>
+								</span>
+							</div>
 						) : undefined
 					}
 					footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
@@ -2052,7 +1429,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.memoryUsage")}
-					icon={<ServerStackIcon width={16} />}
+					icon={<Server className="w-[16px]" />}
 					value={formatBytes(systemData.memory.current, 1)}
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
@@ -2071,7 +1448,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.swapUsage")}
-					icon={<CircleStackIcon width={16} />}
+					icon={<Database className="w-[16px]" />}
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
@@ -2081,7 +1458,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.diskUsage")}
-					icon={<CircleStackIcon width={16} />}
+					icon={<Database className="w-[16px]" />}
 					value={formatBytes(systemData.disk.current, 1)}
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
@@ -2089,33 +1466,23 @@ export const Statistics: FC<BoxProps> = (props) => {
 					footerRight={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.disk_history.map((e) => e.value)), isRTL)}`}
 					isRTL={isRTL}
 				/>
-			</SimpleGrid>
+			</div>
 
-			<SimpleGrid
-				columns={{ base: 1, md: 2 }}
-				gap={{ base: 3, md: 4 }}
-				sx={{
-					"@media screen and (min-width: 768px) and (max-width: 910px)": {
-						"body:not(:has([data-sidebar-collapsed='true'])) &": {
-							gridTemplateColumns: "1fr !important",
-						},
-					},
-				}}
-			>
+			<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4"}>
 				<SectionCard
 					title={
-						<HStack spacing={2.5}>
-							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
-								<SignalIcon width={14} />
-							</Flex>
+						<div className="flex flex-row items-center gap-2.5">
+							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
+								<Signal className="w-[14px]" />
+							</div>
 							<span>{t("dashboard.system.bandwidthSpeed")}</span>
-						</HStack>
+						</div>
 					}
 					action={
-						<HStack spacing={2}>
+						<div className="flex flex-row items-center gap-2">
 							{canSeeGlobal ? (
-								<HStack spacing={0.5} bg="panel.elevated" p={0.5} borderRadius="8px" position="relative" transition="all 0.25s ease">
-									<Box position="relative">
+								<div className="flex flex-row items-center gap-0.5 bg-panel-elevated p-0.5 rounded-[8px] relative [transition:all_0.25s_ease]">
+									<div className="relative">
 										{bandwidthScope === "master" && (
 											<motion.div
 												layoutId="bandwidthScopeTabPill"
@@ -2123,26 +1490,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 												transition={{ type: "tween", ease: "easeInOut", duration: 0.25 }}
 											/>
 										)}
-										<Button
-											size="xs"
-											h="22px"
-											px={2.5}
-											borderRadius="6px"
-											fontSize="11px"
-											fontWeight="600"
-											variant="ghost"
-											bg="transparent !important"
-											color={bandwidthScope === "master" ? "white" : "panel.text"}
-											position="relative"
-											zIndex={2}
-											transition="all 0.2s ease"
-											_focusVisible={{ outline: "2px solid var(--rb-panel-accent)", outlineOffset: "2px" }}
-											onClick={() => setBandwidthScope("master")}
-										>
+										<Button onClick={() => setBandwidthScope("master")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", bandwidthScope === "master" ? "text-white" : "text-panel-text")}>
 											{t("dashboard.system.bandwidthScope.master")}
 										</Button>
-									</Box>
-									<Box position="relative">
+									</div>
+									<div className="relative">
 										{bandwidthScope === "total" && (
 											<motion.div
 												layoutId="bandwidthScopeTabPill"
@@ -2150,193 +1502,105 @@ export const Statistics: FC<BoxProps> = (props) => {
 												transition={{ type: "tween", ease: "easeInOut", duration: 0.25 }}
 											/>
 										)}
-										<Button
-											size="xs"
-											h="22px"
-											px={2.5}
-											borderRadius="6px"
-											fontSize="11px"
-											fontWeight="600"
-											variant="ghost"
-											bg="transparent !important"
-											color={bandwidthScope === "total" ? "white" : "panel.text"}
-											position="relative"
-											zIndex={2}
-											transition="all 0.2s ease"
-											_focusVisible={{ outline: "2px solid var(--rb-panel-accent)", outlineOffset: "2px" }}
-											onClick={() => setBandwidthScope("total")}
-											title={t("dashboard.system.bandwidthScope.totalHint")}
-										>
+										<Button onClick={() => setBandwidthScope("total")} title={t("dashboard.system.bandwidthScope.totalHint")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", bandwidthScope === "total" ? "text-white" : "text-panel-text")}>
 											{t("dashboard.system.bandwidthScope.total")}
 										</Button>
-									</Box>
-								</HStack>
+									</div>
+								</div>
 							) : null}
 							{!showTotalBandwidth ? (
-								<Button
-									size="xs"
-									h="22px"
-									px={2.5}
-									fontSize="11px"
-									variant="ghost"
-									borderRadius="full"
-									bg="panel.elevated"
-									color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
-									fontWeight={colorMode === "light" ? "600" : "500"}
-									transition="all 0.2s ease"
-									_groupHover={{
-										md: {
-											bg: "panel.surface",
-											color: colorMode === "light" ? "panel.text" : "panel.textSecondary",
-										},
-									}}
-									_hover={{
-										md: {
-											bg: "panel.border !important",
-											color: "panel.text !important",
-										},
-									}}
-									_active={{
-										bg: "panel.borderStrong !important",
-									}}
-									_focusVisible={{
-										outline: "2px solid var(--rb-panel-accent)",
-										outlineOffset: "2px",
-									}}
-									position="relative"
-									_after={{
-										content: '""',
-										position: "absolute",
-										top: "-10px",
-										bottom: "-10px",
-										left: "-10px",
-										right: "-10px",
-									}}
-									onClick={() =>
+								<Button onClick={() =>
 										openHistory({
 											type: "network",
 											title: t("dashboard.system.bandwidthSpeed"),
 											networkEntries: systemData.network_history,
 										})
-									}
-								>
+									} variant="ghost" size="xs" className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2.5 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] [[role=group]:hover_&]:md:bg-panel-surface hover:md:bg-panel-border! hover:md:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium", colorMode === "light" ? "[[role=group]:hover_&]:md:text-panel-text" : "[[role=group]:hover_&]:md:text-panel-text-secondary"))}>
 									{t("dashboard.system.viewHistory")}
 								</Button>
 							) : null}
-						</HStack>
+						</div>
 					}
 				>
-					<Stack spacing={3}>
+					<div className="flex flex-col gap-3">
 						<SpeedItem
-							icon={<ArrowDownTrayIcon width={13} />}
+							icon={<Download className="w-[13px]" />}
 							label={t("dashboard.system.incomingSpeed")}
 							value={`${formatBytes(showTotalBandwidth ? (systemData.total_incoming_bandwidth_speed ?? 0) : systemData.incoming_bandwidth_speed)}/s`}
 						/>
 						<SpeedItem
-							icon={<ArrowUpTrayIcon width={13} />}
+							icon={<Upload className="w-[13px]" />}
 							label={t("dashboard.system.outgoingSpeed")}
 							value={`${formatBytes(showTotalBandwidth ? (systemData.total_outgoing_bandwidth_speed ?? 0) : systemData.outgoing_bandwidth_speed)}/s`}
 						/>
-					</Stack>
+					</div>
 				</SectionCard>
 
 				<SectionCard
 					title={
-						<HStack spacing={2.5}>
-							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
-								<ClockIcon width={14} />
-							</Flex>
+						<div className="flex flex-row items-center gap-2.5">
+							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
+								<Clock className="w-[14px]" />
+							</div>
 							<span>{t("dashboard.system.uptime")}</span>
-						</HStack>
+						</div>
 					}
 				>
-					<Stack spacing={3}>
-						<Flex align="center" justify="space-between" gap={3}>
-							<HStack spacing={2.5} color="panel.textMuted">
-								<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
-									<ServerStackIcon width={13} />
-								</Flex>
-								<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
+					<div className="flex h-full flex-col justify-between gap-3">
+						<div className="flex items-center justify-between gap-3">
+							<div className="flex flex-row items-center gap-2.5 text-panel-text-muted">
+								<div className="flex w-[28px] h-[28px] items-center justify-center rounded-[8px] bg-panel-elevated shrink-0">
+									<Server className="w-[13px]" />
+								</div>
+								<p className="text-[13px] font-semibold text-panel-text-secondary">
 									{t("dashboard.system.systemUptime")}
-								</Text>
-							</HStack>
+								</p>
+							</div>
 							{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
-						</Flex>
-						<Flex align="center" justify="space-between" gap={3}>
-							<HStack spacing={2.5} color="panel.textMuted">
-								<Flex w="28px" h="28px" align="center" justify="center" borderRadius="8px" bg="panel.elevated" flexShrink={0}>
-									<CircleStackIcon width={13} />
-								</Flex>
-								<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
+						</div>
+						<div className="flex items-center justify-between gap-3">
+							<div className="flex flex-row items-center gap-2.5 text-panel-text-muted">
+								<div className="flex w-[28px] h-[28px] items-center justify-center rounded-[8px] bg-panel-elevated shrink-0">
+									<Database className="w-[13px]" />
+								</div>
+								<p className="text-[13px] font-semibold text-panel-text-secondary">
 									{t("dashboard.system.panelUptime")}
-								</Text>
-							</HStack>
+								</p>
+							</div>
 							{formatLocalizedDuration(systemData.panel_uptime_seconds, t, isRTL)}
-						</Flex>
-					</Stack>
+						</div>
+					</div>
 				</SectionCard>
-			</SimpleGrid>
+			</div>
 
 			<SectionCard
 				noHover
 				roleGroup={false}
 				title={
-					<HStack spacing={2.5}>
-						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
-							<CpuChipIcon width={14} />
-						</Flex>
+					<div className="flex flex-row items-center gap-2.5">
+						<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
+							<Cpu className="w-[14px]" />
+						</div>
 						<span>{t("dashboard.system.panelUsage")}</span>
-					</HStack>
+					</div>
 				}
 				action={
-					<Button
-						size="xs"
-						h="22px"
-						px={2.5}
-						fontSize="11px"
-						variant="ghost"
-						borderRadius="full"
-						bg="panel.elevated"
-						color={colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"}
-						fontWeight={colorMode === "light" ? "600" : "500"}
-						transition="all 0.2s ease"
-						_hover={{
-							bg: "panel.border !important",
-							color: "panel.text !important",
-						}}
-						_active={{
-							bg: "panel.borderStrong !important",
-						}}
-						_focusVisible={{
-							outline: "2px solid var(--rb-panel-accent)",
-							outlineOffset: "2px",
-						}}
-						position="relative"
-						_after={{
-							content: '""',
-							position: "absolute",
-							top: "-10px",
-							bottom: "-10px",
-							left: "-10px",
-							right: "-10px",
-						}}
-						onClick={() =>
+					<Button onClick={() =>
 							openHistory({
 								type: "panel",
 								title: t("dashboard.system.panelUsage"),
 								cpuEntries: systemData.panel_cpu_history,
 								memoryEntries: systemData.panel_memory_history,
 							})
-						}
-					>
+						} variant="ghost" size="xs" className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2.5 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] hover:bg-panel-border! hover:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium"))}>
 						{t("dashboard.system.viewHistory")}
 					</Button>
 				}
 			>
-				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
+				<div className="grid grid-cols-2 gap-3 md:gap-4">
 					<ResourceCard
 						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
-						icon={<CpuChipIcon width={16} />}
+						icon={<Cpu className="w-[16px]" />}
 						value={formatPercent(systemData.panel_cpu_percent, false)}
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
@@ -2347,7 +1611,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					/>
 					<ResourceCard
 						label={`${t("dashboard.system.memoryUsage")} (Panel)`}
-						icon={<ServerStackIcon width={16} />}
+						icon={<Server className="w-[16px]" />}
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
@@ -2355,34 +1619,22 @@ export const Statistics: FC<BoxProps> = (props) => {
 						footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
 						isRTL={isRTL}
 					/>
-				</SimpleGrid>
+				</div>
 			</SectionCard>
 
 			<SectionCard
 				title={
-					<HStack spacing={2.5}>
-						<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
-							<UserGroupIcon width={14} />
-						</Flex>
+					<div className="flex flex-row items-center gap-2.5">
+						<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
+							<Users className="w-[14px]" />
+						</div>
 						<span>{t("dashboard.users")}</span>
-					</HStack>
+					</div>
 				}
 				action={
 					canSeeGlobal ? (
-						<HStack
-							spacing={0.5}
-							bg="panel.elevated"
-							p={0.5}
-							borderRadius="8px"
-							position="relative"
-							transition="all 0.25s ease"
-							_groupHover={{
-								md: {
-									bg: "panel.surface",
-								},
-							}}
-						>
-							<Box position="relative">
+						<div className="flex flex-row items-center gap-0.5 bg-panel-elevated p-0.5 rounded-[8px] relative [transition:all_0.25s_ease] [[role=group]:hover_&]:md:bg-panel-surface">
+							<div className="relative">
 								{userTab === "all" && (
 									<motion.div
 										layoutId="usersOverviewTabPill"
@@ -2405,34 +1657,11 @@ export const Statistics: FC<BoxProps> = (props) => {
 										}}
 									/>
 								)}
-								<Button
-									size="xs"
-									h="22px"
-									px={2.5}
-									borderRadius="6px"
-									fontSize="11px"
-									fontWeight="600"
-									variant="ghost"
-									bg="transparent !important"
-									color={userTab === "all" ? "white" : "panel.text"}
-									position="relative"
-									zIndex={2}
-									transition="all 0.2s ease"
-									_hover={{
-										md: {
-											color: userTab === "all" ? "white" : "panel.text",
-										},
-									}}
-									_focusVisible={{
-										outline: "2px solid var(--rb-panel-accent)",
-										outlineOffset: "2px",
-									}}
-									onClick={() => setUserTab("all")}
-								>
+								<Button onClick={() => setUserTab("all")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", userTab === "all" ? "text-white" : "text-panel-text", userTab === "all" ? "hover:md:text-white" : "hover:md:text-panel-text")}>
 									{t("dashboard.users.allUsers")}
 								</Button>
-							</Box>
-							<Box position="relative">
+							</div>
+							<div className="relative">
 								{userTab === "mine" && (
 									<motion.div
 										layoutId="usersOverviewTabPill"
@@ -2455,40 +1684,17 @@ export const Statistics: FC<BoxProps> = (props) => {
 										}}
 									/>
 								)}
-								<Button
-									size="xs"
-									h="22px"
-									px={2.5}
-									borderRadius="6px"
-									fontSize="11px"
-									fontWeight="600"
-									variant="ghost"
-									bg="transparent !important"
-									color={userTab === "mine" ? "white" : "panel.text"}
-									position="relative"
-									zIndex={2}
-									transition="all 0.2s ease"
-									_hover={{
-										md: {
-											color: userTab === "mine" ? "white" : "panel.text",
-										},
-									}}
-									_focusVisible={{
-										outline: "2px solid var(--rb-panel-accent)",
-										outlineOffset: "2px",
-									}}
-									onClick={() => setUserTab("mine")}
-								>
+								<Button onClick={() => setUserTab("mine")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", userTab === "mine" ? "text-white" : "text-panel-text", userTab === "mine" ? "hover:md:text-white" : "hover:md:text-panel-text")}>
 									{t("dashboard.users.myUsers")}
 								</Button>
-							</Box>
-						</HStack>
+							</div>
+						</div>
 					) : undefined
 				}
 			>
 				<AnimatedHeightWrapper activeKey={userTab}>
 					{canSeeGlobal && userTab === "all" ? (
-						<Stack spacing={0}>
+						<div className="flex flex-col gap-0">
 							<StatRow label={t("dashboard.users.total")} value={systemData.total_user} tagColor="#3b82f6" />
 							<StatRow label={t("dashboard.users.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
 							<StatRow
@@ -2505,9 +1711,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 							<StatRow label={t("dashboard.users.onHold")} value={systemData.users_on_hold} tagColor="#a855f7" />
 							<StatRow label={t("dashboard.users.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
 							<StatRow label={t("dashboard.users.expired")} value={systemData.users_expired} tagColor="#f97316" />
-						</Stack>
+						</div>
 					) : (
-						<Stack spacing={0}>
+						<div className="flex flex-col gap-0">
 							<StatRow label={t("dashboard.users.total")} value={myTotalUsers} tagColor="#3b82f6" />
 							<StatRow label={t("dashboard.users.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
 							<StatRow
@@ -2536,7 +1742,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									tagColor="#f59e0b"
 								/>
 							) : null}
-						</Stack>
+						</div>
 					)}
 				</AnimatedHeightWrapper>
 			</SectionCard>
@@ -2544,15 +1750,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 			{canSeeGlobal && systemData.admin_overview && (
 				<SectionCard
 					title={
-						<HStack spacing={2.5}>
-							<Flex w="26px" h="26px" align="center" justify="center" borderRadius="7px" bg="panel.elevated" color="panel.textSecondary">
-								<ShieldCheckIcon width={14} />
-							</Flex>
+						<div className="flex flex-row items-center gap-2.5">
+							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
+								<ShieldCheck className="w-[14px]" />
+							</div>
 							<span>{t("dashboard.admins")}</span>
-						</HStack>
+						</div>
 					}
 				>
-					<Stack spacing={0}>
+					<div className="flex flex-col gap-0">
 						<StatRow label={t("dashboard.admins.total")} value={systemData.admin_overview.total_admins} tagColor="#3b82f6" />
 						<StatRow label={t("dashboard.admins.fullAccess")} value={systemData.admin_overview.full_access_admins} tagColor="#f59e0b" />
 						<StatRow label={t("dashboard.admins.sudo")} value={systemData.admin_overview.sudo_admins} tagColor="#a855f7" />
@@ -2565,12 +1771,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 								accent
 							/>
 						)}
-					</Stack>
+					</div>
 				</SectionCard>
 			)}
 
 			<HistoryModal
-				isOpen={Boolean(historyPayload)}
+				open={Boolean(historyPayload)}
 				onClose={() => setHistoryPayload(null)}
 				payload={historyPayload}
 				intervalSeconds={historyInterval}
@@ -2578,6 +1784,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 				t={t}
 				isRTL={isRTL}
 			/>
-		</Stack>
+		</div>
 	);
 };

@@ -1,18 +1,10 @@
-import {
-	chakra,
-	IconButton,
-	Menu,
-	MenuButton,
-	MenuItem,
-	MenuList,
-	Portal,
-} from "@chakra-ui/react";
-import { EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
-import { Fragment, type FC, type ReactElement, type ReactNode } from "react";
+import { Fragment, useState, type FC, type MouseEvent as ReactMouseEvent, type ReactElement, type ReactNode } from "react";
+import { Ellipsis } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { RowActionButton } from "./row-actions";
 
-const EllipsisIcon = chakra(EllipsisHorizontalIcon, {
-	baseStyle: { w: 5, h: 5 },
-});
+// Chakra colour token ("red.400") to a text class. The palette is safelisted in tailwind.css.
+const toneClass = (color?: string) => (color ? `text-${color.replace(".", "-")}` : undefined);
 
 export type RowActionItem = {
 	id: string;
@@ -20,9 +12,11 @@ export type RowActionItem = {
 	icon?: ReactElement;
 	onClick?: () => void;
 	render?: (onClose: () => void) => ReactNode;
-	isDisabled?: boolean;
+	disabled?: boolean;
+	disabledReason?: string;
 	isDanger?: boolean;
 	color?: string;
+	pinned?: boolean;
 };
 
 type RowActionsMenuProps = {
@@ -31,9 +25,7 @@ type RowActionsMenuProps = {
 };
 
 const getActionLabelText = (label: RowActionItem["label"]) =>
-	typeof label === "string" || typeof label === "number"
-		? String(label)
-		: "";
+	typeof label === "string" || typeof label === "number" ? String(label) : "";
 
 const getActionPriority = (action: RowActionItem) => {
 	const id = action.id.toLowerCase();
@@ -45,75 +37,51 @@ const getActionPriority = (action: RowActionItem) => {
 	return 50;
 };
 
-export const orderRowActions = <TAction extends RowActionItem>(
-	actions: TAction[],
-) =>
+export const orderRowActions = <TAction extends RowActionItem>(actions: TAction[]) =>
 	[...actions].sort((first, second) => {
 		const priorityDelta = getActionPriority(first) - getActionPriority(second);
 		if (priorityDelta !== 0) return priorityDelta;
 		return 0;
 	});
 
-export const RowActionsMenu: FC<RowActionsMenuProps> = ({
-	actions,
-	label = "Actions",
-}) => {
+export const RowActionsMenu: FC<RowActionsMenuProps> = ({ actions, label = "Actions" }) => {
+	const [open, setOpen] = useState(false);
 	if (actions.length === 0) return null;
 	const orderedActions = orderRowActions(actions);
+	const onClose = () => setOpen(false);
 
 	return (
-		<Menu placement="auto-end" strategy="fixed" autoSelect={false} isLazy>
-			{({ onClose }) => (
-				<>
-					<MenuButton
-						as={IconButton}
-						aria-label={label}
-						icon={<EllipsisIcon />}
-						size="sm"
-						variant="ghost"
-						className="rb-row-action"
-						minW="32px"
-						h="32px"
-						onClick={(event) => event.stopPropagation()}
-					/>
-					<Portal>
-						<MenuList
-							minW="220px"
-							maxW="calc(100vw - 24px)"
-							maxH="min(70vh, 420px)"
-							overflowY="auto"
-							overflowX="hidden"
-							overscrollBehavior="contain"
-							zIndex={2500}
-							borderRadius="lg"
-							boxShadow="2xl"
+		<DropdownMenu open={open} onOpenChange={setOpen}>
+			<DropdownMenuTrigger asChild>
+				<RowActionButton
+					label={label}
+					icon={<Ellipsis />}
+					onClick={(event: ReactMouseEvent<HTMLButtonElement>) => event.stopPropagation()}
+				/>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent
+				align="end"
+				className="min-w-[220px]! max-w-[calc(100vw_-_24px)] max-h-[min(70vh,_420px)] overflow-y-auto overflow-x-hidden overscroll-contain z-[2500] rounded-lg shadow-2xl"
+			>
+				{orderedActions.map((action) =>
+					action.render ? (
+						<Fragment key={action.id}>{action.render(onClose)}</Fragment>
+					) : (
+						<DropdownMenuItem
+							key={action.id}
+							disabled={action.disabled}
+							className={toneClass(action.color ?? (action.isDanger ? "red.400" : undefined))}
+							onSelect={(event) => {
+								event.stopPropagation();
+								action.onClick?.();
+							}}
 						>
-							{orderedActions.map((action) =>
-								action.render ? (
-									<Fragment key={action.id}>
-										{action.render(onClose)}
-									</Fragment>
-								) : (
-									<MenuItem
-										key={action.id}
-										icon={action.icon}
-										onClick={(event) => {
-											event.stopPropagation();
-											action.onClick?.();
-										}}
-										isDisabled={action.isDisabled}
-										color={
-											action.color ?? (action.isDanger ? "red.400" : undefined)
-										}
-									>
-										{action.label}
-									</MenuItem>
-								),
-							)}
-						</MenuList>
-					</Portal>
-				</>
-			)}
-		</Menu>
+							{action.icon}
+							{action.label}
+						</DropdownMenuItem>
+					),
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 };

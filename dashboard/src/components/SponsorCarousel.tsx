@@ -1,4 +1,4 @@
-import { Box, Image, Text } from "@chakra-ui/react";
+import { cn } from "lib/cn";
 import {
 	useEffect,
 	useMemo,
@@ -27,20 +27,9 @@ const SponsorLink: FC<{ href?: string; children: ReactNode }> = ({
 	children,
 }) =>
 	href ? (
-		<Box
-			as="a"
-			href={href}
-			target="_blank"
-			rel="noopener noreferrer"
-			display="flex"
-			alignItems="center"
-			gap={3}
-			w="full"
-			h="full"
-			minW={0}
-		>
+		<a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 w-full h-full min-w-0!">
 			{children}
-		</Box>
+		</a>
 	) : (
 		<>{children}</>
 	);
@@ -76,82 +65,27 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	const isBanner = variant === "banner";
 	const isSidebarBanner = variant === "sidebar";
 	return (
-		<Box
-			overflow="hidden"
-			w="full"
-			border="none"
-			borderRadius="md"
-			boxShadow="none"
-			aspectRatio={
-				isBanner
-					? { base: "4 / 1", md: "8 / 1" }
-					: isSidebarBanner
-						? { base: "21 / 8.5", md: "21 / 17" }
-						: undefined
-			}
-			onMouseEnter={() => setPaused(true)}
-			onMouseLeave={() => setPaused(false)}
-			onFocus={() => setPaused(true)}
-			onBlur={() => setPaused(false)}
-		>
-			<Box
-				display="flex"
-				w="full"
-				h="full"
-				transform={`translateX(-${index * 100}%)`}
-				transition="transform 450ms cubic-bezier(0.16, 1, 0.3, 1)"
-				sx={{
-					"@media (prefers-reduced-motion: reduce)": { transition: "none" },
-					img: { border: "none", outline: "none" },
-				}}
-			>
+		// biome-ignore lint/a11y/noStaticElementInteractions: pauses the carousel while hovered or focused; it is not a control
+		<div onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)} className={cn("overflow-hidden w-full border border-none rounded-md shadow-none", isBanner ? "aspect-[4_/_1]" + " " + "md:aspect-[8_/_1]" : (isSidebarBanner ? "aspect-[21_/_8.5]" + " " + "md:aspect-[21_/_17]" : ""))}>
+			<div style={{ transform: `translateX(-${index * 100}%)` }} className="flex w-full h-full motion-reduce:[transition:none] [&_img]:border-0 [&_img]:outline-none [transition:transform_450ms_cubic-bezier(0.16,_1,_0.3,_1)]">
 				{stableItems.map((item) => {
 					const image = (
-						<Image
-							src={item.src}
-							alt={item.alt}
-							loading="lazy"
-							display="block"
-							maxW="full"
-							maxH="full"
-							objectFit={isBanner ? "cover" : "contain"}
-							w={isBanner || isSidebarBanner ? "full" : 8}
-							h={isBanner || isSidebarBanner ? "full" : 8}
-							border="none"
-							borderRadius="md"
-						/>
+						<img src={item.src} alt={item.alt} loading="lazy" className={cn("block max-w-full max-h-full border border-none rounded-md", isBanner ? "object-cover" : "object-contain", isBanner || isSidebarBanner ? "w-full" : "w-8", isBanner || isSidebarBanner ? "h-full" : "h-8")} />
 					);
 					return (
-						<Box
-							key={item.id}
-							minW="full"
-							h="full"
-							display="flex"
-							alignItems="center"
-							justifyContent={isBanner ? "center" : "flex-start"}
-							gap={isBanner ? 0 : 3}
-						>
+						<div key={item.id} className={cn("min-w-full! h-full flex items-center", isBanner ? "justify-center" : "justify-start", isBanner ? "gap-0" : "gap-3")}>
 							<SponsorLink href={item.href}>
 								{image}
 								{variant === "logo" && !collapsed && (
-									<Text
-										fontSize={{ base: "lg", md: "2xl" }}
-										fontWeight="bold"
-										fontFamily="'Inter', system-ui, sans-serif"
-										letterSpacing="tight"
-										lineHeight="1"
-										whiteSpace="nowrap"
-										color="panel.text"
-										noOfLines={1}
-									>
+									<p className={"text-[1.125rem] md:text-[1.5rem] font-bold [font-family:'Inter',_system-ui,_sans-serif] tracking-tight leading-[1] whitespace-nowrap text-panel-text truncate"}>
 										{item.isSponsor ? item.label : "Rebecca"}
-									</Text>
+									</p>
 								)}
 							</SponsorLink>
-						</Box>
+						</div>
 					);
 				})}
-			</Box>
-		</Box>
+			</div>
+		</div>
 	);
 };

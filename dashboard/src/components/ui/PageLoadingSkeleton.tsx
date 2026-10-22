@@ -1,158 +1,74 @@
-import {
-	Box,
-	Divider,
-	Flex,
-	HStack,
-	SimpleGrid,
-	Skeleton,
-	Stack,
-	VStack,
-} from "@chakra-ui/react";
+import { Skeleton } from "components/ui/skeleton";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+
+import { cn } from "lib/cn";
 import type { FC } from "react";
 
 const skeletonRows = ["one", "two", "three", "four", "five", "six"];
 
 export const PageLoadingSkeleton: FC = () => (
-	<VStack
-		spacing={{ base: 4, md: 5 }}
-		align="stretch"
-		w="full"
-		sx={{
-			"@keyframes pageSkeletonPulse": {
-				"0%, 100%": { opacity: 0.45 },
-				"50%": { opacity: 0.8 },
-			},
-			"& .page-skeleton": {
-				animation: "pageSkeletonPulse 1.8s ease-in-out infinite",
-			},
-		}}
-	>
-		<Stack
-			spacing={4}
-			borderWidth="1px"
-			borderColor="panel.border"
-			borderRadius="20px"
-			bg="panel.surface"
-			p={{ base: 4, md: 5 }}
-			boxShadow="inset 0 1px 1px rgba(255,255,255,0.04), 0 8px 24px -6px rgba(0,0,0,0.14)"
-		>
-			<Stack
-				direction={{ base: "column", xl: "row" }}
-				spacing={4}
-				align={{ base: "stretch", xl: "center" }}
-				justify="space-between"
-			>
-				<VStack align="flex-start" spacing={2}>
-					<Skeleton className="page-skeleton" h="20px" w={{ base: "150px", md: "210px" }} />
-					<HStack spacing={2}>
+	<div className="flex flex-col gap-4 md:gap-5 items-stretch w-full">
+		<div className="flex flex-col gap-4 border border-panel-border! rounded-[20px] bg-panel-surface p-4 md:p-5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.04),_0_8px_24px_-6px_rgba(0,0,0,0.14)]">
+			<div className="flex flex-col xl:flex-row gap-4 items-stretch xl:items-center justify-between">
+				<div className="flex flex-col items-start gap-2">
+					<Skeleton className="h-[20px] w-[150px] md:w-[210px] page-skeleton" />
+					<div className="flex flex-row items-center gap-2">
 						{["total", "active", "pending"].map((id, index) => (
-							<Skeleton
-								key={id}
-								className="page-skeleton"
-								h="22px"
-								w={`${index === 1 ? 94 : 78}px`}
-								borderRadius="full"
-							/>
+							<Skeleton key={id} style={{ width: `${index === 1 ? 94 : 78}px` }} className="h-[22px] rounded-full page-skeleton" />
 						))}
-					</HStack>
-				</VStack>
-				<SimpleGrid columns={{ base: 2, md: 4 }} spacing={2}>
+					</div>
+				</div>
+				<div className="grid grid-cols-2 md:grid-cols-4 gap-2">
 					{["one", "two", "three", "four"].map((id) => (
-						<Skeleton
-							key={id}
-							className="page-skeleton"
-							h="36px"
-							w={{ base: "full", md: "118px" }}
-							borderRadius="md"
-						/>
+						<Skeleton key={id} className="h-[36px] w-full md:w-[118px] rounded-md page-skeleton" />
 					))}
-				</SimpleGrid>
-			</Stack>
-			<Divider />
-			<SimpleGrid columns={{ base: 1, md: 4 }} spacing={2}>
-				<Skeleton className="page-skeleton" h="36px" w="full" borderRadius="md" />
+				</div>
+			</div>
+			<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
+			<div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+				<Skeleton className="h-[36px] w-full rounded-md page-skeleton" />
 				{["filter-one", "filter-two", "filter-three"].map((id) => (
-					<Skeleton
-						key={id}
-						className="page-skeleton"
-						h="36px"
-						w="full"
-						borderRadius="md"
-					/>
+					<Skeleton key={id} className="h-[36px] w-full rounded-md page-skeleton" />
 				))}
-			</SimpleGrid>
-		</Stack>
+			</div>
+		</div>
 
-		<Box
-			borderWidth="1px"
-			borderColor="panel.border"
-			borderRadius="20px"
-			bg="panel.surface"
-			overflow="hidden"
-			boxShadow="inset 0 1px 1px rgba(255,255,255,0.04), 0 8px 24px -6px rgba(0,0,0,0.14)"
-		>
-			<Flex
-				display={{ base: "none", md: "flex" }}
-				gap={4}
-				px={{ base: 4, md: 5 }}
-				py={3}
-				borderBottomWidth="1px"
-				borderColor="panel.border"
-			>
+		<div className="border border-panel-border! rounded-[20px] bg-panel-surface overflow-hidden shadow-[inset_0_1px_1px_rgba(255,255,255,0.04),_0_8px_24px_-6px_rgba(0,0,0,0.14)]">
+			<div className="hidden md:flex gap-4 px-4 md:px-5 py-3 border-b border-panel-border!">
 				{["select", "primary", "status", "metadata", "usage", "details", "actions"].map(
 					(id, index) => (
-						<Skeleton
-							key={id}
-							className="page-skeleton"
-							h="12px"
-							w={
-								index === 0
-									? "18px"
-									: index === 1
-										? "100px"
-										: index === 6
-											? "42px"
-											: "76px"
-							}
-							borderRadius="sm"
-						/>
+						<Skeleton key={id} className={cn("h-[12px] rounded-xs", index === 0 ? "w-[18px]" : (index === 1 ? "w-[100px]" : (index === 6 ? "w-[42px]" : "w-[76px]")), "page-skeleton")} />
 					),
 				)}
-			</Flex>
+			</div>
 			{skeletonRows.map((row, index) => (
-				<Box
-					key={row}
-					px={{ base: 4, md: 5 }}
-					py={{ base: 4, md: 5 }}
-					borderBottomWidth={index === skeletonRows.length - 1 ? 0 : "1px"}
-					borderColor="panel.border"
-				>
-					<Flex display={{ base: "none", md: "flex" }} align="center" gap={4}>
-						<Skeleton className="page-skeleton" h="16px" w="16px" />
-						<Skeleton className="page-skeleton" h="16px" w="112px" />
-						<Skeleton className="page-skeleton" h="22px" w="82px" borderRadius="full" />
-						<Skeleton className="page-skeleton" h="16px" w="132px" />
-						<Skeleton className="page-skeleton" h="16px" w="104px" />
-						<Skeleton className="page-skeleton" h="16px" flex="1" maxW="240px" />
-						<Skeleton className="page-skeleton" h="28px" w="120px" />
-						<Skeleton className="page-skeleton" h="18px" w="42px" />
-					</Flex>
-					<Stack display={{ base: "flex", md: "none" }} spacing={3}>
-						<Flex align="center" justify="space-between" gap={3}>
-							<HStack spacing={2} minW={0}>
-								<Skeleton className="page-skeleton" h="16px" w="16px" />
-								<Skeleton className="page-skeleton" h="16px" w="130px" />
-							</HStack>
-							<Skeleton className="page-skeleton" h="22px" w="82px" borderRadius="full" />
-						</Flex>
-						<Flex justify="space-between" gap={3}>
-							<Skeleton className="page-skeleton" h="14px" w="90px" />
-							<Skeleton className="page-skeleton" h="14px" w="118px" />
-						</Flex>
-						<Skeleton className="page-skeleton" h="28px" w="full" borderRadius="md" />
-					</Stack>
-				</Box>
+				<div key={row} className={cn("px-4 md:px-5 py-4 md:py-5 border-panel-border!", index === skeletonRows.length - 1 ? "border-b-0" : "border-b")}>
+					<div className="hidden md:flex items-center gap-4">
+						<Skeleton className="h-[16px] w-[16px] page-skeleton" />
+						<Skeleton className="h-[16px] w-[112px] page-skeleton" />
+						<Skeleton className="h-[22px] w-[82px] rounded-full page-skeleton" />
+						<Skeleton className="h-[16px] w-[132px] page-skeleton" />
+						<Skeleton className="h-[16px] w-[104px] page-skeleton" />
+						<Skeleton className="h-[16px] flex-1 max-w-[240px] page-skeleton" />
+						<Skeleton className="h-[28px] w-[120px] page-skeleton" />
+						<Skeleton className="h-[18px] w-[42px] page-skeleton" />
+					</div>
+					<div className="flex-col flex md:hidden gap-3">
+						<div className="flex items-center justify-between gap-3">
+							<div className="flex flex-row items-center gap-2 min-w-0!">
+								<Skeleton className="h-[16px] w-[16px] page-skeleton" />
+								<Skeleton className="h-[16px] w-[130px] page-skeleton" />
+							</div>
+							<Skeleton className="h-[22px] w-[82px] rounded-full page-skeleton" />
+						</div>
+						<div className="flex justify-between gap-3">
+							<Skeleton className="h-[14px] w-[90px] page-skeleton" />
+							<Skeleton className="h-[14px] w-[118px] page-skeleton" />
+						</div>
+						<Skeleton className="h-[28px] w-full rounded-md page-skeleton" />
+					</div>
+				</div>
 			))}
-		</Box>
-	</VStack>
+		</div>
+	</div>
 );

@@ -1,38 +1,37 @@
+import { Button } from "components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Check, Moon, Sun, SwatchBook } from "lucide-react";
+import { useColorMode } from "lib/color-mode";
 import {
-	Box,
-	Button,
-	chakra,
-	HStack,
-	IconButton,
-	Menu,
-	MenuButton,
-	MenuDivider,
-	MenuList,
-	Portal,
-	SimpleGrid,
-	Text,
-	Tooltip,
-	useColorMode,
-	useColorModeValue,
-	useDisclosure,
-	VStack,
-} from "@chakra-ui/react";
-import {
-	CheckIcon,
-	MoonIcon,
-	SunIcon,
-	SwatchIcon,
-} from "@heroicons/react/24/outline";
-import {
+	type CSSProperties,
 	type FC,
 	type MutableRefObject,
 	type MouseEvent as ReactMouseEvent,
 	useEffect,
-	useMemo,
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+
+import { useDisclosure } from "hooks/useDisclosure";
+import { useMediaQuery } from "hooks/useMediaQuery";
+import { cn } from "lib/cn";
 import { updateThemeColor } from "utils/themeColor";
+
+const THEME_OPTIONS: Array<{
+	key: ThemeMode;
+	label: string;
+	icon: typeof Moon;
+}> = [
+	{ key: "dark", label: "Dark", icon: Moon },
+	{ key: "light", label: "Light", icon: Sun },
+];
+
+/** Every theme-menu surface gets the same width, padding and radius. */
+const PANEL_CLASS =
+	"min-w-[min(320px,calc(100vw_-_24px))]! max-w-[calc(100vw_-_16px)] p-3 rounded-md shadow-sm sm:min-w-[320px]!";
 
 const THEME_KEY = "rb-theme";
 const CHAKRA_THEME_KEY = "chakra-ui-color-mode";
@@ -57,34 +56,6 @@ type ThemeSelectorProps = {
 	onModalClose?: () => void;
 };
 
-const CheckIconChakra = chakra(CheckIcon, {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
-});
-
-const MoonIconChakra = chakra(MoonIcon, {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
-});
-
-const SunIconChakra = chakra(SunIcon, {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
-});
-
-const SwatchIconChakra = chakra(SwatchIcon, {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
-});
-
 const ACCENT_OPTIONS: AccentOption[] = [
 	{
 		key: "crimson",
@@ -96,15 +67,6 @@ const ACCENT_OPTIONS: AccentOption[] = [
 	{ key: "green", label: "Green", color: "#16a34a", hover: "#22c55e" },
 	{ key: "purple", label: "Purple", color: "#7c3aed", hover: "#8b5cf6" },
 	{ key: "orange", label: "Orange", color: "#ea580c", hover: "#f97316" },
-];
-
-const THEME_OPTIONS: Array<{
-	key: ThemeMode;
-	label: string;
-	icon: typeof MoonIconChakra;
-}> = [
-	{ key: "dark", label: "Dark", icon: MoonIconChakra },
-	{ key: "light", label: "Light", icon: SunIconChakra },
 ];
 
 const clamp = (value: number, min = 0, max = 1) =>
@@ -269,6 +231,107 @@ const applyThemeMode = (theme: ThemeMode) => {
 	updateThemeColor(theme);
 };
 
+type ThemePanelProps = {
+	minimal: boolean;
+	activeTheme: ThemeMode;
+	activeAccent: string;
+	onSelectTheme: (theme: ThemeMode) => void;
+	onSelectAccent: (accent: string) => void;
+};
+
+/** The picker body. The icon, menu and nested-menu triggers all render it. */
+const ThemePanel: FC<ThemePanelProps> = ({
+	minimal,
+	activeTheme,
+	activeAccent,
+	onSelectTheme,
+	onSelectAccent,
+}) => {
+	const { t } = useTranslation();
+
+	return (
+		<TooltipProvider delayDuration={300}>
+			<div className="flex select-none flex-col gap-3 text-panel-text">
+				<div>
+					<p className="mb-2 text-xs font-bold uppercase text-panel-text-secondary">
+						{t("header.theme")}
+					</p>
+					<div className="grid grid-cols-2 gap-2">
+						{THEME_OPTIONS.map((theme) => {
+							const selected = activeTheme === theme.key;
+							const Icon = theme.icon;
+							return (
+								<Button key={theme.key} onClick={() => onSelectTheme(theme.key)} variant="outline" className={cn(
+										"relative h-[72px] rounded-[6px] px-3 text-panel-text hover:border-panel-accent! hover:bg-panel-elevated",
+										selected
+											? "border-2 border-panel-accent! bg-panel-elevated"
+											: "border border-panel-border! bg-transparent",
+									)}>
+									<span className="flex w-full flex-col items-center justify-center gap-2">
+										<Icon className="size-4" />
+										<span className="text-center font-bold leading-none">
+											{t(`theme.${theme.key}`, theme.label)}
+										</span>
+									</span>
+									{selected ? (
+										<span className="absolute right-2 top-2 text-panel-accent">
+											<Check className="size-4" />
+										</span>
+									) : null}
+								</Button>
+							);
+						})}
+					</div>
+				</div>
+
+				{!minimal ? (
+					<hr className="my-2 border-0 border-b border-panel-border! opacity-60" />
+				) : null}
+
+				<div>
+					<p className="mb-2 text-xs font-bold uppercase text-panel-text-secondary">
+						{t("theme.accent")}
+					</p>
+					<div className="grid grid-cols-5 gap-2">
+						{ACCENT_OPTIONS.map((accent) => {
+							const selected = activeAccent === accent.key;
+							const label = t(`theme.accent.${accent.key}`, accent.label);
+							return (
+								<Tooltip key={accent.key}>
+<TooltipTrigger asChild>
+									
+										<button
+											type="button"
+											aria-label={label}
+											onClick={() => onSelectAccent(accent.key)}
+											style={
+												{
+													"--swatch": accent.color,
+													"--swatch-hover": accent.hover,
+												} as CSSProperties
+											}
+											className={cn(
+												"inline-flex h-[34px] min-w-[34px]! items-center justify-center rounded-[6px] bg-[var(--swatch)] text-white outline-none transition-colors hover:border-panel-text! hover:bg-[var(--swatch-hover)] focus-visible:shadow-[0_0_0_2px_var(--rb-panel-accent)]",
+												selected
+													? "border-2 border-panel-text!"
+													: "border border-panel-border!",
+											)}
+										>
+											{selected ? <Check className="size-4" /> : null}
+										</button>
+									
+								</TooltipTrigger>
+<TooltipContent>{label}</TooltipContent>
+</Tooltip>
+							);
+						})}
+					</div>
+				</div>
+			</div>
+		</TooltipProvider>
+	);
+};
+
 export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	minimal = false,
 	portalContainer,
@@ -279,44 +342,10 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	const { t } = useTranslation();
 	const { colorMode, setColorMode } = useColorMode();
 	const themeMenu = useDisclosure();
+	// Chakra auto-placed the nested picker to the side on desktop and below the row on mobile.
+	const isWide = useMediaQuery("(min-width: 48em)");
 	const activeTheme = normalizeTheme(colorMode);
 	const [activeAccent, setActiveAccent] = useState(getStoredAccent);
-	const menuBg = useColorModeValue("panel.surface", "panel.surface");
-	const menuBorder = useColorModeValue("panel.border", "panel.border");
-	const menuHover = useColorModeValue("panel.elevated", "panel.elevated");
-	const textColor = useColorModeValue("panel.text", "panel.text");
-	const secondaryText = useColorModeValue(
-		"panel.textSecondary",
-		"panel.textSecondary",
-	);
-
-	const popperModifiers = useMemo(
-		() => [
-			{
-				name: "preventOverflow",
-				options: { boundary: "viewport", padding: 8 },
-			},
-			{ name: "shift", options: { padding: 8 } },
-			{
-				name: "flip",
-				options: {
-					fallbackPlacements: [
-						"bottom-start",
-						"bottom",
-						"bottom-end",
-						"top",
-						"top-start",
-						"top-end",
-					],
-				},
-			},
-			{
-				name: "offset",
-				options: { offset: [0, 8] },
-			},
-		],
-		[],
-	);
 
 	useEffect(() => {
 		onModalClose?.();
@@ -341,227 +370,55 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 		setActiveAccent(accent);
 	};
 
-	const renderThemeCard = (theme: (typeof THEME_OPTIONS)[number]) => {
-		const selected = activeTheme === theme.key;
-		const Icon = theme.icon;
-		return (
-			<Button
-				key={theme.key}
-				variant="outline"
-				h="72px"
-				borderRadius="6px"
-				borderColor={selected ? "panel.accent" : "panel.border"}
-				borderWidth={selected ? "2px" : "1px"}
-				bg={selected ? "panel.elevated" : "transparent"}
-				color="panel.text"
-				_hover={{ bg: menuHover, borderColor: "panel.accent" }}
-				onClick={() => selectTheme(theme.key)}
-				position="relative"
-				px={3}
-			>
-				<VStack spacing={2} align="center" justify="center" w="full">
-					<Icon />
-					<Text textAlign="center" fontWeight="700" lineHeight="1">
-						{t(`theme.${theme.key}`, theme.label)}
-					</Text>
-				</VStack>
-				{selected ? (
-					<Box
-						position="absolute"
-						top="2"
-						insetInlineEnd="2"
-						color="panel.accent"
-					>
-						<CheckIconChakra />
-					</Box>
-				) : null}
-			</Button>
-		);
-	};
-
-	const menuList = (
-		<MenuList
-			minW={{ base: "min(320px, calc(100vw - 24px))", sm: "320px" }}
-			maxW="calc(100vw - 16px)"
-			bg={menuBg}
-			borderColor={menuBorder}
-			color={textColor}
-			zIndex={9999}
-			p={3}
-			userSelect="none"
-			sx={{
-				".chakra-menu__menuitem": {
-					bg: "transparent !important",
-					"&:hover": {
-						bg: `${menuHover} !important`,
-					},
-					"&:active, &:focus-visible": {
-						bg: `${menuHover} !important`,
-					},
-					"&:focus:not(:focus-visible)": {
-						bg: "transparent !important",
-					},
-				},
-			}}
-		>
-			<VStack align="stretch" spacing={3}>
-				<Box>
-					<Text
-						fontSize="xs"
-						fontWeight="700"
-						color={secondaryText}
-						textTransform="uppercase"
-						mb={2}
-					>
-						{t("header.theme")}
-					</Text>
-					<SimpleGrid columns={2} spacing={2}>
-						{THEME_OPTIONS.map(renderThemeCard)}
-					</SimpleGrid>
-				</Box>
-
-				{!minimal ? <MenuDivider borderColor={menuBorder} /> : null}
-
-				<Box>
-					<Text
-						fontSize="xs"
-						fontWeight="700"
-						color={secondaryText}
-						textTransform="uppercase"
-						mb={2}
-					>
-						{t("theme.accent")}
-					</Text>
-					<SimpleGrid columns={{ base: 5 }} spacing={2}>
-						{ACCENT_OPTIONS.map((accent) => {
-							const selected = activeAccent === accent.key;
-							return (
-								<Tooltip
-									key={accent.key}
-									label={t(`theme.accent.${accent.key}`, accent.label)}
-									hasArrow
-								>
-									<IconButton
-										aria-label={t(`theme.accent.${accent.key}`, accent.label)}
-										icon={selected ? <CheckIconChakra /> : undefined}
-										size="sm"
-										h="34px"
-										minW="34px"
-										borderRadius="6px"
-										borderWidth={selected ? "2px" : "1px"}
-										borderColor={selected ? "panel.text" : "panel.border"}
-										bg={accent.color}
-										color="white"
-										_hover={{
-											bg: accent.hover,
-											borderColor: "panel.text",
-										}}
-										_focusVisible={{
-											boxShadow: "0 0 0 2px var(--rb-panel-accent)",
-										}}
-										onClick={() => selectAccent(accent.key)}
-									/>
-								</Tooltip>
-							);
-						})}
-					</SimpleGrid>
-				</Box>
-			</VStack>
-		</MenuList>
+	const panel = (
+		<ThemePanel
+			minimal={minimal}
+			activeTheme={activeTheme}
+			activeAccent={activeAccent}
+			onSelectTheme={selectTheme}
+			onSelectAccent={selectAccent}
+		/>
 	);
 
 	if (trigger === "menuItem") {
 		return (
-			<Menu
-				placement="auto-start"
-				strategy="fixed"
-				isLazy
-				autoSelect={false}
-				gutter={6}
-				computePositionOnMount
-				modifiers={popperModifiers}
-				isOpen={themeMenu.isOpen}
-				onOpen={themeMenu.onOpen}
-				onClose={themeMenu.onClose}
-				closeOnSelect={false}
-			>
-				<MenuButton
-					as={Button}
-					variant="ghost"
-					w="full"
-					h="40px"
-					justifyContent="flex-start"
-					fontWeight="500"
-					borderRadius="md"
-					px={3}
-					bg="transparent"
-					color={textColor}
-					_hover={{ bg: menuHover }}
-					_active={{ bg: menuHover }}
-					_focusVisible={{ bg: menuHover }}
-					onClick={(event: ReactMouseEvent) => {
-						event.stopPropagation();
-						themeMenu.isOpen ? themeMenu.onClose() : themeMenu.onOpen();
-					}}
-				>
-					<HStack justify="flex-start" spacing={3} w="full" minW={0}>
-						<SwatchIconChakra flexShrink={0} />
-						<Text noOfLines={1}>
+			<Popover open={themeMenu.isOpen} onOpenChange={(open) =>
+					open ? themeMenu.onOpen() : themeMenu.onClose()
+				}>
+				<PopoverTrigger asChild>
+					<Button onClick={(event: ReactMouseEvent) => event.stopPropagation()} variant="ghost" className="h-10 w-full justify-start gap-3 rounded-md bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
+						<SwatchBook className="size-4 shrink-0" />
+						<span className="truncate">
 							{triggerLabel || t("header.theme")}
-						</Text>
-					</HStack>
-				</MenuButton>
-				{portalContainer ? (
-					<Portal containerRef={portalContainer}>{menuList}</Portal>
-				) : (
-					<Portal>{menuList}</Portal>
-				)}
-			</Menu>
+						</span>
+					</Button>
+				</PopoverTrigger>
+				<PopoverContent side={isWide ? "left" : "bottom"} className={cn("items-start", PANEL_CLASS)}>
+					{panel}
+				</PopoverContent>
+			</Popover>
 		);
 	}
 
-	const triggerContent =
+	const triggerButton =
 		trigger === "icon" ? (
-			<MenuButton
-				as={IconButton}
-				size="sm"
-				variant="outline"
-				icon={<SwatchIconChakra />}
-				aria-label={t("header.theme")}
-				position="relative"
-				type="button"
-			/>
+			<Button aria-label={t("header.theme")} variant="outline" size="icon" className="relative">
+				<SwatchBook />
+			</Button>
 		) : (
-			<MenuButton
-				as={Button}
-				w="full"
-				justifyContent="space-between"
-				variant="ghost"
-				rightIcon={<SwatchIconChakra />}
-				type="button"
-			>
+			<Button variant="ghost" className="w-full justify-between">
 				{triggerLabel || t("header.theme")}
-			</MenuButton>
+				<SwatchBook />
+			</Button>
 		);
 
 	return (
-		<Menu
-			placement="auto-start"
-			strategy="fixed"
-			isLazy
-			autoSelect={false}
-			gutter={6}
-			computePositionOnMount
-			modifiers={popperModifiers}
-			closeOnSelect={false}
-		>
-			{triggerContent}
-			{portalContainer ? (
-				<Portal containerRef={portalContainer}>{menuList}</Portal>
-			) : (
-				<Portal>{menuList}</Portal>
-			)}
-		</Menu>
+		<DropdownMenu modal={false}>
+			<DropdownMenuTrigger asChild>{triggerButton}</DropdownMenuTrigger>
+			<DropdownMenuContent className={cn("items-start", PANEL_CLASS)}>
+				{panel}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 };
 

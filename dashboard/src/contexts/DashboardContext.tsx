@@ -16,7 +16,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 
 const DEFAULT_SORT = "-created_at";
 
-const StatisticsQueryKey = "statistics-query-key";
+const StatisticsQueryKey = ["statistics-query-key"] as const;
 
 export type FilterType = {
 	search?: string;
@@ -522,21 +522,21 @@ export const useDashboard = create(
 			set({ editingUser: null });
 			return fetch(`/user/${user.username}`, { method: "DELETE" }).then(() => {
 				get().refetchUsers(true);
-				queryClient.invalidateQueries(StatisticsQueryKey);
+				queryClient.invalidateQueries({ queryKey: StatisticsQueryKey });
 			});
 		},
 		createUser: (body: UserCreate) => {
 			return fetch(`/user`, { method: "POST", body }).then(() => {
 				set({ editingUser: null });
 				get().refetchUsers(true);
-				queryClient.invalidateQueries(StatisticsQueryKey);
+				queryClient.invalidateQueries({ queryKey: StatisticsQueryKey });
 			});
 		},
 		createUserWithService: (body: UserCreateWithService) => {
 			return fetch(`/v2/users`, { method: "POST", body }).then(() => {
 				set({ editingUser: null });
 				get().refetchUsers(true);
-				queryClient.invalidateQueries(StatisticsQueryKey);
+				queryClient.invalidateQueries({ queryKey: StatisticsQueryKey });
 			});
 		},
 		editUser: (username: string, body: UserCreate) => {
@@ -582,7 +582,7 @@ export const useDashboard = create(
 			return fetch(`/users/actions`, { method: "POST", body: payload }).then(
 				(response) => {
 					get().refetchUsers(true);
-					queryClient.invalidateQueries(StatisticsQueryKey);
+					queryClient.invalidateQueries({ queryKey: StatisticsQueryKey });
 					return response;
 				},
 			);

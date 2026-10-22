@@ -11,7 +11,7 @@ export const useSheetSwipeToClose = () => {
 
 		const onTouchStart = (event: TouchEvent) => {
 			const dialog = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-				".chakra-modal__content",
+				".chakra-modal__content, .rb-sidebar-drawer",
 			);
 			if (!dialog || !window.matchMedia("(max-width: 47.99em)").matches) return;
 			const touchY = event.touches[0].clientY;

@@ -40,7 +40,7 @@ export type HostsSchema = Record<
 >;
 
 type HostsStore = {
-	isLoading: boolean;
+	loading: boolean;
 	isPostLoading: boolean;
 	hosts: HostsSchema;
 	fetchHosts: () => Promise<void>;
@@ -50,12 +50,12 @@ type HostsStore = {
 let hostsFetchSequence = 0;
 
 export const useHosts = create<HostsStore>((set) => ({
-	isLoading: false,
+	loading: false,
 	isPostLoading: false,
 	hosts: {},
 	async fetchHosts() {
 		const requestId = ++hostsFetchSequence;
-		set({ isLoading: true });
+		set({ loading: true });
 		try {
 			const hosts = await fetch<HostsSchema>("/hosts");
 			if (requestId !== hostsFetchSequence) return;
@@ -67,7 +67,7 @@ export const useHosts = create<HostsStore>((set) => ({
 			set({ hosts: {} });
 		} finally {
 			if (requestId === hostsFetchSequence) {
-				set({ isLoading: false });
+				set({ loading: false });
 			}
 		}
 	},
@@ -91,7 +91,7 @@ export const useHosts = create<HostsStore>((set) => ({
 export const clearHostsCache = () => {
 	hostsFetchSequence += 1;
 	useHosts.setState({
-		isLoading: false,
+		loading: false,
 		isPostLoading: false,
 		hosts: {},
 	});
