@@ -8,6 +8,7 @@ type RowActionButtonProps = Omit<ComponentPropsWithoutRef<"button">, "children">
 	label: string;
 	icon: ReactNode;
 	danger?: boolean;
+	tooltip?: string;
 };
 
 /**
@@ -16,12 +17,13 @@ type RowActionButtonProps = Omit<ComponentPropsWithoutRef<"button">, "children">
  * (not the compat Button) so no horizontal padding pushes the icon off its hover box.
  */
 export const RowActionButton = forwardRef<HTMLButtonElement, RowActionButtonProps>(function RowActionButton(
-	{ label, icon, danger = false, className, type = "button", ...props },
+	{ label, icon, danger = false, tooltip, className, type = "button", ...props },
 	ref,
 ) {
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
+				<span className="inline-flex">
 				<button
 					ref={ref}
 					type={type}
@@ -37,8 +39,9 @@ export const RowActionButton = forwardRef<HTMLButtonElement, RowActionButtonProp
 				>
 					{icon}
 				</button>
+				</span>
 			</TooltipTrigger>
-			<TooltipContent>{label}</TooltipContent>
+			<TooltipContent>{tooltip ?? label}</TooltipContent>
 		</Tooltip>
 	);
 });

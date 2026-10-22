@@ -505,11 +505,10 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 		return {
 			canManage,
 			showDisable: canChangeStatus && admin.status !== AdminStatus.Disabled,
-			showEnable:
-				canChangeStatus &&
-				admin.status === AdminStatus.Disabled &&
-				!hasDataLimitDisabledReason &&
-				!hasTimeLimitDisabledReason,
+			showEnable: canChangeStatus && admin.status === AdminStatus.Disabled,
+			enableBlocked:
+				getAdminIsLimited(admin) ||
+				getAdminIsExpired(admin, Math.floor(Date.now() / 1000)),
 			showDelete: canChangeStatus,
 			showAddTraffic:
 				canManage &&
@@ -904,8 +903,12 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				icon: <EnableIcon />,
 				onClick: () => handleEnableAdmin(admin),
 				disabled:
-					actionState?.username === admin.username &&
-					actionState?.type === "enableAdmin",
+					meta.enableBlocked ||
+					(actionState?.username === admin.username &&
+						actionState?.type === "enableAdmin"),
+				disabledReason: meta.enableBlocked
+					? t("admins.enableBlockedByLimits")
+					: undefined,
 			});
 		}
 

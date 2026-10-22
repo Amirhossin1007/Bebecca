@@ -2694,3 +2694,15 @@ input[type="number"] {
     transform-origin: top center;
   }
 }
+
+.inbound-form-modal [data-form-section] {
+  scroll-margin-top: 0.75rem;
+  padding-block: 1rem;
+  border-top: 1px solid var(--rb-panel-border);
+  border-bottom: 1px solid var(--rb-panel-border);
+}
+.inbound-form-modal [data-form-section][data-active="true"] {
+  border-top-width: 2px;
+  border-bottom-width: 2px;
+  border-color: var(--rb-panel-text-muted);
+}

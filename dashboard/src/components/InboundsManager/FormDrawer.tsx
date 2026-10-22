@@ -17,6 +17,7 @@ import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { FieldHint } from "components/ui/field-hint";
 import { NumberField } from "components/ui/number-field";
 import { SegmentedControl } from "components/ui/segmented-control";
+import { InboundSectionNav } from "./InboundSectionNav";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
 import { buttonVariants } from "components/ui/button";
@@ -364,6 +365,7 @@ export const InboundFormModal: FC<Props> = ({
 	const [anyConnectCertLoading, setAnyConnectCertLoading] = useState(false);
 	const [wgKeyLoading, setWGKeyLoading] = useState(false);
 	const [activeTab, setActiveTab] = useState(0);
+	const formBodyRef = useRef<HTMLDivElement | null>(null);
 	const [jsonText, setJsonText] = useState<string>("");
 	const [jsonError, setJsonError] = useState<string | null>(null);
 	const updatingFromJsonRef = useRef(false);
@@ -1454,11 +1456,12 @@ export const InboundFormModal: FC<Props> = ({
 							<TabsTrigger value="1">{t("json")}</TabsTrigger>
 							<TabsTrigger value="2">{t("inbounds.targets")}</TabsTrigger>
 						</TabsList>
+						{activeTab === 0 ? <InboundSectionNav containerRef={formBodyRef} resetKey={activeTab} /> : null}
 					</div>
-					<div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+					<div ref={formBodyRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
 							<TabsContent value="0" forceMount className="mt-0 data-[state=inactive]:hidden">
 								<div className="flex flex-col items-stretch gap-6">
-									<div className="flex flex-col gap-3 xray-dialog-section">
+									<div className="flex flex-col gap-3 xray-dialog-section" data-form-section="basic" data-form-section-title={t("pages.outbound.basicSettings")}>
 										<p className="text-[0.875rem] font-semibold">
 											{t("pages.outbound.basicSettings")}
 										</p>
@@ -4016,7 +4019,7 @@ export const InboundFormModal: FC<Props> = ({
 									</div>
 
 									{supportsStreamSettings && (
-										<div className="flex flex-col gap-3 xray-dialog-section">
+										<div className="flex flex-col gap-3 xray-dialog-section" data-form-section="stream" data-form-section-title={t("inbounds.streamSettings")}>
 											<p className="text-[0.875rem] font-semibold">
 												{t("inbounds.streamSettings")}
 											</p>
@@ -5642,7 +5645,7 @@ export const InboundFormModal: FC<Props> = ({
 										vlessAuthenticationSection}
 
 									{streamSecurity === "tls" && (
-										<div className="flex flex-col gap-3 xray-dialog-section">
+										<div className="flex flex-col gap-3 xray-dialog-section" data-form-section="tls" data-form-section-title={t("inbounds.tls.title")}>
 											<p className="text-[0.875rem] font-semibold">
 												{t("inbounds.tls.title")}
 											</p>
@@ -5814,8 +5817,7 @@ export const InboundFormModal: FC<Props> = ({
 													</FieldError>
 												)}
 											</FormControl>
-											<hr className="w-full border-0 border-b border-panel-border! opacity-60" />
-											<div className="flex flex-col gap-3">
+											<div data-form-section="certificates" data-form-section-title={t("settings.subscriptions.certificateTitle")} className="flex flex-col gap-3">
 												<div className="flex items-center justify-between">
 													<div className="font-medium">
 														{t("settings.subscriptions.certificateTitle")}
@@ -6004,7 +6006,7 @@ export const InboundFormModal: FC<Props> = ({
 									{streamSecurity === "tls" && vlessAuthenticationSection}
 
 									{streamSecurity === "reality" && (
-										<div className="flex flex-col gap-3 xray-dialog-section">
+										<div className="flex flex-col gap-3 xray-dialog-section" data-form-section="reality" data-form-section-title={t("inbounds.reality.title")}>
 											<p className="text-[0.875rem] font-semibold">
 												{t("inbounds.reality.title")}
 											</p>
@@ -6254,7 +6256,7 @@ export const InboundFormModal: FC<Props> = ({
 									{streamSecurity === "reality" && vlessAuthenticationSection}
 
 									{supportsFallback && (
-										<div className="flex flex-col gap-3 xray-dialog-section">
+										<div className="flex flex-col gap-3 xray-dialog-section" data-form-section="fallbacks" data-form-section-title={t("inbounds.fallbacks")}>
 											<div className="flex items-center justify-between">
 												<div className="font-medium">{t("inbounds.fallbacks")}</div>
 												<button type="button" aria-label={t("inbounds.fallbacks.add")} title={t("inbounds.fallbacks.add")} onClick={handleAddFallback} className={buttonVariants({ variant: "outline", size: "icon-sm" })}><Plus className="size-4" /></button>
@@ -6328,7 +6330,7 @@ export const InboundFormModal: FC<Props> = ({
 									)}
 
 									{supportsStreamSettings && (
-											<div className="flex flex-col gap-3 xray-dialog-section">
+											<div className="flex flex-col gap-3 xray-dialog-section" data-form-section="sniffing" data-form-section-title={t("inbounds.sniffing")}>
 												<div className="flex items-center justify-between">
 													<div className="flex flex-row items-center gap-2">
 														<div className="font-medium">

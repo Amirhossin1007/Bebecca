@@ -648,7 +648,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					event.preventDefault(); (event.target as HTMLElement).querySelector<HTMLElement>(showSearch ? "input" : "[data-option]:not(:disabled)")?.focus();
 				}}
 				onKeyDown={handleSingleListKeyDown}
-				className={cn(borderColor, "[scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", cn("w-(--radix-popover-trigger-width) max-w-[min(420px,_calc(100vw_-_24px))] max-h-[260px] overflow-y-auto p-1 rounded-md shadow-xl z-[16050]", menuBg))}
+				className={cn(borderColor, "[scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", cn("w-[max(var(--radix-popover-trigger-width),240px)] max-w-[min(420px,_calc(100vw_-_24px))] max-h-[260px] overflow-y-auto p-1 rounded-md shadow-xl z-[16050]", menuBg))}
 			>
 				{showSearch && (
 					<SearchInput id={`${inputId}-search`} name={`${inputId}-search-${mode}`} size="sm" containerProps={{ className: "mb-1" }} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={searchPlaceholder ?? t("search")} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} role="combobox" aria-autocomplete="list" data-lpignore="true" data-1p-ignore="true" data-form-type="other" inputMode="text" list={`${inputId}-empty-list`} autoFocus matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} className="h-[30px] text-[0.875rem] bg-transparent" />

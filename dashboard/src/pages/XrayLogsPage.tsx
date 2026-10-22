@@ -399,7 +399,7 @@ export const XrayLogsPage: FC<XrayLogsPageProps> = ({ showTitle = true }) => {
 				toolbar={
 					<div className="flex flex-col gap-2 xl:flex-row xl:items-center">
 						<SearchInput
-							containerProps={{ className: "w-full xl:w-[320px]" }}
+							containerProps={{ className: "w-full xl:w-[220px]" }}
 							placeholder={t("xrayLogs.searchPlaceholder")}
 							value={searchFilter}
 							onChange={(e) => setSearchFilter(e.target.value)}

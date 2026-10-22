@@ -24,7 +24,7 @@ export const ApiDocsPage = () => {
 		})
 			.then((response) => {
 				if (cancelled) return;
-				if (response.ok) {
+				if (response.ok && (response.headers.get("content-type") ?? "").includes("application/json")) {
 					setStatus("enabled");
 					return;
 				}

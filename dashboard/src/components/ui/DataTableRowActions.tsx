@@ -13,6 +13,7 @@ export type RowActionItem = {
 	onClick?: () => void;
 	render?: (onClose: () => void) => ReactNode;
 	disabled?: boolean;
+	disabledReason?: string;
 	isDanger?: boolean;
 	color?: string;
 	pinned?: boolean;

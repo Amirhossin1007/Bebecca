@@ -50,7 +50,7 @@ export type HAProxyDialogProps = {
 };
 
 const dialogShell =
-	"flex max-h-[min(860px,calc(100dvh-4rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl max-md:inset-x-3 max-md:w-auto max-md:top-[4.5rem] max-md:bottom-24 max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0";
+	"flex max-h-[min(860px,calc(100dvh-4rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl max-md:inset-x-3 max-md:w-auto max-md:top-[4.5rem] max-md:bottom-24 max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0";
 
 export function HAProxyDialog({
 	open: isOpen,
@@ -193,7 +193,7 @@ export function HAProxyDialog({
 
 					<Tabs value={activeTab} onValueChange={handleTabChange} className="flex min-h-0 flex-1 flex-col">
 						<div className="border-b px-5 pt-2.5 pb-2.5">
-							<TabsList className="w-full overflow-x-auto">
+							<TabsList className="w-full">
 								<TabsTrigger value="form">{t("haproxy.form")}</TabsTrigger>
 								<TabsTrigger value="advanced">{t("haproxy.advanced")}</TabsTrigger>
 								<TabsTrigger value="editor">{t("haproxy.editor")}</TabsTrigger>

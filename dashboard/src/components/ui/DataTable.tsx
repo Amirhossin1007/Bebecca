@@ -335,6 +335,7 @@ const InlineRowAction = ({ action }: { action: RowActionItem }) => {
 			icon={icon}
 			danger={action.isDanger}
 			disabled={action.disabled}
+			tooltip={action.disabled ? action.disabledReason : undefined}
 			className={toneClass(action.color)}
 			onClick={(event) => {
 				event.stopPropagation();
@@ -494,6 +495,10 @@ export function DataTable<TData>({
 					typeof action.disabled === "function"
 						? action.disabled(row)
 						: action.disabled,
+				disabledReason:
+					typeof action.disabledReason === "function"
+						? action.disabledReason(row)
+						: action.disabledReason,
 			})) ?? [],
 		[],
 	);
