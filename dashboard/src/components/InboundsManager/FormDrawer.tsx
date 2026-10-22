@@ -1455,9 +1455,9 @@ export const InboundFormModal: FC<Props> = ({
 				if (!next) onClose();
 			}}
 		>
-			<DialogContent className="flex max-h-[min(860px,calc(100dvh-8rem))] flex-col gap-0 overflow-clip p-0 sm:max-w-4xl max-md:inset-x-3 max-md:top-[4.5rem] max-md:bottom-24 max-md:max-h-none max-md:w-auto max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 inbound-form-modal">
+			<DialogContent className="flex max-h-[min(860px,calc(100dvh-8rem))] flex-col gap-0 overflow-clip p-0 sm:max-w-4xl max-md:inset-x-3 max-md:top-3 max-md:bottom-3 max-md:max-h-none max-md:w-auto max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 inbound-form-modal">
 				<Tabs value={String(activeTab)} onValueChange={(value) => setActiveTab(Number(value))} className="flex min-h-0 flex-1 flex-col">
-					<div className="flex flex-col gap-3 border-b bg-background px-5 pb-3 pt-4 pe-12">
+					<div className="flex flex-col gap-2 border-b bg-background px-4 pb-2 pt-3 pe-12 md:gap-3 md:px-5 md:pb-3 md:pt-4">
 						<div className="flex min-w-0 items-center gap-3">
 							<div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
 								<Network className="size-4" />
@@ -1478,7 +1478,7 @@ export const InboundFormModal: FC<Props> = ({
 						</TabsList>
 						{activeTab === 0 ? <InboundSectionNav containerRef={formBodyRef} resetKey={activeTab} /> : null}
 					</div>
-					<div ref={formBodyRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+					<div ref={formBodyRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3 md:px-5 md:py-4">
 							<TabsContent value="0" forceMount className="mt-0 data-[state=inactive]:hidden">
 								<div className="flex flex-col items-stretch gap-6">
 									<div className="flex flex-col gap-3 xray-dialog-section" data-form-section="basic" data-form-section-title={t("pages.outbound.basicSettings")}>

@@ -27,6 +27,14 @@ export const InboundSectionNav = ({
 	const [activeId, setActiveId] = useState<string | null>(null);
 	const pinnedRef = useRef<string | null>(null);
 	const applyActiveRef = useRef<(id: string | null) => void>(() => undefined);
+	const navRef = useRef<HTMLDivElement | null>(null);
+
+	useEffect(() => {
+		const chip = navRef.current?.querySelector<HTMLElement>('[aria-current="true"]');
+		const nav = chip?.parentElement;
+		if (!chip || !nav) return;
+		nav.scrollTo({ left: chip.offsetLeft - (nav.clientWidth - chip.clientWidth) / 2, behavior: "smooth" });
+	}, [activeId]);
 
 	useEffect(() => {
 		const container = containerRef.current;
@@ -35,8 +43,12 @@ export const InboundSectionNav = ({
 		let frame = 0;
 
 		const applyActive = (id: string | null) => {
+			const active = current.find((entry) => entry.id === id);
+			const siblings = active ? current.filter((entry) => entry.parentId === active.parentId) : [];
+			const nextId = active ? (siblings[siblings.indexOf(active) + 1]?.id ?? null) : null;
 			Array.from(container.querySelectorAll<HTMLElement>("[data-form-section]")).forEach((element) => {
 				element.dataset.active = String(element.dataset.formSection === id);
+				element.dataset.nextActive = String(element.dataset.formSection === nextId);
 			});
 			setActiveId(id);
 		};
@@ -114,8 +126,8 @@ export const InboundSectionNav = ({
 	const children = entries.filter((entry) => entry.parentId && entry.parentId === activeRootId);
 
 	return (
-		<div className="flex flex-col gap-2">
-			<nav className="flex flex-wrap gap-1.5">
+		<div ref={navRef} className="flex flex-col gap-1.5">
+			<nav className="relative flex flex-nowrap gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible">
 				{roots.map((entry) => {
 					const isActive = entry.id === activeRootId;
 					return (
@@ -125,7 +137,7 @@ export const InboundSectionNav = ({
 							aria-current={isActive ? "true" : undefined}
 							onClick={() => navigateTo(entry)}
 							className={cn(
-								"rounded-md border px-2.5 py-1 text-[0.8125rem] font-medium transition-colors",
+								"shrink-0 rounded-md border px-2.5 py-1 text-[0.8125rem] font-medium transition-colors",
 								isActive
 									? "border-primary/40 bg-primary/15 text-primary"
 									: "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -137,7 +149,7 @@ export const InboundSectionNav = ({
 				})}
 			</nav>
 			{children.length > 0 ? (
-				<nav className="flex flex-wrap gap-1 ps-3">
+				<nav className="relative flex flex-nowrap gap-1 overflow-x-auto whitespace-nowrap ps-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible">
 					{children.map((entry) => {
 						const isActive = entry.id === activeId;
 						return (
@@ -147,7 +159,7 @@ export const InboundSectionNav = ({
 								aria-current={isActive ? "true" : undefined}
 								onClick={() => navigateTo(entry)}
 								className={cn(
-									"rounded px-2 py-0.5 text-[0.75rem] transition-colors",
+									"shrink-0 rounded px-2 py-0.5 text-[0.75rem] transition-colors",
 									isActive
 										? "bg-muted font-semibold text-foreground"
 										: "text-muted-foreground hover:text-foreground",

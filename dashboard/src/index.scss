@@ -2699,20 +2699,19 @@ input[type="number"] {
   scroll-margin-top: 0.75rem;
   padding-block: 1rem;
   border-top: 1px solid var(--rb-panel-border);
-  border-bottom: 1px solid var(--rb-panel-border);
+  border-bottom: 0;
 }
-.inbound-form-modal [data-form-section][data-active="true"] {
-  border-top-width: 2px;
-  border-bottom-width: 2px;
-  border-color: var(--rb-panel-text-muted);
-}
-
 .inbound-form-modal [data-form-section] [data-form-section] {
   border-top: 1px dashed var(--rb-panel-border);
-  border-bottom: 0;
   padding-block: 0.75rem;
 }
-.inbound-form-modal [data-form-section] [data-form-section][data-active="true"] {
+.inbound-form-modal [data-form-section][data-active="true"],
+.inbound-form-modal [data-form-section][data-next-active="true"],
+.inbound-form-modal [data-form-section] [data-form-section][data-active="true"],
+.inbound-form-modal [data-form-section] [data-form-section][data-next-active="true"] {
   border-top: 2px solid var(--rb-panel-text-muted);
-  border-bottom: 0;
+}
+.inbound-form-modal [data-form-section]:first-child,
+.inbound-form-modal [data-form-section] [data-form-section]:first-child {
+  border-top: 0;
 }

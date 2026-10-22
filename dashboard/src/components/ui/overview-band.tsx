@@ -81,7 +81,7 @@ export function OverviewBand({
 			) : null}
 
 			{rows.length > 0 ? (
-				<div className="order-3 col-span-2 flex flex-col justify-between gap-3 border-t border-panel-border! pt-4 md:order-2 md:col-span-1 md:border-s md:border-t-0 md:px-6 md:pt-0">
+				<div className="order-3 col-span-2 grid grid-cols-2 content-start gap-x-4 gap-y-3 border-t border-panel-border! pt-4 md:order-2 md:col-span-1 md:flex md:flex-col md:justify-between md:gap-3 md:border-s md:border-t-0 md:px-6 md:pt-0">
 					{rows.map((row) => (
 						<div key={row.key}>
 							<div className="flex items-center gap-1.5">
