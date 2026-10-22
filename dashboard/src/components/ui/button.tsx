@@ -53,8 +53,12 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
 			className={cn(buttonVariants({ variant, size }), loading && hasIcon && "[&_svg]:animate-spin", className)}
 			{...props}
 		>
-			{loading && !hasIcon ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
-			{children}
+			{asChild ? children : (
+				<>
+					{loading && !hasIcon ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : null}
+					{children}
+				</>
+			)}
 		</Comp>
 	);
 });
