@@ -41,7 +41,6 @@ export const BuildVersionSelect = ({
 			<Select
 				size="sm"
 				portalled={portalled}
-				borderRadius="10px"
 				value={value}
 				onChange={(event) => onChange(event.target.value)}
 			>

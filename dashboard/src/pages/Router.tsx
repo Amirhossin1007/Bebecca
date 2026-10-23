@@ -227,9 +227,10 @@ const fetchAdminLoader = async ({ request }: { request: Request }) => {
 			pathname === dashboardBasename.replace(/\/+$/, "");
 		if (isDashboardRoute) {
 			try {
-				await queryClient.prefetchQuery("statistics-query-key", () =>
-					fetch("/system"),
-				);
+				await queryClient.prefetchQuery({
+					queryKey: ["statistics-query-key"],
+					queryFn: () => fetch("/system"),
+				});
 			} catch {}
 		}
 		return response;
