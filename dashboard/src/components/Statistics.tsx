@@ -1115,7 +1115,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					</div>
 				</div>
 
-				<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
+				<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
 					{[1, 2, 3, 4].map((i) => (
 						<div key={i} className="bg-panel-surface rounded-[20px] border border-panel-border! p-4 sm:p-5 flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
 							<div>
@@ -1216,7 +1216,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						<div className="w-[75px] h-[22px] rounded-full bg-panel-elevated" />
 					</div>
 					<div className="p-4 sm:p-5 md:p-6">
-						<div className="grid grid-cols-2 gap-3 md:gap-4">
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
 							{[1, 2].map((i) => (
 								<div key={i} className="bg-panel-surface rounded-[20px] border border-panel-border! p-4 sm:p-5 flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)]">
 									<div>
@@ -1393,7 +1393,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
 			</div>
 
-			<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
+			<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
 				<ResourceCard
 					label={t("dashboard.system.cpuUsage")}
 					icon={<Cpu className="w-[16px]" />}
@@ -1594,7 +1594,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					</Button>
 				}
 			>
-				<div className="grid grid-cols-2 gap-3 md:gap-4">
+				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
 					<ResourceCard
 						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
 						icon={<Cpu className="w-[16px]" />}
