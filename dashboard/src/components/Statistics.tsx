@@ -1,8 +1,7 @@
 import { Dialog, DialogContent, DialogHeader } from "components/ui/dialog";
 import { Button } from "components/ui/button";
 import { Spinner } from "components/ui/spinner";
-import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
-import { Download, Upload, Database, Clock, Cpu, Server, ShieldCheck, Signal, Users } from "lucide-react";
+import { Download, Upload, Database, Clock, Cpu, Server, ShieldCheck, Signal, Users, ChartBar } from "lucide-react";
 import { useColorMode } from "lib/color-mode";
 
 import type { ComponentPropsWithoutRef } from "react";
@@ -339,6 +338,23 @@ const HistoryModal: FC<{
 
 	const activeIntervalIndex = HISTORY_INTERVALS.findIndex((i) => i.seconds === intervalSeconds);
 
+	const MetricIcon = useMemo(() => {
+		switch (payload?.type) {
+			case "cpu":
+				return Cpu;
+			case "memory":
+				return Database;
+			case "network":
+				return Signal;
+			case "panel":
+			case "panelCpu":
+			case "panelMemory":
+				return Server;
+			default:
+				return ChartBar;
+		}
+	}, [payload?.type]);
+
 	useEffect(() => {
 		if (!isOpen) return;
 		const timer = setTimeout(() => {
@@ -661,8 +677,19 @@ const HistoryModal: FC<{
 			
 			<DialogContent className="bg-panel-surface border border-panel-border! rounded-[20px] shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_32px_80px_rgba(0,0,0,0.6)] mx-3 sm:mx-6 overflow-hidden">
 				<DialogHeader className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-4 border-b border-panel-border! text-[0.875rem] font-bold">
-					<p className="text-panel-text">{t("dashboard.history.modalTitle", { metric: payload?.title ?? "" })}</p>
-					
+					<div className="flex items-center gap-3">
+						<div className="flex items-center justify-center w-8 h-8 rounded-[10px] bg-[color-mix(in_srgb,var(--rb-panel-accent)_12%,transparent)] text-[var(--rb-panel-accent)] border border-[color-mix(in_srgb,var(--rb-panel-accent)_25%,transparent)] shrink-0">
+							<MetricIcon className="size-4.5" />
+						</div>
+						<div className="flex flex-col text-start">
+							<p className="text-panel-text text-[15px] font-bold leading-tight">
+								{t("dashboard.history.modalTitle", { metric: payload?.title ?? "" })}
+							</p>
+							<p className="text-panel-text-muted text-[11px] font-medium mt-0.5">
+								{payload?.metricLabel ? `${payload.title} (${payload.metricLabel})` : payload?.title}
+							</p>
+						</div>
+					</div>
 				</DialogHeader>
 				<div className={cn("px-5 py-4 overflow-y-auto", "px-4 md:px-6 py-4 md:py-5")}>
 					<div className="flex flex-col gap-4">
@@ -871,7 +898,7 @@ const ResourceCard: FC<{
 						{formatPercent(safe, false)}
 					</p>
 				</div>
-				<div className="h-1 w-full overflow-hidden ${cls}"><div className="h-full rounded-full [transition:width_0.6s_ease,_background-color_0.4s_ease]" style={{ width: `${safe}%`, backgroundColor: criticalColor }} /></div>
+				<div className="h-1 w-full overflow-hidden rounded-full bg-panel-elevated"><div className="h-full rounded-full [transition:width_0.6s_ease,_background-color_0.4s_ease]" style={{ width: `${safe}%`, backgroundColor: criticalColor }} /></div>
 				{(footerLeft || footerRight) && (
 					<div dir={isRTL ? "rtl" : "ltr"} className="flex justify-between items-center mt-2 text-[11px] font-medium text-panel-text-muted [unicode-bidi:isolate] [font-variant-numeric:tabular-nums]">
 						<p className="truncate">{footerLeft}</p>

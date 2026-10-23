@@ -19,8 +19,6 @@ function Tooltip({
   children,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  // one provider per tooltip: the app never wrapped the tree in one, so the
-  // registry's required <TooltipProvider> would otherwise be missing.
   return (
     <TooltipPrimitive.Provider>
       <TooltipPrimitive.Root data-slot="tooltip" {...props}>
@@ -60,7 +58,6 @@ function TooltipContent({
   )
 }
 
-/** Registry-shaped wrapper: <Tooltip><TooltipTrigger asChild>…<TooltipContent>…  */
 function TooltipRoot({
 	children,
 	...props
