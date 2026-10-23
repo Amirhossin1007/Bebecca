@@ -73,7 +73,7 @@ const buildMonthDays = (
 };
 
 const buildWeekdayLabels = (locale: string) => {
-	const start = new Date(2023, 0, 1); // Sunday
+	const start = new Date(2023, 0, 1);
 	return Array.from({ length: 7 }).map((_, index) =>
 		new Intl.DateTimeFormat(locale, { weekday: "short" }).format(
 			new Date(start.getTime() + index * 24 * 60 * 60 * 1000),

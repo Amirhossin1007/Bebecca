@@ -433,7 +433,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				].join(" ")}
 			>
 				<div ref={navScrollRef} className="rb-sidebar-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-					<div className="mb-3 rounded-md border border-panel-border bg-panel-elevated px-2 py-2">
+					<div className="mb-3 rounded-[12px] border border-panel-border bg-panel-elevated px-2 py-2">
 						<SponsorCarousel
 							items={sponsorItems}
 							variant="logo"
@@ -555,7 +555,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															) : null}
 														</>
 													) : (
-														<span className="pointer-events-none absolute start-full top-1/2 z-20 ms-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-panel-border bg-panel-elevated px-2 py-1 text-xs text-panel-text opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+														<span className="pointer-events-none absolute start-full top-1/2 z-20 ms-2 -translate-y-1/2 whitespace-nowrap rounded-[8px] border border-panel-border bg-panel-elevated px-2 py-1 text-xs text-panel-text opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
 															{item.title}
 														</span>
 													)}

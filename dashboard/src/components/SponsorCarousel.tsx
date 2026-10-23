@@ -78,8 +78,8 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 			className={cn(
 				"overflow-hidden w-full",
 				isBanner || isSidebarBanner
-					? "rounded-xl border border-panel-border bg-panel-surface shadow-sm"
-					: "border-none rounded-md shadow-none",
+					? "rounded-[14px] border border-panel-border bg-panel-surface shadow-sm"
+					: "border-none rounded-[10px] shadow-none",
 				isBanner
 					? "aspect-[4_/_1] md:aspect-[8_/_1]"
 					: isSidebarBanner
@@ -98,7 +98,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 							alt={item.alt}
 							loading="lazy"
 							className={cn(
-								"block max-w-full max-h-full border border-none rounded-md",
+								"block max-w-full max-h-full border border-none rounded-[10px]",
 								isBanner ? "object-cover" : "object-contain",
 								isBanner || isSidebarBanner ? "w-full" : "w-8",
 								isBanner || isSidebarBanner ? "h-full" : "h-8",

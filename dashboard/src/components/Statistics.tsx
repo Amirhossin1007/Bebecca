@@ -903,7 +903,7 @@ const StatRow: FC<{
 					{label}
 				</p>
 				{tag && (
-					<span dir="ltr" className="flex items-center justify-center text-[10px] px-1.5 py-0.5 rounded-md bg-panel-elevated text-panel-text-muted font-semibold [transition:all_0.25s_ease] [[role=group]:hover_&]:md:bg-panel-surface [[role=group]:hover_&]:md:text-panel-text-secondary">
+					<span dir="ltr" className="flex items-center justify-center text-[10px] px-1.5 py-0.5 rounded-[8px] bg-panel-elevated text-panel-text-muted font-semibold [transition:all_0.25s_ease] [[role=group]:hover_&]:md:bg-panel-surface [[role=group]:hover_&]:md:text-panel-text-secondary">
 						<span dir="ltr" className="[font-variant-numeric:tabular-nums]">
 							{tag.endsWith("%") ? `${tag.slice(0, -1)}%` : tag}
 						</span>

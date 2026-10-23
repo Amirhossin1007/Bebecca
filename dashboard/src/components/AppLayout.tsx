@@ -77,7 +77,7 @@ const TINT_CLASS =
 	"bg-[color-mix(in_srgb,var(--primary-500)_12%,transparent)] text-[var(--primary-500)] dark:bg-[color-mix(in_srgb,var(--primary-300)_20%,transparent)] dark:text-[var(--primary-300)]";
 
 const DOCK_CLASS =
-	"border-[rgba(15,23,42,0.08)]! bg-[color-mix(in_srgb,var(--rb-panel-surface)_78%,transparent)] shadow-[0_12px_32px_rgba(15,23,42,0.14),0_1px_3px_rgba(15,23,42,0.08)] [backdrop-filter:saturate(180%)_blur(20px)] dark:border-[rgba(255,255,255,0.09)]! dark:bg-[color-mix(in_srgb,var(--rb-panel-surface)_72%,transparent)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.5)]";
+	"border-panel-border! bg-panel-surface shadow-[0_12px_32px_rgba(15,23,42,0.14),0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.5)]";
 
 type SettingsMenuItem = {
 	key: string;
@@ -920,7 +920,7 @@ export function AppLayout() {
 													open ? languageMenu.onOpen() : languageMenu.onClose()
 												}>
 												<PopoverTrigger asChild>
-													<Button onClick={(event: ReactMouseEvent) => event.stopPropagation()} variant="ghost" className="h-10 w-full justify-start gap-3 rounded-md bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
+													<Button onClick={(event: ReactMouseEvent) => event.stopPropagation()} variant="ghost" className="h-10 w-full justify-start gap-3 rounded-[12px] bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
 														<LanguageIconStyled className="size-4 shrink-0" />
 														<span className="flex min-w-0 flex-1 items-center justify-between gap-3">
 															<span>{t("header.language")}</span>
@@ -932,7 +932,7 @@ export function AppLayout() {
 														</span>
 													</Button>
 												</PopoverTrigger>
-												<PopoverContent side={isMobile ? "bottom" : isRTL ? "left" : "right"} align="start" className="min-w-[160px]! rounded-md border-panel-border! bg-panel-surface py-2 text-panel-text shadow-lg select-none">
+												<PopoverContent side={isMobile ? "bottom" : isRTL ? "left" : "right"} align="start" className="min-w-[160px]! rounded-[14px] border-panel-border! bg-panel-surface py-2 text-panel-text shadow-lg select-none">
 													{languageItems.map(({ code, label, flag }) => {
 														const isActiveLang = i18n.language === code;
 														return (
@@ -1090,7 +1090,7 @@ export function AppLayout() {
 															<motion.span
 																layoutId="mobile-bottom-nav-indicator"
 																transition={navSpring}
-																className="absolute inset-0 rounded-2xl bg-[color-mix(in_srgb,var(--primary-500)_12%,transparent)] dark:bg-[color-mix(in_srgb,var(--primary-300)_20%,transparent)]"
+																className="absolute inset-0 rounded-[12px] bg-[color-mix(in_srgb,var(--primary-500)_12%,transparent)] dark:bg-[color-mix(in_srgb,var(--primary-300)_20%,transparent)]"
 															/>
 														)}
 														<div
