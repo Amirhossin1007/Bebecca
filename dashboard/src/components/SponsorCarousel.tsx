@@ -132,7 +132,11 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = ({
 	if (isBanner || isSidebarBanner) {
 		return (
 			<motion.div
-				initial={animateIn ? { y: "-140%", opacity: 0 } : false}
+				initial={
+					animateIn
+						? { y: isSidebarBanner ? "140%" : "-140%", opacity: 0 }
+						: false
+				}
 				animate={{ y: "0%", opacity: 1 }}
 				transition={{
 					duration: 0.5,

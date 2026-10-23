@@ -30,7 +30,7 @@ const THEME_OPTIONS: Array<{
 ];
 
 const PANEL_CLASS =
-	"min-w-[min(320px,calc(100vw_-_24px))]! max-w-[calc(100vw_-_16px)] p-3 rounded-[14px] border border-panel-border! bg-panel-surface shadow-xl backdrop-blur-md sm:min-w-[320px]!";
+	"min-w-[min(320px,calc(100vw_-_24px))]! max-w-[calc(100vw_-_16px)] p-3 rounded-[14px] border border-panel-border! bg-panel-surface shadow-xl sm:min-w-[320px]!";
 
 const THEME_KEY = "rb-theme";
 const CHAKRA_THEME_KEY = "chakra-ui-color-mode";
