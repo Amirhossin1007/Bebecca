@@ -218,6 +218,7 @@ export interface SubscriptionCertificate {
 	fingerprint_sha256: string | null;
 	auto_renew: boolean;
 	serve_tls: boolean;
+	node_id?: number | null;
 }
 
 export interface SubscriptionSettingsBundle {
@@ -270,6 +271,12 @@ export interface CertificateIssuePayload {
 	provider: "letsencrypt" | "zerossl";
 }
 
+export interface NodeCertificateIssuePayload {
+	node_id: number;
+	domain: string;
+	email: string;
+}
+
 export interface CertificateRenewPayload {
 	domain: string;
 }
@@ -287,6 +294,7 @@ export interface RuntimeSettingsResponse {
 	record_node_user_usages: boolean;
 	subscription_read_only: boolean;
 	api_docs_enabled: boolean;
+	user_speed_limit_enabled: boolean;
 	phpmyadmin_enabled: boolean;
 	phpmyadmin_port: number;
 	phpmyadmin_path: string;
@@ -455,12 +463,17 @@ export const installExternalArchive = async (payload: {
 	});
 };
 
-export const installMirzaBot = async (payload: {
+type BotAppInstallPayload = {
 	domain: string;
 	bot_token: string;
 	admin_id: string;
 	database_backup?: File;
-}): Promise<ExternalAppRecord> => {
+};
+
+const installBotApp = async (
+	app: "mirzabot" | "faoxima",
+	payload: BotAppInstallPayload,
+): Promise<ExternalAppRecord> => {
 	const body = new FormData();
 	body.set("domain", payload.domain);
 	body.set("bot_token", payload.bot_token);
@@ -468,32 +481,16 @@ export const installMirzaBot = async (payload: {
 	if (payload.database_backup) {
 		body.set("database_backup", payload.database_backup);
 	}
-	return $fetch("/settings/external-apps/mirzabot", {
+	return $fetch(`/settings/external-apps/${app}`, {
 		method: "POST",
 		body,
 		timeout: 20 * 60 * 1000,
 	});
 };
 
-export const installFaoxima = async (payload: {
-	domain: string;
-	bot_token: string;
-	admin_id: string;
-	database_backup?: File;
-}): Promise<ExternalAppRecord> => {
-	const body = new FormData();
-	body.set("domain", payload.domain);
-	body.set("bot_token", payload.bot_token);
-	body.set("admin_id", payload.admin_id);
-	if (payload.database_backup) {
-		body.set("database_backup", payload.database_backup);
-	}
-	return $fetch("/settings/external-apps/faoxima", {
-		method: "POST",
-		body,
-		timeout: 20 * 60 * 1000,
-	});
-};
+export const installMirzaBot = (payload: BotAppInstallPayload) => installBotApp("mirzabot", payload);
+
+export const installFaoxima = (payload: BotAppInstallPayload) => installBotApp("faoxima", payload);
 
 export const setExternalAppEnabled = async (payload: {
 	id: string;
@@ -684,7 +681,7 @@ export const exportRebeccaBackup = async (
 };
 
 export const importRebeccaBackup = async (
-	file: File,
+	files: File | File[],
 	onProgress?: (percent: number) => void,
 ): Promise<RebeccaBackupImportResponse> => {
 	return new Promise((resolve, reject) => {
@@ -694,7 +691,9 @@ export const importRebeccaBackup = async (
 			reject(error);
 		};
 		const body = new FormData();
-		body.append("file", file);
+		for (const file of Array.isArray(files) ? files : [files]) {
+			body.append("file", file);
+		}
 		const xhr = new XMLHttpRequest();
 		const baseURL = (apiBaseURL || "/api").replace(/\/$/, "");
 		xhr.open("POST", `${baseURL}/settings/backup/import`);
@@ -782,6 +781,15 @@ export const issueSubscriptionCertificate = async (
 	payload: CertificateIssuePayload,
 ): Promise<SubscriptionCertificate> => {
 	return apiFetch("/settings/subscriptions/certificates/issue", {
+		method: "POST",
+		body: JSON.stringify(payload),
+	});
+};
+
+export const issueNodeSubscriptionCertificate = async (
+	payload: NodeCertificateIssuePayload,
+): Promise<SubscriptionCertificate> => {
+	return apiFetch("/settings/subscriptions/certificates/issue-node", {
 		method: "POST",
 		body: JSON.stringify(payload),
 	});

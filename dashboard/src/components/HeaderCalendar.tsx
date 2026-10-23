@@ -1,49 +1,19 @@
-import {
-	Badge,
-	Box,
-	Button,
-	chakra,
-	Flex,
-	HStack,
-	IconButton,
-	Menu,
-	MenuButton,
-	MenuList,
-	Popover,
-	PopoverBody,
-	PopoverContent,
-	PopoverTrigger,
-	Portal,
-	SimpleGrid,
-	Stack,
-	Text,
-	useBreakpointValue,
-	useColorModeValue,
-	useDisclosure,
-	type PlacementWithLogical,
-} from "@chakra-ui/react";
-import {
-	CalendarIcon as HeroCalendarIcon,
-	ChevronLeftIcon,
-	ChevronRightIcon,
-	SparklesIcon,
-} from "@heroicons/react/24/outline";
+import { Button } from "components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { Badge } from "components/ui/badge";
+import { CircleAlert, CircleCheck, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { CalendarDays, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sparkles as SparklesIcon } from "lucide-react";
+
+import { cn } from "lib/cn";
 import { useSeasonal } from "contexts/SeasonalContext";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-	type FC,
-	memo,
-	useEffect,
-	useMemo,
-	useState,
-	type MouseEvent as ReactMouseEvent,
-} from "react";
+import { type FC, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-const CalendarIcon = chakra(HeroCalendarIcon, { baseStyle: { w: 4, h: 4 } });
-const Sparkles = chakra(SparklesIcon, { baseStyle: { w: 3.5, h: 3.5 } });
-const ChevronLeft = chakra(ChevronLeftIcon, { baseStyle: { w: 3, h: 3 } });
-const ChevronRight = chakra(ChevronRightIcon, { baseStyle: { w: 3, h: 3 } });
+const CalendarIcon = withClass(CalendarDays, "w-4 h-4");
+const Sparkles = withClass(SparklesIcon, "w-4 h-4");
+const ChevronLeft = withClass(ChevronLeftIcon, "w-4 h-4");
+const ChevronRight = withClass(ChevronRightIcon, "w-4 h-4");
 
 const createStableKey = () => {
 	if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -56,16 +26,18 @@ type CalendarDay = {
 	date: Date;
 	label: string;
 	isToday: boolean;
-	weekdayIndex: number;
+	weekday: number;
 };
 
-const buildDoranMonthDays = (
+const buildMonthDays = (
 	baseDate: Date,
 	displayLocale: string,
 	numberLocale: string,
-	usePersian: boolean,
+	usePersianCalendar: boolean,
 ) => {
-	const numericLocale = usePersian ? "en-u-ca-persian" : "en-u-ca-gregory";
+	const numericLocale = usePersianCalendar
+		? "en-u-ca-persian"
+		: "en-u-ca-gregory";
 	const monthFormatter = new Intl.DateTimeFormat(numericLocale, {
 		month: "numeric",
 	});
@@ -86,14 +58,11 @@ const buildDoranMonthDays = (
 	let cursor = firstDay;
 	while (monthFormatter.format(cursor) === monthId) {
 		const label = numberFormatter.format(Number(dayFormatter.format(cursor)));
-		const weekday = cursor.getDay();
-		const weekdayIndex = usePersian ? (weekday + 1) % 7 : weekday;
-
 		days.push({
 			date: new Date(cursor),
 			label,
-			isToday: cursor.toDateString() === new Date().toDateString(),
-			weekdayIndex,
+			isToday: cursor.toDateString() === baseDate.toDateString(),
+			weekday: cursor.getDay(),
 		});
 
 		cursor = new Date(cursor);
@@ -103,87 +72,57 @@ const buildDoranMonthDays = (
 	return { monthLabel, days };
 };
 
-const DORAN_PERSIAN_WEEKDAYS = ["ش", "ی", "د", "س", "چ", "پ", "ج"];
-const DORAN_GREGORIAN_WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const buildWeekdayLabels = (locale: string) => {
+	const start = new Date(2023, 0, 1); // Sunday
+	return Array.from({ length: 7 }).map((_, index) =>
+		new Intl.DateTimeFormat(locale, { weekday: "short" }).format(
+			new Date(start.getTime() + index * 24 * 60 * 60 * 1000),
+		),
+	);
+};
 
 export interface HeaderCalendarProps {
 	isCompact?: boolean;
 	inMenu?: boolean;
-	placement?: PlacementWithLogical;
 	isOpen?: boolean;
 	isPressing?: boolean;
 	onToggle?: () => void;
 	onClose?: () => void;
 }
 
-export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
+export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 	isCompact = false,
 	inMenu = false,
-	placement,
 	isOpen: controlledIsOpen,
 	isPressing = false,
 	onToggle: controlledOnToggle,
 	onClose: controlledOnClose,
 }) => {
 	const { t, i18n } = useTranslation();
+	const [uncontrolledIsOpen, setUncontrolledIsOpen] = useState(false);
+	const isOpen = controlledIsOpen ?? uncontrolledIsOpen;
+	const onOpenChange = (open: boolean) => {
+		if (controlledOnToggle) {
+			controlledOnToggle();
+		} else {
+			setUncontrolledIsOpen(open);
+		}
+		if (!open && controlledOnClose) {
+			controlledOnClose();
+		}
+	};
 	const [today, setToday] = useState(() => new Date());
 	const [displayDate, setDisplayDate] = useState(() => new Date());
-	const [monthDirection, setMonthDirection] = useState<1 | -1>(1);
 	const { isChristmas, window: seasonWindow } = useSeasonal();
 	const isPersian = i18n.language?.startsWith("fa");
 	const isRTL = i18n.dir(i18n.language) === "rtl";
-	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
-	const showText = isDesktop && !isCompact;
-	const isCircle = !isDesktop;
 	const displayLocale = isPersian
 		? "fa-IR-u-ca-persian"
 		: `${i18n.language || "en"}-u-ca-gregory`;
 	const numberLocale = isPersian ? "fa-IR" : i18n.language || "en";
-
-	const cardBg = useColorModeValue("panel.surface", "panel.surface");
-	const cardBorder = useColorModeValue("panel.border", "panel.border");
-	const headerBtnBg = useColorModeValue("panel.surface", "panel.surface");
-	const headerBtnBorder = useColorModeValue("panel.border", "panel.border");
-	const textMuted = useColorModeValue("gray.500", "panel.textMuted");
-
-	const { isOpen, onOpen, onClose } = useDisclosure();
-	const isControlled = controlledIsOpen !== undefined;
-	const isMenuOpen = isControlled ? controlledIsOpen : isOpen;
-
-	const handleToggle = () => {
-		if (controlledOnToggle) {
-			controlledOnToggle();
-		} else {
-			isMenuOpen ? onClose() : onOpen();
-		}
-	};
-
-	const handleMenuClose = () => {
-		if (controlledOnClose) {
-			controlledOnClose();
-		} else {
-			onClose();
-		}
-	};
-
-	const popperModifiers = useMemo(
-		() => [
-			{
-				name: "preventOverflow",
-				options: {
-					padding: 12,
-					boundary: "clippingParents",
-				},
-			},
-			{
-				name: "flip",
-				options: {
-					fallbackPlacements: ["bottom-start", "left-start", "right-start"],
-				},
-			},
-		],
-		[],
-	);
+	const badgeBg = "bg-blackAlpha-50 dark:bg-whiteAlpha-100";
+	const highlight = "border-primary-600! dark:border-primary-200!";
+	const border = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
 
 	useEffect(() => {
 		const timer = setInterval(() => setToday(new Date()), 60 * 1000);
@@ -194,25 +133,27 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
 		setDisplayDate(new Date());
 	}, []);
 
-	const formattedDate = useMemo(() => {
-		const formatter = new Intl.DateTimeFormat(displayLocale, {
-			weekday: "long",
-			day: "numeric",
-			month: "long",
-			year: "numeric",
-		});
-		if (isPersian) {
-			const parts = formatter.formatToParts(today);
-			const getPart = (type: string) =>
-				parts.find((p) => p.type === type)?.value || "";
-			return `${getPart("weekday")}، ${getPart("day")} ${getPart("month")} ${getPart("year")}`;
-		}
-		return formatter.format(today);
-	}, [displayLocale, today, isPersian]);
+	const formattedDate = useMemo(
+		() => {
+			const formatter = new Intl.DateTimeFormat(displayLocale, {
+				weekday: "long",
+				day: "numeric",
+				month: "long",
+				year: "numeric",
+			});
+			if (isPersian) {
+				const parts = formatter.formatToParts(today);
+				const getPart = (type: string) => parts.find((p) => p.type === type)?.value || "";
+				return `${getPart("weekday")}، ${getPart("day")} ${getPart("month")} ${getPart("year")}`;
+			}
+			return formatter.format(today);
+		},
+		[displayLocale, today, isPersian],
+	);
 
 	const { monthLabel, days } = useMemo(
 		() =>
-			buildDoranMonthDays(
+			buildMonthDays(
 				displayDate,
 				displayLocale,
 				numberLocale,
@@ -220,50 +161,19 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
 			),
 		[displayDate, displayLocale, isPersian, numberLocale],
 	);
+	const weekdayLabels = useMemo(
+		() => buildWeekdayLabels(displayLocale),
+		[displayLocale],
+	);
 
-	const weekdayLabels = isPersian
-		? DORAN_PERSIAN_WEEKDAYS
-		: DORAN_GREGORIAN_WEEKDAYS;
-
-	const emptySlots = days.length ? days[0].weekdayIndex : 0;
+	const emptySlots = days.length ? days[0].weekday : 0;
 	const emptySlotKeys = useMemo(
 		() => Array.from({ length: emptySlots }, () => createStableKey()),
 		[emptySlots],
 	);
-
-	const holidayWeekdayIndex = isPersian ? 6 : 0;
+	const weekendDays = isPersian ? [5] : [0];
 	const prevIcon = isRTL ? <ChevronRight /> : <ChevronLeft />;
 	const nextIcon = isRTL ? <ChevronLeft /> : <ChevronRight />;
-	const popoverHighlight = useColorModeValue(
-		"0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)",
-		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
-	);
-
-	const isCurrentMonth = useMemo(() => {
-		return (
-			displayDate.getFullYear() === today.getFullYear() &&
-			displayDate.getMonth() === today.getMonth()
-		);
-	}, [displayDate, today]);
-
-	const handlePrevMonth = () => {
-		setMonthDirection(isRTL ? 1 : -1);
-		const next = new Date(displayDate);
-		next.setMonth(displayDate.getMonth() - 1);
-		setDisplayDate(next);
-	};
-
-	const handleNextMonth = () => {
-		setMonthDirection(isRTL ? -1 : 1);
-		const next = new Date(displayDate);
-		next.setMonth(displayDate.getMonth() + 1);
-		setDisplayDate(next);
-	};
-
-	const handleResetToday = () => {
-		setMonthDirection(1);
-		setDisplayDate(new Date());
-	};
 
 	const christmasRange = useMemo(() => {
 		if (!seasonWindow) return null;
@@ -275,410 +185,88 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(({
 		return `${formatter.format(seasonWindow.start)} - ${formatter.format(seasonWindow.end)}`;
 	}, [i18n.language, seasonWindow]);
 
-	useEffect(() => {
-		if (inMenu || !isOpen) return;
-		const handleDocumentPointerDown = (event: MouseEvent | TouchEvent) => {
-			const target = event.target as Node | null;
-			if (!target) return;
-			const trigger = document.querySelector(
-				'[data-header-calendar-trigger="true"]',
-			);
-			if (trigger?.contains(target)) return;
-			const content = document.querySelector(
-				'[data-header-calendar-content="true"]',
-			);
-			if (content?.contains(target)) return;
-			onClose();
-		};
-		document.addEventListener("mousedown", handleDocumentPointerDown);
-		document.addEventListener("touchstart", handleDocumentPointerDown, {
-			passive: true,
-		});
-		return () => {
-			document.removeEventListener("mousedown", handleDocumentPointerDown);
-			document.removeEventListener("touchstart", handleDocumentPointerDown);
-		};
-	}, [inMenu, isOpen, onClose]);
-
-	const renderCalendarBody = () => (
-		<Stack spacing={3}>
-			<Flex
-				justify="space-between"
-				align="center"
-				dir={isRTL ? "rtl" : "ltr"}
-				px={1}
-			>
-				<HStack spacing={1.5}>
-					<IconButton
-						size="xs"
-						variant="outline"
-						h="22px"
-						w="22px"
-						minW="22px"
-						px={0}
-						borderRadius="6px"
-						borderColor={headerBtnBorder}
-						bg={headerBtnBg}
-						color="panel.textSecondary"
-						aria-label={t("dateTimePicker.previousMonth")}
-						icon={prevIcon}
-						onClick={handlePrevMonth}
-						_hover={{
-							md: {
-								bg: "panel.elevated",
-								borderColor: "panel.borderStrong",
-								color: "panel.text",
-							},
-						}}
-						_active={{ transform: "scale(0.92)" }}
-						transition="all 0.16s cubic-bezier(0.16, 1, 0.3, 1)"
-					/>
-					<IconButton
-						size="xs"
-						variant="outline"
-						h="22px"
-						w="22px"
-						minW="22px"
-						px={0}
-						borderRadius="6px"
-						borderColor={headerBtnBorder}
-						bg={headerBtnBg}
-						color="panel.textSecondary"
-						aria-label={t("dateTimePicker.nextMonth")}
-						icon={nextIcon}
-						onClick={handleNextMonth}
-						_hover={{
-							md: {
-								bg: "panel.elevated",
-								borderColor: "panel.borderStrong",
-								color: "panel.text",
-							},
-						}}
-						_active={{ transform: "scale(0.92)" }}
-						transition="all 0.16s cubic-bezier(0.16, 1, 0.3, 1)"
-					/>
-				</HStack>
-
-				<HStack spacing={2} align="center">
-					<Text fontWeight="700" fontSize="13px" color="panel.text">
-						{monthLabel}
-					</Text>
-					{isChristmas && (
-						<Badge
-							colorScheme="red"
-							display="inline-flex"
-							alignItems="center"
-							gap={1}
-							borderRadius="full"
-							px={2}
-							py={0.5}
-							fontSize="10px"
-						>
-							<Sparkles />
-							{t("season.christmas")}
-						</Badge>
-					)}
-				</HStack>
-
-				<Button
-					size="xs"
-					variant={isCurrentMonth ? "ghost" : "outline"}
-					colorScheme={isCurrentMonth ? undefined : "primary"}
-					borderRadius="6px"
-					fontSize="10px"
-					fontWeight="600"
-					px={2}
-					h="22px"
-					minW="auto"
-					onClick={handleResetToday}
-					opacity={isCurrentMonth ? 0.75 : 1}
-					borderColor={
-						isCurrentMonth ? "transparent" : "panel.borderStrong"
-					}
-					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-					_hover={{
-						md: {
-							bg: "panel.elevated",
-							borderColor: "panel.borderStrong",
-						},
-					}}
-					_active={{ transform: "scale(0.94)" }}
-				>
-					{t("calendar.today")}
-				</Button>
-			</Flex>
-
-			<SimpleGrid columns={7} spacing={1} px={1}>
-				{weekdayLabels.map((label, idx) => {
-					const isHol = idx === holidayWeekdayIndex;
-					return (
-						<Text
-							key={label}
-							textAlign="center"
-							fontSize="11px"
-							color={isHol ? "red.400" : textMuted}
-							fontWeight="700"
-							py={0.5}
-						>
-							{label}
-						</Text>
-					);
-				})}
-			</SimpleGrid>
-
-			<Box overflow="hidden" position="relative" minH="210px">
-				<AnimatePresence
-					initial={false}
-					custom={monthDirection}
-					mode="wait"
-				>
-					<motion.div
-						key={monthLabel}
-						initial={{ opacity: 0, x: monthDirection * 20 }}
-						animate={{ opacity: 1, x: 0 }}
-						exit={{ opacity: 0, x: -monthDirection * 20 }}
-						transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+	return (
+		<Popover open={isOpen} onOpenChange={onOpenChange}>
+			<PopoverTrigger asChild>
+				{inMenu ? (
+					<Button
+						variant="ghost"
+						className={cn(
+							"w-full h-10 justify-start gap-3 px-3 rounded-[12px] text-panel-text text-[13px] font-medium transition-all duration-120",
+							isPressing || isOpen ? "bg-panel-elevated scale-[0.96]" : "bg-transparent",
+							"hover:bg-panel-elevated active:bg-panel-elevated active:scale-[0.96]",
+						)}
 					>
-						<SimpleGrid columns={7} spacing={1} px={1}>
+						<CalendarIcon className="size-4 shrink-0" />
+						<span className="truncate">{formattedDate}</span>
+					</Button>
+				) : (
+					<Button
+						variant="ghost"
+						size="sm"
+						className={cn(
+							"hidden md:inline-flex px-3 rounded-[10px] text-panel-text hover:bg-panel-elevated transition-colors",
+							isCompact ? "max-w-[180px]" : "max-w-[320px]",
+						)}
+					>
+						<CalendarIcon className="size-4 shrink-0" />
+						<p className="truncate font-semibold text-[0.875rem]">
+							{formattedDate}
+						</p>
+					</Button>
+				)}
+			</PopoverTrigger>
+			<PopoverContent className={cn("w-fit min-w-[260px]! p-0 rounded-[14px] border border-panel-border! bg-panel-surface text-panel-text shadow-xl backdrop-blur-md z-[9999]")}>
+				
+				<div className="p-3">
+					<div className="flex flex-col gap-3">
+						<div dir={isRTL ? "rtl" : "ltr"} className="flex flex-row gap-2 justify-between items-center">
+							<div className="flex flex-row items-center gap-2">
+								<Button aria-label={t("dateTimePicker.previousMonth")} onClick={() => {
+										const next = new Date(displayDate);
+										next.setMonth(displayDate.getMonth() - 1);
+										setDisplayDate(next);
+									}} variant="ghost" size="xs" className="size-7 p-0">{prevIcon}</Button>
+								<p className="font-semibold">{monthLabel}</p>
+								{isChristmas && (
+									<Badge className={cn("bg-destructive/10 text-destructive", "inline-flex items-center gap-1")}>
+										<Sparkles />
+										{t("season.christmas")}
+									</Badge>
+								)}
+								<Button aria-label={t("dateTimePicker.nextMonth")} onClick={() => {
+										const next = new Date(displayDate);
+										next.setMonth(displayDate.getMonth() + 1);
+										setDisplayDate(next);
+									}} variant="ghost" size="xs" className="size-7 p-0">{nextIcon}</Button>
+							</div>
+						</div>
+						<div className="grid grid-cols-7 gap-1">
+							{weekdayLabels.map((label) => (
+								<p key={label} className="text-center text-[0.75rem] text-gray-500 dark:text-gray-400 font-semibold">
+									{label}
+								</p>
+							))}
 							{emptySlotKeys.map((key) => (
-								<Box key={key} w="34px" h="34px" />
+								<div key={key} />
 							))}
 							{days.map((day) => {
-								const isHoliday =
-									day.weekdayIndex === holidayWeekdayIndex;
+								const isHoliday = weekendDays.includes(day.weekday);
 								return (
-									<Flex
-										key={day.date.toISOString()}
-										w="34px"
-										h="34px"
-										align="center"
-										justify="center"
-										borderRadius="8px"
-										bg={
-											day.isToday
-												? "var(--rb-panel-accent)"
-												: "transparent"
-										}
-										borderWidth="0px"
-										color={
-											day.isToday
-												? "white !important"
-												: isHoliday
-													? "red.400"
-													: "panel.text"
-										}
-										fontWeight={
-											day.isToday ? "700" : isHoliday ? "600" : "500"
-										}
-										fontSize="12px"
-										boxShadow={
-											day.isToday
-												? "0 2px 8px var(--rb-panel-accent)"
-												: undefined
-										}
-										transition="all 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
-										cursor="default"
-										_hover={
-											day.isToday
-												? undefined
-												: {
-														md: {
-															bg: "panel.elevated",
-															color: isHoliday
-																? "red.400"
-																: "panel.text",
-														},
-													}
-										}
-									>
-										<Text>{day.label}</Text>
-									</Flex>
+									<div key={day.date.toISOString()} className={cn("text-center px-2 py-2 rounded-md", day.isToday ? "border" : "border-0", day.isToday ? (highlight) : "border-transparent!", day.isToday ? (badgeBg) : "bg-transparent", day.isToday || isHoliday ? "font-semibold" : "font-normal", isHoliday ? "text-red-500" : "")}>
+										<p>{day.label}</p>
+									</div>
 								);
 							})}
-						</SimpleGrid>
-					</motion.div>
-				</AnimatePresence>
-			</Box>
-
-			{isChristmas && christmasRange && (
-				<Text
-					fontSize="10px"
-					color="panel.textMuted"
-					textAlign="center"
-					pt={1}
-				>
-					{t("season.window")} ({christmasRange})
-				</Text>
-			)}
-		</Stack>
-	);
-
-	if (inMenu) {
-		return (
-			<Menu
-				placement={placement ?? (isRTL ? "left-start" : "right-start")}
-				strategy="fixed"
-				isLazy={false}
-				autoSelect={false}
-				gutter={6}
-				computePositionOnMount
-				modifiers={popperModifiers}
-				isOpen={isMenuOpen}
-				onOpen={() => {
-					if (!isControlled) onOpen();
-				}}
-				onClose={handleMenuClose}
-				closeOnSelect={false}
-				closeOnBlur={false}
-			>
-				<MenuButton
-					as={Button}
-					variant="ghost"
-					data-submenu-trigger="true"
-					data-calendar-trigger="true"
-					w="full"
-					h="38px"
-					justifyContent="flex-start"
-					fontWeight="500"
-					fontSize="13px"
-					borderRadius="12px"
-					px={3}
-					bg={isPressing || isMenuOpen ? "panel.elevated" : "transparent"}
-					color="panel.text"
-					transform={isPressing ? "scale(0.96)" : undefined}
-					transition="all 0.12s cubic-bezier(0.2, 0, 0, 1)"
-					_hover={{ md: { bg: "panel.elevated" } }}
-					_active={{ bg: "panel.elevated", transform: "scale(0.96)" }}
-					_focusVisible={{ bg: "panel.elevated" }}
-					onClick={(e: ReactMouseEvent) => {
-						e.stopPropagation();
-						handleToggle();
-					}}
-				>
-					<HStack justify="space-between" w="full" minW={0} spacing={2.5}>
-						<HStack spacing={2.5} minW={0}>
-							<CalendarIcon flexShrink={0} color="panel.text" />
-							<Text noOfLines={1} color="panel.text" fontSize="13px" fontWeight="500">
-								{t("header.calendar", "Calendar")}
-							</Text>
-						</HStack>
-						<Text
-							fontSize="11px"
-							fontWeight="600"
-							color="panel.textMuted"
-							isTruncated
-						>
-							{formattedDate}
-						</Text>
-					</HStack>
-				</MenuButton>
-				<Portal>
-					<MenuList
-						dir={isRTL ? "rtl" : "ltr"}
-						data-profile-window="true"
-						data-profile-submenu="true"
-						data-calendar-menu-list="true"
-						w="fit-content"
-						minW="300px"
-						p={3.5}
-						borderRadius="20px"
-						borderWidth="1px"
-						borderColor={cardBorder}
-						bg={cardBg}
-						boxShadow={popoverHighlight}
-						zIndex={10005}
-						userSelect="none"
-					>
-						{renderCalendarBody()}
-					</MenuList>
-				</Portal>
-			</Menu>
-		);
-	}
-
-	return (
-		<Popover
-			isOpen={isOpen}
-			onOpen={onOpen}
-			onClose={onClose}
-			closeOnBlur={true}
-			closeOnEsc={true}
-			placement={placement ?? (isRTL ? "bottom-start" : "bottom-end")}
-			gutter={8}
-		>
-			<PopoverTrigger>
-				<Button
-					data-header-calendar-trigger="true"
-					size="sm"
-					variant="outline"
-					h="34px"
-					w={showText ? "auto" : "34px"}
-					minW={showText ? "auto" : "34px"}
-					px={showText ? 3 : 0}
-					borderRadius={isCircle ? "full" : "12px"}
-					borderColor={headerBtnBorder}
-					bg={headerBtnBg}
-					color="panel.text"
-					boxShadow="sm"
-					display="inline-flex"
-					alignItems="center"
-					justifyContent="center"
-					gap={showText ? 2 : 0}
-					title={formattedDate}
-					aria-label={formattedDate}
-					_hover={{
-						md: {
-							bg: "panel.elevated",
-							borderColor: "panel.borderStrong",
-							boxShadow: "0 4px 14px rgba(0, 0, 0, 0.08)",
-						},
-					}}
-					_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
-					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-				>
-					<Flex
-						w="16px"
-						h="16px"
-						align="center"
-						justify="center"
-						color="panel.text"
-						flexShrink={0}
-					>
-						<CalendarIcon style={{ width: "15px", height: "15px" }} />
-					</Flex>
-					{showText && (
-						<Text
-							noOfLines={1}
-							maxW="320px"
-							fontWeight="600"
-							fontSize="12px"
-							lineHeight="normal"
-							color="panel.text"
-						>
-							{formattedDate}
-						</Text>
-					)}
-				</Button>
-			</PopoverTrigger>
-			<Portal>
-				<PopoverContent
-					data-header-calendar-content="true"
-					w="fit-content"
-					minW="300px"
-					p={3.5}
-					borderRadius="20px"
-					borderWidth="1px"
-					borderColor={cardBorder}
-					bg={cardBg}
-					boxShadow={popoverHighlight}
-					_focus={{ outline: "none" }}
-					zIndex={9999}
-				>
-					<PopoverBody p={0}>
-						{renderCalendarBody()}
-					</PopoverBody>
-				</PopoverContent>
-			</Portal>
+						</div>
+						{isChristmas && christmasRange && (
+							<p className="text-[0.75rem] text-gray-500 text-center">
+								{t("season.window")} ({christmasRange})
+							</p>
+						)}
+					</div>
+				</div>
+			</PopoverContent>
 		</Popover>
 	);
-});
+};

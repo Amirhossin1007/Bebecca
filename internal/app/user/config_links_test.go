@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 )
 
@@ -111,7 +112,7 @@ func TestRuntimeShadowsocksLiveSettingsKeepsInboundMethod(t *testing.T) {
 	if live["method"] != "2022-blake3-aes-256-gcm" {
 		t.Fatalf("live method = %v, want the inbound 2022 method", live["method"])
 	}
-	if key, err := base64.StdEncoding.DecodeString(stringValue(live["password"])); err != nil || len(key) != 32 {
+	if key, err := base64.StdEncoding.DecodeString(jsonvalue.String(live["password"])); err != nil || len(key) != 32 {
 		t.Fatalf("live password must be a base64 32-byte key, got %v", live["password"])
 	}
 	if _, ok := RuntimeShadowsocksSettings(settings, mapValue(inbound["settings"]))["method"]; ok {
@@ -716,7 +717,7 @@ func TestBuildConfigLinksKeepsRealityMetadataForTCPAndJSON(t *testing.T) {
 		"spiderX":       "/spider",
 		"mldsa65Verify": "post-quantum-verify",
 	} {
-		if got := stringValue(reality[key]); got != expected {
+		if got := jsonvalue.String(reality[key]); got != expected {
 			t.Fatalf("expected realitySettings %s=%q, got %q settings=%#v", key, expected, got, reality)
 		}
 	}
@@ -744,7 +745,7 @@ func TestMergeResolvedInboundMetadataFillsDuplicateRealityTag(t *testing.T) {
 		"pqv":      "post-quantum-verify",
 	}
 	mergeResolvedInboundMetadata(target, source)
-	if got := stringValue(target["pbk"]); got != "public-key-from-node-custom" {
+	if got := jsonvalue.String(target["pbk"]); got != "public-key-from-node-custom" {
 		t.Fatalf("expected merged pbk, got %#v", target)
 	}
 	if got := firstStringList(target["sids"]); got != "abcd" {
@@ -753,7 +754,7 @@ func TestMergeResolvedInboundMetadataFillsDuplicateRealityTag(t *testing.T) {
 	if got := firstStringList(target["sni"]); got != "origin.example.com" {
 		t.Fatalf("expected merged sni, got %#v", target)
 	}
-	if got := stringValue(target["pqv"]); got != "post-quantum-verify" {
+	if got := jsonvalue.String(target["pqv"]); got != "post-quantum-verify" {
 		t.Fatalf("expected merged pqv, got %#v", target)
 	}
 }
@@ -1089,7 +1090,7 @@ func TestHysteriaHostFinalMaskRebuildsNativeShareFieldsAndLegacyMetadata(t *test
 	legacyEffective["fragment_setting"] = legacyFragment
 	legacyEffective["noise_setting"] = legacyNoise
 	metadata := configLinkMetadata(legacyEffective)
-	if len(listAny(metadata.FinalMask["tcp"])) != 1 || len(listAny(metadata.FinalMask["udp"])) != 1 {
+	if len(jsonvalue.ListAny(metadata.FinalMask["tcp"])) != 1 || len(jsonvalue.ListAny(metadata.FinalMask["udp"])) != 1 {
 		t.Fatalf("legacy Hysteria masks were not carried by Xray JSON metadata: %#v", metadata.FinalMask)
 	}
 }
@@ -1103,7 +1104,7 @@ func TestShadowsocksMetadataKeepsLegacyMasksBesideCanonicalFinalMask(t *testing.
 			"quicParams": map[string]any{"congestion": "bbr"},
 		},
 	})
-	if len(listAny(metadata.FinalMask["tcp"])) != 1 || len(listAny(metadata.FinalMask["udp"])) != 1 || mapValue(metadata.FinalMask["quicParams"])["congestion"] != "bbr" {
+	if len(jsonvalue.ListAny(metadata.FinalMask["tcp"])) != 1 || len(jsonvalue.ListAny(metadata.FinalMask["udp"])) != 1 || mapValue(metadata.FinalMask["quicParams"])["congestion"] != "bbr" {
 		t.Fatalf("Shadowsocks metadata lost canonical or legacy FinalMask: %#v", metadata.FinalMask)
 	}
 }
@@ -1413,14 +1414,14 @@ func TestResolveInboundKeepsL2TPSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := normalizeProxyProtocol(stringValue(resolved["protocol"])); got != "l2tp" {
+	if got := normalizeProxyProtocol(jsonvalue.String(resolved["protocol"])); got != "l2tp" {
 		t.Fatalf("protocol = %q, want l2tp", got)
 	}
 	settings := mapValue(resolved["settings"])
-	if got := stringValue(settings["ipsec_psk"]); got != "secret" {
+	if got := jsonvalue.String(settings["ipsec_psk"]); got != "secret" {
 		t.Fatalf("ipsec_psk = %q, want secret", got)
 	}
-	if got := intValue(settings["tunnel_port"]); got != 1702 {
+	if got := jsonvalue.Int(settings["tunnel_port"]); got != 1702 {
 		t.Fatalf("tunnel_port = %d, want 1702", got)
 	}
 }
@@ -1434,7 +1435,7 @@ func TestResolveInboundDoesNotUseServerDecryptionAsVLESSClientEncryption(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := stringValue(resolved["encryption"]); got != "" {
+	if got := jsonvalue.String(resolved["encryption"]); got != "" {
 		t.Fatalf("server decryption leaked into client encryption: %q", got)
 	}
 }
@@ -1671,7 +1672,7 @@ func TestShadowsocksClientLinkPreservesKCPMaskAndStructuredSettings(t *testing.T
 		t.Fatal(err)
 	}
 	udp := listOfMaps(finalMask["udp"])
-	if len(udp) != 3 || stringValue(udp[0]["type"]) != "mkcp-legacy" || stringValue(mapValue(udp[0]["settings"])["value"]) != "seed" || stringValue(mapValue(udp[1]["settings"])["header"]) != "dns" || stringValue(udp[2]["type"]) != "sudoku" {
+	if len(udp) != 3 || jsonvalue.String(udp[0]["type"]) != "mkcp-legacy" || jsonvalue.String(mapValue(udp[0]["settings"])["value"]) != "seed" || jsonvalue.String(mapValue(udp[1]["settings"])["header"]) != "dns" || jsonvalue.String(udp[2]["type"]) != "sudoku" {
 		t.Fatalf("mKCP transport layers were lost when FinalMask was applied: %#v", udp)
 	}
 	body, err := renderXrayJSONSubscription([]string{link}, false)

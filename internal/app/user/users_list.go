@@ -12,7 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"github.com/rebeccapanel/rebecca/internal/app/online"
+	"github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 	"github.com/rebeccapanel/rebecca/internal/app/searchmatch"
 )
 
@@ -477,12 +479,19 @@ func numericUserIDSearch(search string) (int64, bool) {
 
 func usersOrderSQL(sortOptions []SortOption) string {
 	columns := map[string]string{
-		"username":     "u.username",
-		"used_traffic": "u.used_traffic",
-		"data_limit":   "u.data_limit",
-		"expire":       "u.expire",
-		"created_at":   "u.created_at",
-		"id":           "u.id",
+		"username":              "u.username",
+		"used_traffic":          "u.used_traffic",
+		"data_limit":            "u.data_limit",
+		"expire":                "u.expire",
+		"created_at":            "u.created_at",
+		"id":                    "u.id",
+		"status":                "u.status",
+		"service":               "s.name",
+		"admin":                 "a.username",
+		"lifetime_used_traffic": "(COALESCE(u.used_traffic, 0) + COALESCE((SELECT SUM(uul.used_traffic_at_reset) FROM user_usage_logs uul WHERE uul.user_id = u.id), 0))",
+		"remaining_traffic":     "(CASE WHEN COALESCE(u.data_limit, 0) <= 0 THEN 9223372036854775807 WHEN COALESCE(u.data_limit, 0) - COALESCE(u.used_traffic, 0) < 0 THEN 0 ELSE COALESCE(u.data_limit, 0) - COALESCE(u.used_traffic, 0) END)",
+		"online":                "(SELECT up.online_at FROM user_presence up WHERE up.user_id = u.id)",
+		"last_connection":       "(SELECT up.online_at FROM user_presence up WHERE up.user_id = u.id)",
 	}
 	if len(sortOptions) == 0 {
 		return defaultUsersOrder
@@ -688,7 +697,7 @@ func extractConfigIdentifiers(value string) (map[string]struct{}, map[string]str
 		if decoded, err := decodeBase64Flexible(payload); err == nil {
 			var data map[string]any
 			if json.Unmarshal([]byte(decoded), &data) == nil {
-				if id, ok := sanitizeUUID(firstNonEmptyString(data["id"], data["uuid"])); ok {
+				if id, ok := sanitizeUUID(jsonvalue.FirstNonEmpty(data["id"], data["uuid"])); ok {
 					uuids[id] = struct{}{}
 				}
 			}
@@ -699,7 +708,7 @@ func extractConfigIdentifiers(value string) (map[string]struct{}, map[string]str
 	if err != nil {
 		return uuids, passwords
 	}
-	userInfo := decodedURLUserInfo(parsed.User)
+	userInfo := outboundsub.DecodedURLUserInfo(parsed.User)
 	if lowerHasScheme(lower, "ss") {
 		if userInfo != "" && !strings.Contains(userInfo, ":") {
 			if decoded, err := decodeBase64Flexible(userInfo); err == nil {

@@ -312,6 +312,10 @@ func (s *Server) myAccountSummary(ctx context.Context, dbadmin adminapp.Admin) (
 	if err != nil {
 		return nil, err
 	}
+	serviceNames, err := serviceNamesByID(ctx, s.db)
+	if err != nil {
+		return nil, err
+	}
 	usedTraffic := dbadmin.UsersUsage
 	trafficBasis := "used_traffic"
 	if dbadmin.TrafficLimitMode == adminapp.TrafficLimitCreatedTraffic && !dbadmin.UseServiceTrafficLimits {
@@ -329,7 +333,8 @@ func (s *Server) myAccountSummary(ctx context.Context, dbadmin adminapp.Admin) (
 		"remaining_users":            remainingLimit(dbadmin.UsersLimit, int64(currentUsers)),
 		"daily_usage":                []any{},
 		"node_usages":                []any{},
-		"service_limits":             serviceLimitSummary(dbadmin.ServiceLimits),
+		"service_limits":             serviceLimitSummary(dbadmin.ServiceLimits, serviceNames),
+		"expire":                     dbadmin.Expire,
 	}
 	return response, nil
 }
@@ -422,7 +427,25 @@ func countAdminUsers(ctx context.Context, db *sql.DB, adminID int64, statuses []
 	return 0, fmt.Errorf("unsupported status filter")
 }
 
-func serviceLimitSummary(limits []adminapp.AdminServiceLimit) []map[string]any {
+func serviceNamesByID(ctx context.Context, db *sql.DB) (map[int64]string, error) {
+	rows, err := db.QueryContext(ctx, `SELECT id, name FROM services`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	names := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		names[id] = name
+	}
+	return names, rows.Err()
+}
+
+func serviceLimitSummary(limits []adminapp.AdminServiceLimit, names map[int64]string) []map[string]any {
 	result := []map[string]any{}
 	for _, limit := range limits {
 		usedTraffic := limit.UsedTraffic
@@ -431,7 +454,7 @@ func serviceLimitSummary(limits []adminapp.AdminServiceLimit) []map[string]any {
 		}
 		result = append(result, map[string]any{
 			"service_id":           limit.ServiceID,
-			"service_name":         "",
+			"service_name":         names[limit.ServiceID],
 			"traffic_basis":        string(limit.TrafficLimitMode),
 			"data_limit":           limit.DataLimit,
 			"used_traffic":         usedTraffic,

@@ -137,6 +137,7 @@ type UserDetail struct {
 	OnHoldExpireDuration   *int64                    `json:"on_hold_expire_duration"`
 	OnHoldTimeout          *string                   `json:"on_hold_timeout"`
 	IPLimit                int64                     `json:"ip_limit"`
+	SpeedLimitKbps         int64                     `json:"speed_limit_kbps"`
 	AutoDeleteInDays       *int64                    `json:"auto_delete_in_days"`
 	Subadress              string                    `json:"subadress,omitempty"`
 	ServiceID              *int64                    `json:"service_id"`

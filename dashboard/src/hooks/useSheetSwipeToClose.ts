@@ -5,20 +5,18 @@ const CLOSE_DISTANCE_PX = 100;
 
 const dismissSheet = (dialog: HTMLElement) => {
 	const closeBtn = dialog.querySelector<HTMLElement>(
-		".chakra-modal__close-btn, button[aria-label='Close'], button[aria-label='close']",
+		"[data-slot='sheet-close'], .chakra-modal__close-btn, button[aria-label='Close'], button[aria-label='close']",
 	);
 	if (closeBtn) {
 		closeBtn.click();
 		return;
 	}
 
-	const container = dialog.closest(".chakra-modal__content-container");
 	const overlay =
-		container?.parentElement?.querySelector<HTMLElement>(
-			".chakra-modal__overlay",
+		dialog.parentElement?.querySelector<HTMLElement>(
+			"[data-slot='sheet-overlay'], .chakra-modal__overlay",
 		) ||
-		container?.querySelector<HTMLElement>(".chakra-modal__overlay") ||
-		document.querySelector<HTMLElement>(".chakra-modal__overlay");
+		document.querySelector<HTMLElement>("[data-slot='sheet-overlay'], .chakra-modal__overlay");
 
 	if (overlay) {
 		overlay.click();
@@ -101,7 +99,9 @@ export const useSheetSwipeToClose = () => {
 				return null;
 			}
 
-			const dialog = target.closest<HTMLElement>(".chakra-modal__content");
+			const dialog = target.closest<HTMLElement>(
+				"[data-slot='sheet-content'], [role='dialog'], .chakra-modal__content",
+			);
 			if (
 				!dialog ||
 				!window.matchMedia("(max-width: 768.98px)").matches ||
@@ -115,13 +115,13 @@ export const useSheetSwipeToClose = () => {
 			const relativeY = clientY - rect.top;
 
 			const isHeaderOrHandle = Boolean(
-				target.closest(".chakra-modal__header, [data-sheet-handle='true']") ||
+				target.closest("[data-slot='sheet-header'], .chakra-modal__header, [data-sheet-handle='true']") ||
 					target === dialog ||
 					relativeY <= 40,
 			);
 
-			const body = dialog.querySelector<HTMLElement>(".chakra-modal__body");
-			const isInsideBody = Boolean(target.closest(".chakra-modal__body"));
+			const body = dialog.querySelector<HTMLElement>("[data-slot='sheet-body'], .chakra-modal__body");
+			const isInsideBody = Boolean(target.closest("[data-slot='sheet-body'], .chakra-modal__body"));
 			if (isInsideBody && body && body.scrollTop > 0) return null;
 
 			if (!isHeaderOrHandle && (relativeY < -20 || relativeY > GRAB_ZONE_PX)) {

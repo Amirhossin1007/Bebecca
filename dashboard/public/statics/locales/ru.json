@@ -943,5 +943,11 @@
 	"copy": "Копировать",
 	"copied": "Скопировано",
 	"admins.showPassword": "Показать пароль",
-	"admins.hidePassword": "Скрыть пароль"
+	"admins.hidePassword": "Скрыть пароль",
+	"next.table.toggleColumns": "Столбцы",
+	"diagnostics.levelTitle": "Уровень",
+	"diagnostics.sourceTitle": "Источник",
+	"diagnostics.resourceTitle": "Ресурс",
+	"diagnostics.detailTitle": "Детали",
+	"diagnostics.sectionTitle": "Раздел"
 }

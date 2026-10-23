@@ -11,6 +11,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 	"golang.org/x/crypto/curve25519"
 )
@@ -67,7 +68,7 @@ func (s Service) OVProfiles(ctx context.Context, userID int64, hostTag string, i
 	for _, selected := range selectedHosts {
 		host := selected.host
 		inbound, ok := inbounds[host.InboundTag]
-		if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != "openvpn" {
+		if !ok || normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) != "openvpn" {
 			continue
 		}
 		inboundVariables := cloneFormatVariables(variables)
@@ -102,7 +103,7 @@ func (s Service) OVProfiles(ctx context.Context, userID int64, hostTag string, i
 }
 
 func (s Service) generateOVProfile(ctx context.Context, user UserDetail, req SubscriptionRenderRequest) (SubscriptionHTTPResponse, error) {
-	profiles, err := s.OVProfiles(ctx, user.ID, firstNonEmptyString(req.HostTag, req.InboundTag), true)
+	profiles, err := s.OVProfiles(ctx, user.ID, jsonvalue.FirstNonEmpty(req.HostTag, req.InboundTag), true)
 	if err != nil {
 		return SubscriptionHTTPResponse{}, err
 	}
@@ -175,12 +176,12 @@ func ovProfileDownloadURL(baseURL *url.URL, basePath string, hostTag string) str
 
 func applyOVResolvedSettings(resolved ResolvedInbound, inbound map[string]any) {
 	settings := normalizeOVSettings(mapValue(inbound["settings"]))
-	resolved["network"] = stringValue(settings["transport"])
+	resolved["network"] = jsonvalue.String(settings["transport"])
 	resolved["tls"] = "none"
 	resolved["settings"] = settings
-	resolved["ipv4_pool_cidr"] = stringValue(settings["ipv4_pool_cidr"])
-	resolved["tunnel_tag"] = xrayconfig.RuntimeTunnelTag(stringValue(inbound["tag"]))
-	if port := intValue(firstNonEmptyString(settings["tunnel_port"], settings["xray_tunnel_port"], settings["tproxy_port"])); port > 0 {
+	resolved["ipv4_pool_cidr"] = jsonvalue.String(settings["ipv4_pool_cidr"])
+	resolved["tunnel_tag"] = xrayconfig.RuntimeTunnelTag(jsonvalue.String(inbound["tag"]))
+	if port := jsonvalue.Int(jsonvalue.FirstNonEmpty(settings["tunnel_port"], settings["xray_tunnel_port"], settings["tproxy_port"])); port > 0 {
 		resolved["tunnel_port"] = port
 	}
 }
@@ -190,17 +191,17 @@ func normalizeOVSettings(settings map[string]any) map[string]any {
 	for key, value := range settings {
 		out[key] = value
 	}
-	transport := strings.ToLower(strings.TrimSpace(firstNonEmptyString(out["transport"], out["proto"])))
+	transport := strings.ToLower(strings.TrimSpace(jsonvalue.FirstNonEmpty(out["transport"], out["proto"])))
 	if transport != "tcp" && transport != "udp" {
 		transport = "udp"
 	}
 	out["transport"] = transport
-	pool := strings.TrimSpace(firstNonEmptyString(out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
+	pool := strings.TrimSpace(jsonvalue.FirstNonEmpty(out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
 	if pool == "" {
 		pool = defaultOVPoolCIDR
 	}
 	out["ipv4_pool_cidr"] = pool
-	out["dns_servers"] = stringList(firstNonEmptyAny(out["dns_servers"], out["dnsServers"]))
+	out["dns_servers"] = stringList(jsonvalue.FirstNonEmptyAny(out["dns_servers"], out["dnsServers"]))
 	if _, ok := out["redirect_gateway"]; !ok {
 		out["redirect_gateway"] = true
 	}
@@ -249,14 +250,14 @@ func buildOVProfile(item ConfigLinkUser, remark string, address string, inbound 
 	}
 	username := item.Username
 	password := keyToPassword(key, "openvpn")
-	transport := firstNonEmptyString(settings["transport"], "udp")
+	transport := jsonvalue.FirstNonEmpty(settings["transport"], "udp")
 	profileProto := transport
 	if transport == "tcp" {
 		profileProto = "tcp-client"
 	}
 	var b strings.Builder
 	writeOVLine(&b, "client")
-	writeOVLine(&b, "dev "+firstNonEmptyString(settings["device"], "tun"))
+	writeOVLine(&b, "dev "+jsonvalue.FirstNonEmpty(settings["device"], "tun"))
 	writeOVLine(&b, "proto "+profileProto)
 	writeOVLine(&b, "remote "+formatOVRemote(address)+" "+port)
 	writeOVLine(&b, "resolv-retry infinite")
@@ -278,13 +279,13 @@ func buildOVProfile(item ConfigLinkUser, remark string, address string, inbound 
 		writeOVLine(&b, "block-outside-dns")
 	}
 	writeOVLine(&b, "verb 3")
-	if cipher := strings.TrimSpace(stringValue(settings["cipher"])); cipher != "" {
+	if cipher := strings.TrimSpace(jsonvalue.String(settings["cipher"])); cipher != "" {
 		writeOVLine(&b, "cipher "+cipher)
 	}
-	if dataCiphers := strings.TrimSpace(stringValue(settings["data_ciphers"])); dataCiphers != "" {
+	if dataCiphers := strings.TrimSpace(jsonvalue.String(settings["data_ciphers"])); dataCiphers != "" {
 		writeOVLine(&b, "data-ciphers "+dataCiphers)
 	}
-	if auth := strings.TrimSpace(stringValue(settings["auth"])); auth != "" {
+	if auth := strings.TrimSpace(jsonvalue.String(settings["auth"])); auth != "" {
 		writeOVLine(&b, "auth "+auth)
 	}
 	for _, dns := range stringList(settings["dns_servers"]) {
@@ -295,17 +296,17 @@ func buildOVProfile(item ConfigLinkUser, remark string, address string, inbound 
 	} else {
 		writeOVLine(&b, "auth-user-pass")
 	}
-	if ca := strings.TrimSpace(stringValue(settings["ca"])); ca != "" && boolSetting(settings, "inline_ca", true) {
+	if ca := strings.TrimSpace(jsonvalue.String(settings["ca"])); ca != "" && boolSetting(settings, "inline_ca", true) {
 		writeOVInline(&b, "ca", ca)
 	}
-	if tlsCrypt := strings.TrimSpace(stringValue(settings["tls_crypt"])); tlsCrypt != "" {
+	if tlsCrypt := strings.TrimSpace(jsonvalue.String(settings["tls_crypt"])); tlsCrypt != "" {
 		writeOVInline(&b, "tls-crypt", tlsCrypt)
 	}
-	if tlsAuth := strings.TrimSpace(stringValue(settings["tls_auth"])); tlsAuth != "" {
+	if tlsAuth := strings.TrimSpace(jsonvalue.String(settings["tls_auth"])); tlsAuth != "" {
 		writeOVInline(&b, "tls-auth", tlsAuth)
 		writeOVLine(&b, "key-direction 1")
 	}
-	if extra := strings.TrimSpace(stringValue(settings["extra_client_config"])); extra != "" {
+	if extra := strings.TrimSpace(jsonvalue.String(settings["extra_client_config"])); extra != "" {
 		writeOVLine(&b, "")
 		writeOVLine(&b, extra)
 	}
@@ -318,7 +319,7 @@ func boolSetting(settings map[string]any, key string, fallback bool) bool {
 	if !ok || value == nil {
 		return fallback
 	}
-	return boolValue(value)
+	return jsonvalue.Bool(value)
 }
 
 func writeOVLine(b *strings.Builder, line string) {
@@ -342,7 +343,7 @@ func formatOVRemote(address string) string {
 }
 
 func OVHostTag(host Host, remark string, address string) string {
-	base := OVSafePathComponent(firstNonEmptyString(host.Remark, remark, host.Address, address, host.InboundTag, "host"))
+	base := OVSafePathComponent(jsonvalue.FirstNonEmpty(host.Remark, remark, host.Address, address, host.InboundTag, "host"))
 	if host.ID > 0 {
 		return fmt.Sprintf("%s-%d", base, host.ID)
 	}
@@ -535,23 +536,4 @@ func L2TPIPv4AddressForUser(userID int64, pool string) string {
 
 func PPTPIPv4AddressForUser(userID int64, pool string) string {
 	return OVIPv4ForUser(userID, pool)
-}
-
-func firstNonEmptyAny(values ...any) any {
-	for _, value := range values {
-		if value == nil {
-			continue
-		}
-		if text, ok := value.(string); ok && strings.TrimSpace(text) == "" {
-			continue
-		}
-		if values, ok := value.([]any); ok && len(values) == 0 {
-			continue
-		}
-		if values, ok := value.([]string); ok && len(values) == 0 {
-			continue
-		}
-		return value
-	}
-	return nil
 }

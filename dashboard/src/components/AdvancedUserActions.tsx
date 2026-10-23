@@ -1,28 +1,25 @@
-import {
-	Alert,
-	AlertIcon,
-	Box,
-	Button,
-	Checkbox,
-	chakra,
-	FormControl,
-	FormHelperText,
-	FormLabel,
-	HStack,
-	IconButton,
-	SimpleGrid,
-	Stack,
-	Text,
-	Textarea,
-	Tooltip,
-	useBreakpointValue,
-	useDisclosure,
-	useToast,
-	VStack,
-} from "@chakra-ui/react";
-import { SparklesIcon } from "@heroicons/react/24/outline";
+import { toneClass } from "lib/tone";
+import { Textarea } from "components/ui/textarea";
+import { Button } from "components/ui/button";
+import { Badge } from "components/ui/badge";
+import { Alert } from "components/ui/alert";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { toast } from "components/ui/sonner";
+import { TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { cn } from "lib/cn";
+import { Sparkles } from "lucide-react";
+
+import { useDisclosure } from "hooks/useDisclosure";
+
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { AppDialog } from "components/dialogs/AppDialog";
+import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
+import { DataSizeField } from "components/ui/data-size-field";
+import { FormField } from "components/ui/form-field";
+import { NumberField } from "components/ui/number-field";
+import { SegmentedMultiControl } from "components/ui/segmented-multi";
+import { SettingsCard } from "components/ui/settings-card";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import { useServicesStore } from "contexts/ServicesContext";
@@ -30,36 +27,35 @@ import useGetUser from "hooks/useGetUser";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdminRole, AdminTrafficLimitMode } from "types/Admin";
-import type {
-	AdvancedUserActionPayload,
-	AdvancedUserActionScopeStatus,
-	AdvancedUserActionStatus,
-	AdvancedUserActionType,
-} from "types/User";
+import type { AdvancedUserActionPayload, AdvancedUserActionScopeStatus, AdvancedUserActionStatus } from "types/User";
 import { isUserManagementLocked } from "utils/adminTraffic";
-import { NumericInput } from "./common/NumericInput";
 
 // `className="w-4 h-4"` (Tailwind) is a no-op in this project - there is no
 // Tailwind build step - so the raw 24x24 heroicon rendered ~2.4x oversized
 // next to the neighboring 16px icons. Size it the same way every other
 // toolbar icon in this codebase is sized, via Chakra's style props.
-const AdvancedActionsIcon = chakra(SparklesIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
+const AdvancedActionsIcon = withClass(Sparkles, "w-4 h-4");
 
 const cleanupOptions: AdvancedUserActionStatus[] = ["expired", "limited"];
-const scopeStatusOptions: AdvancedUserActionScopeStatus[] = [
-	"active",
-	"on_hold",
-	"limited",
-	"expired",
-	"disabled",
-];
-type ServiceScopePayload = Partial<
-	Pick<AdvancedUserActionPayload, "service_id">
->;
+const scopeStatusOptions: AdvancedUserActionScopeStatus[] = ["active", "on_hold", "limited", "expired", "disabled"];
+const MAX_RECENT_RUNS = 8;
 
 type OwnerSelection = "my_users" | "all_users" | `admin:${string}`;
+
+type RecentRun = {
+	id: number;
+	label: string;
+	ok: boolean;
+	detail: string;
+	time: Date;
+};
+
+type PendingRun = {
+	title: string;
+	description: string;
+	danger: boolean;
+	run: () => Promise<void>;
+};
 
 const parseTargetUsernames = (value: string) =>
 	Array.from(
@@ -78,65 +74,40 @@ type AdvancedUserActionsProps = {
 	embedded?: boolean;
 };
 
-const AdvancedUserActions = ({
-	compact = false,
-	embedded = false,
-}: AdvancedUserActionsProps) => {
+const AdvancedUserActions = ({ compact = false, embedded = false }: AdvancedUserActionsProps) => {
 	const { t } = useTranslation();
-	const toast = useToast();
-	const performBulkUserAction = useDashboard(
-		(state) => state.performBulkUserAction,
-	);
+	
+	const performBulkUserAction = useDashboard((state) => state.performBulkUserAction);
 	const { userData } = useGetUser();
 	const userManagementLocked = isUserManagementLocked(userData);
 	const { isOpen, onOpen, onClose } = useDisclosure();
 	const [expireDays, setExpireDays] = useState("");
 	const [trafficGb, setTrafficGb] = useState("");
 	const [cleanupDays, setCleanupDays] = useState("");
-	const [selectedStatuses, setSelectedStatuses] = useState<
-		AdvancedUserActionStatus[]
-	>(["expired", "limited"]);
-	const [selectedScopeStatuses, setSelectedScopeStatuses] = useState<
-		AdvancedUserActionScopeStatus[]
-	>(["active"]);
-	const [isExtending, setIsExtending] = useState(false);
-	const [isReducing, setIsReducing] = useState(false);
-	const [isIncreasingTraffic, setIsIncreasingTraffic] = useState(false);
-	const [isDecreasingTraffic, setIsDecreasingTraffic] = useState(false);
-	const [isCleaning, setIsCleaning] = useState(false);
-	const [ownerSelection, setOwnerSelection] =
-		useState<OwnerSelection>("my_users");
+	const [selectedStatuses, setSelectedStatuses] = useState<AdvancedUserActionStatus[]>(["expired", "limited"]);
+	const [selectedScopeStatuses, setSelectedScopeStatuses] = useState<AdvancedUserActionScopeStatus[]>(["active"]);
+	const [busy, setBusy] = useState<string | null>(null);
+	const [pending, setPending] = useState<PendingRun | null>(null);
+	const [recentRuns, setRecentRuns] = useState<RecentRun[]>([]);
+	const [ownerSelection, setOwnerSelection] = useState<OwnerSelection>("my_users");
 	const [selectedServiceValue, setSelectedServiceValue] = useState("");
 	const [targetServiceValue, setTargetServiceValue] = useState("");
 	const [targetUsernames, setTargetUsernames] = useState("");
 	const [lastOnlineDays, setLastOnlineDays] = useState("");
 	const [statusAgeDays, setStatusAgeDays] = useState("");
 	const [createdBeforeDays, setCreatedBeforeDays] = useState("");
-	const [isChangingService, setIsChangingService] = useState(false);
 	const adminList = useAdminsStore((store) => store.adminOptions);
-	const adminOptionsLoading = useAdminsStore(
-		(store) => store.adminOptionsLoading,
-	);
-	const fetchAdminOptions = useAdminsStore(
-		(store) => store.fetchAdminOptions,
-	);
+	const adminOptionsLoading = useAdminsStore((store) => store.adminOptionsLoading);
+	const fetchAdminOptions = useAdminsStore((store) => store.fetchAdminOptions);
 	const serviceOptions = useServicesStore((store) => store.serviceOptions);
-	const serviceOptionsLoading = useServicesStore(
-		(store) => store.isOptionsLoading,
-	);
-	const fetchServiceOptions = useServicesStore(
-		(store) => store.fetchServiceOptions,
-	);
+	const serviceOptionsLoading = useServicesStore((store) => store.isOptionsLoading);
+	const fetchServiceOptions = useServicesStore((store) => store.fetchServiceOptions);
 
-	const hasScopeSelect =
-		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
+	const hasScopeSelect = userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
 	const canSeeServiceControls = hasScopeSelect;
-	const canUseAdvanced = Boolean(
-		userData.permissions?.users?.advanced_actions ?? true,
-	);
+	const canUseAdvanced = Boolean(userData.permissions?.users?.advanced_actions ?? true);
 	const serviceTransferDisabled = Boolean(
-		userData.use_service_traffic_limits ||
-			userData.traffic_limit_mode === AdminTrafficLimitMode.CreatedTraffic,
+		userData.use_service_traffic_limits || userData.traffic_limit_mode === AdminTrafficLimitMode.CreatedTraffic,
 	);
 
 	useEffect(() => {
@@ -160,31 +131,14 @@ const AdvancedUserActions = ({
 	]);
 
 	const resolveTargetAdminUsername = () => {
-		if (!hasScopeSelect) {
-			return userData.username;
-		}
-		if (ownerSelection === "all_users") {
-			return null;
-		}
-		if (ownerSelection === "my_users") {
-			return userData.username;
-		}
-		if (ownerSelection.startsWith("admin:")) {
-			return ownerSelection.replace(/^admin:/, "");
-		}
+		if (!hasScopeSelect) return userData.username;
+		if (ownerSelection === "all_users") return null;
+		if (ownerSelection.startsWith("admin:")) return ownerSelection.replace(/^admin:/, "");
 		return userData.username;
 	};
 
-	const showToast = (
-		description: string,
-		status: "success" | "error" | "warning",
-	) => {
-		toast({
-			title: t("filters.advancedActions.modalTitle"),
-			description,
-			status,
-			isClosable: true,
-		});
+	const showToast = (description: string, status: "success" | "error" | "warning") => {
+		toast(t("filters.advancedActions.modalTitle"));
 	};
 
 	const resolveErrorMessage = (error?: unknown, fallback?: string) => {
@@ -196,23 +150,15 @@ const AdvancedUserActions = ({
 	};
 
 	const handleError = (message?: string) => {
-		showToast(
-			message ??
-				t("filters.advancedActions.error.general"),
-			"error",
-		);
+		showToast(message ?? t("filters.advancedActions.error.general"), "error");
 	};
 
-	const buildServiceScopePayload = (): ServiceScopePayload => {
-		if (!selectedServiceValue) {
-			return {};
-		}
+	const buildServiceScopePayload = (): Partial<Pick<AdvancedUserActionPayload, "service_id">> => {
+		if (!selectedServiceValue) return {};
 		return { service_id: Number(selectedServiceValue) };
 	};
 
-	const buildTargetingPayload = (
-		includeStatusAge = true,
-	): Partial<AdvancedUserActionPayload> | null => {
+	const buildTargetingPayload = (includeStatusAge = true): Partial<AdvancedUserActionPayload> | null => {
 		const parseDays = (value: string) => Math.floor(Number(value));
 		const payload: Partial<AdvancedUserActionPayload> = {};
 		const usernames = parseTargetUsernames(targetUsernames);
@@ -224,9 +170,7 @@ const AdvancedUserActions = ({
 		for (const item of [
 			{ value: lastOnlineDays, key: "last_online_days" as const },
 			{ value: createdBeforeDays, key: "created_before_days" as const },
-			...(includeStatusAge
-				? [{ value: statusAgeDays, key: "status_age_days" as const }]
-				: []),
+			...(includeStatusAge ? [{ value: statusAgeDays, key: "status_age_days" as const }] : []),
 		]) {
 			if (!item.value.trim()) continue;
 			const days = parseDays(item.value);
@@ -239,612 +183,481 @@ const AdvancedUserActions = ({
 		return payload;
 	};
 
-	const handleExpireAction = async (action: AdvancedUserActionType) => {
-		const days = Number(expireDays);
-		if (!Number.isFinite(days) || days <= 0) {
-			showToast(
-				t("filters.advancedActions.error.invalidDays"),
-				"warning",
-			);
-			return;
-		}
-		if (!selectedScopeStatuses.length) {
-			showToast(
-				t("filters.advancedActions.error.noScope"),
-				"warning",
-			);
-			return;
-		}
-		const targeting = buildTargetingPayload();
-		if (!targeting) return;
-		const setLoading =
-			action === "extend_expire" ? setIsExtending : setIsReducing;
-		setLoading(true);
+	const ownerLabel = !hasScopeSelect
+		? userData.username
+		: ownerSelection === "my_users"
+			? t("filters.advancedActions.scope.myUsers")
+			: ownerSelection === "all_users"
+				? t("filters.advancedActions.scope.allUsers")
+				: ownerSelection.replace(/^admin:/, "");
+	const serviceLabel = selectedServiceValue
+		? (serviceOptions.find((service) => String(service.id) === selectedServiceValue)?.name ?? selectedServiceValue)
+		: t("filters.advancedActions.service.all");
+	const statusLabel =
+		selectedScopeStatuses.map((status) => t(`filters.advancedActions.scopeStatuses.${status}`, status)).join(", ") || "-";
+	const usernameCount = parseTargetUsernames(targetUsernames).length;
+	const conditionParts = [
+		lastOnlineDays.trim() ? `${t("filters.advancedActions.conditions.lastOnline")}: ${lastOnlineDays}` : null,
+		statusAgeDays.trim() ? `${t("filters.advancedActions.conditions.statusAge")}: ${statusAgeDays}` : null,
+		createdBeforeDays.trim() ? `${t("filters.advancedActions.conditions.createdBefore")}: ${createdBeforeDays}` : null,
+	].filter(Boolean) as string[];
+	const scopeText = [ownerLabel, serviceLabel, statusLabel, ...conditionParts].join(" · ");
+
+	const execute = async (
+		key: string,
+		label: string,
+		payload: AdvancedUserActionPayload,
+		success: (count: number) => string,
+		onSuccess?: () => void,
+	) => {
+		setBusy(key);
 		try {
-			const targetAdminUsername = resolveTargetAdminUsername();
-			const payload: AdvancedUserActionPayload = {
-				action,
-				days: Math.floor(days),
-				scope: selectedScopeStatuses,
-				admin_username: targetAdminUsername,
-				...buildServiceScopePayload(),
-				...targeting,
-			};
 			const result = await performBulkUserAction(payload);
-			showToast(
-				t("filters.advancedActions.success.expire", {
-					count: result.count ?? 0,
-				}),
-				"success",
+			const message = success(result.count ?? 0);
+			showToast(message, "success");
+			setRecentRuns((prev) =>
+				[{ id: Date.now(), label, ok: true, detail: message, time: new Date() }, ...prev].slice(0, MAX_RECENT_RUNS),
 			);
-			setExpireDays("");
+			onSuccess?.();
 		} catch (error) {
-			handleError(resolveErrorMessage(error));
+			const message = resolveErrorMessage(error) ?? t("filters.advancedActions.error.general");
+			handleError(message);
+			setRecentRuns((prev) =>
+				[{ id: Date.now(), label, ok: false, detail: message, time: new Date() }, ...prev].slice(0, MAX_RECENT_RUNS),
+			);
 		} finally {
-			setLoading(false);
+			setBusy(null);
 		}
 	};
 
-	const handleTrafficAction = async (action: AdvancedUserActionType) => {
-		const value = Number(trafficGb);
-		if (!Number.isFinite(value) || value <= 0) {
-			showToast(
-				t("filters.advancedActions.error.invalidGigabytes"),
-				"warning",
-			);
+	const askToRun = (request: {
+		key: string;
+		label: string;
+		detail: string;
+		danger?: boolean;
+		payload: AdvancedUserActionPayload;
+		success: (count: number) => string;
+		onSuccess?: () => void;
+	}) => {
+		setPending({
+			title: request.label,
+			description: `${request.detail}\n${scopeText}`,
+			danger: Boolean(request.danger),
+			run: () => execute(request.key, request.label, request.payload, request.success, request.onSuccess),
+		});
+	};
+
+	const confirmPending = async () => {
+		const current = pending;
+		setPending(null);
+		if (current) await current.run();
+	};
+
+	const askExpire = (action: "extend_expire" | "reduce_expire") => {
+		const days = Math.floor(Number(expireDays));
+		if (!Number.isFinite(days) || days <= 0) {
+			showToast(t("filters.advancedActions.error.invalidDays"), "warning");
 			return;
 		}
 		if (!selectedScopeStatuses.length) {
-			showToast(
-				t("filters.advancedActions.error.noScope"),
-				"warning",
-			);
+			showToast(t("filters.advancedActions.error.noScope"), "warning");
 			return;
 		}
 		const targeting = buildTargetingPayload();
 		if (!targeting) return;
-		const setLoading =
+		const label = t(
+			action === "extend_expire"
+				? "filters.advancedActions.expireSection.addButton"
+				: "filters.advancedActions.expireSection.removeButton",
+		);
+		askToRun({
+			key: action,
+			label,
+			detail: `${label}: ${days}`,
+			danger: action === "reduce_expire",
+			payload: {
+				action,
+				days,
+				scope: selectedScopeStatuses,
+				admin_username: resolveTargetAdminUsername(),
+				...buildServiceScopePayload(),
+				...targeting,
+			},
+			success: (count) => t("filters.advancedActions.success.expire", { count }),
+			onSuccess: () => setExpireDays(""),
+		});
+	};
+
+	const askTraffic = (action: "increase_traffic" | "decrease_traffic") => {
+		const value = Number(trafficGb);
+		if (!Number.isFinite(value) || value <= 0) {
+			showToast(t("filters.advancedActions.error.invalidGigabytes"), "warning");
+			return;
+		}
+		if (!selectedScopeStatuses.length) {
+			showToast(t("filters.advancedActions.error.noScope"), "warning");
+			return;
+		}
+		const targeting = buildTargetingPayload();
+		if (!targeting) return;
+		const label = t(
 			action === "increase_traffic"
-				? setIsIncreasingTraffic
-				: setIsDecreasingTraffic;
-		setLoading(true);
-		try {
-			const targetAdminUsername = resolveTargetAdminUsername();
-			const payload: AdvancedUserActionPayload = {
+				? "filters.advancedActions.trafficSection.addButton"
+				: "filters.advancedActions.trafficSection.removeButton",
+		);
+		askToRun({
+			key: action,
+			label,
+			detail: `${label}: ${value} GB`,
+			danger: action === "decrease_traffic",
+			payload: {
 				action,
 				gigabytes: value,
 				scope: selectedScopeStatuses,
-				admin_username: targetAdminUsername,
+				admin_username: resolveTargetAdminUsername(),
 				...buildServiceScopePayload(),
 				...targeting,
-			};
-			const result = await performBulkUserAction(payload);
-			showToast(
-				t("filters.advancedActions.success.traffic", {
-					count: result.count ?? 0,
-					value,
-				}),
-				"success",
-			);
-			setTrafficGb("");
-		} catch (error) {
-			handleError(resolveErrorMessage(error));
-		} finally {
-			setLoading(false);
-		}
+			},
+			success: (count) => t("filters.advancedActions.success.traffic", { count, value }),
+			onSuccess: () => setTrafficGb(""),
+		});
 	};
 
-	const handleCleanup = async () => {
-		const days = Number(cleanupDays);
+	const askCleanup = () => {
+		const days = Math.floor(Number(cleanupDays));
 		if (!Number.isFinite(days) || days <= 0) {
-			showToast(
-				t("filters.advancedActions.error.invalidDays"),
-				"warning",
-			);
+			showToast(t("filters.advancedActions.error.invalidDays"), "warning");
 			return;
 		}
 		if (!selectedStatuses.length) {
-			showToast(
-				t("filters.advancedActions.error.noStatuses"),
-				"warning",
-			);
+			showToast(t("filters.advancedActions.error.noStatuses"), "warning");
 			return;
 		}
 		const targeting = buildTargetingPayload(false);
 		if (!targeting) return;
-		setIsCleaning(true);
-		try {
-			const targetAdminUsername = resolveTargetAdminUsername();
-			const payload: AdvancedUserActionPayload = {
+		const label = t("filters.advancedActions.cleanupSection.button");
+		askToRun({
+			key: "cleanup_status",
+			label,
+			detail: `${label}: ${days}`,
+			danger: true,
+			payload: {
 				action: "cleanup_status",
-				days: Math.floor(days),
+				days,
 				statuses: selectedStatuses,
 				scope: selectedStatuses,
-				admin_username: targetAdminUsername,
+				admin_username: resolveTargetAdminUsername(),
 				...buildServiceScopePayload(),
 				...targeting,
-			};
-			const result = await performBulkUserAction(payload);
-			showToast(
-				t("filters.advancedActions.success.cleanup", {
-					count: result.count ?? 0,
-				}),
-				"success",
-			);
-			setCleanupDays("");
-		} catch (error) {
-			handleError(resolveErrorMessage(error));
-		} finally {
-			setIsCleaning(false);
-		}
+			},
+			success: (count) => t("filters.advancedActions.success.cleanup", { count }),
+			onSuccess: () => setCleanupDays(""),
+		});
 	};
 
-	const handleChangeService = async () => {
-		if (!targetServiceValue) {
-			showToast(
-				t("filters.advancedActions.error.targetServiceRequired"),
-				"warning",
-			);
+	const askChangeService = () => {
+		const targetId = Number(targetServiceValue);
+		if (!targetServiceValue || !Number.isFinite(targetId) || targetId <= 0) {
+			showToast(t("filters.advancedActions.error.targetServiceRequired"), "warning");
 			return;
 		}
 		const targeting = buildTargetingPayload();
 		if (!targeting) return;
-		const resolvedTargetServiceId = Number(targetServiceValue);
-		if (
-			!Number.isFinite(resolvedTargetServiceId) ||
-			resolvedTargetServiceId <= 0
-		) {
-			showToast(
-				t("filters.advancedActions.error.targetServiceRequired"),
-				"warning",
-			);
-			return;
-		}
-		setIsChangingService(true);
-		try {
-			const payload: AdvancedUserActionPayload = {
+		const targetName = serviceOptions.find((service) => service.id === targetId)?.name ?? targetServiceValue;
+		const label = t("filters.advancedActions.serviceChange.button");
+		askToRun({
+			key: "change_service",
+			label,
+			detail: `${label}: ${targetName}`,
+			danger: true,
+			payload: {
 				action: "change_service",
 				admin_username: resolveTargetAdminUsername(),
 				...buildServiceScopePayload(),
-				target_service_id: resolvedTargetServiceId,
-				...(targeting.status_age_days
-					? { scope: selectedScopeStatuses }
-					: {}),
+				target_service_id: targetId,
+				...(targeting.status_age_days ? { scope: selectedScopeStatuses } : {}),
 				...targeting,
-			};
-			const result = await performBulkUserAction(payload);
-			showToast(
-				t("filters.advancedActions.success.changeService", {
-					count: result.count ?? 0,
-				}),
-				"success",
-			);
-		} catch (error) {
-			handleError(resolveErrorMessage(error));
-		} finally {
-			setIsChangingService(false);
-		}
+			},
+			success: (count) => t("filters.advancedActions.success.changeService", { count }),
+		});
 	};
-
-	const toggleStatus = (status: AdvancedUserActionStatus) => {
-		setSelectedStatuses((prev) =>
-			prev.includes(status)
-				? prev.filter((item) => item !== status)
-				: [...prev, status],
-		);
-	};
-
-	const toggleScopeStatus = (status: AdvancedUserActionScopeStatus) => {
-		setSelectedScopeStatuses((prev) =>
-			prev.includes(status)
-				? prev.filter((item) => item !== status)
-				: [...prev, status],
-		);
-	};
-
-	const isMobile = useBreakpointValue({ base: true, sm: false }) ?? false;
 
 	if (!canUseAdvanced || userManagementLocked) {
 		return null;
 	}
 
-	const content = (
-		<VStack spacing={6} align="stretch">
-			<Alert status="warning" borderRadius="md">
-				<AlertIcon />
-				<Text>
-					{t("filters.advancedActions.modalDescription")}
-				</Text>
-			</Alert>
+	const who = (
+		<SettingsCard title={t("bulkActions.edit.who")} description={t("bulkActions.edit.whoHelp")}>
+			{hasScopeSelect || canSeeServiceControls ? (
+				<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+					{hasScopeSelect ? (
+						<FormField label={t("filters.advancedActions.scope.label")} description={t("filters.advancedActions.scope.helper")}>
+							<Select
+								value={ownerSelection}
+								onChange={(event) => {
+									const nextValue = event.target.value;
+									if (nextValue === "my_users" || nextValue === "all_users" || nextValue.startsWith("admin:")) {
+										setOwnerSelection(nextValue as OwnerSelection);
+									}
+								}}
+								size="sm"
+							>
+								<option value="my_users">{t("filters.advancedActions.scope.myUsers")}</option>
+								<option value="all_users">{t("filters.advancedActions.scope.allUsers")}</option>
+								{adminList
+									.filter((record) => record.username !== userData.username)
+									.map((record) => (
+										<option key={record.username} value={`admin:${record.username}`}>
+											{record.username}
+										</option>
+									))}
+							</Select>
+						</FormField>
+					) : null}
+					{canSeeServiceControls ? (
+						<FormField label={t("filters.advancedActions.service.label")} description={t("filters.advancedActions.service.helper")}>
+							<Select value={selectedServiceValue} onChange={(event) => setSelectedServiceValue(event.target.value)} size="sm">
+								<option value="">{t("filters.advancedActions.service.all")}</option>
+								{serviceOptions.map((service) => (
+									<option key={service.id} value={String(service.id)}>
+										{service.name}
+									</option>
+								))}
+							</Select>
+						</FormField>
+					) : null}
+				</div>
+			) : null}
 
-			{hasScopeSelect && (
-				<FormControl>
-					<FormLabel fontWeight="semibold">
-						{t("filters.advancedActions.scope.label")}
-					</FormLabel>
-					<Select
-						value={ownerSelection}
-						onChange={(event) => {
-							const nextValue = event.target.value;
-							if (
-								nextValue === "my_users" ||
-								nextValue === "all_users" ||
-								nextValue.startsWith("admin:")
-							) {
-								setOwnerSelection(nextValue as OwnerSelection);
-							}
-						}}
-						size="sm"
-					>
-						<option value="my_users">
-							{t("filters.advancedActions.scope.myUsers")}
-						</option>
-						<option value="all_users">
-							{t("filters.advancedActions.scope.allUsers")}
-						</option>
-						{adminList
-							.filter((record) => record.username !== userData.username)
-							.map((record) => (
-								<option
-									key={record.username}
-									value={`admin:${record.username}`}
-								>
-									{record.username}
-								</option>
-							))}
-					</Select>
-					<FormHelperText fontSize="sm">
-						{t("filters.advancedActions.scope.helper")}
-					</FormHelperText>
-				</FormControl>
-			)}
+			<FormField label={t("filters.advancedActions.conditions.usernames")} description={t("filters.advancedActions.conditions.usernamesHelp")}>
+				<Textarea value={targetUsernames} onChange={(event) => setTargetUsernames(event.target.value)} rows={2} className="font-mono" />
+			</FormField>
 
-			{canSeeServiceControls && (
-				<>
-					<FormControl>
-						<FormLabel fontWeight="semibold">
-							{t("filters.advancedActions.service.label")}
-						</FormLabel>
-						<Select
-							value={selectedServiceValue}
-							onChange={(event) => {
-								setSelectedServiceValue(event.target.value);
-							}}
-							size="sm"
-						>
-							<option value="">
-								{t("filters.advancedActions.service.all")}
-							</option>
+			<div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+				<FormField label={t("filters.advancedActions.conditions.lastOnline")}>
+					<NumberField inputMode="numeric" min={1} value={lastOnlineDays} doneLabel={t("common.done")} onChange={setLastOnlineDays} />
+				</FormField>
+				<FormField label={t("filters.advancedActions.conditions.statusAge")}>
+					<NumberField inputMode="numeric" min={1} value={statusAgeDays} doneLabel={t("common.done")} onChange={setStatusAgeDays} />
+				</FormField>
+				<FormField label={t("filters.advancedActions.conditions.createdBefore")}>
+					<NumberField inputMode="numeric" min={1} value={createdBeforeDays} doneLabel={t("common.done")} onChange={setCreatedBeforeDays} />
+				</FormField>
+			</div>
+
+			<FormField label={t("filters.advancedActions.scopeStatuses.title")} description={t("filters.advancedActions.scopeStatuses.helper")}>
+				<SegmentedMultiControl
+					label={t("filters.advancedActions.scopeStatuses.title")}
+					value={selectedScopeStatuses}
+					options={scopeStatusOptions.map((status) => ({
+						value: status,
+						label: t(`filters.advancedActions.scopeStatuses.${status}`, status),
+					}))}
+					onChange={(next) => setSelectedScopeStatuses(next as AdvancedUserActionScopeStatus[])}
+				/>
+			</FormField>
+		</SettingsCard>
+	);
+
+	const actionCards = (
+		<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+			<SettingsCard title={t("filters.advancedActions.expireSection.title")} description={t("filters.advancedActions.expireSection.description")}>
+				<FormField label={t("filters.advancedActions.expireSection.inputLabel")} description={t("filters.advancedActions.expireSection.helper")}>
+					<NumberField inputMode="numeric" min={1} value={expireDays} doneLabel={t("common.done")} onChange={setExpireDays} />
+				</FormField>
+				<div className="flex flex-row flex-wrap gap-2">
+					<Button disabled={busy !== null} onClick={() => askExpire("extend_expire")} size="sm" loading={busy === "extend_expire"}>
+						{t("filters.advancedActions.expireSection.addButton")}
+					</Button>
+					<Button disabled={busy !== null} onClick={() => askExpire("reduce_expire")} variant="outline" size="sm" loading={busy === "reduce_expire"}>
+						{t("filters.advancedActions.expireSection.removeButton")}
+					</Button>
+				</div>
+			</SettingsCard>
+
+			<SettingsCard title={t("filters.advancedActions.trafficSection.title")} description={t("filters.advancedActions.trafficSection.description")}>
+				<FormField label={t("filters.advancedActions.trafficSection.inputLabel")}>
+					<DataSizeField valueGb={trafficGb} onChangeGb={setTrafficGb} />
+				</FormField>
+				<div className="flex flex-row flex-wrap gap-2">
+					<Button disabled={busy !== null} onClick={() => askTraffic("increase_traffic")} size="sm" loading={busy === "increase_traffic"}>
+						{t("filters.advancedActions.trafficSection.addButton")}
+					</Button>
+					<Button disabled={busy !== null} onClick={() => askTraffic("decrease_traffic")} variant="outline" size="sm" loading={busy === "decrease_traffic"}>
+						{t("filters.advancedActions.trafficSection.removeButton")}
+					</Button>
+				</div>
+			</SettingsCard>
+
+			{canSeeServiceControls && !serviceTransferDisabled ? (
+				<SettingsCard title={t("filters.advancedActions.serviceChange.title")} description={t("filters.advancedActions.serviceChange.helper")}>
+					<FormField label={t("filters.advancedActions.service.label")}>
+						<Select value={targetServiceValue} onChange={(event) => setTargetServiceValue(event.target.value)} size="sm">
+							<option value="">{t("filters.advancedActions.serviceChange.placeholder")}</option>
 							{serviceOptions.map((service) => (
 								<option key={service.id} value={String(service.id)}>
 									{service.name}
 								</option>
 							))}
 						</Select>
-						<FormHelperText fontSize="sm">
-							{t("filters.advancedActions.service.helper")}
-						</FormHelperText>
-					</FormControl>
-
-					{!serviceTransferDisabled && (
-						<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-							<Stack spacing={3}>
-								<Text fontWeight="semibold">
-									{t("filters.advancedActions.serviceChange.title")}
-								</Text>
-								<Text fontSize="sm" color="gray.500">
-									{t("filters.advancedActions.serviceChange.helper")}
-								</Text>
-								<Select
-									placeholder={t("filters.advancedActions.serviceChange.placeholder")}
-									value={targetServiceValue}
-									onChange={(event) =>
-										setTargetServiceValue(event.target.value)
-									}
-									size="sm"
-								>
-									{serviceOptions.map((service) => (
-										<option key={service.id} value={String(service.id)}>
-											{service.name}
-										</option>
-									))}
-								</Select>
-								<Button
-									colorScheme="primary"
-									size="sm"
-									alignSelf="flex-start"
-									isLoading={isChangingService}
-									onClick={handleChangeService}
-								>
-									{t("filters.advancedActions.serviceChange.button")}
-								</Button>
-							</Stack>
-						</Box>
-					)}
-				</>
-			)}
-
-			<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-				<Stack spacing={3}>
-					<Box>
-						<Text fontWeight="semibold">
-							{t("filters.advancedActions.conditions.title")}
-						</Text>
-						<Text fontSize="sm" color="gray.500">
-							{t("filters.advancedActions.conditions.help")}
-						</Text>
-					</Box>
-					<FormControl>
-						<FormLabel fontSize="sm">
-							{t("filters.advancedActions.conditions.usernames")}
-						</FormLabel>
-						<Textarea
-							value={targetUsernames}
-							onChange={(event) => setTargetUsernames(event.target.value)}
-							rows={3}
-							fontFamily="mono"
-							placeholder={t("filters.advancedActions.conditions.usernamesPlaceholder")}
-						/>
-						<FormHelperText>
-							{t("filters.advancedActions.conditions.usernamesHelp")}
-						</FormHelperText>
-					</FormControl>
-					<SimpleGrid columns={{ base: 1, md: 3 }} spacing={3}>
-						<FormControl>
-							<FormLabel fontSize="sm">
-								{t("filters.advancedActions.conditions.lastOnline")}
-							</FormLabel>
-							<NumericInput
-								value={lastOnlineDays}
-								onChange={(value) => setLastOnlineDays(value)}
-								min={1}
-								step={1}
-								w="full"
-							/>
-						</FormControl>
-						<FormControl>
-							<FormLabel fontSize="sm">
-								{t("filters.advancedActions.conditions.statusAge")}
-							</FormLabel>
-							<NumericInput
-								value={statusAgeDays}
-								onChange={(value) => setStatusAgeDays(value)}
-								min={1}
-								step={1}
-								w="full"
-							/>
-						</FormControl>
-						<FormControl>
-							<FormLabel fontSize="sm">
-								{t("filters.advancedActions.conditions.createdBefore")}
-							</FormLabel>
-							<NumericInput
-								value={createdBeforeDays}
-								onChange={(value) => setCreatedBeforeDays(value)}
-								min={1}
-								step={1}
-								w="full"
-							/>
-						</FormControl>
-					</SimpleGrid>
-				</Stack>
-			</Box>
-
-			<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-				<Stack spacing={2}>
-					<Text fontWeight="semibold">
-						{t("filters.advancedActions.scopeStatuses.title")}
-					</Text>
-					<Text fontSize="sm" color="gray.500">
-						{t("filters.advancedActions.scopeStatuses.helper")}
-					</Text>
-					<HStack spacing={3} flexWrap="wrap">
-						{scopeStatusOptions.map((status) => (
-							<Checkbox
-								key={status}
-								isChecked={selectedScopeStatuses.includes(status)}
-								onChange={() => toggleScopeStatus(status)}
-							>
-								{t(
-									`filters.advancedActions.scopeStatuses.${status}`,
-									status.replace("_", " "),
-								)}
-							</Checkbox>
-						))}
-					</HStack>
-				</Stack>
-			</Box>
-
-			<Stack spacing={4}>
-				<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-					<Stack spacing={2}>
-						<Text fontWeight="semibold">
-							{t("filters.advancedActions.expireSection.title")}
-						</Text>
-						<Text fontSize="sm" color="gray.500">
-							{t("filters.advancedActions.expireSection.description")}
-						</Text>
-						<FormControl>
-							<FormLabel>
-								{t("filters.advancedActions.expireSection.inputLabel")}
-							</FormLabel>
-							<NumericInput
-								value={expireDays}
-								onChange={(value) => setExpireDays(value)}
-								min={1}
-								step={1}
-								w="full"
-							/>
-							<FormHelperText>
-								{t("filters.advancedActions.expireSection.helper")}
-							</FormHelperText>
-						</FormControl>
-						<HStack spacing={2} flexWrap="wrap">
-							<Button
-								colorScheme="primary"
-								isLoading={isExtending}
-								flex="1"
-								minW="150px"
-								onClick={() => handleExpireAction("extend_expire")}
-							>
-								{t("filters.advancedActions.expireSection.addButton")}
-							</Button>
-							<Button
-								colorScheme="gray"
-								variant="outline"
-								isLoading={isReducing}
-								flex="1"
-								minW="150px"
-								onClick={() => handleExpireAction("reduce_expire")}
-							>
-								{t("filters.advancedActions.expireSection.removeButton")}
-							</Button>
-						</HStack>
-					</Stack>
-				</Box>
-
-				<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-					<Stack spacing={2}>
-						<Text fontWeight="semibold">
-							{t("filters.advancedActions.trafficSection.title")}
-						</Text>
-						<Text fontSize="sm" color="gray.500">
-							{t("filters.advancedActions.trafficSection.description")}
-						</Text>
-						<FormControl>
-							<FormLabel>
-								{t("filters.advancedActions.trafficSection.inputLabel")}
-							</FormLabel>
-							<NumericInput
-								value={trafficGb}
-								onChange={(value) => setTrafficGb(value)}
-								min={0.01}
-								step={0.1}
-								w="full"
-							/>
-						</FormControl>
-						<HStack spacing={2} flexWrap="wrap">
-							<Button
-								colorScheme="primary"
-								isLoading={isIncreasingTraffic}
-								flex="1"
-								minW="150px"
-								onClick={() => handleTrafficAction("increase_traffic")}
-							>
-								{t("filters.advancedActions.trafficSection.addButton")}
-							</Button>
-							<Button
-								colorScheme="gray"
-								variant="outline"
-								isLoading={isDecreasingTraffic}
-								flex="1"
-								minW="150px"
-								onClick={() => handleTrafficAction("decrease_traffic")}
-							>
-								{t("filters.advancedActions.trafficSection.removeButton")}
-							</Button>
-						</HStack>
-					</Stack>
-				</Box>
-
-				<Box borderWidth="1px" borderRadius="md" px={4} py={4}>
-					<Stack spacing={2}>
-						<Text fontWeight="semibold">
-							{t("filters.advancedActions.cleanupSection.title")}
-						</Text>
-						<Text fontSize="sm" color="gray.500">
-							{t("filters.advancedActions.cleanupSection.description")}
-						</Text>
-						<FormControl>
-							<FormLabel>
-								{t("filters.advancedActions.cleanupSection.daysLabel")}
-							</FormLabel>
-							<NumericInput
-								value={cleanupDays}
-								onChange={(value) => setCleanupDays(value)}
-								min={1}
-								step={1}
-								w="full"
-							/>
-						</FormControl>
-						<HStack spacing={3}>
-							{cleanupOptions.map((status) => (
-								<Checkbox
-									key={status}
-									isChecked={selectedStatuses.includes(status)}
-									onChange={() => toggleStatus(status)}
-								>
-									{t(
-										`filters.advancedActions.cleanupSection.statuses.${status}`,
-										status.charAt(0).toUpperCase() + status.slice(1),
-									)}
-								</Checkbox>
-							))}
-						</HStack>
-						<Button
-							colorScheme="primary"
-							isLoading={isCleaning}
-							w="full"
-							onClick={handleCleanup}
-						>
-							{t("filters.advancedActions.cleanupSection.button")}
+					</FormField>
+					<div className="flex flex-row flex-wrap gap-2">
+						<Button disabled={busy !== null} onClick={askChangeService} size="sm" loading={busy === "change_service"}>
+							{t("filters.advancedActions.serviceChange.button")}
 						</Button>
-					</Stack>
-				</Box>
-			</Stack>
-		</VStack>
+					</div>
+				</SettingsCard>
+			) : null}
+
+			<SettingsCard title={t("filters.advancedActions.cleanupSection.title")} description={t("filters.advancedActions.cleanupSection.description")}>
+				<FormField label={t("filters.advancedActions.cleanupSection.daysLabel")}>
+					<NumberField inputMode="numeric" min={1} value={cleanupDays} doneLabel={t("common.done")} onChange={setCleanupDays} />
+				</FormField>
+				<FormField>
+					<SegmentedMultiControl
+						label={t("filters.advancedActions.cleanupSection.title")}
+						value={selectedStatuses}
+						options={cleanupOptions.map((status) => ({
+							value: status,
+							label: t(`filters.advancedActions.cleanupSection.statuses.${status}`, status),
+						}))}
+						onChange={(next) => setSelectedStatuses(next as AdvancedUserActionStatus[])}
+					/>
+				</FormField>
+				<div className="flex flex-row flex-wrap gap-2">
+					<Button disabled={busy !== null} onClick={askCleanup} variant="destructive" size="sm" loading={busy === "cleanup_status"}>
+						{t("filters.advancedActions.cleanupSection.button")}
+					</Button>
+				</div>
+			</SettingsCard>
+		</div>
+	);
+
+	const summaryRows: Array<[string, string]> = [
+		[t("filters.advancedActions.scope.label"), ownerLabel],
+		[t("filters.advancedActions.service.label"), serviceLabel],
+		[t("filters.advancedActions.scopeStatuses.title"), statusLabel],
+		[
+			t("filters.advancedActions.conditions.usernames"),
+			usernameCount ? String(usernameCount) : t("bulkActions.edit.noFilter"),
+		],
+		[t("filters.advancedActions.conditions.title"), conditionParts.length ? conditionParts.join(" · ") : t("bulkActions.edit.noFilter")],
+	];
+
+	const summary = (
+		<SettingsCard title={t("bulkActions.edit.summary")} description={t("bulkActions.edit.summaryHelp")}>
+			<dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-[0.8125rem]">
+				{summaryRows
+					.filter(([label]) => hasScopeSelect || label !== t("filters.advancedActions.scope.label"))
+					.map(([label, value]) => (
+						<div key={label} className="contents">
+							<dt className="text-panel-text-muted">{label}</dt>
+							<dd className="min-w-0 truncate text-panel-text" title={value}>
+								{value}
+							</dd>
+						</div>
+					))}
+			</dl>
+		</SettingsCard>
+	);
+
+	const recent = (
+		<SettingsCard title={t("bulkActions.edit.recent")} description={t("bulkActions.edit.recentHelp")}>
+			{recentRuns.length ? (
+				<div className="flex flex-col gap-3">
+					{recentRuns.map((run) => (
+						<div key={run.id} className="flex flex-row items-start justify-between gap-3 border-b border-panel-border! pb-3 last:border-b-0 last:pb-0">
+							<div className="min-w-0">
+								<p className="truncate text-[0.8125rem] font-medium text-panel-text">{run.label}</p>
+								<p className="text-[0.75rem] text-panel-text-muted">{run.detail}</p>
+							</div>
+							<div className="flex shrink-0 flex-col items-end gap-1">
+								<Badge className={toneClass(run.ok ? "green" : "red")}>
+									{run.ok ? t("bulkActions.edit.runOk") : t("bulkActions.edit.runFailed")}
+								</Badge>
+								<span className="text-[0.6875rem] tabular-nums text-panel-text-muted">{run.time.toLocaleTimeString()}</span>
+							</div>
+						</div>
+					))}
+				</div>
+			) : (
+				<p className="text-[0.8125rem] text-panel-text-muted">{t("bulkActions.edit.noRuns")}</p>
+			)}
+		</SettingsCard>
+	);
+
+	const content = (
+		<div className="flex flex-col gap-4">
+			<Alert className="rounded-md">
+				<TriangleAlert className="size-4" aria-hidden="true" />
+				<p>{t("filters.advancedActions.modalDescription")}</p>
+			</Alert>
+			<div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+				<div className="flex min-w-0 flex-col gap-4">
+					{who}
+					{actionCards}
+				</div>
+				<div className="flex flex-col gap-4 xl:sticky xl:top-4">
+					{summary}
+					{recent}
+				</div>
+			</div>
+		</div>
+	);
+
+	const confirm = (
+		<ConfirmDialog
+			open={pending !== null}
+			onClose={() => setPending(null)}
+			onConfirm={confirmPending}
+			loading={busy !== null}
+			colorScheme={pending?.danger ? "red" : "primary"}
+			title={pending?.title ?? ""}
+			description={pending?.description ?? ""}
+			confirmLabel={t("confirm")}
+		/>
 	);
 
 	if (embedded) {
-		return content;
+		return (
+			<>
+				{content}
+				{confirm}
+			</>
+		);
 	}
 
 	return (
 		<>
 			{compact ? (
-				<Tooltip
-					label={t("filters.advancedActions.button")}
-				>
-					<IconButton
-						aria-label={t("filters.advancedActions.button")}
-						icon={<AdvancedActionsIcon />}
-						onClick={onOpen}
-						variant="outline"
-						borderRadius="full"
-						w="40px"
-						h="40px"
-						flexShrink={0}
-					/>
-				</Tooltip>
+				<Tooltip>
+<TooltipTrigger asChild>
+					<Button aria-label={t("filters.advancedActions.button")} onClick={onOpen} variant="outline" size="sm" className={cn("size-8 p-0", "rounded-full w-[36px] h-[36px] shrink-0")}>
+						<AdvancedActionsIcon />
+					</Button>
+				</TooltipTrigger>
+<TooltipContent>{t("filters.advancedActions.button")}</TooltipContent>
+</Tooltip>
 			) : (
-				<Button
-					leftIcon={<AdvancedActionsIcon />}
-					onClick={onOpen}
-					size={isMobile ? "sm" : "md"}
-					variant="outline"
-					h={isMobile ? "36px" : undefined}
-					minW={isMobile ? "auto" : "8.5rem"}
-					fontSize={isMobile ? "xs" : "sm"}
-					fontWeight="semibold"
-					whiteSpace="nowrap"
-				>
+				<Button onClick={onOpen} variant="outline" size="sm" className="font-semibold whitespace-nowrap">
+					<AdvancedActionsIcon />
 					{t("filters.advancedActions.button")}
 				</Button>
 			)}
-
 			<AppDialog
-				isOpen={isOpen}
+				open={isOpen}
 				onClose={onClose}
-				size="lg"
+				size="4xl"
 				title={t("filters.advancedActions.modalTitle")}
 				footer={
-					<Button variant="ghost" onClick={onClose}>
+					<Button onClick={onClose} disabled={busy !== null} variant="ghost" size="sm">
 						{t("close")}
 					</Button>
 				}
 			>
 				{content}
 			</AppDialog>
+			{confirm}
 		</>
 	);
 };

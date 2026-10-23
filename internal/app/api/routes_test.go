@@ -16,6 +16,7 @@ func TestRoutesMatchProtectedGroups(t *testing.T) {
 		"/api/myaccount/api-keys/12",
 		"/api/core/config/targets/7/mode",
 		"/api/core/geo/apply",
+		"/api/admins/speeds",
 		"/api/inbounds/full",
 		"/api/inbounds/vless-in",
 		"/api/inbounds/vless-in/usage/reset",

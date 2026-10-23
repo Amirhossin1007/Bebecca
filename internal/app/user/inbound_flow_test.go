@@ -1,6 +1,7 @@
 package user
 
 import (
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"net/url"
 	"testing"
 )
@@ -15,7 +16,7 @@ func TestInboundFlowIsExplicitForRPCAndConfigLinks(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if stringValue(settings["flow"]) != flow {
+			if jsonvalue.String(settings["flow"]) != flow {
 				t.Fatalf("%s RPC flow=%v, want %q", network, settings, flow)
 			}
 			resolved, err := resolveInbound(inbound)

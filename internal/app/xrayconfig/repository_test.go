@@ -9,6 +9,8 @@ import (
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 )
 
 func testRepository(t *testing.T) (Repository, *sql.DB) {
@@ -315,7 +317,7 @@ func TestCreateInboundRepairsOrphanRecordHost(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateInbound orphan repair error = %v", err)
 	}
-	if created.Inbound == nil || stringValue(created.Inbound["tag"]) != "orphan-vless" {
+	if created.Inbound == nil || jsonvalue.String(created.Inbound["tag"]) != "orphan-vless" {
 		t.Fatalf("unexpected repaired inbound: %#v", created.Inbound)
 	}
 	assertRepoCount(t, db, `SELECT COUNT(*) FROM hosts WHERE inbound_tag = 'orphan-vless'`, 1)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 )
 
 const (
@@ -119,7 +120,7 @@ func isEmptyPropagationValue(value any) bool {
 
 func propagationTagExists(items []any, tag string) bool {
 	for _, item := range items {
-		if entry, ok := item.(map[string]any); ok && stringValue(entry["tag"]) == tag {
+		if entry, ok := item.(map[string]any); ok && jsonvalue.String(entry["tag"]) == tag {
 			return true
 		}
 	}
@@ -136,10 +137,10 @@ func locatePropagationItem(items []any, section string, before map[string]any) (
 		}
 		return -1, PropagationMissing
 	}
-	tag := stringValue(before["tag"])
+	tag := jsonvalue.String(before["tag"])
 	for index, item := range items {
 		entry, ok := item.(map[string]any)
-		if !ok || stringValue(entry["tag"]) != tag {
+		if !ok || jsonvalue.String(entry["tag"]) != tag {
 			continue
 		}
 		if canonicalPropagationJSON(entry) == canonicalPropagationJSON(before) {
@@ -153,7 +154,7 @@ func locatePropagationItem(items []any, section string, before map[string]any) (
 func propagationStatus(cfg map[string]any, op PropagationOp) string {
 	items := propagationItems(cfg, op.Section)
 	if op.Before == nil {
-		if op.After != nil && op.Section != PropagationRules && propagationTagExists(items, stringValue(op.After["tag"])) {
+		if op.After != nil && op.Section != PropagationRules && propagationTagExists(items, jsonvalue.String(op.After["tag"])) {
 			return PropagationConflict
 		}
 		return PropagationOK
@@ -163,8 +164,8 @@ func propagationStatus(cfg map[string]any, op PropagationOp) string {
 		return status
 	}
 	if op.After != nil && op.Section != PropagationRules {
-		newTag := stringValue(op.After["tag"])
-		if newTag != stringValue(op.Before["tag"]) && propagationTagExists(items, newTag) {
+		newTag := jsonvalue.String(op.After["tag"])
+		if newTag != jsonvalue.String(op.Before["tag"]) && propagationTagExists(items, newTag) {
 			return PropagationConflict
 		}
 	}
@@ -187,7 +188,7 @@ func applyPropagation(cfg map[string]any, op PropagationOp) error {
 	items[index] = deepCopyMap(op.After)
 	setPropagationItems(cfg, op.Section, items)
 	if op.Section != PropagationRules {
-		oldTag, newTag := stringValue(op.Before["tag"]), stringValue(op.After["tag"])
+		oldTag, newTag := jsonvalue.String(op.Before["tag"]), jsonvalue.String(op.After["tag"])
 		if oldTag != newTag {
 			renamePropagationReferences(cfg, op.Section, oldTag, newTag)
 		}

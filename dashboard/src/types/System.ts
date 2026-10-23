@@ -55,6 +55,8 @@ export interface SystemStats {
 	panel_total_bandwidth: number;
 	incoming_bandwidth_speed: number;
 	outgoing_bandwidth_speed: number;
+	total_incoming_bandwidth_speed?: number;
+	total_outgoing_bandwidth_speed?: number;
 	memory: UsageStats;
 	swap: UsageStats;
 	disk: UsageStats;

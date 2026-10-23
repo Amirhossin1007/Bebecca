@@ -1,7 +1,4 @@
-import {
-	type ColorMode,
-	Box,
-} from "@chakra-ui/react";
+import type { ColorMode } from "lib/color-mode";
 import type { ApexOptions } from "apexcharts";
 import {
 	DateRangePicker,
@@ -78,7 +75,7 @@ export const UsageFilter: FC<UsageFilterProps> = ({
 	const [range, setRange] = useState<DateRangeValue>(initialRange);
 
 	return (
-		<Box {...props}>
+		<div {...props}>
 			<DateRangePicker
 				value={range}
 				presets={usagePresets}
@@ -88,7 +85,7 @@ export const UsageFilter: FC<UsageFilterProps> = ({
 					onChange(nextRange.key || nextRange.presetKey || "custom", toFilterQuery(nextRange));
 				}}
 			/>
-		</Box>
+		</div>
 	);
 };
 
@@ -115,9 +112,9 @@ export function createUsageConfig(
 				text: `${title}${total}`,
 				align: "center",
 				style: {
-					fontWeight: "var(--chakra-fontWeights-medium)",
+					fontWeight: "500",
 					color:
-						colorMode === "dark" ? "var(--chakra-colors-gray-300)" : undefined,
+						colorMode === "dark" ? "var(--color-gray-300)" : undefined,
 				},
 			},
 			legend: {
@@ -132,18 +129,32 @@ export function createUsageConfig(
 				colors: undefined,
 			},
 			dataLabels: {
-				formatter: (_val, { seriesIndex, w }) => {
+				// ApexCharts 8 types these callbacks loosely; the runtime shape is
+				// unchanged, so the option object narrows them once here.
+				formatter: (_val: unknown, opts: unknown) => {
+					const { seriesIndex, w } = opts as {
+						seriesIndex: number;
+						w: { config: { series: number[] } };
+					};
 					return formatBytes(w.config.series[seriesIndex], 1);
 				},
 			},
 			tooltip: {
-				custom: ({ series, seriesIndex, w }) => {
-					const readable = formatBytes(series[seriesIndex], 1);
-					const total = Math.max(
-						(series as [number]).reduce((t, c) => t + c, 0),
-						1,
-					);
-					const percent = `${Math.round((series[seriesIndex] / total) * 1000) / 10}%`;
+				custom: (opts: unknown) => {
+					const { series, seriesIndex, w } = opts as {
+						// One entry per series; a single-series chart flattens it to numbers.
+						series: Array<number | number[]>;
+						seriesIndex: number;
+						w: {
+							globals: { colors: string[] };
+							config: { labels: string[] };
+						};
+					};
+					const current = series[seriesIndex];
+					const value = typeof current === "number" ? current : 0;
+					const readable = formatBytes(value, 1);
+					const total = Math.max(value, 1);
+					const percent = `${Math.round((value / total) * 1000) / 10}%`;
 					return `
             <div style="
                     background-color: ${w.globals.colors[seriesIndex]};

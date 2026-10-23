@@ -163,6 +163,7 @@ func New(cfg Config) (*Server, error) {
 		RollbackMarker:   server.markRecentActionUndoneTx,
 	})
 	server.nodeMutations = nodeMutationRepo.WithRecentActionRecorder(server.recordRecentActionEventTx)
+	certificateManager.SetNodeIssuer(server.issueNodeCertificate)
 	return server, nil
 }
 

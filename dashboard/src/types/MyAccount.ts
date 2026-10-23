@@ -36,4 +36,5 @@ export type MyAccountResponse = {
 	daily_usage: MyAccountUsagePoint[];
 	node_usages: MyAccountNodeUsage[];
 	service_limits: MyAccountServiceLimit[];
+	expire: number | null;
 };

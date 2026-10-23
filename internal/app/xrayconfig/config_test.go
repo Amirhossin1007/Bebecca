@@ -3,6 +3,7 @@ package xrayconfig
 import (
 	"encoding/base64"
 	"encoding/json"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -139,7 +140,7 @@ func TestNormalizePayloadRemovesLegacyReverseAndRemovedTLSFields(t *testing.T) {
 		t.Fatal("legacy reverse config was not removed")
 	}
 	rules := listOfMaps(mapValue(normalized["routing"])["rules"])
-	if len(rules) != 1 || stringValue(rules[0]["outboundTag"]) != "direct" {
+	if len(rules) != 1 || jsonvalue.String(rules[0]["outboundTag"]) != "direct" {
 		t.Fatalf("legacy reverse routing rules were not removed: %#v", rules)
 	}
 	inboundTLS := mapValue(mapValue(listOfMaps(normalized["inbounds"])[0]["streamSettings"])["tlsSettings"])
@@ -615,15 +616,15 @@ func TestNormalizePayloadForXrayVersionGatesHysteria2WithoutGuessingLegacySemant
 			normalized, warning := NormalizePayloadForXrayVersion(payload, tc.version)
 			inbound := listOfMaps(normalized["inbounds"])[0]
 			settings := mapValue(inbound["settings"])
-			streamVersion := intValue(mapValue(mapValue(inbound["streamSettings"])["hysteriaSettings"])["version"])
-			if got := intValue(settings["version"]); got != tc.wantVersion || streamVersion != tc.wantVersion {
+			streamVersion := jsonvalue.Int(mapValue(mapValue(inbound["streamSettings"])["hysteriaSettings"])["version"])
+			if got := jsonvalue.Int(settings["version"]); got != tc.wantVersion || streamVersion != tc.wantVersion {
 				t.Fatalf("versions settings=%d stream=%d want=%d normalized=%#v", got, streamVersion, tc.wantVersion, normalized)
 			}
 			if !strings.Contains(warning, tc.warning) {
 				t.Fatalf("warning %q does not contain %q", warning, tc.warning)
 			}
 			original := tc.shape
-			if got := intValue(mapValue(original["settings"])["version"]); got != 0 && tc.wantVersion == 2 {
+			if got := jsonvalue.Int(mapValue(original["settings"])["version"]); got != 0 && tc.wantVersion == 2 {
 				t.Fatalf("original settings were mutated: %#v", original)
 			}
 		})
@@ -640,7 +641,7 @@ func TestNormalizePayloadForXrayVersionUsesEarlierHysteriaOutboundBoundary(t *te
 	}
 	normalized, warning := NormalizePayloadForXrayVersion(map[string]any{"outbounds": []any{outbound}}, "Xray 26.1.23")
 	got := listOfMaps(normalized["outbounds"])[0]
-	if intValue(mapValue(got["settings"])["version"]) != 2 || intValue(mapValue(mapValue(got["streamSettings"])["hysteriaSettings"])["version"]) != 2 {
+	if jsonvalue.Int(mapValue(got["settings"])["version"]) != 2 || jsonvalue.Int(mapValue(mapValue(got["streamSettings"])["hysteriaSettings"])["version"]) != 2 {
 		t.Fatalf("pre-26.3.27 Hysteria outbound was not normalized to required version 2: %#v", got)
 	}
 	if !strings.Contains(warning, "Hysteria outbound") {
@@ -650,7 +651,7 @@ func TestNormalizePayloadForXrayVersionUsesEarlierHysteriaOutboundBoundary(t *te
 	inbound["settings"] = map[string]any{"clients": []any{}}
 	normalized, warning = NormalizePayloadForXrayVersion(map[string]any{"inbounds": []any{inbound}}, "Xray 26.1.23")
 	got = listOfMaps(normalized["inbounds"])[0]
-	if intValue(mapValue(got["settings"])["version"]) != 0 || !strings.Contains(warning, "before 26.3.27") {
+	if jsonvalue.Int(mapValue(got["settings"])["version"]) != 0 || !strings.Contains(warning, "before 26.3.27") {
 		t.Fatalf("pre-26.3.27 Hysteria inbound should remain untouched with warning: %#v warning=%s", got, warning)
 	}
 }
@@ -788,7 +789,7 @@ func TestNormalizePayloadForXrayVersionKeepsRequiredUDPOuterMaskFirst(t *testing
 				t.Fatalf("UDP masks = %#v, want %#v", udp, want)
 			}
 			for index, maskType := range want {
-				if stringValue(udp[index]["type"]) != maskType {
+				if jsonvalue.String(udp[index]["type"]) != maskType {
 					t.Fatalf("UDP order = %#v, want %#v", udp, want)
 				}
 			}
@@ -879,7 +880,7 @@ func TestNormalizePayloadForXrayVersionWarnsForLegacyMKCPMTUWithoutClamping(t *t
 				},
 			}}}
 			normalized, warning := NormalizePayloadForXrayVersion(payload, tc.version)
-			got := intValue(mapValue(mapValue(listOfMaps(normalized["outbounds"])[0]["streamSettings"])["kcpSettings"])["mtu"])
+			got := jsonvalue.Int(mapValue(mapValue(listOfMaps(normalized["outbounds"])[0]["streamSettings"])["kcpSettings"])["mtu"])
 			if got != tc.mtu {
 				t.Fatalf("mtu was mutated: got=%d want=%d", got, tc.mtu)
 			}
@@ -914,7 +915,7 @@ func TestNormalizePayloadForXrayVersionUsesVersionedMKCPTTIMaximum(t *testing.T)
 				},
 			}}}
 			normalized, warning := NormalizePayloadForXrayVersion(payload, tc.version)
-			got := intValue(mapValue(mapValue(listOfMaps(normalized["outbounds"])[0]["streamSettings"])["kcpSettings"])["tti"])
+			got := jsonvalue.Int(mapValue(mapValue(listOfMaps(normalized["outbounds"])[0]["streamSettings"])["kcpSettings"])["tti"])
 			if got != tc.tti {
 				t.Fatalf("tti was mutated: got=%d want=%d", got, tc.tti)
 			}
@@ -1087,13 +1088,13 @@ func assertXHTTPSessionAliases(t *testing.T, settings map[string]any, wantPlacem
 	if got, exists := settings["sessionIDTable"]; exists != wantCurrent || (exists && got != wantTable) {
 		t.Fatalf("current table = %#v, exists=%t, settings=%#v", got, exists, settings)
 	}
-	if got, exists := settings["sessionIDLength"]; exists != wantCurrent || (exists && intValue(got) != wantLength) {
+	if got, exists := settings["sessionIDLength"]; exists != wantCurrent || (exists && jsonvalue.Int(got) != wantLength) {
 		t.Fatalf("current length = %#v, exists=%t, settings=%#v", got, exists, settings)
 	}
 	if got, exists := settings["sessionTable"]; exists != wantLegacy || (exists && got != wantTable) {
 		t.Fatalf("legacy table = %#v, exists=%t, settings=%#v", got, exists, settings)
 	}
-	if got, exists := settings["sessionLength"]; exists != wantLegacy || (exists && intValue(got) != wantLength) {
+	if got, exists := settings["sessionLength"]; exists != wantLegacy || (exists && jsonvalue.Int(got) != wantLength) {
 		t.Fatalf("legacy length = %#v, exists=%t, settings=%#v", got, exists, settings)
 	}
 }
@@ -1104,7 +1105,7 @@ func TestReverseClientsKeepsOnlyStaticReverseAccounts(t *testing.T) {
 		map[string]any{"id": "reverse", "reverse": map[string]any{"tag": "reverse-in"}},
 	}
 	kept := ReverseClients(clients)
-	if len(kept) != 1 || stringValue(kept[0].(map[string]any)["id"]) != "reverse" {
+	if len(kept) != 1 || jsonvalue.String(kept[0].(map[string]any)["id"]) != "reverse" {
 		t.Fatalf("unexpected reverse clients: %#v", kept)
 	}
 	kept[0].(map[string]any)["id"] = "changed"
@@ -1272,7 +1273,7 @@ func TestRealityInboundAcceptsSettingsShortID(t *testing.T) {
 	if got := firstStringList(inbound["sni"]); got != "example.com" {
 		t.Fatalf("expected settings serverName compatibility, got %#v", inbound)
 	}
-	if got := stringValue(inbound["spx"]); got != "/spider" {
+	if got := jsonvalue.String(inbound["spx"]); got != "/spider" {
 		t.Fatalf("expected spiderX compatibility, got %#v", inbound)
 	}
 }
@@ -1414,10 +1415,10 @@ func TestParseNormalizesXHTTPSessionAliases(t *testing.T) {
 				t.Fatalf("Parse() error = %v", err)
 			}
 			resolved := parsed.InboundsByTag()["vless-tcp"]
-			if got := stringValue(resolved["sessionIDPlacement"]); got != "header" {
+			if got := jsonvalue.String(resolved["sessionIDPlacement"]); got != "header" {
 				t.Fatalf("sessionIDPlacement = %q, want header: %#v", got, resolved)
 			}
-			if got := stringValue(resolved["sessionIDKey"]); got != "X-Session" {
+			if got := jsonvalue.String(resolved["sessionIDKey"]); got != "X-Session" {
 				t.Fatalf("sessionIDKey = %q, want X-Session: %#v", got, resolved)
 			}
 			rawSettings := mapValue(mapValue(listOfMaps(parsed.Raw()["inbounds"])[0]["streamSettings"])["xhttpSettings"])
@@ -1748,7 +1749,7 @@ func TestExtraVPNInboundValidation(t *testing.T) {
 		{"tag": "awg", "port": 51820, "protocol": AWGProtocol, "settings": map[string]any{"address_pool": "10.73.0.0/24", "server_address": "10.73.0.1/24", "private_key": privateKey, "tproxy_enabled": false, "jc": 4, "jmin": 8, "jmax": 80}},
 		{"tag": "gre", "port": 47, "protocol": GREProtocol, "settings": map[string]any{"ipv4_pool_cidr": "10.74.0.0/24", "tproxy_enabled": false, "mtu": 1476, "ttl": 64}},
 	} {
-		if err := validateVirtualTunnelInbound(stringValue(inbound["tag"]), inbound); err != nil {
+		if err := validateVirtualTunnelInbound(jsonvalue.String(inbound["tag"]), inbound); err != nil {
 			t.Fatalf("%s validation failed: %v", inbound["protocol"], err)
 		}
 	}
@@ -1760,7 +1761,7 @@ func TestRemoteAccessInboundRejectsUnsafeSettings(t *testing.T) {
 		{"tag": "anyconnect", "port": 443, "protocol": AnyConnectProtocol, "settings": map[string]any{"auth_mode": "password", "ipv4_pool_cidr": "10.71.0.0/24", "tproxy_enabled": false, "server_certificate": "cert", "server_key": "key", "routes": []any{"not-a-cidr"}}},
 	}
 	for _, inbound := range tests {
-		if err := validateVirtualTunnelInbound(stringValue(inbound["tag"]), inbound); err == nil {
+		if err := validateVirtualTunnelInbound(jsonvalue.String(inbound["tag"]), inbound); err == nil {
 			t.Fatalf("expected invalid settings to be rejected: %#v", inbound)
 		}
 	}

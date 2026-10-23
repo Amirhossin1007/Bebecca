@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -53,7 +54,7 @@ func (r Repository) wgRuntime(ctx context.Context, nodeID int64, inbounds []map[
 	target := xrayconfig.NodeTargetID(nodeID)
 	usedPorts := map[int]struct{}{}
 	for _, inbound := range inbounds {
-		if port := OVIntValue(inbound["port"]); port > 0 {
+		if port := jsonvalue.Int(inbound["port"]); port > 0 {
 			usedPorts[port] = struct{}{}
 		}
 	}
@@ -68,13 +69,13 @@ func (r Repository) wgRuntime(ctx context.Context, nodeID int64, inbounds []map[
 		runtimeConfig.SessionCallback = callback
 	}
 	for _, inbound := range inbounds {
-		if strings.ToLower(OVStringValue(inbound["protocol"])) != xrayconfig.WGProtocol {
+		if strings.ToLower(jsonvalue.String(inbound["protocol"])) != xrayconfig.WGProtocol {
 			continue
 		}
 		if !OVInboundMatchesTarget(inbound, target) {
 			continue
 		}
-		tag := OVStringValue(inbound["tag"])
+		tag := jsonvalue.String(inbound["tag"])
 		if tag == "" {
 			continue
 		}
@@ -86,7 +87,7 @@ func (r Repository) wgRuntime(ctx context.Context, nodeID int64, inbounds []map[
 		if len(serviceIDs) == 0 {
 			continue
 		}
-		peers, err := r.WGUsersForServices(ctx, tag, serviceIDs, OVStringValue(settings["address_pool"]), OVStringValue(settings["server_address"]))
+		peers, err := r.WGUsersForServices(ctx, tag, serviceIDs, jsonvalue.String(settings["address_pool"]), jsonvalue.String(settings["server_address"]))
 		if err != nil {
 			return WGRuntime{}, err
 		}
@@ -100,7 +101,7 @@ func (r Repository) wgRuntime(ctx context.Context, nodeID int64, inbounds []map[
 		runtimeConfig.Inbounds = append(runtimeConfig.Inbounds, WGRuntimeInbound{
 			Tag:        tag,
 			TunnelTag:  xrayconfig.RuntimeTunnelTagForProtocol(xrayconfig.WGProtocol, tag),
-			ListenPort: OVIntValue(inbound["port"]),
+			ListenPort: jsonvalue.Int(inbound["port"]),
 			TunnelPort: tunnelPort,
 			Settings:   settings,
 			Peers:      peers,
@@ -186,8 +187,8 @@ func WGRuntimeSettings(inbound map[string]any) map[string]any {
 	if _, ok := out["accounting_enabled"]; !ok {
 		out["accounting_enabled"] = true
 	}
-	out["private_key"] = strings.TrimSpace(OVStringValue(out["private_key"]))
-	out["server_address"] = strings.TrimSpace(OVStringValue(out["server_address"]))
+	out["private_key"] = strings.TrimSpace(jsonvalue.String(out["private_key"]))
+	out["server_address"] = strings.TrimSpace(jsonvalue.String(out["server_address"]))
 	for _, key := range []string{"clients", "ipv4PoolCidr"} {
 		delete(out, key)
 	}

@@ -93,6 +93,14 @@ func (s *Server) systemStatsForRequest(ctx context.Context, r *http.Request) (sy
 	total := s.liveUserSpeedTotalFor(principal)
 	stats.OnlineUsersUploadRate = total.Upload
 	stats.OnlineUsersDownloadRate = total.Download
+	if principal.Context.Admin.Role.IsGlobal() {
+		nodeIncoming, nodeOutgoing, nodeErr := s.nodeController.NodeBandwidthSpeeds(ctx, liveMetricsInterval(r))
+		if nodeErr != nil {
+			nodeIncoming, nodeOutgoing = 0, 0
+		}
+		stats.TotalIncomingBandwidthRate = nodeIncoming
+		stats.TotalOutgoingBandwidthRate = nodeOutgoing
+	}
 	return stats, nil
 }
 

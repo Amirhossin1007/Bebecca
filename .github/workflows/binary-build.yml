@@ -43,7 +43,7 @@ jobs:
       - name: Setup Node.js 20 LTS
         uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: ${{ env.DASH_DIR }}/package-lock.json
 
@@ -210,7 +210,7 @@ jobs:
     needs:
       - build-linux
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     if: github.event_name == 'push' && github.ref_name == 'dev'
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -257,6 +257,33 @@ jobs:
             exit 1
           fi
           echo "build_tag=${build_tag}" >> "${GITHUB_OUTPUT}"
+
+      - name: Prune old dev build assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          keep_builds=49
+          if ! gh release view "${DEV_RELEASE_TAG}" >/dev/null 2>&1; then
+            exit 0
+          fi
+          gh release view "${DEV_RELEASE_TAG}" --json assets -q '.assets' > dev-assets.json
+          jq -r --argjson keep "${keep_builds}" '
+            [ .[]
+              | select(.name | test("-dev-[0-9a-f]+\\.(tar\\.gz|zip)$"))
+              | {
+                  id: (.apiUrl | split("/") | last),
+                  created: .createdAt,
+                  tag: (.name | capture("-dev-(?<t>[0-9a-f]+)\\.(tar\\.gz|zip)$").t)
+                } ]
+            | group_by(.tag)
+            | map({created: (map(.created) | max), ids: map(.id)})
+            | sort_by(.created)
+            | reverse
+            | .[$keep:][]
+            | .ids[]
+          ' dev-assets.json > dev-assets-to-prune.txt
+          echo "Pruning $(wc -l < dev-assets-to-prune.txt | tr -d ' ') old dev build asset(s), keeping the newest ${keep_builds} builds"
+          xargs -r -P 6 -I{} gh api -X DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/{}" < dev-assets-to-prune.txt
 
       - name: Publish dev build assets
         shell: bash

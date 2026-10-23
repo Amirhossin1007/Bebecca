@@ -27,8 +27,6 @@ func testServiceServer(t *testing.T) (*Server, *sql.DB, string) {
 	server.usageService = usage.NewService(usage.NewRepository(db, "sqlite"))
 	server.userService = userapp.NewService(userapp.NewRepository(db, "sqlite"))
 	statements := []string{
-		`ALTER TABLE service_admins ADD COLUMN created_at DATETIME NULL`,
-		`ALTER TABLE service_admins ADD COLUMN updated_at DATETIME NULL`,
 		`DROP TABLE services`,
 		`DROP TABLE hosts`,
 		`DROP TABLE service_hosts`,
@@ -39,6 +37,7 @@ func testServiceServer(t *testing.T) (*Server, *sql.DB, string) {
 			used_traffic BIGINT DEFAULT 0,
 			lifetime_used_traffic BIGINT DEFAULT 0,
 			users_usage BIGINT DEFAULT 0,
+			usage_coefficient REAL NOT NULL DEFAULT 1,
 			created_at DATETIME NULL,
 			updated_at DATETIME NULL
 		)`,
@@ -831,4 +830,88 @@ func decodeSubscriptionBody(body string) string {
 		return string(decoded)
 	}
 	return body
+}
+
+func TestServiceUsageCoefficientRoundTrip(t *testing.T) {
+	server, db, token := testServiceServer(t)
+
+	rec := adminJSONRequest(t, server, http.MethodPost, "/api/v2/services", token, `{"name":"Coefficient","hosts":[{"host_id":1}],"admin_ids":[2],"usage_coefficient":2.5}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		ID               int64   `json:"id"`
+		UsageCoefficient float64 `json:"usage_coefficient"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.UsageCoefficient != 2.5 {
+		t.Fatalf("created usage_coefficient = %v, want 2.5", created.UsageCoefficient)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/services", token, `{"name":"Default","hosts":[{"host_id":1}],"admin_ids":[2]}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("default create status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.UsageCoefficient != 1 {
+		t.Fatalf("default usage_coefficient = %v, want 1", created.UsageCoefficient)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/services", token, `{"name":"Invalid","hosts":[{"host_id":1}],"admin_ids":[2],"usage_coefficient":0}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid coefficient status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	serviceID := itoa(created.ID)
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/v2/services/"+serviceID, token, `{"usage_coefficient":3}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.UsageCoefficient != 3 {
+		t.Fatalf("updated usage_coefficient = %v, want 3", created.UsageCoefficient)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/v2/services/"+serviceID+"/admins/2/limits", token, `{"usage_coefficient":1.5}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin override status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var link struct {
+		UsageCoefficient *float64 `json:"usage_coefficient"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &link); err != nil {
+		t.Fatal(err)
+	}
+	if link.UsageCoefficient == nil || *link.UsageCoefficient != 1.5 {
+		t.Fatalf("admin override usage_coefficient = %v, want 1.5", link.UsageCoefficient)
+	}
+	var stored *float64
+	if err := db.QueryRow(`SELECT usage_coefficient FROM service_admins WHERE admin_id = 2 AND service_id = ?`, created.ID).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored == nil || *stored != 1.5 {
+		t.Fatalf("stored admin override = %v, want 1.5", stored)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/v2/services/"+serviceID+"/admins/2/limits", token, `{"usage_coefficient":null}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin reset status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &link); err != nil {
+		t.Fatal(err)
+	}
+	if link.UsageCoefficient != nil {
+		t.Fatalf("reset admin usage_coefficient = %v, want null (inherit service default)", *link.UsageCoefficient)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/v2/services/"+serviceID+"/admins/2/limits", token, `{"usage_coefficient":200}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("out-of-range admin coefficient status = %d body=%s", rec.Code, rec.Body.String())
+	}
 }

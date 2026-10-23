@@ -1,64 +1,32 @@
-import {
-	Accordion,
-	AccordionButton,
-	AccordionIcon,
-	AccordionItem,
-	AccordionPanel,
-	Box,
-	Button,
-	chakra,
-	FormControl,
-	FormLabel,
-	HStack,
-	IconButton,
-	Input,
-	Menu,
-	MenuButton,
-	MenuItem,
-	MenuList,
-	Portal,
-	Radio,
-	RadioGroup,
-	Spinner,
-	Stack,
-	Switch,
-	Tag,
-	TagCloseButton,
-	TagLabel,
-	Text,
-	Tooltip,
-	useBreakpointValue,
-	useColorModeValue,
-	useDisclosure,
-	useToast,
-	VStack,
-	Wrap,
-	WrapItem,
-} from "@chakra-ui/react";
-import {
-	PlusIcon as AddIcon,
-	AdjustmentsHorizontalIcon,
-	ArrowDownIcon,
-	ArrowsPointingInIcon,
-	ArrowsPointingOutIcon,
-	ArrowsRightLeftIcon,
-	ArrowUpIcon,
-	ArrowUpTrayIcon,
-	BoltIcon,
-	CheckCircleIcon,
-	CloudArrowUpIcon,
-	TrashIcon as DeleteIcon,
-	PencilIcon as EditIcon,
-	EllipsisHorizontalIcon,
-	GlobeAltIcon,
-	ArrowPathIcon as ReloadIcon,
-	ScaleIcon,
-	WrenchScrewdriverIcon,
-	XCircleIcon,
-} from "@heroicons/react/24/outline";
+import { toneClass } from "lib/tone";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "components/ui/accordion";
+import { Field, FieldLabel } from "components/ui/field";
+import { Badge } from "components/ui/badge";
+import { Spinner } from "components/ui/spinner";
+import { Button } from "components/ui/button";
+import { Switch } from "components/ui/switch";
+import { Input } from "components/ui/input";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { RadioGroup, RadioGroupItem } from "components/ui/radio-group";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { Plus as AddIcon, SlidersHorizontal, ArrowDown, Minimize2, Maximize2, ArrowLeftRight, ArrowUp, Upload, Zap, CircleCheck, ChevronsUp, CloudUpload, Trash2 as DeleteIcon, Pencil as EditIcon, Ellipsis, Globe, RefreshCw as ReloadIcon, Scale, Wrench, CircleX } from "lucide-react";
+
+import { useDisclosure } from "hooks/useDisclosure";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
+
+import { cn } from "lib/cn";
 import { CompactChips, CompactTextWithCopy } from "components/CompactPopover";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
+import { ListCard } from "components/ui/list-card";
+import { SegmentedControl } from "components/ui/segmented-control";
+import { RefreshSplitButton } from "components/users/RefreshSplitButton";
+import { useIntervalRefresh } from "hooks/useIntervalRefresh";
+import { buildSortOptions, DataTableSortMenu } from "components/ui/DataTableSortMenu";
+import type { SortingState } from "@tanstack/react-table";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import {
 	applyXrayPropagation,
@@ -72,12 +40,13 @@ import {
 	type DataTableBulkAction,
 	type DataTableColumn,
 	type DataTableRowAction,
-	ResourceListCard,
+	ResourceSummaryPills,
 	TabSystem,
 } from "components/ui";
 import { useCoreSettings } from "contexts/CoreSettingsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
+import { isMullvadOutbound } from "utils/mullvad";
 import { DEFAULT_SEARCH_MATCH_OPTIONS, matchesSearch } from "utils/searchMatch";
 import {
 	type FC,
@@ -92,8 +61,8 @@ import {
 } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { SiNordvpn, SiTorproject } from "react-icons/si";
-import { useMutation, useQuery } from "react-query";
+import { SiMullvad, SiNordvpn, SiTorproject } from "react-icons/si";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation, useSearchParams } from "react-router-dom";
 import { fetch as apiFetch, getAPIErrorMessage } from "service/http";
 import psiphonIconUrl from "../assets/brands/psiphon.png";
@@ -116,7 +85,6 @@ import {
 import { SizeFormatter } from "../utils/outbound";
 import { computeOutboundIds } from "../utils/outboundId";
 import { sumOutboundTraffic } from "../utils/outboundTraffic";
-import { sortByTraffic, type TrafficSortOrder } from "../utils/trafficSort";
 
 const JsonEditor = lazy(async () => ({
 	default: (await import("../components/JsonEditor")).JsonEditor,
@@ -132,6 +100,9 @@ const DnsPresetsModal = lazy(async () => ({
 }));
 const FakeDnsModal = lazy(async () => ({
 	default: (await import("../components/FakeDnsModal")).FakeDnsModal,
+}));
+const MullvadModal = lazy(async () => ({
+	default: (await import("../components/MullvadModal")).MullvadModal,
 }));
 const NordVPNModal = lazy(async () => ({
 	default: (await import("../components/NordVPNModal")).NordVPNModal,
@@ -166,72 +137,46 @@ const WindscribeProxyModal = lazy(async () => ({
 		.WindscribeProxyModal,
 }));
 
-const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 3.5, h: 3.5 } });
-const DeleteIconStyled = chakra(DeleteIcon, { baseStyle: { w: 4, h: 4 } });
-const EditIconStyled = chakra(EditIcon, { baseStyle: { w: 4, h: 4 } });
-const ArrowUpIconStyled = chakra(ArrowUpIcon, { baseStyle: { w: 4, h: 4 } });
-const ArrowDownIconStyled = chakra(ArrowDownIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const ReloadIconStyled = chakra(ReloadIcon, { baseStyle: { w: 4, h: 4 } });
-const FullScreenIconStyled = chakra(ArrowsPointingOutIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const ExitFullScreenIconStyled = chakra(ArrowsPointingInIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const BasicTabIcon = chakra(AdjustmentsHorizontalIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const RoutingTabIcon = chakra(ArrowsRightLeftIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const OutboundTabIcon = chakra(ArrowUpTrayIcon, { baseStyle: { w: 4, h: 4 } });
-const BalancerTabIcon = chakra(ScaleIcon, { baseStyle: { w: 4, h: 4 } });
-const DnsTabIcon = chakra(GlobeAltIcon, { baseStyle: { w: 4, h: 4 } });
-const AdvancedTabIcon = chakra(WrenchScrewdriverIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
-const WarpIconStyled = chakra(CloudArrowUpIcon, { baseStyle: { w: 4, h: 4 } });
-const BoltIconStyled = chakra(BoltIcon, { baseStyle: { w: 4, h: 4 } });
-const CheckCircleIconStyled = chakra(CheckCircleIcon, {
-	baseStyle: { w: 3.5, h: 3.5 },
-});
-const XCircleIconStyled = chakra(XCircleIcon, {
-	baseStyle: { w: 3.5, h: 3.5 },
-});
-const MoreIconStyled = chakra(EllipsisHorizontalIcon, {
-	baseStyle: { w: 4, h: 4 },
-});
+const AddIconStyled = withClass(AddIcon, "w-3.5 h-3.5");
+const DeleteIconStyled = withClass(DeleteIcon, "w-4 h-4");
+const EditIconStyled = withClass(EditIcon, "w-4 h-4");
+const ArrowUpIconStyled = withClass(ArrowUp, "w-4 h-4");
+const ChevronDoubleUpIconStyled = withClass(ChevronsUp, "w-4 h-4");
+const ArrowDownIconStyled = withClass(ArrowDown, "w-4 h-4");
+const ReloadIconStyled = withClass(ReloadIcon, "w-4 h-4");
+const FullScreenIconStyled = withClass(Maximize2, "w-4 h-4");
+const ExitFullScreenIconStyled = withClass(Minimize2, "w-4 h-4");
+const BasicTabIcon = withClass(SlidersHorizontal, "w-4 h-4");
+const RoutingTabIcon = withClass(ArrowLeftRight, "w-4 h-4");
+const OutboundTabIcon = withClass(Upload, "w-4 h-4");
+const BalancerTabIcon = withClass(Scale, "w-4 h-4");
+const DnsTabIcon = withClass(Globe, "w-4 h-4");
+const AdvancedTabIcon = withClass(Wrench, "w-4 h-4");
+const WarpIconStyled = withClass(CloudUpload, "w-4 h-4");
+const BoltIconStyled = withClass(Zap, "w-4 h-4");
+const CheckCircleIconStyled = withClass(CircleCheck, "w-3.5 h-3.5");
+const XCircleIconStyled = withClass(CircleX, "w-3.5 h-3.5");
+const MoreIconStyled = withClass(Ellipsis, "w-4 h-4");
 const NordVPNIconStyled = () => (
-	<Box as="span" display="inline-flex" color="#4687ff">
+	<span className="inline-flex text-[#4687ff]">
 		{SiNordvpn({ size: 16, "aria-hidden": true })}
-	</Box>
+	</span>
+);
+const MullvadIconStyled = () => (
+	<span className="inline-flex">
+		{SiMullvad({ size: 16, "aria-hidden": true })}
+	</span>
 );
 const TorIconStyled: FC<{ size?: number }> = ({ size = 16 }) => (
-	<Box as="span" display="inline-flex" color="#7d4698">
+	<span className="inline-flex text-[#7d4698]">
 		{SiTorproject({ size, "aria-hidden": true })}
-	</Box>
+	</span>
 );
 const WindscribeIconStyled = () => (
-	<Box
-		as="img"
-		src={windscribeIconUrl}
-		alt=""
-		aria-hidden="true"
-		boxSize={4}
-		objectFit="contain"
-	/>
+	<img src={windscribeIconUrl} alt="" aria-hidden="true" className="size-4 object-contain" />
 );
 const PsiphonIconStyled = () => (
-	<Box
-		as="img"
-		src={psiphonIconUrl}
-		alt=""
-		aria-hidden="true"
-		boxSize={4}
-		objectFit="contain"
-	/>
+	<img src={psiphonIconUrl} alt="" aria-hidden="true" className="size-4 object-contain" />
 );
 const ManagedOutboundBadge: FC<{ outbound: any }> = ({ outbound }) => {
 	const meta = managedOutboundMeta(outbound);
@@ -245,33 +190,22 @@ const ManagedOutboundBadge: FC<{ outbound: any }> = ({ outbound }) => {
 			<PsiphonIconStyled />
 		);
 	return (
-		<Tooltip
-			label={
+		<Tooltip>
+<TooltipTrigger asChild>
+			<div className="flex flex-row items-center gap-1 px-1.5 py-0.5 rounded-xs bg-whiteAlpha-100 shrink-0">
+				{icon}
+			</div>
+		</TooltipTrigger>
+<TooltipContent>{
 				meta.country
 					? `${providerName} - ${meta.country.toUpperCase()}`
 					: providerName
-			}
-		>
-			<HStack
-				spacing={1}
-				px={1.5}
-				py={0.5}
-				borderRadius="sm"
-				bg="whiteAlpha.100"
-				flexShrink={0}
-			>
-				{icon}
-			</HStack>
-		</Tooltip>
+			}</TooltipContent>
+</Tooltip>
 	);
 };
 const compactActionButtonProps = {
-	colorScheme: "primary",
 	size: "xs" as const,
-	variant: "solid" as const,
-	fontSize: "xs",
-	px: 3,
-	h: 7,
 };
 
 const serializeConfig = (value: any) => JSON.stringify(value ?? {});
@@ -647,39 +581,26 @@ const removeReverseFromConfig = (config: any, reverse: ReverseRow) => {
 const SettingsSection: FC<{
 	title: string;
 	children: ReactNode;
-	defaultOpen?: boolean;
-}> = ({ title, children, defaultOpen = false }) => {
-	const headerBg = useColorModeValue("gray.50", "whiteAlpha.100");
-	const panelBg = useColorModeValue("white", "surface.dark");
-	const borderColor = useColorModeValue("gray.200", "whiteAlpha.300");
+}> = ({ title, children }) => {
+	const headerBg = "bg-gray-50 dark:bg-whiteAlpha-100";
+	const panelBg = "bg-white dark:bg-surface-dark";
+	const borderColor = "border-gray-200! dark:border-whiteAlpha-300!";
 	return (
-		<Accordion
-			allowToggle
-			defaultIndex={defaultOpen ? 0 : undefined}
-			reduceMotion
-		>
-			<AccordionItem
-				borderWidth="1px"
-				borderColor={borderColor}
-				borderRadius="md"
-				bg={panelBg}
-				overflow="hidden"
-			>
-				<h2>
-					<AccordionButton bg={headerBg} px={{ base: 3, md: 4 }} py={2.5}>
-						<Box flex="1" textAlign="start">
-							<Text fontWeight="semibold" fontSize={{ base: "sm", md: "md" }}>
+		<Accordion type="single" collapsible>
+			<AccordionItem value="section" className={cn("border rounded-md overflow-hidden", borderColor, panelBg)}>
+					<AccordionTrigger className={cn("px-3 md:px-4 py-2.5", headerBg)}>
+						<div className="flex-1 text-start">
+							<p className="font-semibold text-[0.875rem] md:text-[1rem]">
 								{title}
-							</Text>
-						</Box>
-						<AccordionIcon />
-					</AccordionButton>
-				</h2>
-				<AccordionPanel p={0}>
-					<VStack align="stretch" spacing={0}>
+							</p>
+						</div>
+						
+					</AccordionTrigger>
+				<AccordionContent className="p-0">
+					<div className="flex flex-col items-stretch gap-0">
 						{children}
-					</VStack>
-				</AccordionPanel>
+					</div>
+				</AccordionContent>
 			</AccordionItem>
 		</Accordion>
 	);
@@ -691,41 +612,25 @@ const SettingRow: FC<{
 	controlId: string;
 	children: (controlId: string) => ReactNode;
 }> = ({ label, description, controlId, children }) => {
-	const labelColor = useColorModeValue("gray.700", "whiteAlpha.800");
-	const descriptionColor = useColorModeValue("gray.500", "whiteAlpha.600");
-	const dividerColor = useColorModeValue("gray.100", "whiteAlpha.200");
+	const labelColor = "text-gray-700 dark:text-whiteAlpha-800";
+	const descriptionColor = "text-gray-500 dark:text-whiteAlpha-600";
+	const dividerColor = "border-t-gray-100! dark:border-t-whiteAlpha-200!";
 	return (
-		<Box
-			display="grid"
-			gridTemplateColumns={{ base: "1fr", md: "minmax(220px, 32%) 1fr" }}
-			gap={{ base: 2, md: 4 }}
-			px={{ base: 3, md: 4 }}
-			py={3}
-			borderTopWidth="1px"
-			borderTopColor={dividerColor}
-			_first={{ borderTopWidth: 0 }}
-			alignItems="center"
-		>
-			<Box minW={0}>
-				<FormLabel
-					htmlFor={controlId}
-					mb={description ? 1 : 0}
-					color={labelColor}
-					fontSize="sm"
-					fontWeight="semibold"
-				>
+		<div className={cn("grid grid-cols-[1fr] md:grid-cols-[minmax(220px,_32%)_1fr] gap-2 md:gap-4 px-3 md:px-4 py-3 border-t first:border-t-0 items-center", dividerColor)}>
+			<div className="min-w-0!">
+				<FieldLabel htmlFor={controlId} className={cn("text-[0.875rem] font-semibold", description ? "mb-1" : "mb-0", labelColor)}>
 					{label}
-				</FormLabel>
+				</FieldLabel>
 				{description && (
-					<Text fontSize="xs" color={descriptionColor} lineHeight="1.45">
+					<p className={cn("text-[0.75rem] leading-[1.45]", descriptionColor)}>
 						{description}
-					</Text>
+					</p>
 				)}
-			</Box>
-			<FormControl id={controlId} w="full">
+			</div>
+			<Field id={controlId} className="w-full">
 				{children(controlId)}
-			</FormControl>
-		</Box>
+			</Field>
+		</div>
 	);
 };
 
@@ -758,7 +663,7 @@ export const CoreSettingsPage: FC = () => {
 		description: string;
 		onConfirm: () => void;
 	} | null>(null);
-	const toast = useToast();
+	
 	const {
 		isOpen: isOutboundOpen,
 		onOpen: onOutboundOpen,
@@ -810,6 +715,17 @@ export const CoreSettingsPage: FC = () => {
 		onClose: onNordClose,
 	} = useDisclosure();
 	const {
+		isOpen: isMullvadOpen,
+		onOpen: onMullvadOpen,
+		onClose: onMullvadClose,
+	} = useDisclosure();
+	// the outbound the Mullvad window opens on; undefined for a new one
+	const [mullvadEditTag, setMullvadEditTag] = useState<string>();
+	const openMullvad = (tag?: string) => {
+		setMullvadEditTag(tag);
+		onMullvadOpen();
+	};
+	const {
 		isOpen: isOutboundSubsOpen,
 		onOpen: onOutboundSubsOpen,
 		onClose: onOutboundSubsClose,
@@ -855,8 +771,7 @@ export const CoreSettingsPage: FC = () => {
 	const [outboundSearchMatch, setOutboundSearchMatch] = useState(
 		DEFAULT_SEARCH_MATCH_OPTIONS,
 	);
-	const [outboundTrafficSort, setOutboundTrafficSort] =
-		useState<TrafficSortOrder>("default");
+	const [outboundAutoRefresh, setOutboundAutoRefresh] = useState(0);
 	const [selectedOutboundIds, setSelectedOutboundIds] = useState<string[]>([]);
 	const [outboundTestType, setOutboundTestType] =
 		useState<OutboundTestType>("latency");
@@ -867,6 +782,14 @@ export const CoreSettingsPage: FC = () => {
 	const [isApplyingPsiphonProxy, setIsApplyingPsiphonProxy] = useState(false);
 	const [routingRuleData, setRoutingRuleData] = useState<any[]>([]);
 	const [routingRuleSearch, setRoutingRuleSearch] = useState("");
+	const [routingSorting, setRoutingSorting] = useState<SortingState>([]);
+	const [subscriptionSorting, setSubscriptionSorting] = useState<SortingState>([]);
+	const [outboundSorting, setOutboundSorting] = useState<SortingState>([]);
+	const [managedOutboundSorting, setManagedOutboundSorting] = useState<SortingState>([]);
+	const [reverseSorting, setReverseSorting] = useState<SortingState>([]);
+	const [balancerSorting, setBalancerSorting] = useState<SortingState>([]);
+	const [dnsSorting, setDnsSorting] = useState<SortingState>([]);
+	const [fakeDnsSorting, setFakeDnsSorting] = useState<SortingState>([]);
 	const [routingRuleSearchMatch, setRoutingRuleSearchMatch] = useState(
 		DEFAULT_SEARCH_MATCH_OPTIONS,
 	);
@@ -914,17 +837,11 @@ export const CoreSettingsPage: FC = () => {
 	const [warpOptionValue, setWarpOptionValue] = useState<string>("");
 	const [warpCustomDomain, setWarpCustomDomain] = useState<string>("");
 	const [activeTab, setActiveTab] = useState<number>(0);
-	const { data: serverIPs } = useQuery(
-		["server-ips", selectedTarget],
-		() =>
+	const { data: serverIPs } = useQuery({ queryKey: ["server-ips", selectedTarget], queryFn: () =>
 			apiFetch<{ ipv4: string; ipv6: string }>("/core/ips", {
 				query: { target: selectedTarget },
-			}),
-		{
-			staleTime: 5 * 60 * 1000, // 5 minutes
-			enabled: canManageXraySettings && activeTab === 0,
-		},
-	);
+			}), staleTime: 5 * 60 * 1000, // 5 minutes
+			enabled: canManageXraySettings && activeTab === 0, });
 	const [isChangingTargetMode, setIsChangingTargetMode] = useState(false);
 	const selectedTargetInfo = useMemo(
 		() => configTargets.find((target) => target.id === selectedTarget),
@@ -996,9 +913,10 @@ export const CoreSettingsPage: FC = () => {
 		return () => window.removeEventListener("hashchange", onHashChange);
 	}, [location.hash, readHashTab, tabKeys]);
 
-	const pageShellBg = useColorModeValue("white", "surface.dark");
-	const pageShellBorder = useColorModeValue("gray.200", "whiteAlpha.300");
-	const pageHintColor = useColorModeValue("gray.600", "gray.300");
+	const pageShellBg = "bg-white dark:bg-surface-dark";
+	const pageShellBorder = "border-gray-200! dark:border-whiteAlpha-300!";
+	const pageShellBorderTop = "border-t-gray-200! dark:border-t-whiteAlpha-300!";
+	const pageHintColor = "text-gray-600 dark:text-gray-300";
 
 	const buildOutboundRows = useCallback(
 		(outbounds: OutboundJson[]) =>
@@ -1113,14 +1031,7 @@ export const CoreSettingsPage: FC = () => {
 	useEffect(() => {
 		if (!canManageXraySettings) return;
 		fetchConfigTargets().catch((error) => {
-			toast({
-				title: t("core.errorFetchingConfig"),
-				description: error.message,
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 3000,
-			});
+			toast.error(t("core.errorFetchingConfig"), { description: error.message, duration: 3000 });
 		});
 	}, [canManageXraySettings, fetchConfigTargets, toast, t]);
 
@@ -1132,14 +1043,7 @@ export const CoreSettingsPage: FC = () => {
 
 		onEditingCore(true);
 		fetchCoreSettings(selectedTarget).catch((error) => {
-			toast({
-				title: t("core.errorFetchingConfig"),
-				description: error.message,
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 3000,
-			});
+			toast.error(t("core.errorFetchingConfig"), { description: error.message, duration: 3000 });
 		});
 		return () => onEditingCore(false);
 	}, [
@@ -1207,30 +1111,12 @@ export const CoreSettingsPage: FC = () => {
 		watchedConfig?.burstObservatory,
 	]);
 
-	const { mutate: handleRestartCore, isLoading: isRestarting } = useMutation(
-		restartCore,
-		{
-			onSuccess: () => {
-				toast({
-					title: t("core.restartSuccess"),
-					status: "success",
-					isClosable: true,
-					position: "top",
-					duration: 3000,
-				});
+	const { mutate: handleRestartCore, isPending: isRestarting } = useMutation({ mutationFn: restartCore, onSuccess: () => {
+				toast.success(t("core.restartSuccess"), { duration: 3000 });
 			},
 			onError: (e: any) => {
-				toast({
-					title: t("core.generalErrorMessage"),
-					description: e.response?.data?.detail || e.message,
-					status: "error",
-					isClosable: true,
-					position: "top",
-					duration: 3000,
-				});
-			},
-		},
-	);
+				toast.error(t("core.generalErrorMessage"), { description: e.response?.data?.detail || e.message, duration: 3000 });
+			}, });
 
 	const propagationBaseFor = (section: PropagationSection, current: unknown) => {
 		if (current == null) return null;
@@ -1358,22 +1244,10 @@ export const CoreSettingsPage: FC = () => {
 				form.reset({ config: nextConfig });
 				initialConfigStringRef.current = serializeConfig(nextConfig);
 				setDnsEnabledState(Boolean(nextConfig.dns));
-				toast({
-					title: t("core.successMessage"),
-					status: "success",
-					isClosable: true,
-					position: "top",
-					duration: 3000,
-				});
+				toast.success(t("core.successMessage"), { duration: 3000 });
 				const summary = await applyPendingPropagations();
 				if (summary.applied + summary.skipped + summary.failed > 0) {
-					toast({
-						title: t("pages.xray.propagate.summary", summary),
-						status: summary.failed ? "warning" : "success",
-						isClosable: true,
-						position: "top",
-						duration: 5000,
-					});
+					toast(t("pages.xray.propagate.summary", summary), { duration: 5000 });
 				}
 			})
 			.catch((e) => {
@@ -1382,13 +1256,7 @@ export const CoreSettingsPage: FC = () => {
 				if (typeof detail === "object" && detail !== null)
 					message = detail[Object.keys(detail)[0]];
 				if (typeof detail === "string") message = detail;
-				toast({
-					title: message,
-					status: "error",
-					isClosable: true,
-					position: "top",
-					duration: 3000,
-				});
+				toast.error(message, { duration: 3000 });
 			});
 	});
 
@@ -1405,13 +1273,7 @@ export const CoreSettingsPage: FC = () => {
 			await fetchConfigTargets();
 			await fetchCoreSettings(selectedTarget);
 		} catch {
-			toast({
-				title: t("core.generalErrorMessage"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 3000,
-			});
+			toast.error(t("core.generalErrorMessage"), { duration: 3000 });
 		} finally {
 			setIsChangingTargetMode(false);
 		}
@@ -1425,6 +1287,8 @@ export const CoreSettingsPage: FC = () => {
 			setOutboundsTraffic(response.obj);
 		}
 	}, []);
+
+	useIntervalRefresh(outboundAutoRefresh, activeTab === 2, () => void fetchOutboundsTraffic().catch(() => undefined));
 
 	const fetchActiveSubscriptionOutbounds = useCallback(async () => {
 		const response = await apiFetch<{ success: boolean; obj: OutboundJson[] }>(
@@ -1479,24 +1343,12 @@ export const CoreSettingsPage: FC = () => {
 		const outbounds = getOutbounds();
 		const outbound = outbounds[index];
 		if (!outbound) {
-			toast({
-				title: t("pages.xray.outbound.testError"),
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 3000,
-			});
+			toast.error(t("pages.xray.outbound.testError"), { duration: 3000 });
 			return;
 		}
 
 		if (isMasterTarget) {
-			toast({
-				title: outboundNodeTargetRequiredMessage,
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.warning(outboundNodeTargetRequiredMessage, { duration: 4000 });
 			return;
 		}
 
@@ -1505,26 +1357,14 @@ export const CoreSettingsPage: FC = () => {
 			.trim()
 			.toLowerCase();
 		if (protocol === "blackhole" || outboundTag.toLowerCase() === "blocked") {
-			toast({
-				title: t("pages.xray.outbound.testBlocked"),
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 3000,
-			});
+			toast.warning(t("pages.xray.outbound.testBlocked"), { duration: 3000 });
 			return;
 		}
 		if (
 			(outboundTestType === "tcp" || outboundTestType === "icmp") &&
 			findOutboundAddress(outbound).length === 0
 		) {
-			toast({
-				title: outboundAddressRequiredMessage,
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.warning(outboundAddressRequiredMessage, { duration: 4000 });
 			return;
 		}
 
@@ -1556,23 +1396,11 @@ export const CoreSettingsPage: FC = () => {
 				}));
 
 				if (result.success) {
-					toast({
-						title: `${t("pages.xray.outbound.testSuccess")}: ${outboundTestResultLabel(result)}`,
-						status: "success",
-						isClosable: true,
-						position: "top",
-						duration: 3000,
-					});
+					toast.success(`${t("pages.xray.outbound.testSuccess")}: ${outboundTestResultLabel(result)}`, { duration: 3000 });
 				} else {
 					const errorMessage =
 						result.error || t("pages.xray.outbound.testFailed");
-					toast({
-						title: `${t("pages.xray.outbound.testFailed")}: ${errorMessage}`,
-						status: "error",
-						isClosable: true,
-						position: "top",
-						duration: 4000,
-					});
+					toast.error(`${t("pages.xray.outbound.testFailed")}: ${errorMessage}`, { duration: 4000 });
 				}
 				return;
 			}
@@ -1586,13 +1414,7 @@ export const CoreSettingsPage: FC = () => {
 				...prev,
 				[index]: { testing: false, result: failureResult },
 			}));
-			toast({
-				title: message,
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 3000,
-			});
+			toast.error(message, { duration: 3000 });
 		} catch (error: any) {
 			const detail =
 				error?.response?._data?.detail ??
@@ -1614,13 +1436,7 @@ export const CoreSettingsPage: FC = () => {
 					},
 				},
 			}));
-			toast({
-				title: `${t("pages.xray.outbound.testError")}: ${detailText}`,
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.error(`${t("pages.xray.outbound.testError")}: ${detailText}`, { duration: 4000 });
 		}
 	};
 
@@ -1629,23 +1445,11 @@ export const CoreSettingsPage: FC = () => {
 		const outbound = outbounds[index];
 		if (!outbound) return;
 		if (!managedOutboundMeta(outbound)) {
-			toast({
-				title: t("pages.xray.outbound.healthSupported"),
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.warning(t("pages.xray.outbound.healthSupported"), { duration: 4000 });
 			return;
 		}
 		if (isMasterTarget) {
-			toast({
-				title: outboundNodeTargetRequiredMessage,
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.warning(outboundNodeTargetRequiredMessage, { duration: 4000 });
 			return;
 		}
 		setOutboundHealthStates((prev) => ({
@@ -1674,15 +1478,9 @@ export const CoreSettingsPage: FC = () => {
 				...prev,
 				[index]: { testing: false, result },
 			}));
-			toast({
-				title: result.success
+			toast(result.success
 					? `${t("pages.xray.outbound.healthHealthy")}: ${outboundTestResultLabel(result)}`
-					: `${t("pages.xray.outbound.healthFailed")}: ${result.error || t("unknown")}`,
-				status: result.success ? "success" : "error",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+					: `${t("pages.xray.outbound.healthFailed")}: ${result.error || t("unknown")}`, { duration: 4000 });
 		} catch (error: unknown) {
 			const detail =
 				getAPIErrorMessage(error) || t("pages.xray.outbound.healthFailed");
@@ -1691,13 +1489,7 @@ export const CoreSettingsPage: FC = () => {
 				...prev,
 				[index]: { testing: false, result },
 			}));
-			toast({
-				title: `${t("pages.xray.outbound.healthFailed")}: ${detail}`,
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.error(`${t("pages.xray.outbound.healthFailed")}: ${detail}`, { duration: 4000 });
 		}
 	};
 
@@ -1756,26 +1548,14 @@ export const CoreSettingsPage: FC = () => {
 			}
 			commitOutbounds(outbounds);
 			onTorProxyClose();
-			toast({
-				title: response.obj?.message || t("pages.xray.tor.added"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.success(response.obj?.message || t("pages.xray.tor.added"), { duration: 4000 });
 		} catch (error: any) {
 			const detail =
 				error?.response?._data?.detail ??
 				error?.data?.detail ??
 				error?.message ??
 				t("pages.xray.tor.failed");
-			toast({
-				title: typeof detail === "string" ? detail : JSON.stringify(detail),
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 5000,
-			});
+			toast.error(typeof detail === "string" ? detail : JSON.stringify(detail), { duration: 5000 });
 		} finally {
 			setIsApplyingTorProxy(false);
 		}
@@ -1813,26 +1593,14 @@ export const CoreSettingsPage: FC = () => {
 			}
 			commitOutbounds(outbounds);
 			onWindscribeProxyClose();
-			toast({
-				title: response.obj?.message || t("pages.xray.windscribe.added"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.success(response.obj?.message || t("pages.xray.windscribe.added"), { duration: 4000 });
 		} catch (error: any) {
 			const detail =
 				error?.response?._data?.detail ??
 				error?.data?.detail ??
 				error?.message ??
 				t("pages.xray.windscribe.failed");
-			toast({
-				title: typeof detail === "string" ? detail : JSON.stringify(detail),
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 5000,
-			});
+			toast.error(typeof detail === "string" ? detail : JSON.stringify(detail), { duration: 5000 });
 		} finally {
 			setIsApplyingWindscribeProxy(false);
 		}
@@ -1873,26 +1641,14 @@ export const CoreSettingsPage: FC = () => {
 			}
 			commitOutbounds(outbounds);
 			onPsiphonProxyClose();
-			toast({
-				title: response.obj?.message || t("pages.xray.psiphon.added"),
-				status: "success",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.success(response.obj?.message || t("pages.xray.psiphon.added"), { duration: 4000 });
 		} catch (error: any) {
 			const detail =
 				error?.response?._data?.detail ??
 				error?.data?.detail ??
 				error?.message ??
 				t("pages.xray.psiphon.failed");
-			toast({
-				title: typeof detail === "string" ? detail : JSON.stringify(detail),
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 5000,
-			});
+			toast.error(typeof detail === "string" ? detail : JSON.stringify(detail), { duration: 5000 });
 		} finally {
 			setIsApplyingPsiphonProxy(false);
 		}
@@ -1957,6 +1713,10 @@ export const CoreSettingsPage: FC = () => {
 		moveOutbound(index, index - 1);
 	};
 
+	const moveOutboundToTop = (index: number) => {
+		moveOutbound(index, 0);
+	};
+
 	const moveOutboundDown = (index: number) => {
 		moveOutbound(index, index + 1);
 	};
@@ -2002,29 +1762,11 @@ export const CoreSettingsPage: FC = () => {
 					),
 				)
 			: rows;
-		return sortByTraffic(
-			matches,
-			outboundTrafficSort,
-			({ outbound, originalIndex }) => {
-				const traffic = sumOutboundTraffic(
-					outboundsTraffic,
-					selectedTarget,
-					outboundIds[originalIndex],
-					outbound.tag,
-					isMasterTarget,
-				);
-				return traffic.up + traffic.down;
-			},
-		);
+		return matches;
 	}, [
 		outboundData,
-		outboundIds,
 		outboundSearch,
 		outboundSearchMatch,
-		outboundTrafficSort,
-		outboundsTraffic,
-		selectedTarget,
-		isMasterTarget,
 	]);
 	const managedOutboundData = useMemo(
 		() =>
@@ -2364,23 +2106,11 @@ export const CoreSettingsPage: FC = () => {
 			);
 			const account = readVlessOutboundAccount(outbound);
 			if (!outbound || !account.address || !account.port || !account.id) {
-				toast({
-					title: t("pages.xray.reverse.vlessOutboundInvalid"),
-					status: "error",
-					isClosable: true,
-					position: "top",
-					duration: 4000,
-				});
+				toast.error(t("pages.xray.reverse.vlessOutboundInvalid"), { duration: 4000 });
 				return;
 			}
 			if (!isSecureVlessConnection(outbound, account)) {
-				toast({
-					title: t("pages.xray.reverse.transportSecurityRequired"),
-					status: "error",
-					isClosable: true,
-					position: "top",
-					duration: 5000,
-				});
+				toast.error(t("pages.xray.reverse.transportSecurityRequired"), { duration: 5000 });
 				return;
 			}
 			outbound.settings = {
@@ -2408,13 +2138,7 @@ export const CoreSettingsPage: FC = () => {
 					String(item?.protocol).toLowerCase() === "vless",
 			);
 			if (!inbound) {
-				toast({
-					title: t("pages.xray.reverse.vlessInboundInvalid"),
-					status: "error",
-					isClosable: true,
-					position: "top",
-					duration: 4000,
-				});
+				toast.error(t("pages.xray.reverse.vlessInboundInvalid"), { duration: 4000 });
 				return;
 			}
 			if (!inbound.settings) inbound.settings = {};
@@ -2574,13 +2298,7 @@ export const CoreSettingsPage: FC = () => {
 		const stateKey = String(outbound.tag ?? `subscription-${index}`);
 		if (!outbound) return;
 		if (isMasterTarget) {
-			toast({
-				title: outboundNodeTargetRequiredMessage,
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.warning(outboundNodeTargetRequiredMessage, { duration: 4000 });
 			return;
 		}
 		const outboundTag = String(outbound.tag ?? "").trim();
@@ -2588,26 +2306,14 @@ export const CoreSettingsPage: FC = () => {
 			.trim()
 			.toLowerCase();
 		if (protocol === "blackhole" || outboundTag.toLowerCase() === "blocked") {
-			toast({
-				title: t("pages.xray.outbound.testBlocked"),
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 3000,
-			});
+			toast.warning(t("pages.xray.outbound.testBlocked"), { duration: 3000 });
 			return;
 		}
 		if (
 			(outboundTestType === "tcp" || outboundTestType === "icmp") &&
 			findOutboundAddress(outbound).length === 0
 		) {
-			toast({
-				title: outboundAddressRequiredMessage,
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.warning(outboundAddressRequiredMessage, { duration: 4000 });
 			return;
 		}
 		setSubscriptionOutboundTestStates((prev) => ({
@@ -2672,13 +2378,7 @@ export const CoreSettingsPage: FC = () => {
 	const testAllOutbounds = async () => {
 		if (testingAllOutbounds) return;
 		if (isMasterTarget) {
-			toast({
-				title: outboundNodeTargetRequiredMessage,
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.warning(outboundNodeTargetRequiredMessage, { duration: 4000 });
 			return;
 		}
 		type TestItem =
@@ -2719,16 +2419,9 @@ export const CoreSettingsPage: FC = () => {
 			},
 		);
 		if (items.length === 0) {
-			toast({
-				title:
-					outboundTestType === "tcp" || outboundTestType === "icmp"
+			toast.warning(outboundTestType === "tcp" || outboundTestType === "icmp"
 						? outboundAddressRequiredMessage
-						: t("pages.xray.outbound.testNothing"),
-				status: "warning",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+						: t("pages.xray.outbound.testNothing"), { duration: 4000 });
 			return;
 		}
 		setTestingAllOutbounds(true);
@@ -2825,13 +2518,7 @@ export const CoreSettingsPage: FC = () => {
 				}
 				return next;
 			});
-			toast({
-				title: `${t("pages.xray.outbound.testError")}: ${detailText}`,
-				status: "error",
-				isClosable: true,
-				position: "top",
-				duration: 4000,
-			});
+			toast.error(`${t("pages.xray.outbound.testError")}: ${detailText}`, { duration: 4000 });
 		} finally {
 			setTestingAllOutbounds(false);
 		}
@@ -2863,19 +2550,14 @@ export const CoreSettingsPage: FC = () => {
 	};
 
 	const renderOutboundTraffic = (traffic?: { up?: number; down?: number }) => (
-		<HStack
-			spacing={3}
-			whiteSpace="nowrap"
-			fontSize="xs"
-			sx={{ fontVariantNumeric: "tabular-nums" }}
-		>
-			<Text color="teal.400">
+		<div className="flex flex-row items-center gap-3 whitespace-nowrap text-[0.75rem] [font-variant-numeric:tabular-nums]">
+			<p className="text-teal-400">
 				↑ {SizeFormatter.sizeFormat(Number(traffic?.up) || 0)}
-			</Text>
-			<Text color="blue.400">
+			</p>
+			<p className="text-blue-400">
 				↓ {SizeFormatter.sizeFormat(Number(traffic?.down) || 0)}
-			</Text>
-		</HStack>
+			</p>
+		</div>
 	);
 
 	const canonicalOutbounds = useMemo<OutboundJson[]>(
@@ -3289,13 +2971,7 @@ export const CoreSettingsPage: FC = () => {
 		const trimmed = domain.trim();
 		if (!trimmed) return;
 		if (warpDomains.includes(trimmed)) {
-			toast({
-				title: t("pages.xray.warp.domainExists"),
-				status: "warning",
-				duration: 3000,
-				isClosable: true,
-				position: "top",
-			});
+			toast.warning(t("pages.xray.warp.domainExists"), { duration: 3000 });
 			return;
 		}
 		handleWarpDomainsChange([...warpDomains, trimmed]);
@@ -3311,7 +2987,7 @@ export const CoreSettingsPage: FC = () => {
 		[warpDomains],
 	);
 
-	const warpDomainHelper = useColorModeValue("gray.600", "gray.300");
+	const warpDomainHelper = "text-gray-600 dark:text-gray-300";
 
 	const handleWarpSave = (outbound: OutboundJson) => {
 		const outbounds = getOutbounds();
@@ -3373,6 +3049,21 @@ export const CoreSettingsPage: FC = () => {
 				);
 			}
 		}
+	};
+
+	const handleMullvadSave = (
+		outbound: OutboundJson,
+		replaceIndex: number | null,
+	) => {
+		const previousTag =
+			replaceIndex === null
+				? ""
+				: String(getOutbounds()[replaceIndex]?.tag ?? "");
+		// a renamed outbound keeps its routing rules and balancers
+		if (previousTag && previousTag !== outbound.tag) {
+			renameOutboundReferences(previousTag, String(outbound.tag));
+		}
+		handleNordSave(outbound, replaceIndex);
 	};
 
 	const handleOutboundSave = (outboundJson: unknown, targetIds: string[]) => {
@@ -3549,7 +3240,7 @@ export const CoreSettingsPage: FC = () => {
 	const renderChipList = (value: unknown, colorScheme: string = "blue") => {
 		const chips = toChipList(value);
 		if (!chips.length) {
-			return <Text color="gray.400">-</Text>;
+			return <p className="text-gray-400">-</p>;
 		}
 		// use compact chips that show first item and a +N trigger on small screens
 		return <CompactChips chips={chips} color={colorScheme} />;
@@ -3562,43 +3253,43 @@ export const CoreSettingsPage: FC = () => {
 			value === "" ||
 			(typeof value === "string" && !value.trim())
 		) {
-			return <Text color="gray.400">-</Text>;
+			return <p className="text-gray-400">-</p>;
 		}
 		const str = typeof value === "string" ? value : String(value);
 		if (str.length > 30) {
 			return <CompactTextWithCopy text={str} label={t("details")} />;
 		}
-		return <Text>{str}</Text>;
+		return <p>{str}</p>;
 	};
 
 	const renderAttrsCell = (attrsValue: string | undefined) => {
 		if (!attrsValue) {
-			return <Text color="gray.400">-</Text>;
+			return <p className="text-gray-400">-</p>;
 		}
 		try {
 			const parsed = JSON.parse(attrsValue);
 			if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
 				const entries = Object.entries(parsed as Record<string, unknown>);
 				if (!entries.length) {
-					return <Text color="gray.400">-</Text>;
+					return <p className="text-gray-400">-</p>;
 				}
 				return (
-					<Box display="flex" flexWrap="wrap" gap="1">
+					<div className="flex flex-wrap gap-1">
 						{entries.map(([key, value]) => (
-							<Tag key={key} colorScheme="purple" size="sm">
+							<Badge key={key} className="bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-500/20 dark:text-purple-200">
 								{`${key}: ${String(value)}`}
-							</Tag>
+							</Badge>
 						))}
-					</Box>
+					</div>
 				);
 			}
 		} catch (_error) {
 			// fall back to raw string rendering below
 		}
 		return (
-			<Text fontFamily="mono" fontSize="xs" whiteSpace="pre-wrap">
+			<p className="font-mono text-[0.75rem] whitespace-pre-wrap">
 				{attrsValue}
-			</Text>
+			</p>
 		);
 	};
 
@@ -3613,73 +3304,66 @@ export const CoreSettingsPage: FC = () => {
 	type FakeDnsDisplayRow = { fake: any; index: number };
 
 	const renderOutboundBadges = (outbound: any) => (
-		<HStack spacing={1} flexWrap="wrap">
-			<Tag colorScheme="purple" size="sm">
+		<div className="flex flex-row items-center gap-1 flex-wrap">
+			<Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200 dark:bg-purple-500/20 dark:text-purple-200">
 				{String(outbound.protocol ?? "-")}
-			</Tag>
+			</Badge>
 			{["vmess", "vless", "trojan", "shadowsocks"].includes(
 				String(outbound.protocol ?? ""),
 			) && (
 				<>
 					{outbound.streamSettings?.network && (
-						<Tag colorScheme="blue" size="sm">
+						<Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-200">
 							{String(outbound.streamSettings.network)}
-						</Tag>
+						</Badge>
 					)}
 					{["tls", "reality"].includes(outbound.streamSettings?.security) && (
-						<Tag colorScheme="green" size="sm">
+						<Badge className="bg-green-600 text-white">
 							{String(outbound.streamSettings.security)}
-						</Tag>
+						</Badge>
 					)}
 				</>
 			)}
-		</HStack>
+		</div>
 	);
 
 	const renderAddressList = (addresses: string[]) =>
 		addresses.length === 0 ? (
-			<Text color="gray.400">-</Text>
+			<p className="text-gray-400">-</p>
 		) : (
-			<VStack align="start" spacing={1}>
+			<div className="flex flex-col items-start gap-1">
 				{addresses.map((addr) => (
 					<CompactTextWithCopy key={addr} text={addr} label={addr} />
 				))}
-			</VStack>
+			</div>
 		);
 
 	const renderOutboundTestResult = (state: OutboundTestState | undefined) => {
-		if (state?.testing) return <Spinner size="xs" />;
+		if (state?.testing) return <Spinner />;
 		if (!state?.result)
 			return (
-				<Text fontSize="xs" color="gray.500">
+				<p className="text-[0.75rem] text-gray-500">
 					-
-				</Text>
+				</p>
 			);
 
 		const result = state.result;
 		return (
-			<Tooltip
-				hasArrow
-				label={
-					result.success
-						? result.output || outboundTestResultLabel(result)
-						: result.error || t("pages.xray.outbound.testFailed")
-				}
-				whiteSpace="pre-wrap"
-			>
-				<Tag
-					colorScheme={result.success ? "green" : "red"}
-					size="sm"
-					borderRadius="full"
-					gap={1}
-					sx={{ fontVariantNumeric: "tabular-nums" }}
-				>
+			<Tooltip>
+<TooltipTrigger asChild>
+				<Badge className={cn(toneClass(result.success ? "green" : "red"), "[font-variant-numeric:tabular-nums] rounded-full gap-1")}>
 					{result.success ? <CheckCircleIconStyled /> : <XCircleIconStyled />}
 					{result.success
 						? (formatOutboundDelay(result.delay) ?? "-")
 						: t("pages.xray.outbound.testFailedBadge")}
-				</Tag>
-			</Tooltip>
+				</Badge>
+			</TooltipTrigger>
+<TooltipContent>{
+					result.success
+						? result.output || outboundTestResultLabel(result)
+						: result.error || t("pages.xray.outbound.testFailed")
+				}</TooltipContent>
+</Tooltip>
 		);
 	};
 
@@ -3707,22 +3391,15 @@ export const CoreSettingsPage: FC = () => {
 
 		const testLabel = `${t("pages.xray.routeTester.test")} · ${outboundTestTypeLabels[outboundTestType]}`;
 		return (
-			<Tooltip hasArrow label={disabledReason || testLabel} shouldWrapChildren>
-				<IconButton
-					aria-label={testLabel}
-					icon={<BoltIconStyled />}
-					size="sm"
-					isRound
-					variant="solid"
-					colorScheme="primary"
-					isLoading={Boolean(state?.testing)}
-					isDisabled={Boolean(disabledReason) || isBlocked}
-					onClick={(event) => {
+			<Tooltip>
+<TooltipTrigger asChild>
+				<Button aria-label={testLabel} disabled={Boolean(disabledReason) || isBlocked} onClick={(event) => {
 						event.stopPropagation();
 						onTest();
-					}}
-				/>
-			</Tooltip>
+					}} size="sm" loading={Boolean(state?.testing)} className="size-8 p-0">{<BoltIconStyled />}</Button>
+			</TooltipTrigger>
+<TooltipContent>{disabledReason || testLabel}</TooltipContent>
+</Tooltip>
 		);
 	};
 
@@ -3738,48 +3415,39 @@ export const CoreSettingsPage: FC = () => {
 				: `${t("pages.xray.outbound.healthFailed")}: ${state.result.error || t("unknown")}`
 			: t("pages.xray.outbound.healthCheck");
 		return (
-			<Tooltip hasArrow label={resultLabel} shouldWrapChildren>
-				<IconButton
-					aria-label={t("pages.xray.outbound.healthCheck")}
-					icon={<CheckCircleIcon width={18} height={18} />}
-					size="sm"
-					isRound
-					variant="outline"
-					colorScheme="green"
-					isLoading={Boolean(state?.testing)}
-					isDisabled={isMasterTarget}
-					onClick={(event) => {
+			<Tooltip>
+<TooltipTrigger asChild>
+				<Button aria-label={t("pages.xray.outbound.healthCheck")} disabled={isMasterTarget} onClick={(event) => {
 						event.stopPropagation();
 						onCheck();
-					}}
-				/>
-			</Tooltip>
+					}} variant="outline" size="sm" loading={Boolean(state?.testing)} className="border border-green-500 bg-transparent text-green-600 hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-500/10 size-8 p-0">{<CircleCheck className="w-[18px] h-[18px]" />}</Button>
+			</TooltipTrigger>
+<TooltipContent>{resultLabel}</TooltipContent>
+</Tooltip>
 		);
 	};
 
 	const routingRuleColumns: DataTableColumn<RoutingRuleDisplayRow>[] = [
 		{
 			id: "rule",
+			sortValue: ({ originalIndex }) => originalIndex,
 			header: t("pages.xray.Routings"),
 			isPrimary: true,
 			priority: "primary",
 			minSize: { base: "180px", lg: "210px" },
 			cell: ({ rule, originalIndex }) => (
-				<VStack align="start" spacing={1}>
-					<HStack spacing={2} minW={0}>
-						<Tag
-							size="sm"
-							colorScheme={rule.enabled === false ? "gray" : "green"}
-						>
+				<div className="flex flex-col items-start gap-1">
+					<div className="flex flex-row items-center gap-2 min-w-0!">
+						<Badge className={toneClass(rule.enabled === false ? "gray" : "green")}>
 							#{originalIndex + 1}
-						</Tag>
-						<Text fontWeight="semibold" noOfLines={1}>
+						</Badge>
+						<p className="font-semibold truncate">
 							{rule.outboundTag ||
 								rule.balancerTag ||
 								t("pages.xray.rules.any")}
-						</Text>
-					</HStack>
-					<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
+						</p>
+					</div>
+					<p className="text-[0.75rem] text-panel-text-muted truncate">
 						{[
 							toChipList(rule.inboundTag).join(",") || "any inbound",
 							rule.outboundTag
@@ -3790,73 +3458,78 @@ export const CoreSettingsPage: FC = () => {
 						]
 							.filter(Boolean)
 							.join(" ")}
-					</Text>
-				</VStack>
+					</p>
+				</div>
 			),
 		},
 		{
 			id: "source",
+			sortValue: ({ rule }) => String(rule.source ?? ""),
 			header: t("pages.xray.rules.sourceGroup"),
 			priority: "medium",
 			hideBelow: "xl",
 			cell: ({ rule }) => (
-				<VStack align="start" spacing={1}>
+				<div className="flex flex-col items-start gap-1">
 					{renderChipList(rule.source, "blue")}
 					{renderTextValue(rule.sourcePort)}
-				</VStack>
+				</div>
 			),
 			mobileMetaLabel: t("pages.xray.rules.sourceGroup"),
 		},
 		{
 			id: "network",
+			sortValue: ({ rule }) => String(rule.network ?? ""),
 			header: t("pages.xray.rules.networkGroup"),
 			priority: "high",
 			cell: ({ rule }) => (
-				<VStack align="start" spacing={1}>
+				<div className="flex flex-col items-start gap-1">
 					{renderChipList(rule.network, "purple")}
 					{renderChipList(rule.protocol, "green")}
 					{renderAttrsCell(rule.attrs)}
-				</VStack>
+				</div>
 			),
 			mobileMetaLabel: t("pages.xray.rules.networkGroup"),
 		},
 		{
 			id: "destination",
+			sortValue: ({ rule }) => String(rule.domain ?? rule.ip ?? ""),
 			header: t("pages.xray.rules.destinationGroup"),
 			priority: "high",
 			minSize: "180px",
 			cell: ({ rule }) => (
-				<VStack align="start" spacing={1}>
+				<div className="flex flex-col items-start gap-1">
 					{renderChipList(rule.ip, "blue")}
 					{renderChipList(rule.domain, "blue")}
 					{renderTextValue(rule.port)}
-				</VStack>
+				</div>
 			),
 			mobileMetaLabel: t("pages.xray.rules.destinationGroup"),
 		},
 		{
 			id: "inbound",
+			sortValue: ({ rule }) => String(rule.inboundTag ?? ""),
 			header: t("inbound"),
 			priority: "medium",
 			hideBelow: "lg",
 			cell: ({ rule }) => (
-				<VStack align="start" spacing={1}>
+				<div className="flex flex-col items-start gap-1">
 					{renderChipList(rule.inboundTag, "teal")}
 					{renderChipList(rule.user, "cyan")}
-				</VStack>
+				</div>
 			),
 			mobileMetaLabel: t("inbound"),
 		},
 		{
 			id: "target",
+			sortValue: ({ rule }) => String(rule.outboundTag ?? rule.balancerTag ?? ""),
 			header: t("pages.xray.rules.outbound"),
 			priority: "high",
 			mobileSummary: true,
 			cell: ({ rule }) => (
-				<VStack align="start" spacing={1}>
+				<div className="flex flex-col items-start gap-1">
 					{renderTextValue(rule.outboundTag)}
 					{renderTextValue(rule.balancerTag)}
-				</VStack>
+				</div>
 			),
 			mobileMetaLabel: t("pages.xray.rules.outbound"),
 		},
@@ -3878,10 +3551,18 @@ export const CoreSettingsPage: FC = () => {
 			onClick: () => openRouteTest(row.originalIndex),
 		},
 		{
+			id: "move-top",
+			label: t("pages.xray.rules.top"),
+			icon: <ChevronDoubleUpIconStyled />,
+			disabled:
+				routingRuleSearch.trim().length > 0 || row.originalIndex === 0,
+			onClick: () => replaceRule(row.originalIndex, 0),
+		},
+		{
 			id: "move-up",
 			label: t("pages.xray.rules.up"),
 			icon: <ArrowUpIconStyled />,
-			isDisabled:
+			disabled:
 				routingRuleSearch.trim().length > 0 || row.originalIndex === 0,
 			onClick: () => replaceRule(row.originalIndex, row.originalIndex - 1),
 		},
@@ -3889,7 +3570,7 @@ export const CoreSettingsPage: FC = () => {
 			id: "move-down",
 			label: t("pages.xray.rules.down"),
 			icon: <ArrowDownIconStyled />,
-			isDisabled:
+			disabled:
 				routingRuleSearch.trim().length > 0 ||
 				row.originalIndex === routingRuleData.length - 1,
 			onClick: () => replaceRule(row.originalIndex, row.originalIndex + 1),
@@ -3906,31 +3587,36 @@ export const CoreSettingsPage: FC = () => {
 	const outboundColumns: DataTableColumn<OutboundDisplayRow>[] = [
 		{
 			id: "tag",
+			sortValue: ({ outbound }) => outbound.tag ?? "",
 			header: t("pages.xray.outbound.tag"),
 			isPrimary: true,
 			priority: "primary",
 			minSize: { base: "170px", lg: "210px" },
 			cell: ({ outbound }) => (
-				<VStack align="start" spacing={1}>
-					<HStack spacing={1.5} maxW="full" minW={0}>
+				<div className="flex flex-col items-start gap-1">
+					<div className="flex flex-row items-center gap-1.5 max-w-full min-w-0!">
 						{managedOutboundMeta(outbound)?.provider === "tor" && (
-							<Tooltip label="Tor">
-								<Box display="inline-flex" flexShrink={0}>
+							<Tooltip>
+<TooltipTrigger asChild>
+								<div className="inline-flex shrink-0">
 									<TorIconStyled size={20} />
-								</Box>
-							</Tooltip>
+								</div>
+							</TooltipTrigger>
+<TooltipContent>{"Tor"}</TooltipContent>
+</Tooltip>
 						)}
-						<Text fontWeight="semibold" noOfLines={1}>
+						<p className="font-semibold truncate">
 							{String(outbound.tag ?? "-")}
-						</Text>
+						</p>
 						<ManagedOutboundBadge outbound={outbound} />
-					</HStack>
+					</div>
 					{renderOutboundBadges(outbound)}
-				</VStack>
+				</div>
 			),
 		},
 		{
 			id: "address",
+			sortValue: ({ outbound }) => findOutboundAddress(outbound).join(", "),
 			header: t("pages.xray.outbound.address"),
 			priority: "high",
 			minSize: "190px",
@@ -3939,6 +3625,10 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "traffic",
+			sortValue: ({ outbound, originalIndex }) => {
+				const traffic = findOutboundTraffic(outbound, originalIndex);
+				return (traffic?.up ?? 0) + (traffic?.down ?? 0);
+			},
 			header: t("pages.inbounds.traffic"),
 			priority: "high",
 			mobileSummary: true,
@@ -3947,6 +3637,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "latency",
+			sortValue: ({ originalIndex }) => outboundTestStates[originalIndex]?.result?.delay ?? Number.POSITIVE_INFINITY,
 			header: t("pages.xray.outbound.testTypeLatency"),
 			priority: "high",
 			cell: ({ originalIndex }) =>
@@ -3959,7 +3650,7 @@ export const CoreSettingsPage: FC = () => {
 			priority: "medium",
 			hideBelow: "lg",
 			cell: ({ outbound, originalIndex }) =>
-				<HStack spacing={1}>
+				<div className="flex flex-row items-center gap-1">
 					{renderOutboundTestButton(
 						outbound,
 						outboundTestStates[originalIndex],
@@ -3970,7 +3661,7 @@ export const CoreSettingsPage: FC = () => {
 						outboundHealthStates[originalIndex],
 						() => checkOutboundHealth(originalIndex),
 					)}
-				</HStack>,
+				</div>,
 			mobileMetaLabel: t("pages.xray.routeTester.test"),
 		},
 	];
@@ -3984,13 +3675,38 @@ export const CoreSettingsPage: FC = () => {
 			icon: <EditIconStyled />,
 			onClick: () => editOutbound(row.originalIndex),
 		},
+		...(isMullvadOutbound(form.getValues("config.outbounds")?.[row.originalIndex])
+			? [
+					{
+						id: "edit-mullvad",
+						label: t("pages.xray.mullvad.edit"),
+						icon: <MullvadIconStyled />,
+						onClick: () =>
+							openMullvad(
+								String(
+									form.getValues("config.outbounds")?.[row.originalIndex]?.tag ?? "",
+								),
+							),
+					},
+				]
+			: []),
+		{
+			id: "move-top",
+			label: t("pages.xray.outbound.moveToTop"),
+			icon: <ChevronDoubleUpIconStyled />,
+			disabled:
+				outboundSearch.trim().length > 0 ||
+				outboundSorting.length > 0 ||
+				row.originalIndex === 0,
+			onClick: () => moveOutboundToTop(row.originalIndex),
+		},
 		{
 			id: "move-up",
 			label: t("pages.xray.outbound.moveUp"),
 			icon: <ArrowUpIconStyled />,
-			isDisabled:
+			disabled:
 				outboundSearch.trim().length > 0 ||
-				outboundTrafficSort !== "default" ||
+				outboundSorting.length > 0 ||
 				row.originalIndex === 0,
 			onClick: () => moveOutboundUp(row.originalIndex),
 		},
@@ -3998,9 +3714,9 @@ export const CoreSettingsPage: FC = () => {
 			id: "move-down",
 			label: t("pages.xray.outbound.moveDown"),
 			icon: <ArrowDownIconStyled />,
-			isDisabled:
+			disabled:
 				outboundSearch.trim().length > 0 ||
-				outboundTrafficSort !== "default" ||
+				outboundSorting.length > 0 ||
 				row.originalIndex === outboundData.length - 1,
 			onClick: () => moveOutboundDown(row.originalIndex),
 		},
@@ -4021,6 +3737,12 @@ export const CoreSettingsPage: FC = () => {
 	];
 
 	const outboundBulkActions: DataTableBulkAction<OutboundDisplayRow>[] = [
+		{
+			id: "reset-target",
+			label: t("pages.xray.outbound.resetTarget"),
+			icon: <ReloadIconStyled />,
+			onClick: () => setOutboundReset({ index: -1, scope: "target" }),
+		},
 		{
 			id: "delete",
 			label: t("delete"),
@@ -4044,22 +3766,24 @@ export const CoreSettingsPage: FC = () => {
 		[
 			{
 				id: "tag",
+				sortValue: ({ outbound }) => outbound.tag ?? "",
 				header: t("pages.xray.outbound.tag"),
 				isPrimary: true,
 				priority: "primary",
 				cell: ({ outbound }) => (
-					<VStack align="start" spacing={1}>
-						<Text fontWeight="semibold" noOfLines={1}>
+					<div className="flex flex-col items-start gap-1">
+						<p className="font-semibold truncate">
 							{String(outbound.tag ?? "-")}
-						</Text>
-						<Tag size="sm" colorScheme="green">
+						</p>
+						<Badge className="bg-green-600 text-white">
 							{t("pages.xray.outboundSub.sourceBadge")}
-						</Tag>
-					</VStack>
+						</Badge>
+					</div>
 				),
 			},
 			{
 				id: "protocol",
+				sortValue: ({ outbound }) => outbound.protocol ?? "",
 				header: t("protocol"),
 				priority: "high",
 				cell: ({ outbound }) => renderOutboundBadges(outbound),
@@ -4067,6 +3791,7 @@ export const CoreSettingsPage: FC = () => {
 			},
 			{
 				id: "address",
+				sortValue: ({ outbound }) => findOutboundAddress(outbound).join(", "),
 				header: t("pages.xray.outbound.address"),
 				priority: "medium",
 				hideBelow: "lg",
@@ -4076,6 +3801,10 @@ export const CoreSettingsPage: FC = () => {
 			},
 			{
 				id: "traffic",
+				sortValue: ({ outbound }) => {
+					const traffic = findSubscriptionOutboundTraffic(outbound);
+					return (traffic?.up ?? 0) + (traffic?.down ?? 0);
+				},
 				header: t("pages.inbounds.traffic"),
 				priority: "high",
 				mobileSummary: true,
@@ -4084,6 +3813,7 @@ export const CoreSettingsPage: FC = () => {
 			},
 			{
 				id: "latency",
+				sortValue: ({ stateKey }) => subscriptionOutboundTestStates[stateKey]?.result?.delay ?? Number.POSITIVE_INFINITY,
 				header: t("pages.xray.outbound.testTypeLatency"),
 				priority: "high",
 				cell: ({ stateKey }) =>
@@ -4108,22 +3838,21 @@ export const CoreSettingsPage: FC = () => {
 	const reverseColumns: DataTableColumn<ReverseRow>[] = [
 		{
 			id: "type",
+			sortValue: (reverse) => reverse.type ?? "",
 			header: t("pages.xray.reverse.type"),
 			isPrimary: true,
 			priority: "primary",
 			cell: (reverse) => (
-				<Tag
-					colorScheme={reverse.type === "internal" ? "blue" : "purple"}
-					size="sm"
-				>
+				<Badge className={toneClass(reverse.type === "internal" ? "blue" : "purple")}>
 					{reverse.type === "internal"
 						? t("pages.xray.reverse.internal")
 						: t("pages.xray.reverse.public")}
-				</Tag>
+				</Badge>
 			),
 		},
 		{
 			id: "tag",
+			sortValue: (reverse) => reverse.tag ?? "",
 			header: t("pages.xray.reverse.tag"),
 			priority: "high",
 			cell: (reverse) => renderTextValue(reverse.tag),
@@ -4131,12 +3860,14 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "connection",
+			sortValue: (reverse) => reverse.connectionTag ?? "",
 			header: t("pages.xray.reverse.connection"),
 			priority: "high",
 			cell: (reverse) => renderTextValue(reverse.connectionTag),
 		},
 		{
 			id: "target",
+			sortValue: (reverse) => (reverse.type === "internal" ? reverse.targetTag ?? "" : String(reverse.inboundTags ?? "")),
 			header: t("pages.xray.reverse.target"),
 			priority: "medium",
 			hideBelow: "lg",
@@ -4168,21 +3899,20 @@ export const CoreSettingsPage: FC = () => {
 	const balancerColumns: DataTableColumn<BalancerRow>[] = [
 		{
 			id: "tag",
+			sortValue: (balancer) => balancer.tag ?? "",
 			header: t("pages.xray.balancer.tag"),
 			isPrimary: true,
 			priority: "primary",
-			cell: (balancer) => <Text fontWeight="semibold">{balancer.tag}</Text>,
+			cell: (balancer) => <p className="font-semibold">{balancer.tag}</p>,
 		},
 		{
 			id: "strategy",
+			sortValue: (balancer) => balancer.strategy ?? "",
 			header: t("pages.xray.balancer.balancerStrategy"),
 			priority: "high",
 			mobileSummary: true,
 			cell: (balancer) => (
-				<Tag
-					colorScheme={balancer.strategy === "random" ? "purple" : "green"}
-					size="sm"
-				>
+				<Badge className={toneClass(balancer.strategy === "random" ? "purple" : "green")}>
 					{balancer.strategy === "random"
 						? "Random"
 						: balancer.strategy === "roundRobin"
@@ -4190,11 +3920,12 @@ export const CoreSettingsPage: FC = () => {
 							: balancer.strategy === "leastLoad"
 								? "Least Load"
 								: "Least Ping"}
-				</Tag>
+				</Badge>
 			),
 		},
 		{
 			id: "selector",
+			sortValue: (balancer) => String(balancer.selector ?? ""),
 			header: t("pages.xray.balancer.balancerSelectors"),
 			priority: "high",
 			cell: (balancer) => renderChipList(balancer.selector, "blue"),
@@ -4226,6 +3957,7 @@ export const CoreSettingsPage: FC = () => {
 	const dnsColumns: DataTableColumn<DnsDisplayRow>[] = [
 		{
 			id: "address",
+			sortValue: ({ dns }) => String(typeof dns === "object" ? dns.address : dns),
 			header: t("pages.xray.outbound.address"),
 			isPrimary: true,
 			priority: "primary",
@@ -4234,6 +3966,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "domains",
+			sortValue: ({ dns }) => (typeof dns === "object" ? String(dns.domains ?? "") : ""),
 			header: t("pages.xray.dns.domains"),
 			priority: "high",
 			cell: ({ dns }) =>
@@ -4242,6 +3975,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "expectIPs",
+			sortValue: ({ dns }) => (typeof dns === "object" ? String(dns.expectIPs ?? "") : ""),
 			header: t("pages.xray.dns.expectIPs"),
 			priority: "medium",
 			hideBelow: "lg",
@@ -4274,6 +4008,7 @@ export const CoreSettingsPage: FC = () => {
 	const fakeDnsColumns: DataTableColumn<FakeDnsDisplayRow>[] = [
 		{
 			id: "ipPool",
+			sortValue: ({ fake }) => String(fake.ipPool ?? ""),
 			header: t("pages.xray.fakedns.ipPool"),
 			isPrimary: true,
 			priority: "primary",
@@ -4281,6 +4016,7 @@ export const CoreSettingsPage: FC = () => {
 		},
 		{
 			id: "poolSize",
+			sortValue: ({ fake }) => Number(fake.poolSize) || 0,
 			header: t("pages.xray.fakedns.poolSize"),
 			priority: "high",
 			mobileSummary: true,
@@ -4311,14 +4047,14 @@ export const CoreSettingsPage: FC = () => {
 
 	if (!canManageXraySettings) {
 		return (
-			<VStack spacing={4} align="stretch">
-				<Text as="h1" fontWeight="semibold" fontSize="2xl">
+			<div className="flex flex-col gap-4 items-stretch">
+				<h1 className="font-semibold text-[1.5rem]">
 					{t("header.xraySettings")}
-				</Text>
-				<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
+				</h1>
+				<p className="text-[0.875rem] text-gray-500 dark:text-gray-400">
 					{t("xraySettings.noPermission")}
-				</Text>
-			</VStack>
+				</p>
+			</div>
 		);
 	}
 
@@ -4372,154 +4108,76 @@ export const CoreSettingsPage: FC = () => {
 	};
 
 	return (
-		<VStack spacing={4} align="stretch">
-			<Box
-				borderWidth="1px"
-				borderColor={pageShellBorder}
-				borderRadius="2xl"
-				bg={pageShellBg}
-				p={{ base: 4, md: 5 }}
-				transition="box-shadow 0.2s ease, border-color 0.2s ease"
-				_hover={{
-					"@media (min-width: 768px)": {
-						boxShadow: "sm",
-						borderColor: "panel.borderStrong",
-					},
-				}}
-			>
-				<Stack
-					direction={{ base: "column", lg: "row" }}
-					spacing={4}
-					align={{ base: "stretch", lg: "flex-end" }}
-					justify="space-between"
-				>
-					<Box minW={0}>
-						<Text as="h1" fontWeight="semibold" fontSize="2xl">
+		<div className="flex flex-col gap-4 items-stretch">
+			<div className={cn(pageShellBorder, "hover:md:shadow-sm hover:md:border-panel-border-strong!", cn("border rounded-2xl p-4 md:p-5 [transition:box-shadow_0.2s_ease,_border-color_0.2s_ease]", pageShellBg))}>
+				<div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-end justify-between">
+					<div className="min-w-0!">
+						<h1 className="font-semibold text-[1.5rem]">
 							{t("header.coreSettings")}
-						</Text>
-						<Text color={pageHintColor} fontSize="sm" mt={1}>
+						</h1>
+						<p className={cn("text-[0.875rem] mt-1", pageHintColor)}>
 							{t("pages.xray.coreDescription")}
-						</Text>
-					</Box>
-					<HStack
-						spacing={2}
-						flexWrap="wrap"
-						justify={{ base: "stretch", lg: "flex-end" }}
-					>
-						<Button
-							size="sm"
-							colorScheme="primary"
-							isLoading={isPostLoading}
-							isDisabled={!hasConfigChanges || isPostLoading}
-							onClick={handleOnSave}
-							w={{ base: "full", sm: "auto" }}
-						>
+						</p>
+					</div>
+					<div className="flex flex-row items-center gap-2 flex-wrap justify-stretch lg:justify-end">
+						<Button disabled={!hasConfigChanges || isPostLoading} onClick={handleOnSave} size="sm" loading={isPostLoading} className="w-full sm:w-auto">
 							{t("save")}
 						</Button>
-						<Button
-							size="sm"
-							leftIcon={<ReloadIconStyled />}
-							isLoading={isRestarting}
-							onClick={() => handleRestartCore(selectedTarget)}
-							variant="outline"
-							w={{ base: "full", sm: "auto" }}
-						>
+						<Button onClick={() => handleRestartCore(selectedTarget)} variant="outline" size="sm" loading={isRestarting} className="w-full sm:w-auto">{<ReloadIconStyled />}
 							{t(isRestarting ? "core.restarting" : "core.restartCore")}
 						</Button>
-					</HStack>
-				</Stack>
+					</div>
+				</div>
 				{hasNodeTargets && (
-					<HStack
-						mt={4}
-						pt={3}
-						borderTopWidth="1px"
-						borderTopColor={pageShellBorder}
-						spacing={3}
-						align="flex-end"
-						flexWrap="wrap"
-						w="full"
-					>
-						<FormControl w={{ base: "full", sm: "260px" }}>
-							<FormLabel mb={1} fontSize="xs" color={pageHintColor}>
+					<div className={cn(pageShellBorderTop, "flex flex-row mt-4 pt-3 border-t gap-3 items-end flex-wrap w-full")}>
+						<Field className="w-full sm:w-[260px]">
+							<FieldLabel className={cn("mb-1 text-[0.75rem]", pageHintColor)}>
 								{t("pages.xray.routeTester.target")}
-							</FormLabel>
-							<Select
-								size="sm"
-								h="32px"
-								value={selectedTarget}
-								onChange={(event) => setSelectedTarget(event.target.value)}
-								options={[
+							</FieldLabel>
+							<Select size="sm" value={selectedTarget} onChange={(event) => setSelectedTarget(event.target.value)} options={[
 									{ label: t("core.defaultConfig"), value: "master" },
 									...configTargets
 										.filter((target) => target.type === "node")
 										.map((target) => ({
 											label: (
-												<HStack as="span" minW={0} spacing={1}>
-													<Text as="span" noOfLines={1}>
+												<span className="flex flex-row items-center min-w-0! gap-1">
+													<span className="truncate">
 														{target.name}
 														{target.address ? ` - ${target.address}` : ""}
-													</Text>
+													</span>
 													{target.mode === "custom" && (
-														<Text
-															as="span"
-															flexShrink={0}
-															fontSize="10px"
-															opacity={0.7}
-														>
+														<span className="shrink-0 text-[10px] opacity-70">
 															(custom)
-														</Text>
+														</span>
 													)}
-												</HStack>
+												</span>
 											),
 											searchLabel: target.name,
 											value: target.id,
 										})),
-								]}
-							/>
-						</FormControl>
+								]} className="h-[32px]" />
+						</Field>
 						{selectedTargetInfo?.type === "node" && (
-							<FormControl
-								display="flex"
-								alignItems="center"
-								w={{ base: "full", sm: "auto" }}
-								minH="32px"
-							>
-								<FormLabel mb={0} fontSize="sm">
+							<Field className="flex items-center w-full sm:w-auto min-h-[32px]">
+								<FieldLabel className="mb-0 text-[0.875rem]">
 									{t("core.customNodeConfig")}
-								</FormLabel>
-								<Switch
-									size="sm"
-									isChecked={selectedTargetInfo.mode === "custom"}
-									isDisabled={isChangingTargetMode}
-									onChange={(event) =>
-										handleTargetModeChange(event.target.checked)
-									}
-								/>
-							</FormControl>
+								</FieldLabel>
+								<Switch checked={selectedTargetInfo.mode === "custom"} disabled={isChangingTargetMode} onCheckedChange={(checked: boolean) => handleTargetModeChange(checked)} />
+							</Field>
 						)}
-					</HStack>
+					</div>
 				)}
-			</Box>
-			<TabSystem
-				overflowX="auto"
-				overflowY="hidden"
-				maxW="full"
-				sx={{
-					WebkitOverflowScrolling: "touch",
-					scrollbarWidth: "none",
-					"&::-webkit-scrollbar": { display: "none" },
-					button: { flexShrink: 0 },
-				}}
-				tabs={[
+			</div>
+			<TabSystem tabs={[
 					{
 						value: "basic",
 						isActive: activeTab === 0,
 						onClick: () => handleTabChange(0),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<BasicTabIcon />
-								<Text as="span">{t("pages.xray.basicTemplate")}</Text>
-							</HStack>
+								<span>{t("pages.xray.basicTemplate")}</span>
+							</div>
 						),
 					},
 					{
@@ -4527,10 +4185,10 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 1,
 						onClick: () => handleTabChange(1),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<RoutingTabIcon />
-								<Text as="span">{t("pages.xray.Routings")}</Text>
-							</HStack>
+								<span>{t("pages.xray.Routings")}</span>
+							</div>
 						),
 					},
 					{
@@ -4538,10 +4196,10 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 2,
 						onClick: () => handleTabChange(2),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<OutboundTabIcon />
-								<Text as="span">{t("pages.xray.Outbounds")}</Text>
-							</HStack>
+								<span>{t("pages.xray.Outbounds")}</span>
+							</div>
 						),
 					},
 					{
@@ -4549,10 +4207,10 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 3,
 						onClick: () => handleTabChange(3),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<ReloadIconStyled />
-								<Text as="span">{t("pages.xray.reverse.title")}</Text>
-							</HStack>
+								<span>{t("pages.xray.reverse.title")}</span>
+							</div>
 						),
 					},
 					{
@@ -4560,10 +4218,10 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 4,
 						onClick: () => handleTabChange(4),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<BalancerTabIcon />
-								<Text as="span">{t("pages.xray.Balancers")}</Text>
-							</HStack>
+								<span>{t("pages.xray.Balancers")}</span>
+							</div>
 						),
 					},
 					{
@@ -4571,10 +4229,10 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 5,
 						onClick: () => handleTabChange(5),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<DnsTabIcon />
-								<Text as="span">{t("DNS")}</Text>
-							</HStack>
+								<span>{t("DNS")}</span>
+							</div>
 						),
 					},
 					{
@@ -4582,20 +4240,19 @@ export const CoreSettingsPage: FC = () => {
 						isActive: activeTab === 6,
 						onClick: () => handleTabChange(6),
 						label: (
-							<HStack spacing={2} align="center">
+							<div className="flex flex-row gap-2 items-center">
 								<AdvancedTabIcon />
-								<Text as="span">{t("pages.xray.advancedTemplate")}</Text>
-							</HStack>
+								<span>{t("pages.xray.advancedTemplate")}</span>
+							</div>
 						),
 					},
-				]}
-			/>
-			<Box mt={{ base: 2, md: 3 }}>
+				]} className="overflow-x-auto overflow-y-hidden max-w-full" />
+			<div className="mt-2 md:mt-3">
 				{activeTab === 0 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
-							<VStack spacing={3} align="stretch">
-								<SettingsSection title={t("pages.xray.serverIPs")} defaultOpen>
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
+							<div className="flex flex-col gap-3 items-stretch">
+								<SettingsSection title={t("pages.xray.serverIPs")}>
 									<SettingRow label="IPv4" controlId="server-ipv4">
 										{(_controlId) => (
 											<CompactTextWithCopy
@@ -4617,16 +4274,9 @@ export const CoreSettingsPage: FC = () => {
 										controlId="freedom-domain-strategy"
 									>
 										{(id) => (
-											<Select
-												id={id}
-												size="sm"
-												maxW="220px"
-												value={freedomDomainStrategy}
-												onChange={(event) =>
+											<Select id={id} size="sm" value={freedomDomainStrategy} onChange={(event) =>
 													handleFreedomDomainStrategyChange(event.target.value)
-												}
-												isDisabled={freedomOutboundIndex === -1}
-											>
+												} disabled={freedomOutboundIndex === -1} className="max-w-[220px]">
 												<option value="">{t("common.default")}</option>
 												{[
 													"AsIs",
@@ -4652,7 +4302,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.routing.domainStrategy"
 												control={form.control}
 												render={({ field }) => (
-													<Select {...field} id={id} size="sm" maxW="220px">
+													<Select {...field} id={id} size="sm" className="max-w-[220px]">
 														{["AsIs", "IPIfNonMatch", "IPOnDemand"].map((s) => (
 															<option key={s} value={s}>
 																{s}
@@ -4665,89 +4315,63 @@ export const CoreSettingsPage: FC = () => {
 									</SettingRow>
 								</SettingsSection>
 								<SettingsSection title={t("pages.xray.warpRouting")}>
-									<Box p={{ base: 3, md: 4 }}>
-										<VStack align="stretch" spacing={3}>
-											<HStack justify="space-between" align="center">
-												<Text fontSize="sm" color={warpDomainHelper}>
+									<div className="p-3 md:p-4">
+										<div className="flex flex-col items-stretch gap-3">
+											<div className="flex flex-row gap-2 justify-between items-center">
+												<p className={cn("text-[0.875rem]", warpDomainHelper)}>
 													{t("pages.xray.warpRoutingDesc")}
-												</Text>
-												<Button
-													variant="outline"
-													size="sm"
-													leftIcon={<WarpIconStyled />}
-													onClick={onWarpOpen}
-													flexShrink={0}
-												>
+												</p>
+												<Button onClick={onWarpOpen} variant="outline" size="sm" className="shrink-0">{<WarpIconStyled />}
 													{warpExists
 														? t("pages.xray.warp.manage")
 														: t("pages.xray.warp.create")}
 												</Button>
-											</HStack>
-											<Wrap>
+											</div>
+											<div className="flex flex-wrap gap-2">
 												{warpDomains.length === 0 && (
-													<WrapItem>
-														<Tag colorScheme="gray" variant="subtle">
-															<TagLabel>{t("core.empty")}</TagLabel>
-														</Tag>
-													</WrapItem>
+													<div>
+														<Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-500/20 dark:text-gray-200">
+															{t("core.empty")}
+														</Badge>
+													</div>
 												)}
 												{warpDomains.map((domain) => (
-													<WrapItem key={domain}>
-														<Tag colorScheme="primary" borderRadius="full">
-															<TagLabel>{domain}</TagLabel>
-															<TagCloseButton
-																aria-label={t("remove")}
-																onClick={() => handleWarpDomainRemove(domain)}
-															/>
-														</Tag>
-													</WrapItem>
+													<div key={domain}>
+														<Badge className="rounded-full">
+															{domain}
+															
+														</Badge>
+													</div>
 												))}
-											</Wrap>
-											<HStack spacing={3} flexWrap="wrap">
-												<Select
-													placeholder={t("core.select")}
-													size="sm"
-													maxW="240px"
-													value={warpOptionValue}
-													onChange={(event) => {
+											</div>
+											<div className="flex flex-row items-center gap-3 flex-wrap">
+												<Select placeholder={t("core.select")} size="sm" value={warpOptionValue} onChange={(event) => {
 														const { value } = event.target;
 														if (value) {
 															handleWarpDomainAdd(value);
 														}
 														setWarpOptionValue("");
-													}}
-													isDisabled={availableWarpOptions.length === 0}
-												>
+													}} disabled={availableWarpOptions.length === 0} className="max-w-[240px]">
 													{availableWarpOptions.map((option) => (
 														<option key={option.value} value={option.value}>
 															{option.label}
 														</option>
 													))}
 												</Select>
-												<HStack spacing={2} maxW="320px" flex="1">
-													<Input
-														size="sm"
-														value={warpCustomDomain}
-														onChange={(event) =>
+												<div className="flex flex-row items-center gap-2 max-w-[320px] flex-1">
+													<Input value={warpCustomDomain} onChange={(event) =>
 															setWarpCustomDomain(event.target.value)
-														}
-														placeholder="geosite:google"
-													/>
-													<Button
-														size="sm"
-														colorScheme="primary"
-														onClick={() => {
+														} />
+													<Button onClick={() => {
 															handleWarpDomainAdd(warpCustomDomain);
 															setWarpCustomDomain("");
-														}}
-														isDisabled={!warpCustomDomain.trim()}
-													>
+														}} disabled={!warpCustomDomain.trim()} size="sm">
 														{t("add")}
 													</Button>
-												</HStack>
-											</HStack>
-										</VStack>
-									</Box>
+												</div>
+											</div>
+										</div>
+									</div>
 								</SettingsSection>
 								<SettingsSection title={t("pages.xray.statistics")}>
 									<SettingRow
@@ -4759,11 +4383,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsInboundUplink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch
-														id={id}
-														isChecked={!!field.value}
-														onChange={(e) => field.onChange(e.target.checked)}
-													/>
+													<Switch id={id} checked={!!field.value} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 												)}
 											/>
 										)}
@@ -4777,11 +4397,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsInboundDownlink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch
-														id={id}
-														isChecked={!!field.value}
-														onChange={(e) => field.onChange(e.target.checked)}
-													/>
+													<Switch id={id} checked={!!field.value} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 												)}
 											/>
 										)}
@@ -4795,11 +4411,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsOutboundUplink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch
-														id={id}
-														isChecked={!!field.value}
-														onChange={(e) => field.onChange(e.target.checked)}
-													/>
+													<Switch id={id} checked={!!field.value} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 												)}
 											/>
 										)}
@@ -4813,11 +4425,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.policy.system.statsOutboundDownlink"
 												control={form.control}
 												render={({ field }) => (
-													<Switch
-														id={id}
-														isChecked={!!field.value}
-														onChange={(e) => field.onChange(e.target.checked)}
-													/>
+													<Switch id={id} checked={!!field.value} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 												)}
 											/>
 										)}
@@ -4833,7 +4441,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.log.loglevel"
 												control={form.control}
 												render={({ field }) => (
-													<Select {...field} id={id} size="sm" maxW="220px">
+													<Select {...field} id={id} size="sm" className="max-w-[220px]">
 														{["none", "debug", "info", "warning", "error"].map(
 															(s) => (
 																<option key={s} value={s}>
@@ -4851,12 +4459,12 @@ export const CoreSettingsPage: FC = () => {
 										controlId="access-log"
 									>
 										{(id) => (
-											<HStack spacing={2} w="full" flexWrap="wrap">
+											<div className="flex flex-row items-center gap-2 w-full flex-wrap">
 												<Controller
 													name="config.log.access"
 													control={form.control}
 													render={({ field }) => (
-														<Select {...field} id={id} size="sm" maxW="220px">
+														<Select {...field} id={id} size="sm" className="max-w-[220px]">
 															<option value="">{t("common.empty")}</option>
 															{["none", DEFAULT_ACCESS_LOG_PATH].map((s) => (
 																<option key={s} value={s}>
@@ -4870,21 +4478,15 @@ export const CoreSettingsPage: FC = () => {
 													name="config.log.accessCleanupInterval"
 													control={form.control}
 													render={({ field }) => (
-														<Select
-															id={`${id}-cleanup`}
-															size="sm"
-															maxW="220px"
-															value={
+														<Select id={`${id}-cleanup`} size="sm" value={
 																field.value === undefined ||
 																field.value === null ||
 																field.value === ""
 																	? "0"
 																	: String(field.value)
-															}
-															onChange={(e) =>
+															} onChange={(e) =>
 																field.onChange(Number(e.target.value))
-															}
-														>
+															} className="max-w-[220px]">
 															{LOG_CLEANUP_INTERVAL_OPTIONS.map((option) => (
 																<option
 																	key={option.value}
@@ -4896,7 +4498,7 @@ export const CoreSettingsPage: FC = () => {
 														</Select>
 													)}
 												/>
-											</HStack>
+											</div>
 										)}
 									</SettingRow>
 									<SettingRow
@@ -4904,12 +4506,12 @@ export const CoreSettingsPage: FC = () => {
 										controlId="error-log"
 									>
 										{(id) => (
-											<HStack spacing={2} w="full" flexWrap="wrap">
+											<div className="flex flex-row items-center gap-2 w-full flex-wrap">
 												<Controller
 													name="config.log.error"
 													control={form.control}
 													render={({ field }) => (
-														<Select {...field} id={id} size="sm" maxW="220px">
+														<Select {...field} id={id} size="sm" className="max-w-[220px]">
 															<option value="">{t("common.empty")}</option>
 															{["none", DEFAULT_ERROR_LOG_PATH].map((s) => (
 																<option key={s} value={s}>
@@ -4923,21 +4525,15 @@ export const CoreSettingsPage: FC = () => {
 													name="config.log.errorCleanupInterval"
 													control={form.control}
 													render={({ field }) => (
-														<Select
-															id={`${id}-cleanup`}
-															size="sm"
-															maxW="220px"
-															value={
+														<Select id={`${id}-cleanup`} size="sm" value={
 																field.value === undefined ||
 																field.value === null ||
 																field.value === ""
 																	? "0"
 																	: String(field.value)
-															}
-															onChange={(e) =>
+															} onChange={(e) =>
 																field.onChange(Number(e.target.value))
-															}
-														>
+															} className="max-w-[220px]">
 															{LOG_CLEANUP_INTERVAL_OPTIONS.map((option) => (
 																<option
 																	key={option.value}
@@ -4949,7 +4545,7 @@ export const CoreSettingsPage: FC = () => {
 														</Select>
 													)}
 												/>
-											</HStack>
+											</div>
 										)}
 									</SettingRow>
 									<SettingRow
@@ -4961,7 +4557,7 @@ export const CoreSettingsPage: FC = () => {
 												name="config.log.maskAddress"
 												control={form.control}
 												render={({ field }) => (
-													<Select {...field} id={id} size="sm" maxW="220px">
+													<Select {...field} id={id} size="sm" className="max-w-[220px]">
 														<option value="">{t("common.empty")}</option>
 														{["quarter", "half", "full"].map((s) => (
 															<option key={s} value={s}>
@@ -4982,85 +4578,64 @@ export const CoreSettingsPage: FC = () => {
 												name="config.log.dnsLog"
 												control={form.control}
 												render={({ field }) => (
-													<Switch
-														id={id}
-														isChecked={!!field.value}
-														onChange={(e) => field.onChange(e.target.checked)}
-													/>
+													<Switch id={id} checked={!!field.value} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 												)}
 											/>
 										)}
 									</SettingRow>
 								</SettingsSection>
-							</VStack>
-						</VStack>
-					</Box>
+							</div>
+						</div>
+					</div>
 				)}
 				{activeTab === 1 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
-							<ResourceListCard
-								title={t("pages.xray.Routings")}
-								summaryItems={[
-									{
-										label: t("total"),
-										value: routingRuleData.length,
-									},
-									{
-										label: t("listed"),
-										value: filteredRoutingRules.length,
-										colorScheme: "green",
-									},
-								]}
-								actions={
-									<HStack spacing={2} flexWrap="wrap" justify="flex-end">
-										<Button
-											leftIcon={<AddIconStyled />}
-											{...compactActionButtonProps}
-											size="xs"
-											onClick={addRule}
-										>
-											{t("pages.xray.rules.add")}
-										</Button>
-									</HStack>
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
+							<ListCard
+								overview={{
+									total: { label: t("pages.xray.Routings"), value: routingRuleData.length },
+									rows: [{ key: "listed", label: t("listed"), value: filteredRoutingRules.length, tone: "bg-panel-success" }],
+								}}
+								toolbar={
+									<div className="flex flex-col gap-2 md:flex-row md:items-center">
+										<div className="flex flex-row items-center gap-2">
+											<SearchInput containerProps={{ className: "min-w-0 flex-1 md:w-[320px] md:flex-none" }} placeholder={t("search")} value={routingRuleSearch} onChange={(e) => setRoutingRuleSearch(e.target.value)} matchOptions={routingRuleSearchMatch} onMatchOptionsChange={setRoutingRuleSearchMatch} />
+											<DataTableSortMenu options={buildSortOptions(routingRuleColumns, filteredRoutingRules)} sorting={routingSorting} onSortingChange={setRoutingSorting} />
+										</div>
+										<div className="flex flex-row items-center gap-2 flex-wrap justify-end md:ms-auto">
+											<Button {...compactActionButtonProps} onClick={addRule}>{<AddIconStyled />}
+												{t("pages.xray.rules.add")}
+											</Button>
+										</div>
+									</div>
 								}
-							>
-								<SearchInput
-									containerProps={{ maxW: { base: "full", md: "320px" } }}
-									placeholder={t("search")}
-									value={routingRuleSearch}
-									onChange={(e) => setRoutingRuleSearch(e.target.value)}
-									matchOptions={routingRuleSearchMatch}
-									onMatchOptionsChange={setRoutingRuleSearchMatch}
-								/>
-							</ResourceListCard>
+							/>
 							<DataTable
+								sorting={routingSorting} onSortingChange={setRoutingSorting} showSortMenu={false}
 								data={filteredRoutingRules}
 								columns={routingRuleColumns}
 								getRowId={(row) => String(row.originalIndex)}
 								rowActions={routingRuleActions}
-								actionsDisplay="menu"
+
 								actionsColumnWidth="52px"
 								emptyState={t("pages.xray.rules.empty")}
 								ariaLabel={t("pages.xray.Routings")}
 							/>
 							{subscriptionOutbounds.length > 0 && (
-								<VStack align="stretch" spacing={3}>
-									<ResourceListCard
-										title={t("pages.xray.outboundSub.fromSubsTitle")}
-										summaryItems={[
-											{
-												label: t("total"),
-												value: subscriptionOutbounds.length,
-												colorScheme: "green",
-											},
-										]}
+								<div className="flex flex-col items-stretch gap-3">
+									<ListCard
+										overview={{
+											total: { label: t("pages.xray.outboundSub.fromSubsTitle"), value: subscriptionOutbounds.length },
+											rows: [],
+										}}
+										toolbar={<div className="flex flex-row items-center gap-2 flex-wrap"><DataTableSortMenu options={buildSortOptions(subscriptionOutboundColumns, subscriptionOutboundRows)} sorting={subscriptionSorting} onSortingChange={setSubscriptionSorting} /></div>}
 									>
-										<Text color="panel.textMuted" fontSize="xs">
+										<p className="text-panel-text-muted text-[0.75rem]">
 											{t("pages.xray.outboundSub.fromSubsDesc")}
-										</Text>
-									</ResourceListCard>
+										</p>
+									</ListCard>
 									<DataTable
+										sorting={subscriptionSorting} onSortingChange={setSubscriptionSorting} showSortMenu={false}
 										data={subscriptionOutboundRows}
 										columns={subscriptionOutboundColumns}
 										getRowId={(row) => `${row.stateKey}-${row.index}`}
@@ -5068,198 +4643,87 @@ export const CoreSettingsPage: FC = () => {
 										emptyState={t("pages.xray.outbound.empty")}
 										ariaLabel={t("pages.xray.outboundSub.fromSubsTitle")}
 									/>
-								</VStack>
+								</div>
 							)}
-						</VStack>
-					</Box>
+						</div>
+					</div>
 				)}
 				{activeTab === 2 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
-							<ResourceListCard
-								title={t("pages.xray.Outbounds")}
-								summaryItems={[
-									{
-										label: t("total"),
-										value: outboundData.length - managedOutboundTotal,
-									},
-									{
-										label: t("listed"),
-										value: standardOutboundData.length,
-										colorScheme: "green",
-									},
-									{
-										label: t("services.selected"),
-										value: selectedOutboundIds.length,
-										colorScheme: "blue",
-									},
-								]}
-								actions={
-									<HStack spacing={2} flexWrap="wrap" justify="flex-end">
-										<Button
-											leftIcon={<AddIconStyled />}
-											{...compactActionButtonProps}
-											onClick={addOutbound}
-										>
-											{t("pages.xray.outbound.addOutbound")}
-										</Button>
-										<Button
-											leftIcon={<CloudArrowUpIcon width={14} />}
-											size="xs"
-											variant="ghost"
-											onClick={onOutboundSubsOpen}
-										>
-											{t("pages.xray.outboundSub.title")}
-										</Button>
-										<Menu placement="bottom-end" isLazy>
-											<MenuButton
-												as={Button}
-												leftIcon={<MoreIconStyled />}
-												size="xs"
-												variant="ghost"
-											>
-												{t("more")}
-											</MenuButton>
-											<Portal>
-												<MenuList zIndex="popover" minW="210px">
-													<MenuItem
-														icon={<WarpIconStyled />}
-														onClick={onWarpOpen}
-													>
-														{warpExists
-															? t("pages.xray.warp.manage")
-															: t("pages.xray.warp.create")}
-													</MenuItem>
-													<MenuItem
-														icon={<NordVPNIconStyled />}
-														onClick={onNordOpen}
-													>
-														NordVPN
-													</MenuItem>
-													<MenuItem
-														icon={<TorIconStyled />}
-														isDisabled={isApplyingTorProxy}
-														onClick={onTorProxyOpen}
-													>
-														{t("pages.xray.tor.setup")}
-													</MenuItem>
-													<MenuItem
-														icon={<WindscribeIconStyled />}
-														isDisabled={isApplyingWindscribeProxy}
-														onClick={onWindscribeProxyOpen}
-													>
-														Windscribe
-													</MenuItem>
-													<MenuItem
-														icon={<PsiphonIconStyled />}
-														isDisabled={isApplyingPsiphonProxy}
-														onClick={onPsiphonProxyOpen}
-													>
-														Psiphon
-													</MenuItem>
-												</MenuList>
-											</Portal>
-										</Menu>
-									</HStack>
-								}
-								footerActions={
-									<>
-										<Button
-											leftIcon={<ReloadIconStyled />}
-											size="xs"
-											variant="ghost"
-											onClick={fetchOutboundsTraffic}
-										>
-											{t("refresh")}
-										</Button>
-										<Button
-											size="xs"
-											variant="ghost"
-											onClick={() =>
-												setOutboundReset({ index: -1, scope: "target" })
-											}
-										>
-											{t("pages.xray.outbound.resetTarget")}
-										</Button>
-										<Button
-											size="xs"
-											variant="ghost"
-											colorScheme="red"
-											onClick={() =>
-												setOutboundReset({ index: -1, scope: "all" })
-											}
-										>
-											{t("pages.xray.outbound.resetAll")}
-										</Button>
-										<Button
-											leftIcon={<BoltIconStyled />}
-											{...compactActionButtonProps}
-											isLoading={testingAllOutbounds}
-											isDisabled={isMasterTarget}
-											onClick={testAllOutbounds}
-										>
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
+							<ListCard
+								overview={{
+									total: { label: t("pages.xray.Outbounds"), value: outboundData.length - managedOutboundTotal },
+									rows: [
+										{ key: "listed", label: t("listed"), value: standardOutboundData.length, tone: "bg-panel-success" },
+										{ key: "selected", label: t("services.selected"), value: selectedOutboundIds.length, tone: "bg-panel-info" },
+									],
+								}}
+								toolbar={
+									<div className="flex flex-row flex-wrap items-center gap-2">
+										<div className="flex min-w-0 basis-full flex-row items-center gap-2 md:flex-1">
+											<SearchInput containerProps={{ className: "min-w-0 flex-1 md:w-[280px] md:flex-none" }} placeholder={t("search")} value={outboundSearch} onChange={(e) => setOutboundSearch(e.target.value)} matchOptions={outboundSearchMatch} onMatchOptionsChange={setOutboundSearchMatch} />
+											<DataTableSortMenu options={buildSortOptions(outboundColumns, standardOutboundData)} sorting={outboundSorting} onSortingChange={setOutboundSorting} />
+										</div>
+										<SegmentedControl<OutboundTestType>
+											label={t("pages.xray.routeTester.test")}
+											value={outboundTestType}
+											options={(["latency", "tcp", "icmp"] as OutboundTestType[]).map((type) => ({ value: type, label: outboundTestTypeLabels[type] }))}
+											onChange={(value) => setOutboundTestType(value)}
+										/>
+										<Button {...compactActionButtonProps} disabled={isMasterTarget} onClick={testAllOutbounds} loading={testingAllOutbounds}>{<BoltIconStyled />}
 											{t("pages.xray.outbound.testAll")}
 										</Button>
-									</>
+										<div className="flex flex-row flex-wrap items-center justify-end gap-2 ms-auto">
+											<Button onClick={onOutboundSubsOpen} variant="ghost" size="xs">{<CloudUpload className="w-[14px]" />}
+												{t("pages.xray.outboundSub.title")}
+											</Button>
+											<Button onClick={() => setOutboundReset({ index: -1, scope: "all" })} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10">
+												{t("pages.xray.outbound.resetAll")}
+											</Button>
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild><Button size="xs" variant="ghost">{<MoreIconStyled />}
+													{t("more")}
+												</Button></DropdownMenuTrigger>
+												
+													<DropdownMenuContent className="min-w-[210px]!">
+														<DropdownMenuItem onSelect={onWarpOpen}>
+															{warpExists
+																? t("pages.xray.warp.manage")
+																: t("pages.xray.warp.create")}
+														</DropdownMenuItem>
+														<DropdownMenuItem onSelect={onNordOpen}>
+															NordVPN
+														</DropdownMenuItem>
+														<DropdownMenuItem onSelect={() => openMullvad()}>
+															Mullvad
+														</DropdownMenuItem>
+														<DropdownMenuItem disabled={isApplyingTorProxy} onSelect={onTorProxyOpen}>
+															{t("pages.xray.tor.setup")}
+														</DropdownMenuItem>
+														<DropdownMenuItem disabled={isApplyingWindscribeProxy} onSelect={onWindscribeProxyOpen}>
+															Windscribe
+														</DropdownMenuItem>
+														<DropdownMenuItem disabled={isApplyingPsiphonProxy} onSelect={onPsiphonProxyOpen}>
+															Psiphon
+														</DropdownMenuItem>
+													</DropdownMenuContent>
+												
+											</DropdownMenu>
+											<RefreshSplitButton
+												onRefresh={() => void fetchOutboundsTraffic().catch(() => undefined)}
+												interval={outboundAutoRefresh}
+												onIntervalChange={setOutboundAutoRefresh}
+											/>
+											<Button {...compactActionButtonProps} onClick={addOutbound}>{<AddIconStyled />}
+												{t("pages.xray.outbound.addOutbound")}
+											</Button>
+										</div>
+									</div>
 								}
-							>
-								<Stack
-									direction={{ base: "column", md: "row" }}
-									spacing={2}
-									align={{ base: "stretch", md: "center" }}
-								>
-									<SearchInput
-										containerProps={{ maxW: { base: "full", md: "320px" } }}
-										placeholder={t("search")}
-										value={outboundSearch}
-										onChange={(e) => setOutboundSearch(e.target.value)}
-										matchOptions={outboundSearchMatch}
-										onMatchOptionsChange={setOutboundSearchMatch}
-									/>
-									<Select
-										size="sm"
-										w={{ base: "full", md: "210px" }}
-										value={outboundTrafficSort}
-										showSearch={false}
-										options={[
-											{ value: "default", label: t("trafficSort.default") },
-											{ value: "highest", label: t("trafficSort.highest") },
-											{ value: "lowest", label: t("trafficSort.lowest") },
-										]}
-										placeholder={t("trafficSort.label")}
-										onChange={(event) =>
-											setOutboundTrafficSort(
-												event.target.value as TrafficSortOrder,
-											)
-										}
-									/>
-									<RadioGroup
-										size="sm"
-										value={outboundTestType}
-										onChange={(value) =>
-											setOutboundTestType(value as OutboundTestType)
-										}
-									>
-										<HStack
-											spacing={2}
-											borderWidth="1px"
-											borderRadius="md"
-											px={2}
-											py={1}
-											flexWrap="wrap"
-										>
-											{(["latency", "tcp", "icmp"] as OutboundTestType[]).map(
-												(type) => (
-													<Radio key={type} value={type} size="sm">
-														{outboundTestTypeLabels[type]}
-													</Radio>
-												),
-											)}
-										</HStack>
-									</RadioGroup>
-								</Stack>
-							</ResourceListCard>
+							/>
 							<DataTable
+								sorting={outboundSorting} onSortingChange={setOutboundSorting} showSortMenu={false}
 								data={standardOutboundData}
 								columns={outboundColumns}
 								getRowId={(row) => String(row.originalIndex)}
@@ -5268,130 +4732,109 @@ export const CoreSettingsPage: FC = () => {
 								onSelectionChange={(ids) => setSelectedOutboundIds(ids)}
 								bulkActions={outboundBulkActions}
 								rowActions={outboundActions}
-								actionsDisplay="menu"
+
 								actionsColumnWidth="52px"
 								emptyState={t("pages.xray.outbound.empty")}
 								ariaLabel={t("pages.xray.Outbounds")}
 							/>
 							{managedOutboundTotal > 0 && (
-								<VStack align="stretch" spacing={3}>
-									<ResourceListCard
-										title={t("pages.xray.outboundManaged.title")}
-										summaryItems={[
-											{
-												label: t("total"),
-												value: managedOutboundTotal,
-												colorScheme: "green",
-											},
-											{
-												label: t("listed"),
-												value: managedOutboundData.length,
-												colorScheme: "blue",
-											},
-										]}
+								<div className="flex flex-col items-stretch gap-3">
+									<ListCard
+										overview={{
+											total: { label: t("pages.xray.outboundManaged.title"), value: managedOutboundTotal },
+											rows: [{ key: "listed", label: t("listed"), value: managedOutboundData.length, tone: "bg-panel-info" }],
+										}}
+										toolbar={<div className="flex flex-row items-center gap-2 flex-wrap"><DataTableSortMenu options={buildSortOptions(outboundColumns, managedOutboundData)} sorting={managedOutboundSorting} onSortingChange={setManagedOutboundSorting} /></div>}
 									>
-										<Text color="panel.textMuted" fontSize="xs">
+										<p className="text-panel-text-muted text-[0.75rem]">
 											{t("pages.xray.outboundManaged.description")}
-										</Text>
-									</ResourceListCard>
+										</p>
+									</ListCard>
 									<DataTable
+										sorting={managedOutboundSorting} onSortingChange={setManagedOutboundSorting} showSortMenu={false}
 										data={managedOutboundData}
 										columns={outboundColumns}
 										getRowId={(row) => String(row.originalIndex)}
 										rowActions={outboundActions}
-										actionsDisplay="menu"
+
 										actionsColumnWidth="52px"
 										emptyState={t("pages.xray.outbound.empty")}
 										ariaLabel={t("pages.xray.outboundManaged.title")}
 									/>
-								</VStack>
+								</div>
 							)}
-						</VStack>
-					</Box>
+						</div>
+					</div>
 				)}
 				{activeTab === 3 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
-							<ResourceListCard
-								title={t("pages.xray.reverse.title")}
-								summaryItems={[
-									{
-										label: t("total"),
-										value: reverseData.length,
-									},
-									{
-										label: t("pages.xray.reverse.internal"),
-										value: reverseData.filter(
-											(reverse) => reverse.type === "internal",
-										).length,
-										colorScheme: "blue",
-									},
-									{
-										label: t("pages.xray.reverse.public"),
-										value: reverseData.filter(
-											(reverse) => reverse.type === "public",
-										).length,
-										colorScheme: "purple",
-									},
-								]}
-								actions={
-									<Button
-										leftIcon={<AddIconStyled />}
-										{...compactActionButtonProps}
-										onClick={addReverse}
-									>
-										{t("pages.xray.reverse.add")}
-									</Button>
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
+							<ListCard
+								overview={{
+									total: { label: t("pages.xray.reverse.title"), value: reverseData.length },
+									rows: [
+										{ key: "internal", label: t("pages.xray.reverse.internal"), value: reverseData.filter((reverse) => reverse.type === "internal").length, tone: "bg-panel-info" },
+										{ key: "public", label: t("pages.xray.reverse.public"), value: reverseData.filter((reverse) => reverse.type === "public").length, tone: "bg-panel-accent" },
+									],
+								}}
+								toolbar={
+									<div className="flex flex-row items-center gap-2 flex-wrap">
+										<DataTableSortMenu options={buildSortOptions(reverseColumns, reverseData)} sorting={reverseSorting} onSortingChange={setReverseSorting} />
+										<div className="flex flex-row items-center justify-end gap-2 flex-wrap ms-auto">
+											<Button {...compactActionButtonProps} onClick={addReverse}>{<AddIconStyled />}
+												{t("pages.xray.reverse.add")}
+											</Button>
+										</div>
+									</div>
 								}
 							/>
 							<DataTable
+								sorting={reverseSorting} onSortingChange={setReverseSorting} showSortMenu={false}
 								data={reverseData}
 								columns={reverseColumns}
 								getRowId={(row) => row.key}
 								rowActions={reverseActions}
-								actionsDisplay="menu"
+
 								actionsColumnWidth="52px"
 								emptyState={t("pages.xray.reverse.empty")}
 								ariaLabel={t("pages.xray.reverse.title")}
 							/>
-						</VStack>
-					</Box>
+						</div>
+					</div>
 				)}
 				{activeTab === 4 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
-							<ResourceListCard
-								title={t("pages.xray.Balancers")}
-								summaryItems={[
-									{
-										label: t("total"),
-										value: balancersData.length,
-									},
-									{
-										label: t("pages.xray.balancer.balancerSelectors"),
-										value: balancersData.reduce(
-											(total, balancer) => total + balancer.selector.length,
-											0,
-										),
-										colorScheme: "blue",
-									},
-								]}
-								actions={
-									<Button
-										leftIcon={<AddIconStyled />}
-										{...compactActionButtonProps}
-										onClick={addBalancer}
-									>
-										{t("pages.xray.balancer.addBalancer")}
-									</Button>
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
+							<ListCard
+								overview={{
+									total: { label: t("pages.xray.Balancers"), value: balancersData.length },
+									rows: [
+										{
+											key: "selectors",
+											label: t("pages.xray.balancer.balancerSelectors"),
+											value: balancersData.reduce((total, balancer) => total + balancer.selector.length, 0),
+											tone: "bg-panel-info",
+										},
+									],
+								}}
+								toolbar={
+									<div className="flex flex-row items-center gap-2 flex-wrap">
+										<DataTableSortMenu options={buildSortOptions(balancerColumns, balancersData)} sorting={balancerSorting} onSortingChange={setBalancerSorting} />
+										<div className="flex flex-row items-center justify-end gap-2 flex-wrap ms-auto">
+											<Button {...compactActionButtonProps} onClick={addBalancer}>{<AddIconStyled />}
+												{t("pages.xray.balancer.addBalancer")}
+											</Button>
+										</div>
+									</div>
 								}
 							/>
 							<DataTable
+								sorting={balancerSorting} onSortingChange={setBalancerSorting} showSortMenu={false}
 								data={balancersData}
 								columns={balancerColumns}
 								getRowId={(row) => String(row.key)}
 								rowActions={balancerActions}
-								actionsDisplay="menu"
+
 								actionsColumnWidth="52px"
 								emptyState={t("emptyBalancersDesc")}
 								ariaLabel={t("pages.xray.Balancers")}
@@ -5399,42 +4842,37 @@ export const CoreSettingsPage: FC = () => {
 							{/* Observatory / Burst Observatory editor (if present in config) */}
 							{(form.getValues("config")?.observatory ||
 								form.getValues("config")?.burstObservatory) && (
-								<VStack spacing={3} align="stretch">
-									<RadioGroup
-										onChange={(v) => {
+								<div className="flex flex-col gap-3 items-stretch">
+									<RadioGroup onValueChange={(v) => {
 											setObsSettings(v);
 											setJsonKey((prev) => prev + 1);
-										}}
-										value={obsSettings}
-									>
-										<HStack spacing={3}>
+										}} value={obsSettings}>
+										<div className="flex flex-row items-center gap-3">
 											{form.getValues("config")?.observatory && (
-												<Radio value="observatory">Observatory</Radio>
+												<label className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem value="observatory" /><span>Observatory</span></label>
 											)}
 											{form.getValues("config")?.burstObservatory && (
-												<Radio value="burstObservatory">
-													Burst Observatory
-												</Radio>
+												<label className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem value="burstObservatory" /><span>Burst Observatory</span></label>
 											)}
-										</HStack>
+										</div>
 									</RadioGroup>
-									<Box h="300px">
-										<Suspense fallback={<Spinner size="sm" />}>
+									<div className="h-[300px]">
+										<Suspense fallback={<Spinner />}>
 											<JsonEditor
 												key={`obs-${obsSettings}-${jsonKey}`}
 												json={observatoryJsonValue}
 												onChange={(value) => setObsJson(value)}
 											/>
 										</Suspense>
-									</Box>
-								</VStack>
+									</div>
+								</div>
 							)}
-						</VStack>
-					</Box>
+						</div>
+					</div>
 				)}
 				{activeTab === 5 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
 							<SettingsSection title={t("pages.xray.generalConfigs")}>
 								<SettingRow
 									label={t("pages.xray.dns.enable")}
@@ -5442,11 +4880,8 @@ export const CoreSettingsPage: FC = () => {
 									controlId="dns-enable"
 								>
 									{(id) => (
-										<Switch
-											id={id}
-											isChecked={dnsEnabled}
-											onChange={(e) => {
-												const checked = e.target.checked;
+										<Switch id={id} checked={dnsEnabled} onCheckedChange={(nextChecked: boolean) => {
+												const checked = nextChecked;
 												const newConfig = {
 													...form.getValues("config"),
 												};
@@ -5468,8 +4903,7 @@ export const CoreSettingsPage: FC = () => {
 												form.setValue("config", newConfig, {
 													shouldDirty: true,
 												});
-											}}
-										/>
+											}} />
 									)}
 								</SettingRow>
 								{dnsEnabled && (
@@ -5484,16 +4918,9 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.tag"
 													control={form.control}
 													render={({ field }) => (
-														<Input
-															id={id}
-															size="sm"
-															maxW="240px"
-															value={field.value ?? ""}
-															onChange={(event) =>
+														<Input id={id} value={field.value ?? ""} onChange={(event) =>
 																field.onChange(event.target.value)
-															}
-															placeholder="dns_inbound"
-														/>
+															} className="max-w-[240px]" />
 													)}
 												/>
 											)}
@@ -5508,16 +4935,9 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.clientIp"
 													control={form.control}
 													render={({ field }) => (
-														<Input
-															id={id}
-															size="sm"
-															maxW="240px"
-															value={field.value ?? ""}
-															onChange={(event) =>
+														<Input id={id} value={field.value ?? ""} onChange={(event) =>
 																field.onChange(event.target.value)
-															}
-															placeholder="1.1.1.1"
-														/>
+															} className="max-w-[240px]" />
 													)}
 												/>
 											)}
@@ -5532,15 +4952,9 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.queryStrategy"
 													control={form.control}
 													render={({ field }) => (
-														<Select
-															id={id}
-															size="sm"
-															maxW="220px"
-															value={field.value ?? "UseIP"}
-															onChange={(event) =>
+														<Select id={id} size="sm" value={field.value ?? "UseIP"} onChange={(event) =>
 																field.onChange(event.target.value)
-															}
-														>
+															} className="max-w-[220px]">
 															{DNS_STRATEGY_OPTIONS.map((strategy) => (
 																<option key={strategy} value={strategy}>
 																	{strategy}
@@ -5561,13 +4975,7 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.disableCache"
 													control={form.control}
 													render={({ field }) => (
-														<Switch
-															id={id}
-															isChecked={Boolean(field.value)}
-															onChange={(event) =>
-																field.onChange(event.target.checked)
-															}
-														/>
+														<Switch id={id} checked={Boolean(field.value)} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 													)}
 												/>
 											)}
@@ -5582,13 +4990,7 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.disableFallback"
 													control={form.control}
 													render={({ field }) => (
-														<Switch
-															id={id}
-															isChecked={Boolean(field.value)}
-															onChange={(event) =>
-																field.onChange(event.target.checked)
-															}
-														/>
+														<Switch id={id} checked={Boolean(field.value)} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 													)}
 												/>
 											)}
@@ -5605,13 +5007,7 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.disableFallbackIfMatch"
 													control={form.control}
 													render={({ field }) => (
-														<Switch
-															id={id}
-															isChecked={Boolean(field.value)}
-															onChange={(event) =>
-																field.onChange(event.target.checked)
-															}
-														/>
+														<Switch id={id} checked={Boolean(field.value)} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 													)}
 												/>
 											)}
@@ -5626,13 +5022,7 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.enableParallelQuery"
 													control={form.control}
 													render={({ field }) => (
-														<Switch
-															id={id}
-															isChecked={Boolean(field.value)}
-															onChange={(event) =>
-																field.onChange(event.target.checked)
-															}
-														/>
+														<Switch id={id} checked={Boolean(field.value)} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 													)}
 												/>
 											)}
@@ -5647,13 +5037,7 @@ export const CoreSettingsPage: FC = () => {
 													name="config.dns.useSystemHosts"
 													control={form.control}
 													render={({ field }) => (
-														<Switch
-															id={id}
-															isChecked={Boolean(field.value)}
-															onChange={(event) =>
-																field.onChange(event.target.checked)
-															}
-														/>
+														<Switch id={id} checked={Boolean(field.value)} onCheckedChange={(checked: boolean) => field.onChange(checked)} />
 													)}
 												/>
 											)}
@@ -5662,149 +5046,115 @@ export const CoreSettingsPage: FC = () => {
 								)}
 							</SettingsSection>
 							{dnsEnabled && (
-								<VStack align="stretch" spacing={3}>
-									<ResourceListCard
-										title={t("DNS")}
-										summaryItems={[
-											{
-												label: t("total"),
-												value: dnsServers.length,
-											},
-											{
-												label: t("pages.xray.dns.domains"),
-												value: dnsRows.reduce(
-													(total, row) =>
-														total +
-														(typeof row.dns === "object"
-															? toChipList(row.dns.domains).length
-															: 0),
-													0,
-												),
-												colorScheme: "blue",
-											},
-										]}
-										actions={
-											<HStack spacing={2} flexWrap="wrap" justify="flex-end">
-												<Button
-													leftIcon={<AddIconStyled />}
-													{...compactActionButtonProps}
-													onClick={addDnsServer}
-												>
-													{t("pages.xray.dns.add")}
-												</Button>
-												<Button
-													size="xs"
-													variant="outline"
-													onClick={onDnsPresetsOpen}
-												>
-													{t("pages.xray.dns.presets")}
-												</Button>
-											</HStack>
+								<div className="flex flex-col items-stretch gap-3">
+									<ListCard
+										overview={{
+											total: { label: t("DNS"), value: dnsServers.length },
+											rows: [
+												{
+													key: "domains",
+													label: t("pages.xray.dns.domains"),
+													value: dnsRows.reduce(
+														(total, row) => total + (typeof row.dns === "object" ? toChipList(row.dns.domains).length : 0),
+														0,
+													),
+													tone: "bg-panel-info",
+												},
+											],
+										}}
+										toolbar={
+											<div className="flex flex-row items-center gap-2 flex-wrap">
+												<DataTableSortMenu options={buildSortOptions(dnsColumns, dnsRows)} sorting={dnsSorting} onSortingChange={setDnsSorting} />
+												<div className="flex flex-row items-center justify-end gap-2 flex-wrap ms-auto">
+													<Button onClick={onDnsPresetsOpen} variant="outline" size="xs">
+														{t("pages.xray.dns.presets")}
+													</Button>
+													<Button {...compactActionButtonProps} onClick={addDnsServer}>{<AddIconStyled />}
+														{t("pages.xray.dns.add")}
+													</Button>
+												</div>
+											</div>
 										}
 									/>
 									<DataTable
+										sorting={dnsSorting} onSortingChange={setDnsSorting} showSortMenu={false}
 										data={dnsRows}
 										columns={dnsColumns}
 										getRowId={(row) => String(row.index)}
 										rowActions={dnsActions}
-										actionsDisplay="menu"
+
 										actionsColumnWidth="52px"
 										emptyState={t("emptyDnsDesc")}
 										ariaLabel={t("DNS")}
 									/>
-								</VStack>
+								</div>
 							)}
 							{dnsEnabled && (
-								<VStack align="stretch" spacing={3}>
-									<ResourceListCard
-										title={t("pages.xray.fakedns.title")}
-										summaryItems={[
-											{
-												label: t("total"),
-												value: fakeDns.length,
-											},
-										]}
-										actions={
-											<Button
-												leftIcon={<AddIconStyled />}
-												{...compactActionButtonProps}
-												onClick={addFakeDns}
-											>
-												{t("pages.xray.fakedns.add")}
-											</Button>
+								<div className="flex flex-col items-stretch gap-3">
+									<ListCard
+										overview={{
+											total: { label: t("pages.xray.fakedns.title"), value: fakeDns.length },
+											rows: [],
+										}}
+										toolbar={
+											<div className="flex flex-row items-center gap-2 flex-wrap">
+												<DataTableSortMenu options={buildSortOptions(fakeDnsColumns, fakeDnsRows)} sorting={fakeDnsSorting} onSortingChange={setFakeDnsSorting} />
+												<div className="flex flex-row items-center justify-end gap-2 flex-wrap ms-auto">
+													<Button {...compactActionButtonProps} onClick={addFakeDns}>{<AddIconStyled />}
+														{t("pages.xray.fakedns.add")}
+													</Button>
+												</div>
+											</div>
 										}
 									/>
 									<DataTable
+										sorting={fakeDnsSorting} onSortingChange={setFakeDnsSorting} showSortMenu={false}
 										data={fakeDnsRows}
 										columns={fakeDnsColumns}
 										getRowId={(row) => String(row.index)}
 										rowActions={fakeDnsActions}
-										actionsDisplay="menu"
+
 										actionsColumnWidth="52px"
 										emptyState={t("emptyFakeDnsDesc")}
 										ariaLabel={t("pages.xray.fakedns.title")}
 									/>
-								</VStack>
+								</div>
 							)}
-						</VStack>
-					</Box>
+						</div>
+					</div>
 				)}
 				{activeTab === 6 && (
-					<Box p={0} mt={3}>
-						<VStack spacing={4} align="stretch">
-							<ResourceListCard
-								title={t("pages.xray.advancedJsonEditor")}
-								summaryItems={[
-									{
-										label: t("pages.xray.advancedTemplate"),
-										value: activeAdvancedJsonMode.label,
-										colorScheme: "blue",
-									},
-									{
-										label: t("status"),
-										value: advancedJsonValid
-											? t("jsonEditor.valid")
-											: t("jsonEditor.invalid"),
-										colorScheme: advancedJsonValid ? "green" : "red",
-									},
-								]}
-								actions={
-									<HStack spacing={2} flexWrap="wrap" justify="flex-end">
-										{advancedJsonModes.map((option) => {
-											const selected = advSettings === option.value;
-											return (
-												<Button
-													key={option.value}
-													size="xs"
-													variant={selected ? "solid" : "outline"}
-													colorScheme={selected ? "primary" : "gray"}
-													onClick={() => {
-														setAdvSettings(option.value);
-														setJsonKey((prev) => prev + 1);
-													}}
-												>
-													{option.label}
-												</Button>
-											);
-										})}
-									</HStack>
+					<div className="p-0 mt-3">
+						<div className="flex flex-col gap-4 items-stretch">
+							<ListCard
+								toolbar={
+									<div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+										<div className="flex flex-col items-start gap-2 min-w-0">
+											<p className="font-bold text-[1.125rem]">{t("pages.xray.advancedJsonEditor")}</p>
+											<ResourceSummaryPills items={[
+												{ label: t("pages.xray.advancedTemplate"), value: activeAdvancedJsonMode.label, colorScheme: "blue" },
+												{ label: t("status"), value: advancedJsonValid ? t("jsonEditor.valid") : t("jsonEditor.invalid"), colorScheme: advancedJsonValid ? "green" : "red" },
+											]} />
+										</div>
+										<div className="flex flex-row items-center gap-2 flex-wrap justify-end">
+											{advancedJsonModes.map((option) => {
+												const selected = advSettings === option.value;
+												return (
+													<Button key={option.value} onClick={() => {
+															setAdvSettings(option.value);
+															setJsonKey((prev) => prev + 1);
+														}} size="xs" variant={selected ? "default" : "outline"}>
+														{option.label}
+													</Button>
+												);
+											})}
+										</div>
+									</div>
 								}
 							/>
-							<Box
-								position="relative"
-								w="100%"
-								h="calc(100vh - 350px)"
-								minH="400px"
-							>
-								<Box
-									w={isFullScreen ? "100vw" : "100%"}
-									h={isFullScreen ? "100vh" : "100%"}
-									position={isFullScreen ? "fixed" : "relative"}
-									top={isFullScreen ? 0 : "auto"}
-									left={isFullScreen ? 0 : "auto"}
-									zIndex={isFullScreen ? 1000 : "auto"}
-								>
-									<Suspense fallback={<Spinner size="sm" />}>
+							<div className="relative w-full h-[calc(100vh_-_350px)] min-h-[400px]">
+								<div className={cn(isFullScreen ? "w-screen" : "w-full", isFullScreen ? "h-screen" : "h-full", isFullScreen ? "fixed" : "relative", isFullScreen ? "top-0" : "top-auto", isFullScreen ? "left-0" : "left-auto", isFullScreen ? "z-[1000]" : "z-[auto]")}>
+									<Suspense fallback={<Spinner />}>
 										<JsonEditor
 											key={`advanced-${advSettings}-${jsonKey}`}
 											label={activeAdvancedJsonMode.label}
@@ -5813,51 +5163,34 @@ export const CoreSettingsPage: FC = () => {
 											canonicalContext={advancedJsonContext}
 											onValidityChange={setAdvancedJsonValid}
 											toolbarActions={
-												<IconButton
-													aria-label={
+												<Button aria-label={
 														isFullScreen ? "Exit Full Screen" : "Full Screen"
-													}
-													icon={
-														isFullScreen ? (
+													} onClick={toggleFullScreen} variant="outline" size="xs" className="size-7 p-0">{isFullScreen ? (
 															<ExitFullScreenIconStyled />
 														) : (
 															<FullScreenIconStyled />
-														)
-													}
-													onClick={toggleFullScreen}
-													size="xs"
-													variant="outline"
-												/>
+														)}</Button>
 											}
 											onChange={(value) => {
 												setAdvancedJson(value);
 											}}
 										/>
 									</Suspense>
-								</Box>
+								</div>
 								{isFullScreen && isMobile && (
-									<Button
-										position="fixed"
-										bottom={4}
-										left="50%"
-										transform="translateX(-50%)"
-										zIndex={1102}
-										size="sm"
-										colorScheme="primary"
-										onClick={toggleFullScreen}
-									>
+									<Button onClick={toggleFullScreen} size="sm" className="fixed bottom-4 left-[50%] [transform:translateX(-50%)] z-[1102]">
 										{t("pages.xray.exitFullscreen")}
 									</Button>
 								)}
-							</Box>
-						</VStack>
-					</Box>
+							</div>
+						</div>
+					</div>
 				)}
-			</Box>
+			</div>
 			<Suspense fallback={null}>
 				{isOutboundOpen && (
 					<OutboundModal
-						isOpen={isOutboundOpen}
+						open={isOutboundOpen}
 						onClose={handleOutboundModalClose}
 						mode={editingOutboundIndex !== null ? "edit" : "create"}
 						initialOutbound={
@@ -5880,7 +5213,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isRuleOpen && (
 					<RuleModal
-						isOpen={isRuleOpen}
+						open={isRuleOpen}
 						mode={editingRuleIndex !== null ? "edit" : "create"}
 						initialRule={
 							editingRuleIndex !== null
@@ -5907,7 +5240,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isRouteTestOpen && (
 					<RouteTestModal
-						isOpen={isRouteTestOpen}
+						open={isRouteTestOpen}
 						onClose={onRouteTestClose}
 						rule={routeTestRule}
 						target={selectedTarget}
@@ -5918,7 +5251,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isReverseOpen && (
 					<ReverseModal
-						isOpen={isReverseOpen}
+						open={isReverseOpen}
 						onClose={handleReverseModalClose}
 						mode={editingReverseIndex !== null ? "edit" : "create"}
 						initialReverse={editingReverseInitial}
@@ -5938,7 +5271,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isWarpOpen && (
 					<WarpModal
-						isOpen={isWarpOpen}
+						open={isWarpOpen}
 						onClose={handleWarpModalClose}
 						initialOutbound={warpOutbound}
 						onSave={handleWarpSave}
@@ -5947,16 +5280,28 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isNordOpen && (
 					<NordVPNModal
-						isOpen={isNordOpen}
+						open={isNordOpen}
 						onClose={handleNordModalClose}
 						initialOutbounds={getOutbounds()}
 						onSave={handleNordSave}
 						onDelete={handleNordDelete}
 					/>
 				)}
+				{isMullvadOpen && (
+					<MullvadModal
+						open={isMullvadOpen}
+						onClose={onMullvadClose}
+						initialTag={mullvadEditTag}
+						targetID={selectedTarget}
+						canPing={!isMasterTarget}
+						initialOutbounds={getOutbounds()}
+						onSave={handleMullvadSave}
+						onDelete={handleNordDelete}
+					/>
+				)}
 				{isOutboundSubsOpen && (
 					<OutboundSubscriptionsModal
-						isOpen={isOutboundSubsOpen}
+						open={isOutboundSubsOpen}
 						onClose={onOutboundSubsClose}
 						onChanged={async () => {
 							await fetchActiveSubscriptionOutbounds();
@@ -5966,8 +5311,8 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isTorProxyOpen && (
 					<TorProxyModal
-						isOpen={isTorProxyOpen}
-						isLoading={isApplyingTorProxy}
+						open={isTorProxyOpen}
+						loading={isApplyingTorProxy}
 						isMasterTarget={isMasterTarget}
 						existingTags={availableOutboundTags}
 						onClose={onTorProxyClose}
@@ -5976,8 +5321,8 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isWindscribeProxyOpen && (
 					<WindscribeProxyModal
-						isOpen={isWindscribeProxyOpen}
-						isLoading={isApplyingWindscribeProxy}
+						open={isWindscribeProxyOpen}
+						loading={isApplyingWindscribeProxy}
 						isMasterTarget={isMasterTarget}
 						targetID={selectedTarget}
 						existingTags={availableOutboundTags}
@@ -5987,8 +5332,8 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isPsiphonProxyOpen && (
 					<PsiphonProxyModal
-						isOpen={isPsiphonProxyOpen}
-						isLoading={isApplyingPsiphonProxy}
+						open={isPsiphonProxyOpen}
+						loading={isApplyingPsiphonProxy}
 						isMasterTarget={isMasterTarget}
 						targetID={selectedTarget}
 						existingTags={availableOutboundTags}
@@ -5998,7 +5343,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isBalancerOpen && (
 					<BalancerModal
-						isOpen={isBalancerOpen}
+						open={isBalancerOpen}
 						onClose={handleBalancerModalClose}
 						mode={editingBalancerIndex !== null ? "edit" : "create"}
 						initialBalancer={
@@ -6043,7 +5388,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isDnsOpen && (
 					<DnsModal
-						isOpen={isDnsOpen}
+						open={isDnsOpen}
 						onClose={handleDnsModalClose}
 						form={form}
 						setDnsServers={setDnsServers}
@@ -6055,14 +5400,14 @@ export const CoreSettingsPage: FC = () => {
 				)}
 				{isDnsPresetsOpen && (
 					<DnsPresetsModal
-						isOpen={isDnsPresetsOpen}
+						open={isDnsPresetsOpen}
 						onClose={onDnsPresetsClose}
 						onSelectPreset={applyDnsPreset}
 					/>
 				)}
 				{isFakeDnsOpen && (
 					<FakeDnsModal
-						isOpen={isFakeDnsOpen}
+						open={isFakeDnsOpen}
 						onClose={handleFakeDnsModalClose}
 						form={form}
 						setFakeDns={setFakeDns}
@@ -6074,7 +5419,7 @@ export const CoreSettingsPage: FC = () => {
 				)}
 			</Suspense>
 			<ConfirmDialog
-				isOpen={Boolean(deleteWarning)}
+				open={Boolean(deleteWarning)}
 				onClose={() => setDeleteWarning(null)}
 				onConfirm={() => {
 					deleteWarning?.onConfirm();
@@ -6085,7 +5430,7 @@ export const CoreSettingsPage: FC = () => {
 				colorScheme="red"
 			/>
 			<ConfirmDialog
-				isOpen={Boolean(outboundReset)}
+				open={Boolean(outboundReset)}
 				onClose={() => setOutboundReset(null)}
 				onConfirm={confirmOutboundTrafficReset}
 				title={t("pages.xray.outbound.resetTraffic")}
@@ -6098,7 +5443,7 @@ export const CoreSettingsPage: FC = () => {
 				}
 				confirmLabel={t("reset")}
 			/>
-		</VStack>
+		</div>
 	);
 };
 

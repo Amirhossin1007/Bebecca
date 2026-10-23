@@ -136,6 +136,8 @@ func writeCertificateError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, err.Error())
 	case errors.Is(err, certificateapp.ErrUnsupported):
 		writeError(w, http.StatusUnprocessableEntity, err.Error())
+	case errors.Is(err, certificateapp.ErrNodeIssue):
+		writeError(w, http.StatusBadGateway, err.Error())
 	case strings.Contains(strings.ToLower(err.Error()), "certbot failed"):
 		writeError(w, http.StatusBadGateway, err.Error())
 	default:

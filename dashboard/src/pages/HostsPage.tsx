@@ -1,5 +1,6 @@
-import { HStack, Icon, Text, VStack } from "@chakra-ui/react";
-import { LinkIcon, Squares2X2Icon } from "@heroicons/react/24/outline";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Link, LayoutGrid } from "lucide-react";
+
 import { HostsManager } from "components/HostsManager";
 import { InboundsManager } from "components/InboundsManager";
 import { PageHeader, TabSystem } from "components/ui";
@@ -63,17 +64,17 @@ export const HostsPage: FC = () => {
 	};
 	if (!canManageHosts) {
 		return (
-			<VStack spacing={4} align="stretch">
+			<div className="flex flex-col gap-4 items-stretch">
 				<PageHeader title={t("header.hostSettings")} />
-				<Text fontSize="sm" color="gray.500" _dark={{ color: "gray.400" }}>
+				<p className="text-[0.875rem] text-gray-500 dark:text-gray-400">
 					{t("hostsPage.noPermission")}
-				</Text>
-			</VStack>
+				</p>
+			</div>
 		);
 	}
 
 	return (
-		<VStack spacing={4} align="stretch">
+		<div className="flex flex-col gap-4 items-stretch">
 			<TabSystem
 				tabs={[
 					{
@@ -81,10 +82,10 @@ export const HostsPage: FC = () => {
 						isActive: activeTab === 0,
 						onClick: () => handleTabChange(0),
 						label: (
-							<HStack spacing={2}>
-								<Icon as={LinkIcon} w={4} h={4} />
+							<div className="flex flex-row items-center gap-2">
+								<Link className="w-4 h-4" />
 								<span>{t("hostsPage.tabInbounds")}</span>
-							</HStack>
+							</div>
 						),
 					},
 					{
@@ -92,24 +93,24 @@ export const HostsPage: FC = () => {
 						isActive: activeTab === 1,
 						onClick: () => handleTabChange(1),
 						label: (
-							<HStack spacing={2}>
-								<Icon as={Squares2X2Icon} w={4} h={4} />
+							<div className="flex flex-row items-center gap-2">
+								<LayoutGrid className="w-4 h-4" />
 								<span>{t("hostsPage.tabHosts")}</span>
-							</HStack>
+							</div>
 						),
 					},
 				]}
 			/>
 			{activeTab === 0 ? (
-				<VStack mt={3} spacing={4} align="stretch">
+				<div className="flex flex-col mt-3 gap-4 items-stretch">
 					<InboundsManager />
-				</VStack>
+				</div>
 			) : (
-				<VStack mt={3} spacing={4} align="stretch">
+				<div className="flex flex-col mt-3 gap-4 items-stretch">
 					<HostsManager />
-				</VStack>
+				</div>
 			)}
-		</VStack>
+		</div>
 	);
 };
 

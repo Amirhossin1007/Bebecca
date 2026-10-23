@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -57,19 +58,19 @@ func (r Repository) extraRuntime(ctx context.Context, nodeID int64, inbounds []m
 	runtime.SessionCallback = callback
 	usedPorts := map[int]struct{}{}
 	for _, inbound := range inbounds {
-		if port := OVIntValue(inbound["port"]); port > 0 {
+		if port := jsonvalue.Int(inbound["port"]); port > 0 {
 			usedPorts[port] = struct{}{}
 		}
 	}
 	for _, inbound := range inbounds {
-		protocol := strings.ToLower(OVStringValue(inbound["protocol"]))
+		protocol := strings.ToLower(jsonvalue.String(inbound["protocol"]))
 		if !xrayconfig.IsAuxiliaryInboundProtocol(protocol) && protocol != xrayconfig.SSTPProtocol && protocol != xrayconfig.AWGProtocol && protocol != xrayconfig.GREProtocol {
 			continue
 		}
 		if !OVInboundMatchesTarget(inbound, target) {
 			continue
 		}
-		tag := OVStringValue(inbound["tag"])
+		tag := jsonvalue.String(inbound["tag"])
 		if tag == "" {
 			continue
 		}
@@ -77,7 +78,7 @@ func (r Repository) extraRuntime(ctx context.Context, nodeID int64, inbounds []m
 			Tag:      tag,
 			Protocol: protocol,
 			Listen:   firstRuntimeString(inbound["listen"], "0.0.0.0"),
-			Port:     OVIntValue(inbound["port"]),
+			Port:     jsonvalue.Int(inbound["port"]),
 			Settings: OVRuntimeSettings(inbound),
 		}
 		if protocol == xrayconfig.SSTPProtocol || protocol == xrayconfig.AWGProtocol || protocol == xrayconfig.GREProtocol {
@@ -95,7 +96,7 @@ func (r Repository) extraRuntime(ctx context.Context, nodeID int64, inbounds []m
 			if protocol == "ssh" {
 				item.Users, err = r.sshUsersForServices(ctx, serviceIDs)
 			} else {
-				item.Users, err = r.extraVPNUsersForServices(ctx, protocol, tag, serviceIDs, OVStringValue(item.Settings["ipv4_pool_cidr"]))
+				item.Users, err = r.extraVPNUsersForServices(ctx, protocol, tag, serviceIDs, jsonvalue.String(item.Settings["ipv4_pool_cidr"]))
 			}
 			if err != nil {
 				return ExtraRuntime{}, err
@@ -106,7 +107,7 @@ func (r Repository) extraRuntime(ctx context.Context, nodeID int64, inbounds []m
 			if err != nil {
 				return ExtraRuntime{}, err
 			}
-			item.Peers, err = r.WGUsersForServices(ctx, xrayconfig.AWGProtocol+":"+tag, serviceIDs, OVStringValue(item.Settings["ipv4_pool_cidr"]), OVStringValue(item.Settings["server_address"]))
+			item.Peers, err = r.WGUsersForServices(ctx, xrayconfig.AWGProtocol+":"+tag, serviceIDs, jsonvalue.String(item.Settings["ipv4_pool_cidr"]), jsonvalue.String(item.Settings["server_address"]))
 			if err != nil {
 				return ExtraRuntime{}, err
 			}
@@ -218,7 +219,7 @@ ORDER BY id`, args...)
 }
 
 func firstRuntimeString(value any, fallback string) string {
-	if text := strings.TrimSpace(OVStringValue(value)); text != "" {
+	if text := strings.TrimSpace(jsonvalue.String(value)); text != "" {
 		return text
 	}
 	return fallback

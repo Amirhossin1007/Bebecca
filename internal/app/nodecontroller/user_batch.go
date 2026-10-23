@@ -10,6 +10,7 @@ import (
 
 	"github.com/rebeccapanel/rebecca/internal/app/nodeclient"
 	userread "github.com/rebeccapanel/rebecca/internal/app/user"
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -52,7 +53,7 @@ func (c Controller) applyRuntimeUserOperationBatch(ctx context.Context, operatio
 	result := ProcessOperationsResult{}
 	byNode := map[int64]map[int64][]OperationRow{}
 	for _, operation := range operations {
-		if !operation.NodeID.Valid || !operation.UserID.Valid || !isRuntimeUserOperation(operation.OperationType) {
+		if !operation.NodeID.Valid || !operation.UserID.Valid || !xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 			continue
 		}
 		users := byNode[operation.NodeID.Int64]

@@ -144,6 +144,7 @@ func (c Controller) collectUsageForNode(
 	var outboundDeltas []OutboundUsageDelta
 	var inboundDeltas []InboundUsageDelta
 
+	pulledAt := time.Now()
 	batches := fetchUsageBatches(ctx, client, usageBatchRequest{
 		collectUsers:     collectUsers,
 		collectOutbound:  collectOutbound,
@@ -245,7 +246,11 @@ func (c Controller) collectUsageForNode(
 	}
 
 	if batches.bundled {
+		outboundAcked := result.OutboundAcked
 		ackBundledUsage(ctx, client, node.ID, userBatchID, outboundBatchID, &result)
+		if collectOutbound && reset && (outboundBatchID == "" || result.OutboundAcked > outboundAcked) {
+			c.inboundSpeeds.record(node.ID, pulledAt, inboundDeltas)
+		}
 		return result
 	}
 	if userBatch != nil && strings.TrimSpace(userBatch.GetBatchId()) != "" {
@@ -258,6 +263,7 @@ func (c Controller) collectUsageForNode(
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack user usage: %s", node.ID, ackErr.Error()))
 		}
 	}
+	outboundAcked := result.OutboundAcked
 	if outboundBatch != nil && strings.TrimSpace(outboundBatch.GetBatchId()) != "" {
 		rpcCtx, rpcCancel := WithDefaultTimeout(ctx)
 		ack, ackErr := client.Usage().AckOutboundUsage(rpcCtx, &nodev1.AckUsageRequest{BatchId: outboundBatch.GetBatchId()})
@@ -267,6 +273,9 @@ func (c Controller) collectUsageForNode(
 		} else if ackErr != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack outbound usage: %s", node.ID, ackErr.Error()))
 		}
+	}
+	if collectOutbound && reset && (outboundBatchID == "" || result.OutboundAcked > outboundAcked) {
+		c.inboundSpeeds.record(node.ID, pulledAt, inboundDeltas)
 	}
 	return result
 }

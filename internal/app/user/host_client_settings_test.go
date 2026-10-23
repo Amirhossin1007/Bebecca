@@ -2,6 +2,8 @@ package user
 
 import (
 	"encoding/json"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 	"net/url"
 	"reflect"
 	"strings"
@@ -132,7 +134,7 @@ func TestHostXHTTPTuningOverridesExtraWithoutChangingServerFields(t *testing.T) 
 func TestExplicitAccountFlowOverridesLegacyProxyFlow(t *testing.T) {
 	for _, flow := range []string{"", "xtls-rprx-vision"} {
 		settings, err := RuntimeProxySettings(map[string]any{"id": "05bfddf8-1eb4-18fa-1edb-ce7cd286eee1", "flow": "xtls-rprx-vision"}, "vless", "", flow, nil)
-		if err != nil || stringValue(settings["flow"]) != flow {
+		if err != nil || jsonvalue.String(settings["flow"]) != flow {
 			t.Fatalf("explicit flow %q settings=%v err=%v", flow, settings, err)
 		}
 	}
@@ -141,7 +143,7 @@ func TestExplicitAccountFlowOverridesLegacyProxyFlow(t *testing.T) {
 func TestHostClientSettingsTransportAliasesAndVMess(t *testing.T) {
 	for _, network := range []string{"tcp", "raw", "ws", "httpupgrade", "grpc", "kcp", "xhttp", "splithttp"} {
 		t.Run(network, func(t *testing.T) {
-			group := networkSettingsKey(network)
+			group := xrayconfig.NetworkSettingsKey(network)
 			overrideGroup := group
 			if network == "raw" {
 				overrideGroup = "tcpSettings"

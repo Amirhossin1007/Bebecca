@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -136,7 +137,7 @@ func BuildConfigLinks(
 			if !ok {
 				continue
 			}
-			if normalizeProxyProtocol(stringValue(inbound["protocol"])) != protocol {
+			if normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) != protocol {
 				continue
 			}
 			if _, exists := bindings[tag]; !exists {
@@ -145,7 +146,7 @@ func BuildConfigLinks(
 				if protocol == "vless" {
 					flow := item.Flow // Compatibility for unmigrated, conflicting legacy services only.
 					if value, configured := inbound["flow"]; configured {
-						flow = stringValue(value)
+						flow = jsonvalue.String(value)
 					}
 					if flow != "" {
 						perInbound["flow"] = flow
@@ -166,7 +167,7 @@ func BuildConfigLinks(
 		if !ok {
 			continue
 		}
-		if normalizeProxyProtocol(stringValue(inbound["protocol"])) == "wireguard" {
+		if normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) == "wireguard" {
 			inboundVariables := cloneFormatVariables(formatVariables)
 			inboundVariables["PROTOCOL"] = "wireguard"
 			inboundVariables["protocol"] = "wireguard"
@@ -221,7 +222,7 @@ func BuildConfigLinks(
 func configLinkMetadata(inbound ResolvedInbound) ConfigLinkMetadata {
 	return ConfigLinkMetadata{
 		FinalMask:      configLinkFinalMask(inbound),
-		MuxEnabled:     boolValue(inbound["mux_enable"]),
+		MuxEnabled:     jsonvalue.Bool(inbound["mux_enable"]),
 		ClientSettings: cloneJSONMap(mapValue(inbound["client_settings"])),
 	}
 }
@@ -229,10 +230,10 @@ func configLinkMetadata(inbound ResolvedInbound) ConfigLinkMetadata {
 func configLinkFinalMask(inbound ResolvedInbound) map[string]any {
 	finalMask := cloneJSONMap(mapValue(inbound["finalmask"]))
 	legacy := map[string]any{}
-	if fragment := fragmentFinalMask(stringValue(inbound["fragment_setting"])); len(fragment) > 0 {
+	if fragment := fragmentFinalMask(jsonvalue.String(inbound["fragment_setting"])); len(fragment) > 0 {
 		legacy["tcp"] = []any{map[string]any{"type": "fragment", "settings": fragment}}
 	}
-	if noise := noiseFinalMask(stringValue(inbound["noise_setting"])); len(noise) > 0 {
+	if noise := noiseFinalMask(jsonvalue.String(inbound["noise_setting"])); len(noise) > 0 {
 		legacy["udp"] = []any{map[string]any{"type": "noise", "settings": map[string]any{"noise": noise}}}
 	}
 	return mergeV2RayFinalMask(finalMask, legacy)
@@ -274,7 +275,7 @@ func virtualServiceProxies(serviceID *int64, inbounds map[string]ResolvedInbound
 		if !ok {
 			return
 		}
-		protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+		protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 		if _, ok := proxyProtocols[protocol]; ok {
 			seen[protocol] = struct{}{}
 		}
@@ -356,7 +357,7 @@ func selectProxyInboundTags(
 		if _, exists := seen[tag]; exists {
 			return
 		}
-		if normalizeProxyProtocol(stringValue(inbounds[tag]["protocol"])) != protocol {
+		if normalizeProxyProtocol(jsonvalue.String(inbounds[tag]["protocol"])) != protocol {
 			return
 		}
 		if len(hostsByTag[tag]) == 0 {
@@ -415,7 +416,7 @@ func effectiveInboundForHost(wildcardSalt string, variables map[string]string, i
 		requestHost = sni
 	}
 
-	path := stringValue(inbound["path"])
+	path := jsonvalue.String(inbound["path"])
 	if host.Path != nil && strings.TrimSpace(*host.Path) != "" {
 		path = *host.Path
 	}
@@ -437,12 +438,12 @@ func effectiveInboundForHost(wildcardSalt string, variables map[string]string, i
 	if security, configured := host.ClientSettings["vmessSecurity"]; configured && inbound["protocol"] == "vmess" {
 		effective["vmess_security"] = security
 	}
-	if network := normalizeNetwork(stringValue(inbound["network"])); network == "grpc" || network == "gun" {
+	if network := normalizeNetwork(jsonvalue.String(inbound["network"])); network == "grpc" || network == "gun" {
 		if mode, configured := mapValue(host.ClientSettings["grpcSettings"])["multiMode"]; configured {
 			effective["multiMode"] = mode
 		}
 	}
-	if host.Port != nil && normalizeProxyProtocol(stringValue(inbound["protocol"])) != "openvpn" && normalizeProxyProtocol(stringValue(inbound["protocol"])) != "ikev2" {
+	if host.Port != nil && normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) != "openvpn" && normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) != "ikev2" {
 		effective["port"] = *host.Port
 	}
 	if tls := normalizedHostSecurity(host.Security); tls != "" {
@@ -482,11 +483,11 @@ func effectiveInboundForHost(wildcardSalt string, variables map[string]string, i
 	effective["sni"] = sni
 	effective["host"] = requestHost
 	effective["path"] = path
-	if pbk := firstNonEmptyString(inbound["pbk"], inbound["publicKey"], inbound["public_key"]); pbk != "" {
+	if pbk := jsonvalue.FirstNonEmpty(inbound["pbk"], inbound["publicKey"], inbound["public_key"]); pbk != "" {
 		effective["pbk"] = pbk
 	}
-	effective["sid"] = firstNonEmptyString(firstStringList(inbound["sids"]), inbound["sid"], firstStringList(inbound["shortIds"]), inbound["shortId"])
-	if normalizeProxyProtocol(stringValue(effective["protocol"])) == "hysteria" {
+	effective["sid"] = jsonvalue.FirstNonEmpty(firstStringList(inbound["sids"]), inbound["sid"], firstStringList(inbound["shortIds"]), inbound["shortId"])
+	if normalizeProxyProtocol(jsonvalue.String(effective["protocol"])) == "hysteria" {
 		applyHysteriaFinalMaskShareFields(effective)
 	}
 	return remark, address, effective, true
@@ -540,7 +541,7 @@ func mergeResolvedInboundMetadata(target ResolvedInbound, source ResolvedInbound
 		}
 		target[key] = source[key]
 	}
-	if stringValue(target["tls"]) == "none" && stringValue(source["tls"]) != "" && stringValue(source["tls"]) != "none" {
+	if jsonvalue.String(target["tls"]) == "none" && jsonvalue.String(source["tls"]) != "" && jsonvalue.String(source["tls"]) != "none" {
 		target["tls"] = source["tls"]
 	}
 }
@@ -712,7 +713,7 @@ func cloneFormatVariables(values map[string]string) map[string]string {
 }
 
 func configTransportName(inbound ResolvedInbound) string {
-	transport := strings.TrimSpace(stringValue(inbound["network"]))
+	transport := strings.TrimSpace(jsonvalue.String(inbound["network"]))
 	if transport == "" {
 		return "TCP"
 	}
@@ -829,7 +830,7 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 
 	switch protocol {
 	case "vmess", "vless":
-		if id, ok := sanitizeUUID(firstNonEmptyString(data["id"], data["uuid"])); ok {
+		if id, ok := sanitizeUUID(jsonvalue.FirstNonEmpty(data["id"], data["uuid"])); ok {
 			data["id"] = id
 		} else if normalizedKey != "" {
 			id, err := keyToUUID(normalizedKey, nil)
@@ -841,7 +842,7 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 			return nil, fmt.Errorf("UUID is required for proxy type %s", protocol)
 		}
 	case "trojan", "shadowsocks", "hysteria", "ssh":
-		if stringValue(data["password"]) == "" {
+		if jsonvalue.String(data["password"]) == "" {
 			if normalizedKey != "" {
 				data["password"] = keyToPassword(normalizedKey, protocol)
 			} else {
@@ -853,8 +854,8 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 			}
 		}
 		if protocol == "hysteria" {
-			if stringValue(data["auth"]) == "" {
-				data["auth"] = stringValue(data["password"])
+			if jsonvalue.String(data["auth"]) == "" {
+				data["auth"] = jsonvalue.String(data["password"])
 			}
 			delete(data, "password")
 			delete(data, "method")
@@ -866,7 +867,7 @@ func runtimeProxySettings(settings map[string]any, protocol string, credentialKe
 			delete(data, "iv_check")
 		}
 		if protocol == "shadowsocks" {
-			if stringValue(data["method"]) == "" {
+			if jsonvalue.String(data["method"]) == "" {
 				data["method"] = defaultShadowsocksMethod
 			}
 			if _, ok := data["iv_check"]; !ok {
@@ -890,11 +891,11 @@ func RuntimeProxySettings(settings map[string]any, protocol string, credentialKe
 // RuntimeProxySettingsForInbound is shared by full sync and live AddUser/UpdateUser.
 // Xray only inherits settings.flow while parsing JSON, not in its gRPC user API.
 func RuntimeProxySettingsForInbound(settings map[string]any, inbound map[string]any, credentialKey string, legacyFlow string, masks map[string][]byte) (map[string]any, error) {
-	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	flow := ""
 	if protocol == "vless" {
 		if value, configured := mapValue(inbound["settings"])["flow"]; configured {
-			flow = stringValue(value)
+			flow = jsonvalue.String(value)
 		} else if xrayconfig.VLESSFlowSupported(inbound) {
 			flow = legacyFlow
 		}
@@ -907,9 +908,9 @@ func RuntimeShadowsocksSettings(settings map[string]any, inboundSettings map[str
 	for key, value := range settings {
 		data[key] = value
 	}
-	method := firstNonEmptyString(inboundSettings["method"], data["method"], defaultShadowsocksMethod)
+	method := jsonvalue.FirstNonEmpty(inboundSettings["method"], data["method"], defaultShadowsocksMethod)
 	if strings.HasPrefix(method, "2022-") {
-		data["password"] = shadowsocks2022Password(stringValue(data["password"]), method)
+		data["password"] = shadowsocks2022Password(jsonvalue.String(data["password"]), method)
 		delete(data, "method")
 		delete(data, "iv_check")
 		return data
@@ -920,7 +921,7 @@ func RuntimeShadowsocksSettings(settings map[string]any, inboundSettings map[str
 
 func RuntimeShadowsocksLiveSettings(settings map[string]any, inboundSettings map[string]any) map[string]any {
 	data := RuntimeShadowsocksSettings(settings, inboundSettings)
-	data["method"] = firstNonEmptyString(inboundSettings["method"], defaultShadowsocksMethod)
+	data["method"] = jsonvalue.FirstNonEmpty(inboundSettings["method"], defaultShadowsocksMethod)
 	return data
 }
 
@@ -1018,9 +1019,9 @@ func normalizeFlowForServer(value string) string {
 }
 
 func buildShareLink(remark string, address string, inbound ResolvedInbound, settings map[string]any) (string, error) {
-	netValue := stringValue(inbound["network"])
-	path := stringValue(inbound["path"])
-	multiMode := boolValue(inbound["multiMode"])
+	netValue := jsonvalue.String(inbound["network"])
+	path := jsonvalue.String(inbound["path"])
+	multiMode := jsonvalue.Bool(inbound["multiMode"])
 	if netValue == "grpc" || netValue == "gun" {
 		oldPath := path
 		if multiMode {
@@ -1033,7 +1034,7 @@ func buildShareLink(remark string, address string, inbound ResolvedInbound, sett
 		}
 	}
 
-	switch normalizeProxyProtocol(stringValue(inbound["protocol"])) {
+	switch normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) {
 	case "vmess":
 		return vmessShareLink(remark, address, path, inbound, settings), nil
 	case "vless":
@@ -1059,68 +1060,68 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 	payload := map[string]any{
 		"add":  address,
 		"aid":  "0",
-		"host": stringValue(inbound["host"]),
-		"id":   stringValue(settings["id"]),
-		"net":  stringValue(inbound["network"]),
+		"host": jsonvalue.String(inbound["host"]),
+		"id":   jsonvalue.String(settings["id"]),
+		"net":  jsonvalue.String(inbound["network"]),
 		"path": path,
 		"port": inbound["port"],
 		"ps":   remark,
-		"scy":  firstNonEmptyString(inbound["vmess_security"], "auto"),
-		"tls":  stringValue(inbound["tls"]),
-		"type": stringValue(inbound["header_type"]),
+		"scy":  jsonvalue.FirstNonEmpty(inbound["vmess_security"], "auto"),
+		"tls":  jsonvalue.String(inbound["tls"]),
+		"type": jsonvalue.String(inbound["header_type"]),
 		"v":    "2",
 	}
-	if fs := stringValue(inbound["fragment_setting"]); fs != "" {
+	if fs := jsonvalue.String(inbound["fragment_setting"]); fs != "" {
 		payload["fragment"] = fs
 	}
-	if ns := stringValue(inbound["noise_setting"]); ns != "" {
+	if ns := jsonvalue.String(inbound["noise_setting"]); ns != "" {
 		payload["noise"] = ns
 	}
 	if finalMask := mapValue(inbound["finalmask"]); len(finalMask) > 0 {
 		payload["fm"] = finalMask
 	}
-	tls := stringValue(inbound["tls"])
+	tls := jsonvalue.String(inbound["tls"])
 	if tls == "tls" {
-		payload["sni"] = stringValue(inbound["sni"])
+		payload["sni"] = jsonvalue.String(inbound["sni"])
 		payload["fp"] = clientTLSFingerprint(inbound)
-		if cipherSuites := stringValue(inbound["cipherSuites"]); cipherSuites != "" {
+		if cipherSuites := jsonvalue.String(inbound["cipherSuites"]); cipherSuites != "" {
 			payload["cs"] = cipherSuites
 		}
-		if alpn := stringValue(inbound["alpn"]); alpn != "" {
+		if alpn := jsonvalue.String(inbound["alpn"]); alpn != "" {
 			payload["alpn"] = alpn
 		}
-		if ech := firstNonEmptyString(inbound["ech"], inbound["echConfigList"]); ech != "" {
+		if ech := jsonvalue.FirstNonEmpty(inbound["ech"], inbound["echConfigList"]); ech != "" {
 			payload["ech"] = ech
 		}
-		if vcn := firstNonEmptyString(inbound["vcn"], inbound["verifyPeerCertByName"]); vcn != "" {
+		if vcn := jsonvalue.FirstNonEmpty(inbound["vcn"], inbound["verifyPeerCertByName"]); vcn != "" {
 			payload["vcn"] = vcn
 		}
-		if pin := firstNonEmptyString(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]); pin != "" {
+		if pin := jsonvalue.FirstNonEmpty(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]); pin != "" {
 			payload["pinSHA256"] = pin
 		}
 		if truthy(inbound["ais"]) {
 			payload["allowInsecure"] = 1
 		}
 	} else if tls == "reality" {
-		payload["sni"] = stringValue(inbound["sni"])
-		payload["fp"] = stringValue(inbound["fp"])
-		payload["pbk"] = stringValue(inbound["pbk"])
-		payload["sid"] = stringValue(inbound["sid"])
-		if spx := stringValue(inbound["spx"]); spx != "" {
+		payload["sni"] = jsonvalue.String(inbound["sni"])
+		payload["fp"] = jsonvalue.String(inbound["fp"])
+		payload["pbk"] = jsonvalue.String(inbound["pbk"])
+		payload["sid"] = jsonvalue.String(inbound["sid"])
+		if spx := jsonvalue.String(inbound["spx"]); spx != "" {
 			payload["spx"] = spx
 		}
-		if pqv := stringValue(inbound["pqv"]); pqv != "" {
+		if pqv := jsonvalue.String(inbound["pqv"]); pqv != "" {
 			payload["pqv"] = pqv
 		}
 	}
 
-	netValue := stringValue(inbound["network"])
+	netValue := jsonvalue.String(inbound["network"])
 	switch netValue {
 	case "kcp":
 		copyOptional(payload, "mtu", inbound)
 		copyOptional(payload, "tti", inbound)
 	case "grpc":
-		if boolValue(inbound["multiMode"]) {
+		if jsonvalue.Bool(inbound["multiMode"]) {
 			payload["mode"] = "multi"
 		} else {
 			payload["mode"] = "gun"
@@ -1130,7 +1131,7 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 		if mode, ok := inbound["mode"]; ok {
 			payload["type"] = mode
 		}
-		if keepAlive, ok := inbound["keepAlivePeriod"]; ok && intValue(keepAlive) > 0 {
+		if keepAlive, ok := inbound["keepAlivePeriod"]; ok && jsonvalue.Int(keepAlive) > 0 {
 			extra["keepAlivePeriod"] = keepAlive
 		}
 		if len(extra) > 0 {
@@ -1148,18 +1149,18 @@ func vmessShareLink(remark string, address string, path string, inbound Resolved
 
 func vlessShareLink(remark string, address string, path string, inbound ResolvedInbound, settings map[string]any) string {
 	params := []queryParam{
-		{"security", stringValue(inbound["tls"])},
-		{"type", stringValue(inbound["network"])},
-		{"headerType", firstNonEmptyString(inbound["header_type"], "none")},
+		{"security", jsonvalue.String(inbound["tls"])},
+		{"type", jsonvalue.String(inbound["network"])},
+		{"headerType", jsonvalue.FirstNonEmpty(inbound["header_type"], "none")},
 	}
-	tls := stringValue(inbound["tls"])
-	netValue := stringValue(inbound["network"])
-	headerType := stringValue(inbound["header_type"])
-	flow := stringValue(settings["flow"])
-	if vlessFlowAllowed(flow, stringValue(inbound["encryption"]), netValue, tls, headerType) {
+	tls := jsonvalue.String(inbound["tls"])
+	netValue := jsonvalue.String(inbound["network"])
+	headerType := jsonvalue.String(inbound["header_type"])
+	flow := jsonvalue.String(settings["flow"])
+	if vlessFlowAllowed(flow, jsonvalue.String(inbound["encryption"]), netValue, tls, headerType) {
 		params = append(params, queryParam{"flow", flow})
 	}
-	if encryption := stringValue(inbound["encryption"]); encryption != "" {
+	if encryption := jsonvalue.String(inbound["encryption"]); encryption != "" {
 		params = append(params, queryParam{"encryption", encryption})
 	} else {
 		params = append(params, queryParam{"encryption", "none"})
@@ -1168,40 +1169,211 @@ func vlessShareLink(remark string, address string, path string, inbound Resolved
 	params = appendTLSParams(params, tls, inbound)
 	params = appendMaskParams(params, inbound)
 	params = appendFinalMaskParam(params, inbound)
-	return "vless://" + stringValue(settings["id"]) + "@" + address + ":" + portString(inbound["port"]) + "?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
+	return "vless://" + jsonvalue.String(settings["id"]) + "@" + address + ":" + portString(inbound["port"]) + "?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
+}
+
+var shadowrocketVLESSParams = map[string]bool{
+	"security": true, "type": true, "headerType": true, "encryption": true, "path": true, "host": true,
+	"mode": true, "extra": true, "sni": true, "fp": true, "alpn": true, "pcs": true, "allowInsecure": true,
+}
+
+func shadowrocketVLESSShareLink(link string) string {
+	u, err := url.Parse(link)
+	if err != nil || u.Scheme != "vless" {
+		return link
+	}
+	query := u.Query()
+	for key := range query {
+		if !shadowrocketVLESSParams[key] {
+			return link
+		}
+	}
+	security, network := query.Get("security"), query.Get("type")
+	host, path := query.Get("host"), query.Get("path")
+	if security != "" && security != "none" && security != "tls" {
+		return link
+	}
+	if headerType := query.Get("headerType"); headerType != "" && headerType != "none" {
+		return link
+	}
+	if encryption := query.Get("encryption"); encryption != "" && encryption != "none" {
+		return link
+	}
+	params := []queryParam{{"remarks", u.Fragment}}
+	switch network {
+	case "tcp", "raw":
+		if host != "" {
+			return link
+		}
+	case "ws":
+		params = append(params, queryParam{"obfs", "websocket"})
+		if host != "" {
+			params = append(params, queryParam{"obfsParam", host})
+		}
+	case "xhttp", "splithttp":
+		params = append(params, queryParam{"obfs", "xhttp"}, queryParam{"obfsParam", shadowrocketXHTTPObfsParam(query.Get("extra"), host)})
+		if mode := query.Get("mode"); mode != "" {
+			params = append(params, queryParam{"mode", mode})
+		}
+	default:
+		return link
+	}
+	if path != "" {
+		params = append(params, queryParam{"path", path})
+	}
+	if security == "tls" {
+		params = append(params, queryParam{"tls", "1"})
+		for _, pair := range [][2]string{{"sni", "peer"}, {"alpn", "alpn"}, {"fp", "fingerprint"}, {"pcs", "hpkp"}, {"allowInsecure", "allowInsecure"}} {
+			if value := query.Get(pair[0]); value != "" {
+				params = append(params, queryParam{pair[1], value})
+			}
+		}
+	}
+	params = append(params, queryParam{"udp", "1"})
+	encryption := query.Get("encryption")
+	if encryption == "" {
+		encryption = "none"
+	}
+	authority := base64.RawURLEncoding.EncodeToString([]byte(encryption + ":" + u.User.Username() + "@" + u.Host))
+	return "vless://" + authority + "?" + shadowrocketQuery(params)
+}
+
+var shadowrocketVMessKeys = map[string]bool{
+	"add": true, "aid": true, "alpn": true, "allowInsecure": true, "fp": true, "host": true, "id": true, "net": true,
+	"path": true, "pinSHA256": true, "port": true, "ps": true, "scy": true, "sni": true, "tls": true, "type": true, "v": true,
+}
+
+func shadowrocketVMessShareLink(link string) string {
+	encoded, ok := strings.CutPrefix(link, "vmess://")
+	if !ok {
+		return link
+	}
+	raw, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return link
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return link
+	}
+	for key := range payload {
+		if !shadowrocketVMessKeys[key] {
+			return link
+		}
+	}
+	str := func(key string) string { return jsonvalue.String(payload[key]) }
+	network, path := str("net"), str("path")
+	params := []queryParam{{"remarks", str("ps")}, {"tfo", "1"}, {"alterId", jsonvalue.FirstNonEmpty(payload["aid"], "0")}}
+	switch network {
+	case "tcp":
+		if (str("type") != "" && str("type") != "none") || path != "" {
+			return link
+		}
+	case "ws":
+		params = append(params, queryParam{"obfs", "websocket"})
+		if host := str("host"); host != "" {
+			params = append(params, queryParam{"obfsParam", host})
+		}
+		if path != "" {
+			params = append(params, queryParam{"path", path})
+		}
+	default:
+		return link
+	}
+	switch str("tls") {
+	case "", "none":
+	case "tls":
+		params = append(params, queryParam{"tls", "1"})
+		for _, pair := range [][2]string{{"sni", "peer"}, {"alpn", "alpn"}, {"fp", "fingerprint"}, {"pinSHA256", "hpkp"}, {"allowInsecure", "allowInsecure"}} {
+			if value := str(pair[0]); value != "" {
+				params = append(params, queryParam{pair[1], value})
+			}
+		}
+	default:
+		return link
+	}
+	security := jsonvalue.FirstNonEmpty(payload["scy"], "auto")
+	authority := base64.StdEncoding.EncodeToString([]byte(security + ":" + str("id") + "@" + formatIPForURL(str("add")) + ":" + str("port")))
+	return "vmess://" + authority + "?" + shadowrocketQuery(params)
+}
+
+func shadowrocketShareLink(link string) string {
+	switch {
+	case strings.HasPrefix(link, "vless://"):
+		return shadowrocketVLESSShareLink(link)
+	case strings.HasPrefix(link, "trojan://"):
+		return shadowrocketTrojanShareLink(link)
+	case strings.HasPrefix(link, "vmess://"):
+		return shadowrocketVMessShareLink(link)
+	}
+	return link
+}
+
+func shadowrocketTrojanShareLink(link string) string {
+	u, err := url.Parse(link)
+	if err != nil || u.Scheme != "trojan" {
+		return link
+	}
+	query := u.Query()
+	if sni := query.Get("sni"); sni == "" || query.Has("peer") {
+		return link
+	}
+	query.Set("peer", query.Get("sni"))
+	u.RawQuery = query.Encode()
+	return u.String()
+}
+
+func shadowrocketXHTTPObfsParam(extra string, host string) string {
+	if extra == "" {
+		extra = "{}"
+	}
+	obfsParam := `{"":` + extra
+	if host != "" {
+		encodedHost, _ := json.Marshal(host)
+		obfsParam += `,"Host":` + string(encodedHost)
+	}
+	return obfsParam + "}"
+}
+
+func shadowrocketQuery(params []queryParam) string {
+	parts := make([]string, 0, len(params))
+	for _, param := range params {
+		parts = append(parts, param.key+"="+percentEncode(pythonStringValue(param.value), "", false))
+	}
+	return strings.Join(parts, "&")
 }
 
 func trojanShareLink(remark string, address string, path string, inbound ResolvedInbound, settings map[string]any) string {
 	params := []queryParam{
-		{"security", stringValue(inbound["tls"])},
-		{"type", stringValue(inbound["network"])},
-		{"headerType", firstNonEmptyString(inbound["header_type"], "none")},
+		{"security", jsonvalue.String(inbound["tls"])},
+		{"type", jsonvalue.String(inbound["network"])},
+		{"headerType", jsonvalue.FirstNonEmpty(inbound["header_type"], "none")},
 	}
-	tls := stringValue(inbound["tls"])
-	netValue := stringValue(inbound["network"])
+	tls := jsonvalue.String(inbound["tls"])
+	netValue := jsonvalue.String(inbound["network"])
 	params = appendNetworkParams(params, netValue, path, inbound)
 	params = appendTLSParams(params, tls, inbound)
 	params = appendMaskParams(params, inbound)
 	params = appendFinalMaskParam(params, inbound)
-	return "trojan://" + percentEncode(stringValue(settings["password"]), "", false) + "@" + address + ":" + portString(inbound["port"]) + "?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
+	return "trojan://" + percentEncode(jsonvalue.String(settings["password"]), "", false) + "@" + address + ":" + portString(inbound["port"]) + "?" + urlencodeOrdered(params) + "#" + percentEncode(remark, "/", false)
 }
 
 func shadowsocksShareLink(remark string, address string, inbound ResolvedInbound, settings map[string]any) string {
 	inboundSettings := mapValue(inbound["settings"])
-	method := firstNonEmptyString(inboundSettings["method"], settings["method"], defaultShadowsocksMethod)
+	method := jsonvalue.FirstNonEmpty(inboundSettings["method"], settings["method"], defaultShadowsocksMethod)
 	settings = RuntimeShadowsocksSettings(settings, inboundSettings)
 	if shadowsocksNeedsV2rayNLink(inbound) {
 		return shadowsocksV2rayNShareLink(remark, address, method, inbound, inboundSettings, settings)
 	}
 	var userInfo string
 	if strings.HasPrefix(method, "2022-") {
-		userInfo = queryEscape(method) + ":" + queryEscape(stringValue(inboundSettings["password"])) + ":" + queryEscape(stringValue(settings["password"]))
+		userInfo = queryEscape(method) + ":" + queryEscape(jsonvalue.String(inboundSettings["password"])) + ":" + queryEscape(jsonvalue.String(settings["password"]))
 	} else {
-		userInfo = base64.RawURLEncoding.EncodeToString([]byte(method + ":" + stringValue(settings["password"])))
+		userInfo = base64.RawURLEncoding.EncodeToString([]byte(method + ":" + jsonvalue.String(settings["password"])))
 	}
 	base := "ss://" + userInfo + "@" + address + ":" + portString(inbound["port"])
-	network := strings.ToLower(firstNonEmptyString(inbound["network"], "tcp"))
-	if (network == "tcp" || network == "raw") && strings.EqualFold(stringValue(inbound["header_type"]), "http") {
+	network := strings.ToLower(jsonvalue.FirstNonEmpty(inbound["network"], "tcp"))
+	if (network == "tcp" || network == "raw") && strings.EqualFold(jsonvalue.String(inbound["header_type"]), "http") {
 		plugin := "obfs-local;obfs=http;obfs-host=" + joinStringList(inbound["host"])
 		// SIP002 requires the slash before a plugin query.
 		base += "/?" + urlencodeOrdered([]queryParam{{"plugin", plugin}})
@@ -1210,18 +1382,18 @@ func shadowsocksShareLink(remark string, address string, inbound ResolvedInbound
 }
 
 func shadowsocksNeedsV2rayNLink(inbound ResolvedInbound) bool {
-	security := strings.ToLower(stringValue(inbound["tls"]))
+	security := strings.ToLower(jsonvalue.String(inbound["tls"]))
 	if security != "" && security != "none" {
 		return true
 	}
 	if len(configLinkFinalMask(inbound)) > 0 {
 		return true
 	}
-	network := strings.ToLower(firstNonEmptyString(inbound["network"], "tcp"))
+	network := strings.ToLower(jsonvalue.FirstNonEmpty(inbound["network"], "tcp"))
 	if network != "tcp" && network != "raw" {
 		return true
 	}
-	header := strings.ToLower(stringValue(inbound["header_type"]))
+	header := strings.ToLower(jsonvalue.String(inbound["header_type"]))
 	return header != "" && header != "none" && header != "http"
 }
 
@@ -1235,11 +1407,11 @@ func shadowsocksClientNetworkSupported(network string) bool {
 }
 
 func shadowsocksV2rayNShareLink(remark, address, method string, inbound ResolvedInbound, inboundSettings, settings map[string]any) string {
-	password := stringValue(settings["password"])
+	password := jsonvalue.String(settings["password"])
 	if strings.HasPrefix(method, "2022-") {
-		password = stringValue(inboundSettings["password"]) + ":" + password
+		password = jsonvalue.String(inboundSettings["password"]) + ":" + password
 	}
-	network := strings.ToLower(firstNonEmptyString(inbound["network"], "tcp"))
+	network := strings.ToLower(jsonvalue.FirstNonEmpty(inbound["network"], "tcp"))
 	switch network {
 	case "tcp":
 		network = "raw"
@@ -1248,9 +1420,9 @@ func shadowsocksV2rayNShareLink(remark, address, method string, inbound Resolved
 	case "splithttp":
 		network = "xhttp"
 	}
-	path := stringValue(inbound["path"])
+	path := jsonvalue.String(inbound["path"])
 	if network == "grpc" {
-		if boolValue(inbound["multiMode"]) {
+		if jsonvalue.Bool(inbound["multiMode"]) {
 			path = grpcMultiPath(path)
 		} else {
 			path = grpcGunPath(path)
@@ -1262,21 +1434,21 @@ func shadowsocksV2rayNShareLink(remark, address, method string, inbound Resolved
 		ConfigVersion:  4,
 		Remarks:        remark,
 		Address:        strings.Trim(address, "[]"),
-		Port:           intValue(inbound["port"]),
+		Port:           jsonvalue.Int(inbound["port"]),
 		Password:       password,
 		Network:        network,
-		StreamSecurity: stringValue(inbound["tls"]),
+		StreamSecurity: jsonvalue.String(inbound["tls"]),
 		SNI:            firstStringList(inbound["sni"]),
 		ALPN:           joinStringList(inbound["alpn"]),
 		Fingerprint:    clientTLSFingerprint(inbound),
-		PublicKey:      firstNonEmptyString(inbound["pbk"], inbound["publicKey"]),
-		ShortID:        firstNonEmptyString(inbound["sid"], firstStringList(inbound["sids"])),
-		SpiderX:        stringValue(inbound["spx"]),
-		MLDSA65Verify:  stringValue(inbound["pqv"]),
-		CipherSuites:   stringValue(inbound["cipherSuites"]),
-		CertSHA:        firstNonEmptyString(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]),
-		ECHConfigList:  firstNonEmptyString(inbound["ech"], inbound["echConfigList"]),
-		VerifyPeerCertByName: firstNonEmptyString(
+		PublicKey:      jsonvalue.FirstNonEmpty(inbound["pbk"], inbound["publicKey"]),
+		ShortID:        jsonvalue.FirstNonEmpty(inbound["sid"], firstStringList(inbound["sids"])),
+		SpiderX:        jsonvalue.String(inbound["spx"]),
+		MLDSA65Verify:  jsonvalue.String(inbound["pqv"]),
+		CipherSuites:   jsonvalue.String(inbound["cipherSuites"]),
+		CertSHA:        jsonvalue.FirstNonEmpty(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]),
+		ECHConfigList:  jsonvalue.FirstNonEmpty(inbound["ech"], inbound["echConfigList"]),
+		VerifyPeerCertByName: jsonvalue.FirstNonEmpty(
 			inbound["vcn"], inbound["verifyPeerCertByName"],
 		),
 		ProtocolExtra: outboundsubapp.V2rayNShadowsocksProtocolExtra{Method: method},
@@ -1292,22 +1464,22 @@ func shadowsocksV2rayNShareLink(remark, address, method string, inbound Resolved
 	}
 	switch network {
 	case "raw":
-		profile.TransportExtra.RawHeaderType = stringValue(inbound["header_type"])
+		profile.TransportExtra.RawHeaderType = jsonvalue.String(inbound["header_type"])
 	case "grpc":
 		profile.TransportExtra.GRPCAuthority = joinStringList(inbound["host"])
 		profile.TransportExtra.GRPCService = path
-		if boolValue(inbound["multiMode"]) {
+		if jsonvalue.Bool(inbound["multiMode"]) {
 			profile.TransportExtra.GRPCMode = "multi"
 		}
 	case "kcp":
-		profile.TransportExtra.KCPHeaderType = stringValue(inbound["header_type"])
-		profile.TransportExtra.KCPSeed = stringValue(inbound["path"])
-		profile.TransportExtra.KCPMTU = intValue(inbound["mtu"])
-		profile.TransportExtra.KCPTTI = intValue(inbound["tti"])
+		profile.TransportExtra.KCPHeaderType = jsonvalue.String(inbound["header_type"])
+		profile.TransportExtra.KCPSeed = jsonvalue.String(inbound["path"])
+		profile.TransportExtra.KCPMTU = jsonvalue.Int(inbound["mtu"])
+		profile.TransportExtra.KCPTTI = jsonvalue.Int(inbound["tti"])
 	case "ws":
-		profile.TransportExtra.Heartbeat = intValue(inbound["heartbeatPeriod"])
+		profile.TransportExtra.Heartbeat = jsonvalue.Int(inbound["heartbeatPeriod"])
 	case "xhttp":
-		profile.TransportExtra.XHTTPMode = stringValue(inbound["mode"])
+		profile.TransportExtra.XHTTPMode = jsonvalue.String(inbound["mode"])
 		if extra := xhttpShareExtraMap(inbound); len(extra) > 0 {
 			encoded, _ := json.Marshal(extra)
 			profile.TransportExtra.XHTTPExtra = string(encoded)
@@ -1318,12 +1490,12 @@ func shadowsocksV2rayNShareLink(remark, address, method string, inbound Resolved
 
 func shadowsocksClientFinalMask(inbound ResolvedInbound) map[string]any {
 	finalMask := configLinkFinalMask(inbound)
-	if len(finalMask) == 0 || !strings.EqualFold(stringValue(inbound["network"]), "kcp") {
+	if len(finalMask) == 0 || !strings.EqualFold(jsonvalue.String(inbound["network"]), "kcp") {
 		return finalMask
 	}
-	udp := listAny(finalMask["udp"])
+	udp := jsonvalue.ListAny(finalMask["udp"])
 	transportIndex := -1
-	header := normalizeShareMKCPHeader(stringValue(inbound["header_type"]))
+	header := normalizeShareMKCPHeader(jsonvalue.String(inbound["header_type"]))
 	headerFound := header == "none" || header == "invalid"
 	for index, item := range udp {
 		transport, role := v2rayMKCPMaskRole(mapValue(item), true)
@@ -1344,13 +1516,13 @@ func shadowsocksClientFinalMask(inbound ResolvedInbound) map[string]any {
 	if transportIndex < 0 {
 		transportIndex = 0
 		if len(udp) > 0 {
-			typeName := strings.ToLower(stringValue(mapValue(udp[0])["type"]))
+			typeName := strings.ToLower(jsonvalue.String(mapValue(udp[0])["type"]))
 			if typeName == "realm" || typeName == "xicmp" {
 				transportIndex = 1
 			}
 		}
 		insert(transportIndex, map[string]any{"type": "mkcp-legacy", "settings": map[string]any{
-			"header": "", "value": stringValue(inbound["path"]),
+			"header": "", "value": jsonvalue.String(inbound["path"]),
 		}})
 	}
 	if !headerFound {
@@ -1365,33 +1537,33 @@ func shadowsocksClientFinalMask(inbound ResolvedInbound) map[string]any {
 }
 
 func hysteriaShareLink(remark string, address string, inbound ResolvedInbound, settings map[string]any) (string, error) {
-	auth := firstNonEmptyString(settings["auth"], settings["password"])
-	if version := intValue(firstNonEmptyValue(inbound["hysteria_version"], settings["version"])); version != 0 && version != 2 {
+	auth := jsonvalue.FirstNonEmpty(settings["auth"], settings["password"])
+	if version := jsonvalue.Int(firstNonEmptyValue(inbound["hysteria_version"], settings["version"])); version != 0 && version != 2 {
 		return "", fmt.Errorf("Hysteria share links require version 2; persisted version %d cannot be converted safely", version)
 	}
-	geckoPacketSize := stringValue(inbound["hysteria_gecko_packet_size"])
+	geckoPacketSize := jsonvalue.String(inbound["hysteria_gecko_packet_size"])
 	if geckoPacketSize != "" && geckoPacketSize != "512-1200" {
 		return "", fmt.Errorf("Hysteria Gecko packet size %q cannot be represented safely in the standard Hysteria 2 URI", geckoPacketSize)
 	}
 	params := make([]queryParam, 0, 12)
 	// fp, alpn, vcn and pcs are Rebecca/Xray TLS extensions, not native
 	// Hysteria 2 URI parameters. Keep them for Xray-aware consumers only.
-	if fp := stringValue(inbound["fp"]); fp != "" {
+	if fp := jsonvalue.String(inbound["fp"]); fp != "" {
 		params = append(params, queryParam{"fp", fp})
 	}
-	if alpn := stringValue(inbound["alpn"]); alpn != "" {
+	if alpn := jsonvalue.String(inbound["alpn"]); alpn != "" {
 		params = append(params, queryParam{"alpn", alpn})
 	}
-	if ech := firstNonEmptyString(inbound["ech"], inbound["echConfigList"]); ech != "" {
+	if ech := jsonvalue.FirstNonEmpty(inbound["ech"], inbound["echConfigList"]); ech != "" {
 		params = append(params, queryParam{"ech", ech})
 	}
-	if sni := firstNonEmptyString(inbound["sni"], inbound["serverName"]); sni != "" {
+	if sni := jsonvalue.FirstNonEmpty(inbound["sni"], inbound["serverName"]); sni != "" {
 		params = append(params, queryParam{"sni", sni})
 	}
-	if vcn := firstNonEmptyString(inbound["vcn"], inbound["verifyPeerCertByName"]); vcn != "" {
+	if vcn := jsonvalue.FirstNonEmpty(inbound["vcn"], inbound["verifyPeerCertByName"]); vcn != "" {
 		params = append(params, queryParam{"vcn", vcn})
 	}
-	if pin := firstNonEmptyString(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]); pin != "" {
+	if pin := jsonvalue.FirstNonEmpty(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]); pin != "" {
 		pins := splitCommaLines(pin)
 		if len(pins) != 1 {
 			return "", fmt.Errorf("standard Hysteria 2 links support exactly one pinSHA256 certificate pin; Xray CSV pins cannot be represented safely")
@@ -1401,18 +1573,18 @@ func hysteriaShareLink(remark string, address string, inbound ResolvedInbound, s
 	if truthy(firstNonEmptyValue(inbound["ais"], inbound["allowinsecure"])) {
 		params = append(params, queryParam{"insecure", 1})
 	}
-	obfs := firstNonEmptyString(inbound["obfs"], inbound["hysteria_obfs"])
+	obfs := jsonvalue.FirstNonEmpty(inbound["obfs"], inbound["hysteria_obfs"])
 	if geckoPacketSize != "" {
 		obfs = "gecko"
 	}
 	if obfs != "" {
 		params = append(params, queryParam{"obfs", obfs})
 	}
-	if obfsPassword := firstNonEmptyString(inbound["obfs-password"], inbound["obfsPassword"], inbound["hysteria_obfs_password"]); obfsPassword != "" {
+	if obfsPassword := jsonvalue.FirstNonEmpty(inbound["obfs-password"], inbound["obfsPassword"], inbound["hysteria_obfs_password"]); obfsPassword != "" {
 		params = append(params, queryParam{"obfs-password", obfsPassword})
 	}
 	authorityPort := portString(inbound["port"])
-	if mport := firstNonEmptyString(inbound["mport"], inbound["hysteria_mport"]); mport != "" {
+	if mport := jsonvalue.FirstNonEmpty(inbound["mport"], inbound["hysteria_mport"]); mport != "" {
 		primaryPort, err := strconv.Atoi(authorityPort)
 		if err != nil || primaryPort < 1 || primaryPort > 65535 {
 			return "", fmt.Errorf("invalid Hysteria 2 primary port %q", authorityPort)
@@ -1421,7 +1593,7 @@ func hysteriaShareLink(remark string, address string, inbound ResolvedInbound, s
 		if !hysteriaPortExpressionContains(mport, primaryPort) {
 			combined = authorityPort + "," + mport
 		}
-		_, expression, err := parseHysteriaPortExpression(combined)
+		_, expression, err := outboundsubapp.ParseHysteria2Ports(combined)
 		if err != nil {
 			return "", err
 		}
@@ -1439,38 +1611,8 @@ func hysteriaShareLink(remark string, address string, inbound ResolvedInbound, s
 }
 
 func sshShareLink(remark string, address string, inbound ResolvedInbound, settings map[string]any) string {
-	userinfo := url.UserPassword(stringValue(settings["username"]), stringValue(settings["password"])).String()
+	userinfo := url.UserPassword(jsonvalue.String(settings["username"]), jsonvalue.String(settings["password"])).String()
 	return "ssh://" + userinfo + "@" + address + ":" + portString(inbound["port"]) + "#" + percentEncode(remark, "/", false)
-}
-
-func parseHysteriaPortExpression(raw string) (int, string, error) {
-	expression := strings.TrimSpace(raw)
-	if expression == "" || strings.ContainsAny(expression, " \t\r\n") {
-		return 0, "", fmt.Errorf("invalid Hysteria 2 port expression %q", raw)
-	}
-	firstPort := 0
-	for _, item := range strings.Split(expression, ",") {
-		if item == "" {
-			return 0, "", fmt.Errorf("invalid Hysteria 2 port expression %q", raw)
-		}
-		fromText, toText, ranged := strings.Cut(item, "-")
-		if ranged && strings.Contains(toText, "-") {
-			return 0, "", fmt.Errorf("invalid Hysteria 2 port range %q", item)
-		}
-		from, fromErr := strconv.Atoi(fromText)
-		to := from
-		toErr := fromErr
-		if ranged {
-			to, toErr = strconv.Atoi(toText)
-		}
-		if fromErr != nil || toErr != nil || from < 1 || from > 65535 || to < from || to > 65535 {
-			return 0, "", fmt.Errorf("invalid Hysteria 2 port item %q", item)
-		}
-		if firstPort == 0 {
-			firstPort = from
-		}
-	}
-	return firstPort, expression, nil
 }
 
 func hysteriaPortExpressionContains(raw string, port int) bool {
@@ -1536,7 +1678,7 @@ func parseHysteria2ShareURL(link string) (*url.URL, error) {
 	if hostOnly == "" {
 		return nil, fmt.Errorf("Hysteria 2 URI host is required")
 	}
-	firstPort, expression, err := parseHysteriaPortExpression(portExpression)
+	firstPort, expression, err := outboundsubapp.ParseHysteria2Ports(portExpression)
 	if err != nil {
 		return nil, err
 	}
@@ -1552,7 +1694,7 @@ func parseHysteria2ShareURL(link string) (*url.URL, error) {
 		hopExpression = expression
 	}
 	if legacy := query.Get("mport"); legacy != "" {
-		_, legacyExpression, legacyErr := parseHysteriaPortExpression(legacy)
+		_, legacyExpression, legacyErr := outboundsubapp.ParseHysteria2Ports(legacy)
 		if legacyErr != nil {
 			return nil, legacyErr
 		}
@@ -1583,12 +1725,12 @@ func vlessFlowAllowed(flow string, encryption string, network string, security s
 }
 
 func appendNetworkParams(params []queryParam, netValue string, path string, inbound ResolvedInbound) []queryParam {
-	host := stringValue(inbound["host"])
+	host := jsonvalue.String(inbound["host"])
 	switch netValue {
 	case "grpc":
 		params = append(params, queryParam{"serviceName", path})
 		params = appendQueryParamIfNotEmpty(params, "authority", host)
-		if boolValue(inbound["multiMode"]) {
+		if jsonvalue.Bool(inbound["multiMode"]) {
 			params = append(params, queryParam{"mode", "multi"})
 		} else {
 			params = append(params, queryParam{"mode", "gun"})
@@ -1625,7 +1767,7 @@ func appendNetworkParams(params []queryParam, netValue string, path string, inbo
 }
 
 func appendQueryParamIfNotEmpty(params []queryParam, key string, value any) []queryParam {
-	if stringValue(value) == "" {
+	if jsonvalue.String(value) == "" {
 		return params
 	}
 	return append(params, queryParam{key, value})
@@ -1634,20 +1776,20 @@ func appendQueryParamIfNotEmpty(params []queryParam, key string, value any) []qu
 func appendTLSParams(params []queryParam, tls string, inbound ResolvedInbound) []queryParam {
 	switch tls {
 	case "tls":
-		params = append(params, queryParam{"sni", stringValue(inbound["sni"])}, queryParam{"fp", clientTLSFingerprint(inbound)})
-		if cipherSuites := stringValue(inbound["cipherSuites"]); cipherSuites != "" {
+		params = append(params, queryParam{"sni", jsonvalue.String(inbound["sni"])}, queryParam{"fp", clientTLSFingerprint(inbound)})
+		if cipherSuites := jsonvalue.String(inbound["cipherSuites"]); cipherSuites != "" {
 			params = append(params, queryParam{"cs", cipherSuites})
 		}
-		if alpn := stringValue(inbound["alpn"]); alpn != "" {
+		if alpn := jsonvalue.String(inbound["alpn"]); alpn != "" {
 			params = append(params, queryParam{"alpn", alpn})
 		}
-		if ech := firstNonEmptyString(inbound["ech"], inbound["echConfigList"]); ech != "" {
+		if ech := jsonvalue.FirstNonEmpty(inbound["ech"], inbound["echConfigList"]); ech != "" {
 			params = append(params, queryParam{"ech", ech})
 		}
-		if vcn := firstNonEmptyString(inbound["vcn"], inbound["verifyPeerCertByName"]); vcn != "" {
+		if vcn := jsonvalue.FirstNonEmpty(inbound["vcn"], inbound["verifyPeerCertByName"]); vcn != "" {
 			params = append(params, queryParam{"vcn", vcn})
 		}
-		if pin := firstNonEmptyString(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]); pin != "" {
+		if pin := jsonvalue.FirstNonEmpty(inbound["pinSHA256"], inbound["pinnedPeerCertSha256"]); pin != "" {
 			params = append(params, queryParam{"pcs", pin})
 		}
 		if truthy(inbound["ais"]) {
@@ -1655,15 +1797,15 @@ func appendTLSParams(params []queryParam, tls string, inbound ResolvedInbound) [
 		}
 	case "reality":
 		params = append(params,
-			queryParam{"sni", stringValue(inbound["sni"])},
-			queryParam{"fp", stringValue(inbound["fp"])},
-			queryParam{"pbk", stringValue(inbound["pbk"])},
-			queryParam{"sid", stringValue(inbound["sid"])},
+			queryParam{"sni", jsonvalue.String(inbound["sni"])},
+			queryParam{"fp", jsonvalue.String(inbound["fp"])},
+			queryParam{"pbk", jsonvalue.String(inbound["pbk"])},
+			queryParam{"sid", jsonvalue.String(inbound["sid"])},
 		)
-		if spx := stringValue(inbound["spx"]); spx != "" {
+		if spx := jsonvalue.String(inbound["spx"]); spx != "" {
 			params = append(params, queryParam{"spx", spx})
 		}
-		if pqv := stringValue(inbound["pqv"]); pqv != "" {
+		if pqv := jsonvalue.String(inbound["pqv"]); pqv != "" {
 			params = append(params, queryParam{"pqv", pqv})
 		}
 	}
@@ -1671,17 +1813,17 @@ func appendTLSParams(params []queryParam, tls string, inbound ResolvedInbound) [
 }
 
 func clientTLSFingerprint(inbound ResolvedInbound) string {
-	if stringValue(inbound["cipherSuites"]) != "" {
+	if jsonvalue.String(inbound["cipherSuites"]) != "" {
 		return "unsafe"
 	}
-	return stringValue(inbound["fp"])
+	return jsonvalue.String(inbound["fp"])
 }
 
 func appendMaskParams(params []queryParam, inbound ResolvedInbound) []queryParam {
-	if fs := stringValue(inbound["fragment_setting"]); fs != "" {
+	if fs := jsonvalue.String(inbound["fragment_setting"]); fs != "" {
 		params = append(params, queryParam{"fragment", fs})
 	}
-	if ns := stringValue(inbound["noise_setting"]); ns != "" {
+	if ns := jsonvalue.String(inbound["noise_setting"]); ns != "" {
 		params = append(params, queryParam{"noise", ns})
 	}
 	return params
@@ -1700,9 +1842,9 @@ func appendFinalMaskParam(params []queryParam, inbound ResolvedInbound) []queryP
 }
 
 func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
-	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	resolved := ResolvedInbound{
-		"tag":         stringValue(inbound["tag"]),
+		"tag":         jsonvalue.String(inbound["tag"]),
 		"protocol":    protocol,
 		"port":        inbound["port"],
 		"network":     "tcp",
@@ -1720,11 +1862,11 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		resolved["settings"] = settings
 	}
 	if protocol == "vless" {
-		if encryption := stringValue(settings["encryption"]); encryption != "" {
+		if encryption := jsonvalue.String(settings["encryption"]); encryption != "" {
 			resolved["encryption"] = encryption
 		}
 		if value, configured := settings["flow"]; configured {
-			resolved["flow"] = stringValue(value)
+			resolved["flow"] = jsonvalue.String(value)
 		} else {
 			delete(resolved, "flow")
 		}
@@ -1746,10 +1888,10 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 	if finalMask := mapValue(stream["finalmask"]); len(finalMask) > 0 {
 		resolved["finalmask"] = finalMask
 	}
-	if network := normalizeNetwork(stringValue(stream["network"])); network != "" {
+	if network := normalizeNetwork(jsonvalue.String(stream["network"])); network != "" {
 		resolved["network"] = network
 	}
-	security := strings.ToLower(stringValue(stream["security"]))
+	security := strings.ToLower(jsonvalue.String(stream["security"]))
 	if security == "tls" || security == "reality" {
 		resolved["tls"] = security
 	}
@@ -1757,45 +1899,45 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 	if security == "tls" {
 		tlsSettings := mapValue(stream["tlsSettings"])
 		tlsMeta := mapValue(tlsSettings["settings"])
-		resolved["sni"] = nonEmptyStrings(firstNonEmptyString(tlsSettings["serverName"], tlsSettings["sni"], tlsMeta["serverName"], tlsMeta["sni"]))
-		if cipherSuites := firstNonEmptyString(tlsSettings["cipherSuites"], tlsMeta["cipherSuites"]); cipherSuites != "" {
+		resolved["sni"] = jsonvalue.NonEmptyStrings(jsonvalue.FirstNonEmpty(tlsSettings["serverName"], tlsSettings["sni"], tlsMeta["serverName"], tlsMeta["sni"]))
+		if cipherSuites := jsonvalue.FirstNonEmpty(tlsSettings["cipherSuites"], tlsMeta["cipherSuites"]); cipherSuites != "" {
 			resolved["cipherSuites"] = cipherSuites
 		}
-		if fp := firstNonEmptyString(tlsMeta["fingerprint"], tlsSettings["fingerprint"]); fp != "" {
+		if fp := jsonvalue.FirstNonEmpty(tlsMeta["fingerprint"], tlsSettings["fingerprint"]); fp != "" {
 			resolved["fp"] = fp
 		}
-		if alpn := firstNonEmptyString(joinStringList(tlsSettings["alpn"]), joinStringList(tlsMeta["alpn"])); alpn != "" {
+		if alpn := jsonvalue.FirstNonEmpty(joinStringList(tlsSettings["alpn"]), joinStringList(tlsMeta["alpn"])); alpn != "" {
 			resolved["alpn"] = alpn
 		}
-		if ech := firstNonEmptyString(tlsMeta["echConfigList"], tlsSettings["echConfigList"]); ech != "" {
+		if ech := jsonvalue.FirstNonEmpty(tlsMeta["echConfigList"], tlsSettings["echConfigList"]); ech != "" {
 			resolved["ech"] = ech
 			resolved["echConfigList"] = ech
 		}
-		if vcn := firstNonEmptyString(tlsMeta["verifyPeerCertByName"], tlsSettings["verifyPeerCertByName"]); vcn != "" {
+		if vcn := jsonvalue.FirstNonEmpty(tlsMeta["verifyPeerCertByName"], tlsSettings["verifyPeerCertByName"]); vcn != "" {
 			resolved["vcn"] = vcn
 			resolved["verifyPeerCertByName"] = vcn
 		}
-		if pin := firstNonEmptyString(joinStringList(tlsMeta["pinnedPeerCertSha256"]), joinStringList(tlsSettings["pinnedPeerCertSha256"]), tlsMeta["pinnedPeerCertSha256"], tlsSettings["pinnedPeerCertSha256"]); pin != "" {
+		if pin := jsonvalue.FirstNonEmpty(joinStringList(tlsMeta["pinnedPeerCertSha256"]), joinStringList(tlsSettings["pinnedPeerCertSha256"]), tlsMeta["pinnedPeerCertSha256"], tlsSettings["pinnedPeerCertSha256"]); pin != "" {
 			resolved["pinSHA256"] = pin
 			resolved["pinnedPeerCertSha256"] = pin
 		}
 		if value, ok := firstPresent(tlsMeta, tlsSettings, "allowInsecure"); ok {
 			resolved["ais"] = value
-			resolved["allowinsecure"] = boolValue(value)
+			resolved["allowinsecure"] = jsonvalue.Bool(value)
 		}
 	}
 	if security == "reality" {
 		realitySettings := mapValue(stream["realitySettings"])
 		realityMeta := mapValue(realitySettings["settings"])
-		resolved["fp"] = firstNonEmptyString(realityMeta["fingerprint"], realitySettings["fingerprint"], "chrome")
+		resolved["fp"] = jsonvalue.FirstNonEmpty(realityMeta["fingerprint"], realitySettings["fingerprint"], "chrome")
 		sni := stringList(realitySettings["serverNames"])
 		if len(sni) == 0 {
-			sni = nonEmptyStrings(firstNonEmptyString(realityMeta["serverName"], realitySettings["serverName"], realityMeta["sni"], realitySettings["sni"]))
+			sni = jsonvalue.NonEmptyStrings(jsonvalue.FirstNonEmpty(realityMeta["serverName"], realitySettings["serverName"], realityMeta["sni"], realitySettings["sni"]))
 		}
 		resolved["sni"] = sni
-		pbk := firstNonEmptyString(realityMeta["publicKey"], realitySettings["publicKey"], realityMeta["public_key"], realitySettings["public_key"])
+		pbk := jsonvalue.FirstNonEmpty(realityMeta["publicKey"], realitySettings["publicKey"], realityMeta["public_key"], realitySettings["public_key"])
 		if pbk == "" {
-			if derived, err := xrayconfig.DeriveRealityPublicKey(firstNonEmptyString(realitySettings["privateKey"], realityMeta["privateKey"])); err == nil {
+			if derived, err := xrayconfig.DeriveRealityPublicKey(jsonvalue.FirstNonEmpty(realitySettings["privateKey"], realityMeta["privateKey"])); err == nil {
 				pbk = derived
 			}
 		}
@@ -1814,60 +1956,60 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		if len(sids) > 0 {
 			resolved["sid"] = sids[0]
 		}
-		resolved["spx"] = firstNonEmptyString(realityMeta["spiderX"], realitySettings["SpiderX"], realitySettings["spiderX"])
-		resolved["pqv"] = firstNonEmptyString(realityMeta["mldsa65Verify"], realitySettings["mldsa65Verify"])
+		resolved["spx"] = jsonvalue.FirstNonEmpty(realityMeta["spiderX"], realitySettings["SpiderX"], realitySettings["spiderX"])
+		resolved["pqv"] = jsonvalue.FirstNonEmpty(realityMeta["mldsa65Verify"], realitySettings["mldsa65Verify"])
 	}
 
-	network := stringValue(resolved["network"])
-	networkSettings := mapValue(stream[networkSettingsKey(network)])
+	network := jsonvalue.String(resolved["network"])
+	networkSettings := mapValue(stream[xrayconfig.NetworkSettingsKey(network)])
 	switch network {
 	case "hysteria":
 		hysteriaSettings := mapValue(stream["hysteriaSettings"])
-		if version := intValue(firstNonEmptyValue(settings["version"], hysteriaSettings["version"])); version > 0 {
+		if version := jsonvalue.Int(firstNonEmptyValue(settings["version"], hysteriaSettings["version"])); version > 0 {
 			resolved["hysteria_version"] = version
 		}
-		if auth := stringValue(hysteriaSettings["auth"]); auth != "" {
+		if auth := jsonvalue.String(hysteriaSettings["auth"]); auth != "" {
 			resolved["hysteria_auth"] = auth
 		}
-		if timeout := intValue(hysteriaSettings["udpIdleTimeout"]); timeout > 0 {
+		if timeout := jsonvalue.Int(hysteriaSettings["udpIdleTimeout"]); timeout > 0 {
 			resolved["hysteria_udp_idle_timeout"] = timeout
 		}
 		applyHysteriaFinalMaskShareFields(resolved)
 	case "tcp", "raw":
 		header := mapValue(networkSettings["header"])
-		resolved["header_type"] = stringValue(header["type"])
+		resolved["header_type"] = jsonvalue.String(header["type"])
 		request := mapValue(header["request"])
 		resolved["path"] = firstStringList(request["path"])
 		headers := mapValue(request["headers"])
 		resolved["host"] = stringList(headers["Host"])
 	case "ws":
-		resolved["path"] = stringValue(networkSettings["path"])
-		host := firstNonEmptyString(networkSettings["host"])
+		resolved["path"] = jsonvalue.String(networkSettings["path"])
+		host := jsonvalue.FirstNonEmpty(networkSettings["host"])
 		headers := mapValue(networkSettings["headers"])
 		if host == "" {
 			host = firstStringList(headers["Host"])
 		}
-		resolved["host"] = nonEmptyStrings(host)
+		resolved["host"] = jsonvalue.NonEmptyStrings(host)
 		copyOptional(resolved, "heartbeatPeriod", networkSettings)
 	case "grpc", "gun":
-		resolved["path"] = stringValue(networkSettings["serviceName"])
-		resolved["host"] = nonEmptyStrings(stringValue(networkSettings["authority"]))
+		resolved["path"] = jsonvalue.String(networkSettings["serviceName"])
+		resolved["host"] = jsonvalue.NonEmptyStrings(jsonvalue.String(networkSettings["authority"]))
 		copyOptional(resolved, "multiMode", networkSettings)
 	case "quic":
 		header := mapValue(networkSettings["header"])
-		resolved["header_type"] = stringValue(header["type"])
-		resolved["path"] = stringValue(networkSettings["key"])
-		resolved["host"] = nonEmptyStrings(stringValue(networkSettings["security"]))
+		resolved["header_type"] = jsonvalue.String(header["type"])
+		resolved["path"] = jsonvalue.String(networkSettings["key"])
+		resolved["host"] = jsonvalue.NonEmptyStrings(jsonvalue.String(networkSettings["security"]))
 	case "httpupgrade":
-		resolved["path"] = stringValue(networkSettings["path"])
+		resolved["path"] = jsonvalue.String(networkSettings["path"])
 		resolved["host"] = stringList(networkSettings["host"])
 	case "splithttp", "xhttp":
-		resolved["path"] = stringValue(networkSettings["path"])
-		host := firstNonEmptyString(networkSettings["host"])
+		resolved["path"] = jsonvalue.String(networkSettings["path"])
+		host := jsonvalue.FirstNonEmpty(networkSettings["host"])
 		if host == "" {
 			host = xhttpHostHeader(networkSettings["headers"])
 		}
-		resolved["host"] = nonEmptyStrings(host)
+		resolved["host"] = jsonvalue.NonEmptyStrings(host)
 		copyOptional(resolved, "scMaxEachPostBytes", networkSettings)
 		copyOptional(resolved, "scMaxConcurrentPosts", networkSettings)
 		copyOptional(resolved, "scMinPostsIntervalMs", networkSettings)
@@ -1878,10 +2020,10 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		copyOptional(resolved, "xPaddingPlacement", networkSettings)
 		copyOptional(resolved, "xPaddingMethod", networkSettings)
 		copyOptional(resolved, "uplinkHTTPMethod", networkSettings)
-		copyOptionalAlias(resolved, "sessionIDPlacement", networkSettings, "sessionPlacement")
-		copyOptionalAlias(resolved, "sessionIDKey", networkSettings, "sessionKey")
-		copyOptionalAlias(resolved, "sessionIDTable", networkSettings, "sessionTable")
-		copyOptionalAlias(resolved, "sessionIDLength", networkSettings, "sessionLength")
+		jsonvalue.CopyOptional(resolved, "sessionIDPlacement", networkSettings, "sessionPlacement")
+		jsonvalue.CopyOptional(resolved, "sessionIDKey", networkSettings, "sessionKey")
+		jsonvalue.CopyOptional(resolved, "sessionIDTable", networkSettings, "sessionTable")
+		jsonvalue.CopyOptional(resolved, "sessionIDLength", networkSettings, "sessionLength")
 		copyOptional(resolved, "headers", networkSettings)
 		copyOptional(resolved, "downloadSettings", networkSettings)
 		copyOptional(resolved, "seqPlacement", networkSettings)
@@ -1895,13 +2037,13 @@ func resolveInbound(inbound map[string]any) (ResolvedInbound, error) {
 		copyOptional(resolved, "keepAlivePeriod", networkSettings)
 	case "kcp":
 		header := mapValue(networkSettings["header"])
-		resolved["header_type"] = stringValue(header["type"])
-		resolved["path"] = stringValue(networkSettings["seed"])
-		resolved["host"] = nonEmptyStrings(stringValue(header["domain"]))
+		resolved["header_type"] = jsonvalue.String(header["type"])
+		resolved["path"] = jsonvalue.String(networkSettings["seed"])
+		resolved["host"] = jsonvalue.NonEmptyStrings(jsonvalue.String(header["domain"]))
 		copyOptional(resolved, "mtu", networkSettings)
 		copyOptional(resolved, "tti", networkSettings)
 	case "http", "h2", "h3":
-		resolved["path"] = stringValue(networkSettings["path"])
+		resolved["path"] = jsonvalue.String(networkSettings["path"])
 		resolved["host"] = stringList(networkSettings["host"])
 	}
 	return resolved, nil
@@ -1912,23 +2054,23 @@ func applyHysteriaFinalMaskShareFields(resolved ResolvedInbound) {
 		delete(resolved, key)
 	}
 	finalMask := mapValue(resolved["finalmask"])
-	for _, item := range listAny(finalMask["udp"]) {
+	for _, item := range jsonvalue.ListAny(finalMask["udp"]) {
 		mask := mapValue(item)
-		if !strings.EqualFold(stringValue(mask["type"]), "salamander") {
+		if !strings.EqualFold(jsonvalue.String(mask["type"]), "salamander") {
 			continue
 		}
 		settings := mapValue(mask["settings"])
-		if password := stringValue(settings["password"]); password != "" {
+		if password := jsonvalue.String(settings["password"]); password != "" {
 			resolved["obfs"] = "salamander"
 			resolved["obfs-password"] = password
-			if packetSize := stringValue(settings["packetSize"]); packetSize != "" {
+			if packetSize := jsonvalue.String(settings["packetSize"]); packetSize != "" {
 				resolved["obfs"] = "gecko"
 				resolved["hysteria_gecko_packet_size"] = packetSize
 			}
 		}
 		break
 	}
-	if ports := stringValue(mapValue(mapValue(finalMask["quicParams"])["udpHop"])["ports"]); ports != "" {
+	if ports := jsonvalue.String(mapValue(mapValue(finalMask["quicParams"])["udpHop"])["ports"]); ports != "" {
 		resolved["mport"] = ports
 	}
 }
@@ -1961,21 +2103,6 @@ func normalizeNetwork(value string) string {
 		return "tcp"
 	}
 	return cleaned
-}
-
-func networkSettingsKey(network string) string {
-	switch network {
-	case "raw":
-		return "rawSettings"
-	case "gun":
-		return "grpcSettings"
-	case "h2":
-		return "h2Settings"
-	case "h3":
-		return "h3Settings"
-	default:
-		return network + "Settings"
-	}
 }
 
 func grpcGunPath(path string) string {
@@ -2058,7 +2185,7 @@ func stringList(value any) []string {
 	case []any:
 		result := make([]string, 0, len(typed))
 		for _, item := range typed {
-			if text := stringValue(item); text != "" {
+			if text := jsonvalue.String(item); text != "" {
 				result = append(result, text)
 			}
 		}
@@ -2076,22 +2203,12 @@ func stringList(value any) []string {
 		}
 		return result
 	default:
-		text := stringValue(value)
+		text := jsonvalue.String(value)
 		if text == "" {
 			return nil
 		}
 		return []string{text}
 	}
-}
-
-func nonEmptyStrings(values ...string) []string {
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		if value != "" {
-			result = append(result, value)
-		}
-	}
-	return result
 }
 
 func firstStringList(value any) string {
@@ -2227,15 +2344,6 @@ func randomHostOptionIndex(length int) int {
 	return int(time.Now().UnixNano() % int64(length))
 }
 
-func firstNonEmptyString(values ...any) string {
-	for _, value := range values {
-		if text := stringValue(value); text != "" {
-			return text
-		}
-	}
-	return ""
-}
-
 func firstPresent(primary map[string]any, secondary map[string]any, key string) (any, bool) {
 	if primary != nil {
 		if value, ok := primary[key]; ok {
@@ -2248,73 +2356,6 @@ func firstPresent(primary map[string]any, secondary map[string]any, key string) 
 		}
 	}
 	return nil, false
-}
-
-func stringValue(value any) string {
-	switch typed := value.(type) {
-	case nil:
-		return ""
-	case string:
-		return strings.TrimSpace(typed)
-	case []byte:
-		return strings.TrimSpace(string(typed))
-	case fmt.Stringer:
-		return strings.TrimSpace(typed.String())
-	case int:
-		return strconv.Itoa(typed)
-	case int64:
-		return strconv.FormatInt(typed, 10)
-	case int32:
-		return strconv.FormatInt(int64(typed), 10)
-	case float64:
-		if float64(int64(typed)) == typed {
-			return strconv.FormatInt(int64(typed), 10)
-		}
-		return strconv.FormatFloat(typed, 'f', -1, 64)
-	case float32:
-		return strconv.FormatFloat(float64(typed), 'f', -1, 32)
-	case bool:
-		if typed {
-			return "true"
-		}
-		return "false"
-	default:
-		return strings.TrimSpace(fmt.Sprint(typed))
-	}
-}
-
-func boolValue(value any) bool {
-	switch typed := value.(type) {
-	case bool:
-		return typed
-	case string:
-		cleaned := strings.ToLower(strings.TrimSpace(typed))
-		return cleaned == "true" || cleaned == "1" || cleaned == "yes"
-	case int:
-		return typed != 0
-	case int64:
-		return typed != 0
-	case float64:
-		return typed != 0
-	default:
-		return false
-	}
-}
-
-func intValue(value any) int {
-	switch typed := value.(type) {
-	case int:
-		return typed
-	case int64:
-		return int(typed)
-	case float64:
-		return int(typed)
-	case string:
-		parsed, _ := strconv.Atoi(strings.TrimSpace(typed))
-		return parsed
-	default:
-		return 0
-	}
 }
 
 func truthy(value any) bool {
@@ -2337,25 +2378,12 @@ func truthy(value any) bool {
 }
 
 func portString(value any) string {
-	return stringValue(value)
+	return jsonvalue.String(value)
 }
 
 func copyOptional(target map[string]any, key string, source map[string]any) {
 	if value, ok := source[key]; ok {
 		target[key] = value
-	}
-}
-
-func copyOptionalAlias(target map[string]any, key string, source map[string]any, aliases ...string) {
-	if value, ok := source[key]; ok {
-		target[key] = value
-		return
-	}
-	for _, alias := range aliases {
-		if value, ok := source[alias]; ok {
-			target[key] = value
-			return
-		}
 	}
 }
 
@@ -2376,7 +2404,7 @@ func xhttpShareExtraParams(inbound map[string]any) []queryParam {
 	} {
 		params = appendOptionalParam(params, key, inbound)
 	}
-	if headers := xhttpShareHeaders(inbound["headers"]); len(headers) > 0 {
+	if headers := outboundsubapp.XHTTPHeadersWithoutHost(inbound["headers"]); len(headers) > 0 {
 		params = append(params, queryParam{"headers", headers})
 	}
 	if download := xhttpShareDownloadSettings(inbound["downloadSettings"]); len(download) > 0 {
@@ -2389,25 +2417,6 @@ func xhttpShareExtraMap(inbound map[string]any) map[string]any {
 	result := map[string]any{}
 	for _, item := range xhttpShareExtraParams(inbound) {
 		result[item.key] = item.value
-	}
-	return result
-}
-
-func xhttpShareHeaders(value any) map[string]any {
-	result := map[string]any{}
-	switch headers := value.(type) {
-	case map[string]any:
-		for name, headerValue := range headers {
-			if !strings.EqualFold(strings.TrimSpace(name), "Host") {
-				result[name] = headerValue
-			}
-		}
-	case map[string]string:
-		for name, headerValue := range headers {
-			if !strings.EqualFold(strings.TrimSpace(name), "Host") {
-				result[name] = headerValue
-			}
-		}
 	}
 	return result
 }
@@ -2430,7 +2439,7 @@ func xhttpShareDownloadSettings(value any) map[string]any {
 		for nestedKey, setting := range nested {
 			filtered[nestedKey] = setting
 		}
-		if headers := xhttpShareHeaders(nested["headers"]); len(headers) > 0 {
+		if headers := outboundsubapp.XHTTPHeadersWithoutHost(nested["headers"]); len(headers) > 0 {
 			filtered["headers"] = headers
 		} else {
 			delete(filtered, "headers")
@@ -2528,7 +2537,7 @@ func pythonStringValue(value any) string {
 	case map[string]any:
 		return pythonJSONDumpsSorted(typed)
 	default:
-		return stringValue(value)
+		return jsonvalue.String(value)
 	}
 }
 
@@ -2638,7 +2647,7 @@ func pythonJSONDumpsValue(value any, sortKeys bool) string {
 		}
 		return "{" + strings.Join(parts, ", ") + "}"
 	default:
-		return strconv.QuoteToASCII(stringValue(typed))
+		return strconv.QuoteToASCII(jsonvalue.String(typed))
 	}
 }
 

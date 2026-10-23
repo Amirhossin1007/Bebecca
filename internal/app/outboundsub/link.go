@@ -404,7 +404,7 @@ func parseVmess(link string) (*ParseResult, error) {
 
 	if security == "tls" {
 		pin := firstNonEmpty(getString(j, "pcs", ""), firstNonEmpty(getString(j, "pinSHA256", ""), getString(j, "pinnedPeerCertSha256", "")))
-		if pin != "" && !validXrayCertificatePin(pin) {
+		if pin != "" && !ValidXrayCertificatePin(pin) {
 			return nil, fmt.Errorf("Xray certificate pins must be comma-separated 32-byte SHA-256 values encoded as 64 hexadecimal characters")
 		}
 		peerName := firstNonEmpty(getString(j, "vcn", ""), getString(j, "verifyPeerCertByName", ""))
@@ -543,7 +543,7 @@ func parseTrojan(link string) (*ParseResult, error) {
 	if u.Scheme != "trojan" {
 		return nil, fmt.Errorf("not trojan")
 	}
-	pw := decodedURLUserInfo(u.User)
+	pw := DecodedURLUserInfo(u.User)
 	host := u.Hostname()
 	if pw == "" || strings.TrimSpace(host) == "" {
 		return nil, fmt.Errorf("trojan requires a non-empty password and host")
@@ -733,7 +733,7 @@ func parseHysteria2(link string) (*ParseResult, error) {
 	if u.Scheme != "hysteria2" && u.Scheme != "hy2" {
 		return nil, fmt.Errorf("only Hysteria 2 links are supported")
 	}
-	auth := decodedURLUserInfo(u.User)
+	auth := DecodedURLUserInfo(u.User)
 	host := u.Hostname()
 	port := defaultPort(u.Port(), 443)
 	params := u.Query()
@@ -800,7 +800,7 @@ func parseHysteria2(link string) (*ParseResult, error) {
 	return &ParseResult{Outbound: ob, Identity: identity}, nil
 }
 
-func decodedURLUserInfo(user *url.Userinfo) string {
+func DecodedURLUserInfo(user *url.Userinfo) string {
 	if user == nil {
 		return ""
 	}
@@ -858,7 +858,7 @@ func parseHysteria2URL(link string) (*url.URL, error) {
 	if hostOnly == "" {
 		return nil, fmt.Errorf("Hysteria 2 URI host is required")
 	}
-	firstPort, expression, err := parseHysteria2Ports(portExpression)
+	firstPort, expression, err := ParseHysteria2Ports(portExpression)
 	if err != nil {
 		return nil, err
 	}
@@ -874,7 +874,7 @@ func parseHysteria2URL(link string) (*url.URL, error) {
 		hopExpression = expression
 	}
 	if legacy := query.Get("mport"); legacy != "" {
-		_, legacyExpression, legacyErr := parseHysteria2Ports(legacy)
+		_, legacyExpression, legacyErr := ParseHysteria2Ports(legacy)
 		if legacyErr != nil {
 			return nil, legacyErr
 		}
@@ -892,7 +892,7 @@ func parseHysteria2URL(link string) (*url.URL, error) {
 	return parsed, nil
 }
 
-func parseHysteria2Ports(raw string) (int, string, error) {
+func ParseHysteria2Ports(raw string) (int, string, error) {
 	expression := strings.TrimSpace(raw)
 	if expression == "" || strings.ContainsAny(expression, " \t\r\n") {
 		return 0, "", fmt.Errorf("invalid Hysteria 2 port expression %q", raw)
@@ -1152,7 +1152,7 @@ func applySecurity(stream map[string]any, p url.Values) {
 
 func requireXrayCertificatePin(params url.Values) error {
 	pin := firstNonEmpty(params.Get("pcs"), params.Get("pinSHA256"))
-	if pin != "" && !validXrayCertificatePin(pin) {
+	if pin != "" && !ValidXrayCertificatePin(pin) {
 		return fmt.Errorf("Xray certificate pins must be comma-separated 32-byte SHA-256 values encoded as 64 hexadecimal characters")
 	}
 	peerName := firstNonEmpty(params.Get("vcn"), params.Get("verifyPeerCertByName"))
@@ -1198,7 +1198,7 @@ func validateMKCPValue(field string, value any, minimum, maximum int64) error {
 	return nil
 }
 
-func validXrayCertificatePin(raw string) bool {
+func ValidXrayCertificatePin(raw string) bool {
 	parts := strings.Split(raw, ",")
 	if len(parts) == 0 || strings.TrimSpace(raw) == "" {
 		return false
@@ -1280,7 +1280,7 @@ func applyXHTTPExtra(settings map[string]any, extra map[string]any) {
 			settings[key] = value
 		}
 	}
-	if headers := xhttpHeadersWithoutHost(extra["headers"]); len(headers) > 0 {
+	if headers := XHTTPHeadersWithoutHost(extra["headers"]); len(headers) > 0 {
 		settings["headers"] = headers
 	}
 	for current, legacy := range map[string]string{
@@ -1298,7 +1298,7 @@ func applyXHTTPExtra(settings map[string]any, extra map[string]any) {
 	}
 }
 
-func xhttpHeadersWithoutHost(value any) map[string]any {
+func XHTTPHeadersWithoutHost(value any) map[string]any {
 	result := map[string]any{}
 	switch headers := value.(type) {
 	case map[string]any:

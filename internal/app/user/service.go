@@ -341,6 +341,7 @@ func normalizeUserNumericStringFields(raw []byte, fields map[string]json.RawMess
 		"data_limit",
 		"on_hold_expire_duration",
 		"ip_limit",
+		"speed_limit_kbps",
 		"auto_delete_in_days",
 	} {
 		value, ok := fields[key]

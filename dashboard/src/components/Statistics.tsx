@@ -1,36 +1,12 @@
-import {
-	Box,
-	type BoxProps,
-	Button,
-	Flex,
-	HStack,
-	Modal,
-	ModalBody,
-	ModalCloseButton,
-	ModalContent,
-	ModalHeader,
-	ModalOverlay,
-	Progress,
-	SimpleGrid,
-	Spinner,
-	Stack,
-	Text,
-	useColorMode,
-	useColorModeValue,
-	VStack,
-} from "@chakra-ui/react";
-import {
-	ArrowDownTrayIcon,
-	ArrowUpTrayIcon,
-	ChartBarIcon,
-	CircleStackIcon,
-	ClockIcon,
-	CpuChipIcon,
-	ServerStackIcon,
-	ShieldCheckIcon,
-	SignalIcon,
-	UserGroupIcon,
-} from "@heroicons/react/24/outline";
+import { Dialog, DialogContent, DialogHeader } from "components/ui/dialog";
+import { Button } from "components/ui/button";
+import { Spinner } from "components/ui/spinner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Download, Upload, Database, Clock, Cpu, Server, ShieldCheck, Signal, Users } from "lucide-react";
+import { useColorMode } from "lib/color-mode";
+
+import type { ComponentPropsWithoutRef } from "react";
+import { cn } from "lib/cn";
 import type { ApexOptions } from "apexcharts";
 import { useDashboard } from "contexts/DashboardContext";
 import { AnimatePresence, motion } from "framer-motion";
@@ -38,7 +14,7 @@ import useGetUser from "hooks/useGetUser";
 import type { TFunction } from "i18next";
 import {
 	type FC,
-	type MouseEvent as ReactMouseEvent,
+	lazy,
 	type ReactNode,
 	Suspense,
 	useEffect,
@@ -47,7 +23,7 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { useQuery, useQueryClient } from "react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetch, reportAPIError, useAPIRequestErrors } from "service/http";
 import { AdminRole } from "types/Admin";
 import type { SystemStats } from "types/System";
@@ -59,9 +35,9 @@ import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 import { SystemDiagnostics, useSystemDiagnostics } from "./SystemDiagnostics";
 
-export const StatisticsQueryKey = "statistics-query-key";
+export const StatisticsQueryKey = ["statistics-query-key"] as const;
 
-import HistoryChart from "react-apexcharts";
+const HistoryChart = lazy(() => import("react-apexcharts"));
 
 type MaintenanceInfo = {
 	panel?: {
@@ -100,77 +76,37 @@ const formatDurationText = (seconds: number, t: TFunction): string => {
 	};
 
 	if (days > 0) {
-		const parts: string[] = [
-			formatUnit(
-				days,
-				"dashboard.system.durationDay",
-				"dashboard.system.durationDays",
-			),
-		];
+		const parts: string[] = [formatUnit(days, "dashboard.system.durationDay", "dashboard.system.durationDays")];
 		if (hours > 0) {
-			parts.push(
-				formatUnit(
-					hours,
-					"dashboard.system.durationHour",
-					"dashboard.system.durationHours",
-				),
-			);
+			parts.push(formatUnit(hours, "dashboard.system.durationHour", "dashboard.system.durationHours"));
 		}
 		if (minutes > 0) {
-			parts.push(
-				formatUnit(
-					minutes,
-					"dashboard.system.durationMinute",
-					"dashboard.system.durationMinutes",
-				),
-			);
+			parts.push(formatUnit(minutes, "dashboard.system.durationMinute", "dashboard.system.durationMinutes"));
 		}
 		if (parts.length === 1) return parts[0];
 		if (parts.length === 2) return parts.join(andWord);
-		return (
-			parts.slice(0, -1).join(commaWord) + andWord + parts[parts.length - 1]
-		);
+		return parts.slice(0, -1).join(commaWord) + andWord + parts[parts.length - 1];
 	}
 
 	if (hours > 0) {
-		const hStr = formatUnit(
-			hours,
-			"dashboard.system.durationHour",
-			"dashboard.system.durationHours",
-		);
+		const hStr = formatUnit(hours, "dashboard.system.durationHour", "dashboard.system.durationHours");
 		if (minutes > 0) {
-			const mStr = formatUnit(
-				minutes,
-				"dashboard.system.durationMinute",
-				"dashboard.system.durationMinutes",
-			);
+			const mStr = formatUnit(minutes, "dashboard.system.durationMinute", "dashboard.system.durationMinutes");
 			return `${hStr}${andWord}${mStr}`;
 		}
 		return hStr;
 	}
 
 	if (minutes > 0) {
-		const mStr = formatUnit(
-			minutes,
-			"dashboard.system.durationMinute",
-			"dashboard.system.durationMinutes",
-		);
+		const mStr = formatUnit(minutes, "dashboard.system.durationMinute", "dashboard.system.durationMinutes");
 		if (remSeconds > 0) {
-			const sStr = formatUnit(
-				remSeconds,
-				"dashboard.system.durationSecond",
-				"dashboard.system.durationSeconds",
-			);
+			const sStr = formatUnit(remSeconds, "dashboard.system.durationSecond", "dashboard.system.durationSeconds");
 			return `${mStr}${andWord}${sStr}`;
 		}
 		return mStr;
 	}
 
-	return formatUnit(
-		remSeconds,
-		"dashboard.system.durationSecond",
-		"dashboard.system.durationSeconds",
-	);
+	return formatUnit(remSeconds, "dashboard.system.durationSecond", "dashboard.system.durationSeconds");
 };
 
 const formatLocalizedDuration = (
@@ -180,16 +116,9 @@ const formatLocalizedDuration = (
 ): ReactNode => {
 	const text = formatDurationText(seconds, t);
 	return (
-		<Text
-			fontSize="13px"
-			fontWeight="700"
-			letterSpacing="-0.01em"
-			color="panel.text"
-			dir={isRTL ? "rtl" : "ltr"}
-			sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
-		>
+		<p dir={isRTL ? "rtl" : "ltr"} className="text-[13px] font-bold tracking-[-0.01em] text-panel-text [unicode-bidi:isolate] [font-variant-numeric:tabular-nums]">
 			{text}
-		</Text>
+		</p>
 	);
 };
 
@@ -206,11 +135,6 @@ const useSystemMetricsStream = (enabled = true) => {
 		const connect = () => {
 			ws = new WebSocket(url);
 			ws.onmessage = (event) => {
-				if (
-					typeof document !== "undefined" &&
-					document.visibilityState === "hidden"
-				)
-					return;
 				try {
 					const payload = JSON.parse(event.data);
 					if (payload?.error) {
@@ -218,8 +142,7 @@ const useSystemMetricsStream = (enabled = true) => {
 						return;
 					}
 					const stats = payload?.stats ?? payload;
-					if (!stats || typeof stats !== "object" || !("version" in stats))
-						return;
+					if (!stats || typeof stats !== "object" || !("version" in stats)) return;
 					useAPIRequestErrors.getState().clear("STREAM /system/metrics");
 					queryClient.setQueryData<SystemStats>(StatisticsQueryKey, (current) =>
 						mergeLiveSystemStats(current, stats),
@@ -274,9 +197,7 @@ const safeUsageStats = (value: unknown): SystemStats["memory"] => {
 	};
 };
 
-const sanitizeSystemStats = (
-	value: SystemStats | undefined,
-): SystemStats | null => {
+const sanitizeSystemStats = (value: SystemStats | undefined): SystemStats | null => {
 	if (!value || typeof value !== "object") return null;
 	const raw = value as any;
 	return {
@@ -291,9 +212,7 @@ const sanitizeSystemStats = (
 		online_users: toFiniteNumber(raw.online_users),
 		online_users_usage: toFiniteNumber(raw.online_users_usage),
 		online_users_upload_speed: toFiniteNumber(raw.online_users_upload_speed),
-		online_users_download_speed: toFiniteNumber(
-			raw.online_users_download_speed,
-		),
+		online_users_download_speed: toFiniteNumber(raw.online_users_download_speed),
 		users_active: toFiniteNumber(raw.users_active),
 		users_on_hold: toFiniteNumber(raw.users_on_hold),
 		users_disabled: toFiniteNumber(raw.users_disabled),
@@ -304,12 +223,12 @@ const sanitizeSystemStats = (
 		panel_total_bandwidth: toFiniteNumber(raw.panel_total_bandwidth),
 		incoming_bandwidth_speed: toFiniteNumber(raw.incoming_bandwidth_speed),
 		outgoing_bandwidth_speed: toFiniteNumber(raw.outgoing_bandwidth_speed),
+		total_incoming_bandwidth_speed: toFiniteNumber(raw.total_incoming_bandwidth_speed),
+		total_outgoing_bandwidth_speed: toFiniteNumber(raw.total_outgoing_bandwidth_speed),
 		memory: safeUsageStats(raw.memory),
 		swap: safeUsageStats(raw.swap),
 		disk: safeUsageStats(raw.disk),
-		load_avg: Array.isArray(raw.load_avg)
-			? raw.load_avg.map((item: unknown) => toFiniteNumber(item))
-			: [],
+		load_avg: Array.isArray(raw.load_avg) ? raw.load_avg.map((item: unknown) => toFiniteNumber(item)) : [],
 		uptime_seconds: toFiniteNumber(raw.uptime_seconds),
 		panel_uptime_seconds: toFiniteNumber(raw.panel_uptime_seconds),
 		xray_uptime_seconds: toFiniteNumber(raw.xray_uptime_seconds),
@@ -393,9 +312,7 @@ type HistoryModalPayload = {
 	memoryEntries?: SystemStats["panel_memory_history"];
 };
 
-const expandShortData = <T extends { timestamp: number }>(
-	entries: T[],
-): T[] => {
+const expandShortData = <T extends { timestamp: number }>(entries: T[]): T[] => {
 	if (entries.length === 1) {
 		const single = entries[0];
 		const synthesizedBefore = { ...single, timestamp: single.timestamp - 2 };
@@ -405,55 +322,22 @@ const expandShortData = <T extends { timestamp: number }>(
 };
 
 const HistoryModal: FC<{
-	isOpen: boolean;
+	open: boolean;
 	onClose: () => void;
 	payload: HistoryModalPayload | null;
 	intervalSeconds: number;
 	onIntervalChange: (value: number) => void;
 	t: TFunction;
 	isRTL?: boolean;
-}> = ({
-	isOpen,
-	onClose,
-	payload,
-	intervalSeconds,
-	onIntervalChange,
-	t,
-	isRTL = false,
-}) => {
+}> = ({ open: isOpen, onClose, payload, intervalSeconds, onIntervalChange, t, isRTL = false }) => {
 	const { colorMode } = useColorMode();
 	const [isSwitchingInterval, setIsSwitchingInterval] = useState(false);
 	const tabRefs = useRef<(HTMLDivElement | null)[]>([]);
-	const [pillStyle, setPillStyle] = useState<{ left: number; width: number }>({
-		left: 4,
-		width: 0,
-	});
-	const gridColor = useColorModeValue(
-		"rgba(0,0,0,0.06)",
-		"rgba(255,255,255,0.06)",
-	);
-	const mutedTextColor = useColorModeValue("#64748b", "#94a3b8");
+	const [pillStyle, setPillStyle] = useState<{ left: number; width: number }>({ left: 4, width: 0 });
+	const gridColor = colorMode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+	const mutedTextColor = colorMode === "dark" ? "#94a3b8" : "#64748b";
 
-	const activeIntervalIndex = HISTORY_INTERVALS.findIndex(
-		(i) => i.seconds === intervalSeconds,
-	);
-
-	const MetricIcon = useMemo(() => {
-		switch (payload?.type) {
-			case "cpu":
-				return CpuChipIcon;
-			case "memory":
-				return CircleStackIcon;
-			case "network":
-				return SignalIcon;
-			case "panel":
-			case "panelCpu":
-			case "panelMemory":
-				return ServerStackIcon;
-			default:
-				return ChartBarIcon;
-		}
-	}, [payload?.type]);
+	const activeIntervalIndex = HISTORY_INTERVALS.findIndex((i) => i.seconds === intervalSeconds);
 
 	useEffect(() => {
 		if (!isOpen) return;
@@ -472,11 +356,7 @@ const HistoryModal: FC<{
 	const { latestTimestamp, availableSpan } = useMemo(() => {
 		if (!payload) {
 			const now = Math.floor(Date.now() / 1000);
-			return {
-				latestTimestamp: now,
-				earliestTimestamp: now - 120,
-				availableSpan: 120,
-			};
+			return { latestTimestamp: now, earliestTimestamp: now - 120, availableSpan: 120 };
 		}
 		let timestamps: number[] = [];
 		if (payload.type === "network" && payload.networkEntries?.length) {
@@ -491,46 +371,28 @@ const HistoryModal: FC<{
 
 		if (!timestamps.length) {
 			const now = Math.floor(Date.now() / 1000);
-			return {
-				latestTimestamp: now,
-				earliestTimestamp: now - 120,
-				availableSpan: 120,
-			};
+			return { latestTimestamp: now, earliestTimestamp: now - 120, availableSpan: 120 };
 		}
 		const maxT = Math.max(...timestamps);
 		const minT = Math.min(...timestamps);
-		return {
-			latestTimestamp: maxT,
-			earliestTimestamp: minT,
-			availableSpan: Math.max(1, maxT - minT),
-		};
+		return { latestTimestamp: maxT, earliestTimestamp: minT, availableSpan: Math.max(1, maxT - minT) };
 	}, [payload]);
 
 	const effectiveSpan =
 		intervalSeconds === 120
 			? Math.min(120, availableSpan)
-			: Math.max(
-					intervalSeconds * 0.5,
-					Math.min(intervalSeconds, availableSpan),
-				);
+			: Math.max(intervalSeconds * 0.5, Math.min(intervalSeconds, availableSpan));
 
 	const cutoff = latestTimestamp - effectiveSpan;
 
 	const { chartSeries, actualMinTs, actualMaxTs } = useMemo(() => {
-		if (!payload)
-			return {
-				chartSeries: [],
-				actualMinTs: cutoff,
-				actualMaxTs: latestTimestamp,
-			};
+		if (!payload) return { chartSeries: [], actualMinTs: cutoff, actualMaxTs: latestTimestamp };
 
 		let seriesList: { name: string; data: [number, number][] }[] = [];
 		let allTs: number[] = [];
 
 		if (payload.type === "network" && payload.networkEntries) {
-			const filtered = payload.networkEntries.filter(
-				(e) => e.timestamp >= cutoff,
-			);
+			const filtered = payload.networkEntries.filter((e) => e.timestamp >= cutoff);
 			const rawData = filtered.length >= 1 ? filtered : payload.networkEntries;
 			const finalData = expandShortData(rawData);
 			allTs = finalData.map((e) => e.timestamp);
@@ -545,22 +407,13 @@ const HistoryModal: FC<{
 				},
 			];
 		} else if (payload.type === "panel") {
-			const filteredCpu = (payload.cpuEntries || []).filter(
-				(e) => e.timestamp >= cutoff,
-			);
-			const filteredMem = (payload.memoryEntries || []).filter(
-				(e) => e.timestamp >= cutoff,
-			);
-			const rawCpu =
-				filteredCpu.length >= 1 ? filteredCpu : payload.cpuEntries || [];
-			const rawMem =
-				filteredMem.length >= 1 ? filteredMem : payload.memoryEntries || [];
+			const filteredCpu = (payload.cpuEntries || []).filter((e) => e.timestamp >= cutoff);
+			const filteredMem = (payload.memoryEntries || []).filter((e) => e.timestamp >= cutoff);
+			const rawCpu = filteredCpu.length >= 1 ? filteredCpu : payload.cpuEntries || [];
+			const rawMem = filteredMem.length >= 1 ? filteredMem : payload.memoryEntries || [];
 			const finalCpu = expandShortData(rawCpu);
 			const finalMem = expandShortData(rawMem);
-			allTs = [
-				...finalCpu.map((e) => e.timestamp),
-				...finalMem.map((e) => e.timestamp),
-			];
+			allTs = [...finalCpu.map((e) => e.timestamp), ...finalMem.map((e) => e.timestamp)];
 			seriesList = [
 				{
 					name: `${t("dashboard.system.cpuUsage")} (Panel CPU %)`,
@@ -598,16 +451,10 @@ const HistoryModal: FC<{
 		if (!payload) return false;
 		let totalPoints = 0;
 		if (payload.type === "network" && payload.networkEntries) {
-			totalPoints = payload.networkEntries.filter(
-				(e) => e.timestamp >= cutoff,
-			).length;
+			totalPoints = payload.networkEntries.filter((e) => e.timestamp >= cutoff).length;
 		} else if (payload.type === "panel") {
-			const cLen = (payload.cpuEntries || []).filter(
-				(e) => e.timestamp >= cutoff,
-			).length;
-			const mLen = (payload.memoryEntries || []).filter(
-				(e) => e.timestamp >= cutoff,
-			).length;
+			const cLen = (payload.cpuEntries || []).filter((e) => e.timestamp >= cutoff).length;
+			const mLen = (payload.memoryEntries || []).filter((e) => e.timestamp >= cutoff).length;
 			totalPoints = Math.max(cLen, mLen);
 		} else if (payload.entries) {
 			totalPoints = payload.entries.filter((e) => e.timestamp >= cutoff).length;
@@ -695,11 +542,7 @@ const HistoryModal: FC<{
 				axisBorder: { show: false },
 				axisTicks: { show: false },
 				labels: {
-					style: {
-						colors: mutedTextColor,
-						fontSize: "11px",
-						fontFamily: "inherit",
-					},
+					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					hideOverlappingLabels: true,
 					formatter: (val: string, timestamp?: number) => {
 						const num = timestamp !== undefined ? timestamp : Number(val);
@@ -719,11 +562,7 @@ const HistoryModal: FC<{
 				tickAmount: 5,
 				labels: {
 					offsetX: 0,
-					style: {
-						colors: mutedTextColor,
-						fontSize: "11px",
-						fontFamily: "inherit",
-					},
+					style: { colors: mutedTextColor, fontSize: "11px", fontFamily: "inherit" },
 					formatter: (val: number) => {
 						if (!Number.isFinite(val)) return "0";
 						if (isNetwork) {
@@ -754,15 +593,12 @@ const HistoryModal: FC<{
 				custom: ({ series, seriesIndex, dataPointIndex, w }) => {
 					const timestamp = w.globals.seriesX[seriesIndex]?.[dataPointIndex];
 					const dateStr = timestamp
-						? new Date(timestamp).toLocaleTimeString(
-								isRTL ? "fa-IR" : "en-US",
-								{
-									hour12: false,
-									hour: "2-digit",
-									minute: "2-digit",
-									second: "2-digit",
-								},
-							)
+						? new Date(timestamp).toLocaleTimeString(isRTL ? "fa-IR" : "en-US", {
+								hour12: false,
+								hour: "2-digit",
+								minute: "2-digit",
+								second: "2-digit",
+							})
 						: "";
 
 					const linesHtml = w.globals.seriesNames
@@ -770,39 +606,39 @@ const HistoryModal: FC<{
 							const val = series[i]?.[dataPointIndex];
 							if (val === undefined || Number.isNaN(val)) return "";
 							const color = w.globals.colors[i] || "var(--rb-panel-accent)";
-							const displayVal = isNetwork
-								? `${formatBytes(val, 2)}/s`
-								: `${Math.round(val * 10) / 10}%`;
+							const displayVal = isNetwork ? `${formatBytes(val, 2)}/s` : `${Math.round(val * 10) / 10}%`;
 							return `
 								<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px;">
 									<div style="display: flex; align-items: center; gap: 6px;">
 										<span style="width: 7px; height: 7px; border-radius: 50%; background: ${color}; box-shadow: 0 0 6px ${color}88; flex-shrink: 0;"></span>
-										<span style="color: var(--rb-panel-text-secondary, #d0d0d0); font-size: 11px; font-weight: 500;">${name}</span>
+										<span style="color: var(--rb-panel-text-secondary, #94a3b8); font-size: 11px; font-weight: 500;">${name}</span>
 									</div>
-									<span style="color: var(--rb-panel-text, #f5f5f5); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr;">${displayVal}</span>
+									<span style="color: var(--rb-panel-text, #ffffff); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; direction: ltr;">${displayVal}</span>
 								</div>
 							`;
 						})
 						.join("");
 
 					return `
-										<div style="
-											background: var(--rb-panel-elevated, #2f2f2f);
-											border: 1px solid var(--rb-panel-border, #3a3a3a);
-											border-radius: 12px;
-											background-clip: padding-box;
-											padding: 8px 12px;
-											box-shadow: ${colorMode === "light" ? "0 8px 20px -4px rgba(0, 0, 0, 0.12)" : "0 8px 24px -4px rgba(0, 0, 0, 0.35)"};
-											direction: ${isRTL ? "rtl" : "ltr"};
-											font-family: inherit;
-											min-width: 140px;
-										">
-											<div style="color: var(--rb-panel-text-muted, #8a8a8a); font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid var(--rb-panel-border, #3a3a3a); padding-bottom: 4px; margin-bottom: 4px;">
-												${dateStr}
-											</div>
-											${linesHtml}
-										</div>
-									`;
+						<div style="
+							background: rgba(22, 23, 28, 0.92);
+							backdrop-filter: blur(16px);
+							-webkit-backdrop-filter: blur(16px);
+							border: 1px solid rgba(255, 255, 255, 0.12);
+							border-radius: 12px;
+							background-clip: padding-box;
+							padding: 8px 12px;
+							box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6);
+							direction: ${isRTL ? "rtl" : "ltr"};
+							font-family: inherit;
+							min-width: 140px;
+						">
+							<div style="color: var(--rb-panel-text-muted, #64748b); font-size: 10px; font-weight: 600; direction: ltr; text-align: ${isRTL ? "right" : "left"}; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 4px; margin-bottom: 4px;">
+								${dateStr}
+							</div>
+							${linesHtml}
+						</div>
+					`;
 				},
 			},
 		}),
@@ -821,101 +657,17 @@ const HistoryModal: FC<{
 	);
 
 	return (
-		<Modal
-			isOpen={isOpen}
-			onClose={onClose}
-			size="2xl"
-			scrollBehavior="inside"
-			isCentered
-		>
-			<ModalOverlay bg="blackAlpha.700" />
-			<ModalContent
-				data-modal-centered="true"
-				bg="panel.surface"
-				borderWidth="1px"
-				borderColor="panel.border"
-				borderRadius="20px"
-				boxShadow={
-					colorMode === "light"
-						? "0 20px 40px -8px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-						: "0 24px 48px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-				}
-				mx={{ base: 3, sm: 6 }}
-				overflow="hidden"
-			>
-				<ModalHeader
-					px={{ base: 4, md: 6 }}
-					pt={{ base: 4, md: 5 }}
-					pb={{ base: 3.5, md: 4 }}
-					borderBottomWidth="1px"
-					borderColor="panel.border"
-				>
-					<Flex align="center" justify="space-between">
-						<HStack spacing={3} align="center">
-							<Flex
-								w="36px"
-								h="36px"
-								align="center"
-								justify="center"
-								borderRadius="12px"
-								bg="color-mix(in srgb, var(--rb-panel-accent) 12%, transparent)"
-								color="var(--rb-panel-accent)"
-								border="1px solid"
-								borderColor="color-mix(in srgb, var(--rb-panel-accent) 25%, transparent)"
-								boxShadow="0 2px 8px color-mix(in srgb, var(--rb-panel-accent) 15%, transparent)"
-								flexShrink={0}
-							>
-								<MetricIcon width={18} height={18} />
-							</Flex>
-							<Box>
-								<Text
-									fontSize="15px"
-									fontWeight="700"
-									color="panel.text"
-									lineHeight="1.2"
-								>
-									{t("dashboard.history.modalTitle", {
-										metric: payload?.title ?? "",
-									})}
-								</Text>
-								<Text
-									fontSize="11px"
-									fontWeight="500"
-									color="panel.textMuted"
-									mt={0.5}
-								>
-									{payload?.metricLabel
-										? `${payload.title} (${payload.metricLabel})`
-										: payload?.title}
-								</Text>
-							</Box>
-						</HStack>
-						<ModalCloseButton position="static" size="sm" />
-					</Flex>
-				</ModalHeader>
-				<ModalBody px={{ base: 4, md: 6 }} py={{ base: 4, md: 5 }}>
-					<Stack spacing={4}>
+		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
+			
+			<DialogContent className="bg-panel-surface border border-panel-border! rounded-[20px] shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_32px_80px_rgba(0,0,0,0.6)] mx-3 sm:mx-6 overflow-hidden">
+				<DialogHeader className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-4 border-b border-panel-border! text-[0.875rem] font-bold">
+					<p className="text-panel-text">{t("dashboard.history.modalTitle", { metric: payload?.title ?? "" })}</p>
+					
+				</DialogHeader>
+				<div className={cn("px-5 py-4 overflow-y-auto", "px-4 md:px-6 py-4 md:py-5")}>
+					<div className="flex flex-col gap-4">
 						{hasEnoughPoints && (
-							<Box
-								dir={isRTL ? "rtl" : "ltr"}
-								p="3px"
-								borderRadius="10px"
-								bg="panel.elevated"
-								w={{ base: "full", md: "fit-content" }}
-								maxW="100%"
-								overflowX="auto"
-								position="relative"
-								display="inline-flex"
-								alignItems="center"
-								justifySelf="center"
-								mx="auto"
-								sx={{
-									"&::-webkit-scrollbar": {
-										display: "none",
-									},
-									scrollbarWidth: "none",
-								}}
-							>
+							<div className="[&::-webkit-scrollbar]:hidden [scrollbar-width:none] p-1 rounded-full bg-panel-elevated w-full md:w-fit max-w-[100%] overflow-x-auto relative inline-flex items-center">
 								{pillStyle.width > 0 && (
 									<motion.div
 										animate={{
@@ -925,169 +677,42 @@ const HistoryModal: FC<{
 										transition={{
 											type: "tween",
 											ease: [0.16, 1, 0.3, 1],
-											duration: 0.22,
+											duration: 0.32,
 										}}
 										style={{
 											position: "absolute",
-											top: 3,
-											bottom: 3,
-											borderRadius: "8px",
-											backgroundColor: "var(--rb-panel-accent, #2563eb)",
-											opacity: 0.16,
-											boxShadow:
-												colorMode === "light"
-													? "inset 0 0 0 1px rgba(37, 99, 235, 0.35)"
-													: "inset 0 0 0 1px rgba(59, 130, 246, 0.4)",
+											top: 4,
+											bottom: 4,
+											borderRadius: "9999px",
+											backgroundColor: "var(--rb-panel-surface)",
+											boxShadow: "0 1px 3px rgba(0, 0, 0, 0.15)",
 											zIndex: 1,
 											pointerEvents: "none",
 										}}
 									/>
 								)}
 								{HISTORY_INTERVALS.map((interval, idx) => {
-									const isAvailable =
-										idx === 0 || availableSpan >= interval.seconds * 0.5;
+									const isAvailable = idx === 0 || availableSpan >= interval.seconds * 0.5;
 									const isActive = intervalSeconds === interval.seconds;
 									return (
-										<Box
-											key={interval.seconds}
-											ref={(el: HTMLDivElement | null) => {
+										<div key={interval.seconds} ref={(el: HTMLDivElement | null) => {
 												tabRefs.current[idx] = el;
-											}}
-											flex={{ base: "1 1 0", md: "none" }}
-											position="relative"
-											display="inline-flex"
-											alignItems="center"
-											justifyContent="center"
-										>
-											<Button
-												size="xs"
-												h="26px"
-												w="full"
-												px={{ base: 1, sm: 3 }}
-												borderRadius="8px"
-												variant="ghost"
-												bg="transparent !important"
-												color={isActive ? "panel.text" : "panel.textMuted"}
-												fontWeight={isActive ? "700" : "500"}
-												fontSize={{ base: "10px", sm: "11px" }}
-												whiteSpace="nowrap"
-												position="relative"
-												zIndex={2}
-												opacity={isAvailable ? 1 : 0.4}
-												cursor={isAvailable ? "pointer" : "not-allowed"}
-												transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-												_hover={{
-													md: {
-														color: "panel.text",
-													},
-												}}
-												_active={{
-													transform: "scale(0.97)",
-												}}
-												_focusVisible={{
-													outline: "2px solid var(--rb-panel-accent)",
-													outlineOffset: "2px",
-												}}
-												onClick={() => {
-													if (
-														isAvailable &&
-														intervalSeconds !== interval.seconds
-													) {
+											}} className="flex-[1_1_0] md:flex-none relative inline-flex items-center justify-center">
+											<Button onClick={() => {
+													if (isAvailable && intervalSeconds !== interval.seconds) {
 														setIsSwitchingInterval(true);
 														onIntervalChange(interval.seconds);
-														setTimeout(
-															() => setIsSwitchingInterval(false),
-															300,
-														);
+														setTimeout(() => setIsSwitchingInterval(false), 300);
 													}
-												}}
-											>
+												}} variant="ghost" size="xs" className={cn("h-[26px] w-full px-1 sm:px-3.5 rounded-full bg-transparent! text-[10px] sm:text-[11px] whitespace-nowrap relative z-[2] hover:md:text-panel-text focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", isActive ? "text-panel-text" : "text-panel-text-muted", isActive ? "font-bold" : "font-medium", isAvailable ? "opacity-100" : "opacity-40", isAvailable ? "cursor-pointer" : "cursor-not-allowed")}>
 												{t(interval.labelKey)}
 											</Button>
-										</Box>
+										</div>
 									);
 								})}
-							</Box>
+							</div>
 						)}
-						<Box
-							minH="300px"
-							w="100%"
-							position="relative"
-							dir="ltr"
-							pb={2}
-							sx={{
-								"& .apexcharts-canvas": {
-									direction: "ltr !important",
-								},
-								"& .apexcharts-yaxis-label": {
-									direction: "ltr !important",
-								},
-								"& .apexcharts-legend": {
-									direction: "ltr !important",
-									display: "flex !important",
-									justifyContent: "center !important",
-									gap: "18px !important",
-								},
-								"& .apexcharts-legend-series": {
-									display: "inline-flex !important",
-									alignItems: "center !important",
-									flexDirection: isRTL ? "row !important" : "row !important",
-									gap: "6px !important",
-									margin: "0 !important",
-								},
-								"& .apexcharts-legend-marker": {
-									order: isRTL ? 2 : 1,
-									margin: "0 !important",
-									position: "relative !important",
-									top: "auto !important",
-									left: "auto !important",
-									right: "auto !important",
-									bottom: "auto !important",
-									transform: "none !important",
-								},
-								"& .apexcharts-legend-text": {
-									order: isRTL ? 1 : 2,
-									margin: "0 !important",
-									padding: "0 !important",
-									position: "relative !important",
-									top: "auto !important",
-									left: "auto !important",
-									right: "auto !important",
-									bottom: "auto !important",
-								},
-								"& .apexcharts-xaxistooltip": {
-									display: "none !important",
-								},
-								"& .apexcharts-tooltip": {
-									background: "transparent !important",
-									border: "none !important",
-									boxShadow: "none !important",
-									overflow: "visible !important",
-								},
-								"& .apexcharts-tooltip.apexcharts-theme-light": {
-									background: "transparent !important",
-									border: "none !important",
-									boxShadow: "none !important",
-								},
-								"& .apexcharts-tooltip.apexcharts-theme-dark": {
-									background: "transparent !important",
-									border: "none !important",
-									boxShadow: "none !important",
-								},
-								"& .apexcharts-legend-series.apexcharts-inactive-legend": {
-									opacity: "0.45 !important",
-									pointerEvents: "auto",
-								},
-								"& .apexcharts-legend-series.apexcharts-inactive-legend:hover":
-									{
-										opacity: "0.75 !important",
-									},
-								"& .apexcharts-canvas:has(.apexcharts-inactive-legend:hover) .apexcharts-series":
-									{
-										opacity: "1 !important",
-									},
-							}}
-						>
+						<div dir="ltr" className={cn("[&_.apexcharts-canvas]:[flex-direction:ltr]! [&_.apexcharts-yaxis-label]:[flex-direction:ltr]! [&_.apexcharts-legend]:[flex-direction:ltr]! [&_.apexcharts-legend]:flex! [&_.apexcharts-legend]:justify-center! [&_.apexcharts-legend]:gap-[18px]! [&_.apexcharts-legend-series]:inline-flex! [&_.apexcharts-legend-series]:items-center! [&_.apexcharts-legend-series]:gap-[6px]! [&_.apexcharts-legend-series]:m-0! [&_.apexcharts-legend-marker]:m-0! [&_.apexcharts-legend-marker]:relative! [&_.apexcharts-legend-marker]:top-auto! [&_.apexcharts-legend-marker]:left-auto! [&_.apexcharts-legend-marker]:right-auto! [&_.apexcharts-legend-marker]:bottom-auto! [&_.apexcharts-legend-marker]:[transform:none]! [&_.apexcharts-legend-text]:m-0! [&_.apexcharts-legend-text]:p-0! [&_.apexcharts-legend-text]:relative! [&_.apexcharts-legend-text]:top-auto! [&_.apexcharts-legend-text]:left-auto! [&_.apexcharts-legend-text]:right-auto! [&_.apexcharts-legend-text]:bottom-auto! [&_.apexcharts-tooltip]:bg-transparent! [&_.apexcharts-tooltip]:border! [&_.apexcharts-tooltip]:border-none! [&_.apexcharts-tooltip]:shadow-none! [&_.apexcharts-tooltip]:overflow-visible! [&_.apexcharts-tooltip.apexcharts-theme-light]:bg-transparent! [&_.apexcharts-tooltip.apexcharts-theme-light]:border! [&_.apexcharts-tooltip.apexcharts-theme-light]:border-none! [&_.apexcharts-tooltip.apexcharts-theme-light]:shadow-none! [&_.apexcharts-tooltip.apexcharts-theme-dark]:bg-transparent! [&_.apexcharts-tooltip.apexcharts-theme-dark]:border! [&_.apexcharts-tooltip.apexcharts-theme-dark]:border-none! [&_.apexcharts-tooltip.apexcharts-theme-dark]:shadow-none! [&_.apexcharts-legend-series.apexcharts-inactive-legend]:opacity-45! [&_.apexcharts-legend-series.apexcharts-inactive-legend]:pointer-events-auto [&_.apexcharts-legend-series.apexcharts-inactive-legend:hover]:opacity-75! [&_.apexcharts-canvas:has(.apexcharts-inactive-legend:hover)_.apexcharts-series]:opacity-100!", isRTL ? "[&_.apexcharts-legend-series]:flex-row!" : "[&_.apexcharts-legend-series]:flex-row!", isRTL ? "[&_.apexcharts-legend-marker]:order-2" : "[&_.apexcharts-legend-marker]:order-1", isRTL ? "[&_.apexcharts-legend-text]:order-1" : "[&_.apexcharts-legend-text]:order-2", "min-h-[300px] w-full relative pb-2")}>
 							<AnimatePresence>
 								{isSwitchingInterval && (
 									<motion.div
@@ -1101,7 +726,8 @@ const HistoryModal: FC<{
 											left: 0,
 											right: 0,
 											bottom: 0,
-											backgroundColor: "rgba(10, 12, 16, 0.85)",
+											backgroundColor: "rgba(10, 12, 16, 0.7)",
+											backdropFilter: "blur(6px)",
 											borderRadius: "16px",
 											zIndex: 10,
 											display: "flex",
@@ -1109,7 +735,7 @@ const HistoryModal: FC<{
 											justifyContent: "center",
 										}}
 									>
-										<Spinner size="md" color="panel.accent" thickness="2.5px" />
+										<Spinner className="text-panel-accent" />
 									</motion.div>
 								)}
 							</AnimatePresence>
@@ -1120,40 +746,27 @@ const HistoryModal: FC<{
 							>
 								<Suspense
 									fallback={
-										<Flex h="280px" align="center" justify="center">
-											<Spinner size="md" color="panel.accent" />
-										</Flex>
+										<div className="flex h-[280px] items-center justify-center">
+											<Spinner className="text-panel-accent" />
+										</div>
 									}
 								>
 									{hasEnoughPoints && isOpen ? (
-										<HistoryChart
-											key={`${payload?.title}-${intervalSeconds}-${colorMode}`}
-											options={options}
-											series={chartSeries}
-											type="area"
-											height={300}
-											width="100%"
-										/>
+										<HistoryChart key={`${payload?.title}-${intervalSeconds}-${colorMode}`} options={options} series={chartSeries} type="area" className="h-300 w-full" />
 									) : (
-										<Flex
-											h="300px"
-											align="center"
-											justify="center"
-											direction="column"
-											gap={2}
-										>
-											<Text fontSize="13px" color="panel.textMuted">
+										<div className="flex-col flex h-[300px] items-center justify-center gap-2">
+											<p className="text-[13px] text-panel-text-muted">
 												{t("noData")}
-											</Text>
-										</Flex>
+											</p>
+										</div>
 									)}
 								</Suspense>
 							</motion.div>
-						</Box>
-					</Stack>
-				</ModalBody>
-			</ModalContent>
-		</Modal>
+						</div>
+					</div>
+				</div>
+			</DialogContent>
+		</Dialog>
 	);
 };
 
@@ -1195,363 +808,79 @@ const ResourceCard: FC<{
 	const { colorMode } = useColorMode();
 	const safe = clampPercent(percent);
 	const accent = "var(--rb-panel-accent)";
-	const criticalColor =
-		safe >= 90 ? "#ef4444" : safe >= 75 ? "#f59e0b" : accent;
-
-	const handleMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
-		if (window.innerWidth <= 768) return;
-		const rect = e.currentTarget.getBoundingClientRect();
-		e.currentTarget.style.setProperty(
-			"--mouse-x",
-			`${e.clientX - rect.left}px`,
-		);
-		e.currentTarget.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
-		e.currentTarget.style.setProperty("--mouse-opacity", "1");
-
-		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
-			"[data-rb-icon], [data-rb-swap], [data-rb-progress]",
-		);
-		const RADIUS = 210;
-		for (const el of swappables) {
-			const rect = el.getBoundingClientRect();
-			const dx = Math.max(rect.left - e.clientX, 0, e.clientX - rect.right);
-			const dy = Math.max(rect.top - e.clientY, 0, e.clientY - rect.bottom);
-			const dist = Math.hypot(dx, dy);
-			if (dist < RADIUS) {
-				const t = 1 - dist / RADIUS;
-				const proximity = t ** 1.15;
-				el.style.setProperty("--proximity", proximity.toFixed(3));
-			} else {
-				el.style.removeProperty("--proximity");
-			}
-		}
-	};
-
-	const handleMouseLeave = (e: ReactMouseEvent<HTMLDivElement>) => {
-		if (window.innerWidth <= 768) return;
-		e.currentTarget.style.setProperty("--mouse-opacity", "0");
-		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
-			"[data-rb-icon], [data-rb-swap], [data-rb-progress]",
-		);
-		for (const el of swappables) {
-			el.style.setProperty(
-				"transition",
-				"background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease",
-			);
-			el.style.removeProperty("--proximity");
-			setTimeout(() => {
-				el.style.removeProperty("transition");
-			}, 260);
-		}
-	};
+	const criticalColor = safe >= 90 ? "#ef4444" : safe >= 75 ? "#f59e0b" : accent;
 
 	return (
-		<Box
-			role="group"
-			bg="panel.surface"
-			borderWidth="1px"
-			borderColor="panel.border"
-			borderRadius="20px"
-			p={{ base: 4, sm: 5 }}
-			position="relative"
-			overflow="hidden"
-			display="flex"
-			flexDirection="column"
-			justifyContent="space-between"
-			boxShadow={
-				colorMode === "light"
-					? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-					: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-			}
-			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-			onMouseMove={handleMouseMove}
-			onMouseLeave={handleMouseLeave}
-			sx={{
-				"& [data-rb-icon], & [data-rb-swap]": {
-					transition:
-						"border-color 0.16s ease, box-shadow 0.16s ease",
-				},
-				"@media screen and (min-width: 768px)": {
-					"& [data-rb-icon]": {
-						bg:
-							colorMode === "light"
-								? "color-mix(in srgb, var(--rb-panel-surface, #ffffff) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #eef0f3)) !important"
-								: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
-						color:
-							colorMode === "light"
-								? "color-mix(in srgb, var(--rb-panel-text, #17191c) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
-								: "color-mix(in srgb, var(--rb-panel-text, #f5f5f5) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #b8b8b8)) !important",
-						boxShadow:
-							colorMode === "light"
-								? "0 1px 3px rgba(0, 0, 0, 0.04), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
-								: "none",
-					},
-					"& [data-rb-icon]:focus-visible": {
-						"--proximity": "1",
-					},
-					"& [data-rb-icon] svg, & [data-rb-icon] *": {
-						color: "currentColor !important",
-						stroke: "currentColor",
-					},
-					"& [data-rb-swap]": {
-						bg:
-							colorMode === "light"
-								? "color-mix(in srgb, var(--rb-panel-surface, #ffffff) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #eef0f3)) !important"
-								: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
-						boxShadow:
-							colorMode === "light"
-								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
-								: "none",
-					},
-					"& [data-rb-swap]:focus-visible": {
-						"--proximity": "1",
-					},
-					"& [data-rb-swap][data-rb-swap-text]": {
-						color:
-							colorMode === "light"
-								? "color-mix(in srgb, var(--rb-panel-text, #17191c) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
-								: "color-mix(in srgb, var(--rb-panel-text-secondary, #b8b8b8) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-muted, #8a8a8a)) !important",
-					},
-					"& [data-rb-progress]": {
-						bg:
-							colorMode === "light"
-								? "color-mix(in srgb, var(--rb-panel-surface, #ffffff) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #eef0f3)) !important"
-								: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
-						boxShadow:
-							colorMode === "light"
-								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
-								: "none",
-						transition: "background-color 0.2s ease, box-shadow 0.2s ease",
-					},
-					"& [data-rb-progress] > div": {
-						filter: "saturate(calc(1 + var(--proximity, 0) * 0.4)) brightness(calc(1 + var(--proximity, 0) * 0.2))",
-						boxShadow: "0 0 calc(var(--proximity, 0) * 8px) currentColor",
-						transition: "filter 0.2s ease, box-shadow 0.2s ease",
-					},
-				},
-			}}
-			_hover={{
-				md: {
-					borderColor: "panel.borderStrong",
-					boxShadow:
-						colorMode === "light"
-							? "0 6px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
-							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
-				},
-			}}
-		>
-			<Box
-				position="absolute"
-				inset={0}
-				pointerEvents="none"
-				borderRadius="20px"
-				opacity="var(--mouse-opacity, 0)"
-				transition="opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
-				bg={
-					colorMode === "light"
-						? "radial-gradient(420px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.08), transparent 75%)"
-						: "radial-gradient(420px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(255, 255, 255, 0.07), transparent 75%)"
-				}
-				zIndex={0}
-			/>
-			<Box position="relative" zIndex={1} w="full">
-				<Flex justify="space-between" align="center" mb={3}>
-					<HStack spacing={2.5} align="center">
-						<Flex
-							w="32px"
-							h="32px"
-							align="center"
-							justify="center"
-							borderRadius="10px"
-							bg="panel.elevated"
-							color="panel.textSecondary"
-							flexShrink={0}
-							data-rb-icon=""
-						>
+		// biome-ignore lint/a11y/useSemanticElements: role=group is the hook the group's styles use for the card's hover styles
+		<div role="group" className="bg-panel-surface border border-panel-border! rounded-[20px] p-4 sm:p-5 relative overflow-hidden flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] [transition:border-color_0.25s_ease,_background-color_0.25s_ease,_box-shadow_0.25s_ease] hover:md:border-panel-border-strong! hover:md:bg-panel-elevated hover:md:shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_12px_32px_-4px_rgba(0,_0,_0,_0.22)]">
+			<div>
+				<div className="flex justify-between items-center mb-3">
+					<div className="flex flex-row gap-2.5 items-center">
+						<div className="flex w-[32px] h-[32px] items-center justify-center rounded-[9px] bg-panel-elevated text-panel-text-secondary shrink-0">
 							{icon}
-						</Flex>
-						<Text
-							fontSize="13px"
-							fontWeight="600"
-							color="panel.textSecondary"
-							noOfLines={1}
-						>
+						</div>
+						<p className="text-[13px] font-semibold text-panel-text-secondary truncate">
 							{label}
-						</Text>
-					</HStack>
+						</p>
+					</div>
 					{onHistory && (
-						<Button
-							size="xs"
-							h="22px"
-							px={2}
-							fontSize="11px"
-							variant="ghost"
-							borderRadius="8px"
-							bg="panel.elevated"
-							color={
-								colorMode === "light"
-									? "panel.textSecondary"
-									: "panel.textMuted"
-							}
-							fontWeight={colorMode === "light" ? "600" : "500"}
-							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-							data-rb-swap=""
-							_hover={{
-								md: {
-									bg: "panel.border !important",
-									color: "panel.text !important",
-								},
-							}}
-							_active={{
-								bg: "panel.borderStrong !important",
-								transform: "scale(0.97)",
-							}}
-							_focusVisible={{
-								outline: "2px solid var(--rb-panel-accent)",
-								outlineOffset: "2px",
-							}}
-							position="relative"
-							_after={{
-								content: '""',
-								position: "absolute",
-								top: "-10px",
-								bottom: "-10px",
-								left: "-10px",
-								right: "-10px",
-							}}
-							onClick={onHistory}
-						>
-							{historyLabel}
+						<Button onClick={onHistory} variant="ghost" size="xs" className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] [[role=group]:hover_&]:md:bg-panel-surface hover:md:bg-panel-border! hover:md:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium", colorMode === "light" ? "[[role=group]:hover_&]:md:text-panel-text" : "[[role=group]:hover_&]:md:text-panel-text-secondary"))}>
+							<span className="hidden sm:inline">{historyLabel}</span>
+							<Clock className="size-3.5 sm:hidden" aria-hidden="true" />
 						</Button>
 					)}
-				</Flex>
+				</div>
 
-				<Flex
-					align="baseline"
-					gap={1.5}
-					mb={1}
-					wrap="nowrap"
-					justify="flex-start"
-				>
+				<div className="flex-nowrap flex items-baseline gap-1.5 mb-1 justify-start">
 					{totalValue ? (
-						<Flex
-							dir="ltr"
-							align="baseline"
-							gap={1.5}
-							sx={{ unicodeBidi: "isolate" }}
-						>
-							<Text
-								fontSize={{ base: "20px", sm: "22px" }}
-								fontWeight="800"
-								color="panel.text"
-								letterSpacing="-0.02em"
-								lineHeight="1.1"
-								sx={{ fontVariantNumeric: "tabular-nums" }}
-							>
+						<div dir="ltr" className="flex items-baseline gap-1.5 [unicode-bidi:isolate]">
+							<p className="text-[20px] sm:text-[22px] font-extrabold text-panel-text tracking-[-0.02em] leading-[1.1] [font-variant-numeric:tabular-nums]">
 								{value}
-							</Text>
-							<Text
-								fontSize="13px"
-								fontWeight="600"
-								color="panel.textMuted"
-								sx={{ fontVariantNumeric: "tabular-nums" }}
-							>
+							</p>
+							<p className="text-[13px] font-semibold text-panel-text-muted [font-variant-numeric:tabular-nums]">
 								/ {totalValue}
-							</Text>
-						</Flex>
+							</p>
+						</div>
 					) : (
-						<Flex align="baseline" gap={1.5} wrap="wrap">
-							<Text
-								fontSize={{ base: "20px", sm: "22px" }}
-								fontWeight="800"
-								color="panel.text"
-								letterSpacing="-0.02em"
-								lineHeight="1.1"
-								dir="ltr"
-								sx={{
-									fontVariantNumeric: "tabular-nums",
-									unicodeBidi: "isolate",
-								}}
-							>
+						<div className="flex-wrap flex items-baseline gap-1.5">
+							<p dir="ltr" className="text-[20px] sm:text-[22px] font-extrabold text-panel-text tracking-[-0.02em] leading-[1.1] [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
 								{value}
-							</Text>
+							</p>
 							{metaValue !== undefined && metaUnit && (
-								<Flex
-									align="center"
-									dir={isRTL ? "rtl" : "ltr"}
-									gap={1}
-									sx={{ unicodeBidi: "isolate" }}
-								>
-									<Text
-										fontSize="13px"
-										fontWeight="600"
-										color="panel.textMuted"
-										dir="ltr"
-										sx={{
-											fontVariantNumeric: "tabular-nums",
-											unicodeBidi: "isolate",
-										}}
-									>
+								<div dir={isRTL ? "rtl" : "ltr"} className="flex items-center gap-1 [unicode-bidi:isolate]">
+									<p dir="ltr" className="text-[13px] font-semibold text-panel-text-muted [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
 										{metaValue}
-									</Text>
-									<Text
-										fontSize="12px"
-										fontWeight="600"
-										color="panel.textMuted"
-									>
+									</p>
+									<p className="text-[12px] font-semibold text-panel-text-muted">
 										{metaUnit}
-									</Text>
-								</Flex>
+									</p>
+								</div>
 							)}
-						</Flex>
+						</div>
 					)}
-				</Flex>
-				{subMeta && <Box mt={0.5}>{subMeta}</Box>}
-			</Box>
-
-			<Box mt={3}>
-				<Flex justify="space-between" align="center" mb={1.5}>
-					<Text
-						fontSize="11px"
-						fontWeight="600"
-						color="panel.textMuted"
-						dir="ltr"
-						sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
-					>
-						{formatPercent(safe, false)}
-					</Text>
-				</Flex>
-				<Progress
-					data-rb-progress=""
-					value={safe}
-					size="xs"
-					borderRadius="full"
-					bg="panel.elevated"
-					sx={{
-						"& > div": {
-							bg: criticalColor,
-							transition: "width 0.6s ease, background-color 0.4s ease",
-							borderRadius: "full",
-						},
-					}}
-				/>
-				{(footerLeft || footerRight) && (
-					<Flex
-						justify="space-between"
-						align="center"
-						mt={2}
-						fontSize="11px"
-						fontWeight="500"
-						color="panel.textMuted"
-						dir={isRTL ? "rtl" : "ltr"}
-						sx={{ unicodeBidi: "isolate", fontVariantNumeric: "tabular-nums" }}
-					>
-						<Text noOfLines={1}>{footerLeft}</Text>
-						<Text noOfLines={1}>{footerRight}</Text>
-					</Flex>
+				</div>
+				{subMeta && (
+					<div className="mt-0.5">
+						{subMeta}
+					</div>
 				)}
-			</Box>
-		</Box>
+			</div>
+
+			<div className="mt-3">
+				<div className="flex justify-between items-center mb-1.5">
+					<p dir="ltr" className="text-[11px] font-semibold text-panel-text-muted [unicode-bidi:isolate] [font-variant-numeric:tabular-nums]">
+						{formatPercent(safe, false)}
+					</p>
+				</div>
+				<div className="h-1 w-full overflow-hidden ${cls}"><div className="h-full rounded-full [transition:width_0.6s_ease,_background-color_0.4s_ease]" style={{ width: `${safe}%`, backgroundColor: criticalColor }} /></div>
+				{(footerLeft || footerRight) && (
+					<div dir={isRTL ? "rtl" : "ltr"} className="flex justify-between items-center mt-2 text-[11px] font-medium text-panel-text-muted [unicode-bidi:isolate] [font-variant-numeric:tabular-nums]">
+						<p className="truncate">{footerLeft}</p>
+						<p className="truncate">{footerRight}</p>
+					</div>
+				)}
+			</div>
+		</div>
 	);
 };
 
@@ -1564,86 +893,35 @@ const StatRow: FC<{
 	tagColor?: string;
 	helper?: string;
 }> = ({ label, value, dimLabel, accent, tag, tagColor, helper }) => {
-	const accentColor = "var(--rb-panel-accent)";
+	const accentColor = "text-[var(--rb-panel-accent)]";
 	return (
-		<Flex
-			align="center"
-			justify="space-between"
-			py={2.5}
-			borderBottomWidth="1px"
-			borderColor="panel.border"
-			_last={{ borderBottomWidth: 0 }}
-			gap={3}
-		>
-			<HStack spacing={3} minW={0} flexWrap="nowrap">
+		<div className="flex items-center justify-between py-2.5 border-b border-panel-border! last:border-b-0 gap-3">
+			<div className="flex flex-row items-center gap-3 min-w-0! flex-nowrap">
 				{tagColor && (
-					<Box
-						flexShrink={0}
-						w="7px"
-						h="7px"
-						borderRadius="full"
-						bg={tagColor}
-						me="3px"
-						boxShadow={`0 0 6px ${tagColor}88`}
-					/>
+					<div style={{ backgroundColor: tagColor, boxShadow: `0 0 6px ${tagColor}88` }} className="shrink-0 w-[7px] h-[7px] rounded-full me-[3px]" />
 				)}
-				<Text
-					fontSize="13px"
-					fontWeight="600"
-					color={dimLabel ? "panel.textMuted" : "panel.textSecondary"}
-					noOfLines={1}
-				>
+				<p className={cn("text-[13px] font-semibold truncate", dimLabel ? "text-panel-text-muted" : "text-panel-text-secondary")}>
 					{label}
-				</Text>
+				</p>
 				{tag && (
-					<Flex
-						as="span"
-						align="center"
-						justify="center"
-						fontSize="10px"
-						px={1.5}
-						py={0.5}
-						borderRadius="md"
-						bg="panel.elevated"
-						color="panel.textMuted"
-						fontWeight="600"
-						dir="ltr"
-						transition="all 0.25s ease"
-						data-rb-swap=""
-						data-rb-swap-text=""
-					>
-						<Text
-							as="span"
-							dir="ltr"
-							sx={{ fontVariantNumeric: "tabular-nums" }}
-						>
+					<span dir="ltr" className="flex items-center justify-center text-[10px] px-1.5 py-0.5 rounded-md bg-panel-elevated text-panel-text-muted font-semibold [transition:all_0.25s_ease] [[role=group]:hover_&]:md:bg-panel-surface [[role=group]:hover_&]:md:text-panel-text-secondary">
+						<span dir="ltr" className="[font-variant-numeric:tabular-nums]">
 							{tag.endsWith("%") ? `${tag.slice(0, -1)}%` : tag}
-						</Text>
-					</Flex>
+						</span>
+					</span>
 				)}
-			</HStack>
-			<VStack align="flex-end" spacing={0} flexShrink={0}>
-				<Text
-					fontSize="13px"
-					fontWeight="700"
-					color={accent ? accentColor : "panel.text"}
-					dir="ltr"
-					sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-				>
+			</div>
+			<div className="flex flex-col items-end gap-0 shrink-0">
+				<p dir="ltr" className={cn("text-[13px] font-bold [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]", accent ? (accentColor) : "text-panel-text")}>
 					{typeof value === "number" ? formatNumberValue(value) : value}
-				</Text>
+				</p>
 				{helper && (
-					<Text
-						fontSize="10px"
-						color="panel.textMuted"
-						dir="ltr"
-						sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-					>
+					<p dir="ltr" className="text-[10px] text-panel-text-muted [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
 						{helper}
-					</Text>
+					</p>
 				)}
-			</VStack>
-		</Flex>
+			</div>
+		</div>
 	);
 };
 
@@ -1653,186 +931,31 @@ const SectionCard: FC<{
 	action?: ReactNode;
 	noHover?: boolean;
 	roleGroup?: boolean;
-}> = ({ children, title, action, noHover = false, roleGroup = true }) => {
-	const { colorMode } = useColorMode();
-
-	const handleMouseMove = (e: ReactMouseEvent<HTMLDivElement>) => {
-		if (noHover || window.innerWidth <= 768) return;
-		const rect = e.currentTarget.getBoundingClientRect();
-		e.currentTarget.style.setProperty(
-			"--mouse-x",
-			`${e.clientX - rect.left}px`,
-		);
-		e.currentTarget.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
-		e.currentTarget.style.setProperty("--mouse-opacity", "1");
-
-		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
-			"[data-rb-icon], [data-rb-swap]",
-		);
-		const RADIUS = 210;
-		for (const el of swappables) {
-			const elRect = el.getBoundingClientRect();
-			const dx = Math.max(elRect.left - e.clientX, 0, e.clientX - elRect.right);
-			const dy = Math.max(elRect.top - e.clientY, 0, e.clientY - elRect.bottom);
-			const dist = Math.hypot(dx, dy);
-			if (dist < RADIUS) {
-				const t = 1 - dist / RADIUS;
-				const proximity = t ** 1.15;
-				el.style.setProperty("--proximity", proximity.toFixed(3));
-			} else {
-				el.style.removeProperty("--proximity");
-			}
-		}
-	};
-
-	const handleMouseLeave = (e: ReactMouseEvent<HTMLDivElement>) => {
-		if (noHover || window.innerWidth <= 768) return;
-		e.currentTarget.style.setProperty("--mouse-opacity", "0");
-		const swappables = e.currentTarget.querySelectorAll<HTMLElement>(
-			"[data-rb-icon], [data-rb-swap]",
-		);
-		for (const el of swappables) {
-			el.style.setProperty(
-				"transition",
-				"background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease",
-			);
-			el.style.removeProperty("--proximity");
-			setTimeout(() => {
-				el.style.removeProperty("transition");
-			}, 260);
-		}
-	};
-
-	return (
-		<Box
-			role={roleGroup ? "group" : undefined}
-			bg="panel.surface"
-			borderWidth="1px"
-			borderColor="panel.border"
-			borderRadius="20px"
-			position="relative"
-			overflow="hidden"
-			boxShadow={
-				colorMode === "light"
-					? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-					: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-			}
-			transition="border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-			onMouseMove={handleMouseMove}
-			onMouseLeave={handleMouseLeave}
-			sx={{
-				"& [data-rb-icon], & [data-rb-swap]": {
-					transition:
-						"border-color 0.16s ease, box-shadow 0.16s ease",
-				},
-				...(noHover
-					? {}
-					: {
-							"@media screen and (min-width: 768px)": {
-								"& [data-rb-icon]": {
-									bg:
-										colorMode === "light"
-											? "color-mix(in srgb, var(--rb-panel-surface, #ffffff) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #eef0f3)) !important"
-											: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
-									color:
-										colorMode === "light"
-											? "color-mix(in srgb, var(--rb-panel-text, #17191c) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
-											: "color-mix(in srgb, var(--rb-panel-text, #f5f5f5) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #b8b8b8)) !important",
-									boxShadow:
-										colorMode === "light"
-											? "0 1px 3px rgba(0, 0, 0, 0.04), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
-											: "none",
-								},
-								"& [data-rb-icon]:focus-visible": {
-									"--proximity": "1",
-								},
-								"& [data-rb-icon] svg, & [data-rb-icon] *": {
-									color: "currentColor !important",
-									stroke: "currentColor",
-								},
-								"& [data-rb-swap]": {
-									bg:
-										colorMode === "light"
-											? "color-mix(in srgb, var(--rb-panel-surface, #ffffff) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #eef0f3)) !important"
-											: "color-mix(in srgb, var(--rb-panel-surface, #242424) calc(var(--proximity, 0) * 100%), var(--rb-panel-elevated, #2f2f2f)) !important",
-									boxShadow:
-										colorMode === "light"
-											? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border, #d8dce2) calc(var(--proximity, 0) * 100%), transparent) !important"
-											: "none",
-								},
-								"& [data-rb-swap]:focus-visible": {
-									"--proximity": "1",
-								},
-								"& [data-rb-swap][data-rb-swap-text]": {
-									color:
-										colorMode === "light"
-											? "color-mix(in srgb, var(--rb-panel-text, #17191c) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary, #4f5661)) !important"
-											: "color-mix(in srgb, var(--rb-panel-text-secondary, #b8b8b8) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-muted, #8a8a8a)) !important",
-								},
-							},
-						}),
-			}}
-			data-rb-iconswap={noHover ? undefined : ""}
-			_hover={
-				noHover
-					? undefined
-					: {
-							md: {
-								borderColor: "panel.borderStrong",
-								boxShadow:
-									colorMode === "light"
-										? "0 6px 20px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04), inset 0 1px 0 0 rgba(255, 255, 255, 0.9)"
-										: "inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
-							},
-						}
-			}
-		>
-			{!noHover && (
-				<Box
-					position="absolute"
-					inset={0}
-					pointerEvents="none"
-					borderRadius="20px"
-					opacity="var(--mouse-opacity, 0)"
-					transition="opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)"
-					bg={
-						colorMode === "light"
-							? "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(0, 0, 0, 0.08), transparent 75%)"
-							: "radial-gradient(550px circle at var(--mouse-x, -999px) var(--mouse-y, -999px), rgba(255, 255, 255, 0.07), transparent 75%)"
-					}
-					zIndex={0}
-				/>
-			)}
-			{(title || action) && (
-				<Flex
-					position="relative"
-					zIndex={1}
-					px={{ base: 4, sm: 5, md: 6 }}
-					py={3.5}
-					align="center"
-					justify="space-between"
-					borderBottomWidth="1px"
-					borderColor="panel.border"
-				>
-					{title && (
-						<Text
-							fontSize="13px"
-							fontWeight="700"
-							color="panel.text"
-							letterSpacing="-0.01em"
-						>
-							{title}
-						</Text>
-					)}
-					{action}
-				</Flex>
-			)}
-			<Box position="relative" zIndex={1} px={{ base: 4, sm: 5, md: 6 }} py={4}>
-				{children}
-			</Box>
-		</Box>
-	);
-};
+	contentClassName?: string;
+}> = ({
+	children,
+	title,
+	action,
+	noHover = false,
+	roleGroup = true,
+	contentClassName,
+}) => (
+	<div role={roleGroup ? "group" : undefined} className={cn(noHover ? "" : "hover:md:border-panel-border-strong! hover:md:bg-panel-elevated hover:md:shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_12px_32px_-4px_rgba(0,_0,_0,_0.22)]", "bg-panel-surface border border-panel-border! rounded-[20px] overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] [transition:border-color_0.25s_ease,_background-color_0.25s_ease,_box-shadow_0.25s_ease] flex h-full flex-col")}>
+		{(title || action) && (
+			<div className="flex px-4 sm:px-5 md:px-6 py-3.5 items-center justify-between border-b border-panel-border!">
+				{title && (
+					<div className="text-[13px] font-bold text-panel-text tracking-[-0.01em]">
+						{title}
+					</div>
+				)}
+				{action}
+			</div>
+		)}
+		<div className={cn("flex-1 px-4 sm:px-5 md:px-6 py-4", contentClassName)}>
+			{children}
+		</div>
+	</div>
+);
 
 const AnimatedHeightWrapper: FC<{
 	children: ReactNode;
@@ -1845,8 +968,7 @@ const AnimatedHeightWrapper: FC<{
 		if (containerRef.current) {
 			const resizeObserver = new ResizeObserver((entries) => {
 				for (const entry of entries) {
-					const newHeight =
-						entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+					const newHeight = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
 					if (newHeight > 0) {
 						setHeight(newHeight);
 					}
@@ -1892,39 +1014,23 @@ const SpeedItem: FC<{
 	value: string;
 }> = ({ icon, label, value }) => {
 	return (
-		<Flex align="center" justify="space-between" gap={3}>
-			<HStack spacing={2.5} color="panel.textMuted">
-				<Flex
-					w="28px"
-					h="28px"
-					align="center"
-					justify="center"
-					borderRadius="10px"
-					bg="panel.elevated"
-					flexShrink={0}
-					data-rb-icon=""
-				>
+		<div className="flex items-center justify-between gap-3">
+			<div className="flex flex-row items-center gap-2.5 text-panel-text-muted">
+				<div className="flex w-[28px] h-[28px] items-center justify-center rounded-[8px] bg-panel-elevated shrink-0">
 					{icon}
-				</Flex>
-				<Text fontSize="13px" fontWeight="600" color="panel.textSecondary">
+				</div>
+				<p className="text-[13px] font-semibold text-panel-text-secondary">
 					{label}
-				</Text>
-			</HStack>
-			<Text
-				fontSize="13px"
-				fontWeight="700"
-				letterSpacing="-0.01em"
-				color="panel.text"
-				dir="ltr"
-				sx={{ fontVariantNumeric: "tabular-nums", unicodeBidi: "isolate" }}
-			>
+				</p>
+			</div>
+			<p dir="ltr" className="text-[13px] font-bold tracking-[-0.01em] text-panel-text [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
 				{value}
-			</Text>
-		</Flex>
+			</p>
+		</div>
 	);
 };
 
-export const Statistics: FC<BoxProps> = (props) => {
+export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 	const { version } = useDashboard();
 	const { userData } = useGetUser();
 	const { t, i18n } = useTranslation();
@@ -1933,41 +1039,28 @@ export const Statistics: FC<BoxProps> = (props) => {
 	const { data: rawSystemData } = useQuery<SystemStats>({
 		queryKey: StatisticsQueryKey,
 		queryFn: () => fetch("/system"),
-		onSuccess: (stats) => {
-			const currentVersion = stats?.version;
-			if (currentVersion && version !== currentVersion) {
-				useDashboard.setState({ version: currentVersion });
-			}
-		},
 	});
 
-	const { data: maintenanceInfo } = useQuery<MaintenanceInfo>(
-		["dashboard-maintenance-info"],
-		() => fetch<MaintenanceInfo>("/maintenance/info", { timeout: 8000 }),
-		{
-			refetchOnWindowFocus: false,
-			staleTime: 5 * 60 * 1000,
-			retry: false,
-		},
-	);
+	// v5 removed onSuccess from useQuery: the side effect follows the data.
+	const fetchedVersion = rawSystemData?.version;
+	useEffect(() => {
+		if (fetchedVersion && version !== fetchedVersion) {
+			useDashboard.setState({ version: fetchedVersion });
+		}
+	}, [fetchedVersion, version]);
 
-	const { data: myUsersData } = useQuery<UsersListResponse>(
-		["dashboard-my-users-stats", userData.username],
-		() =>
+	const { data: maintenanceInfo } = useQuery<MaintenanceInfo>({ queryKey: ["dashboard-maintenance-info"], queryFn: () => fetch<MaintenanceInfo>("/maintenance/info", { timeout: 8000 }), refetchOnWindowFocus: false,
+			staleTime: 5 * 60 * 1000,
+			retry: false, });
+
+	const { data: myUsersData } = useQuery<UsersListResponse>({ queryKey: ["dashboard-my-users-stats", userData.username], queryFn: () =>
 			fetch<UsersListResponse>("/users", {
 				query: { admin: userData.username, limit: 1000 },
-			}),
-		{
-			enabled: Boolean(userData.username),
+			}), enabled: Boolean(userData.username),
 			staleTime: 10_000,
-			refetchInterval: 15_000,
-		},
-	);
+			refetchInterval: 15_000, });
 
-	const systemData = useMemo(
-		() => sanitizeSystemStats(rawSystemData),
-		[rawSystemData],
-	);
+	const systemData = useMemo(() => sanitizeSystemStats(rawSystemData), [rawSystemData]);
 	useSystemMetricsStream(true);
 
 	useEffect(() => {
@@ -1976,25 +1069,18 @@ export const Statistics: FC<BoxProps> = (props) => {
 		}
 	}, [systemData?.version, version]);
 
-	const [historyPayload, setHistoryPayload] =
-		useState<HistoryModalPayload | null>(null);
-	const [historyInterval, setHistoryInterval] = useState(
-		HISTORY_INTERVALS[0].seconds,
-	);
+	const [historyPayload, setHistoryPayload] = useState<HistoryModalPayload | null>(null);
+	const [historyInterval, setHistoryInterval] = useState(HISTORY_INTERVALS[0].seconds);
 	const [userTab, setUserTab] = useState<"all" | "mine">("all");
+	const [bandwidthScope, setBandwidthScope] = useState<"master" | "total">("total");
 	const { colorMode } = useColorMode();
 
-	const canSeeGlobal =
-		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
+	const canSeeGlobal = userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
+	const showTotalBandwidth = canSeeGlobal && bandwidthScope === "total";
 	const diagnosticsQuery = useSystemDiagnostics(canSeeGlobal);
-	const criticalIssues = dashboardDiagnostics(
-		diagnosticsQuery.data || [],
-		diagnosticsQuery.isSuccess ? undefined : systemData || undefined,
-	);
-	const hasXrayError = criticalIssues.some(
-		(issue) =>
-			issue.resource_type === "node" ||
-			(issue.resource_type === "node_service" && issue.resource === "xray"),
+	const criticalIssues = dashboardDiagnostics(diagnosticsQuery.data || [], diagnosticsQuery.isSuccess ? undefined : systemData || undefined);
+	const hasXrayError = criticalIssues.some((issue) =>
+		issue.resource_type === "node" || issue.resource_type === "node_service" && issue.resource === "xray",
 	);
 
 	const openHistory = (payload: HistoryModalPayload) => {
@@ -2004,584 +1090,212 @@ export const Statistics: FC<BoxProps> = (props) => {
 
 	if (!systemData) {
 		return (
-			<Stack
-				spacing={{ base: 4, md: 5 }}
-				w="full"
-				dir={isRTL ? "rtl" : "ltr"}
-				sx={{
-					"@keyframes rbGlassPulse": {
-						"0%, 100%": {
-							opacity: 0.42,
-							transform: "scale(1)",
-						},
-						"50%": {
-							opacity: 0.78,
-							transform: "scale(1.002)",
-						},
-					},
-					"& .rb-glass-item": {
-						animation: "rbGlassPulse 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite",
-					},
-				}}
-			>
+			<div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col gap-4 md:gap-5 w-full">
 				{canSeeGlobal && <SystemDiagnostics issues={criticalIssues} criticalOnly />}
-				<Flex
-					align="center"
-					justify="space-between"
-					px={1}
-					py={0.5}
-					flexWrap="wrap"
-					gap={3}
-				>
-					<VStack align="flex-start" spacing={1.5}>
-						<Box
-							className="rb-glass-item"
-							w={{ base: "140px", sm: "170px" }}
-							h="24px"
-							borderRadius="8px"
-							bg="panel.surface"
-							borderWidth="1px"
-							borderColor="panel.border"
-						/>
-						<HStack spacing={1.5}>
-							<Box
-								className="rb-glass-item"
-								w="65px"
-								h="18px"
-								borderRadius="full"
-								bg="panel.surface"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-							<Box
-								className="rb-glass-item"
-								w="80px"
-								h="18px"
-								borderRadius="full"
-								bg="panel.surface"
-								borderWidth="1px"
-								borderColor="panel.border"
-							/>
-						</HStack>
-					</VStack>
+				<div className={"max-md:[&_>_div:last-child]:w-full max-md:[&_>_div:last-child]:justify-start flex items-center justify-between px-1 flex-wrap gap-3"}>
+					<div className={"flex-col items-start max-md:flex-row max-md:items-center min-[768px]:max-[991px]:[body:has([data-sidebar-collapsed='true'])_&]:flex-row min-[768px]:max-[991px]:[body:has([data-sidebar-collapsed='true'])_&]:items-center min-[768px]:max-[991px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:flex-col min-[768px]:max-[991px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:items-start lg:flex-col lg:items-start flex-wrap flex gap-2.5 md:gap-1"}>
+						<div className="w-[140px] sm:w-[170px] h-[24px] bg-panel-surface rounded-[8px] border border-panel-border! shimmer-box" />
+						<div className="flex flex-row items-center gap-1.5">
+							<div className="w-[65px] h-[18px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							<div className="w-[85px] h-[18px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							<div className="w-[75px] h-[18px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+						</div>
+					</div>
+					<div className="w-full sm:w-auto shrink-0">
+						<div className="flex-row hidden sm:flex gap-2 items-center justify-end">
+							<div className="w-[118px] h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							<div className="w-[100px] h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							<div className="w-[114px] h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+						</div>
+						<div className="flex-col flex sm:hidden gap-2 w-full">
+							<div className="w-full h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							<div className="flex gap-2 w-full items-center">
+								<div className="flex-[1_1_50%] h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+								<div className="flex-[1_1_50%] h-[32px] bg-panel-surface rounded-full border border-panel-border! shimmer-box" />
+							</div>
+						</div>
+					</div>
+				</div>
 
-					<HStack spacing={2} align="center">
-						<Box
-							className="rb-glass-item"
-							w={{ base: "70px", sm: "90px" }}
-							h="32px"
-							borderRadius="full"
-							bg="panel.surface"
-							borderWidth="1px"
-							borderColor="panel.border"
-						/>
-						<Box
-							className="rb-glass-item"
-							w={{ base: "70px", sm: "90px" }}
-							h="32px"
-							borderRadius="full"
-							bg="panel.surface"
-							borderWidth="1px"
-							borderColor="panel.border"
-						/>
-					</HStack>
-				</Flex>
-
-				<SimpleGrid
-					columns={{ base: 1, sm: 2, xl: 4 }}
-					gap={{ base: 3, md: 4 }}
-					sx={{
-						"@media screen and (min-width: 768px) and (max-width: 910px)": {
-							"body:not(:has([data-sidebar-collapsed='true'])) &": {
-								gridTemplateColumns: "1fr !important",
-							},
-						},
-					}}
-				>
+				<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
 					{[1, 2, 3, 4].map((i) => (
-						<Box
-							key={i}
-							className="rb-glass-item"
-							bg="panel.surface"
-							borderRadius="20px"
-							borderWidth="1px"
-							borderColor="panel.border"
-							p={{ base: 4, sm: 5 }}
-							minH={{ base: "125px", md: "140px" }}
-							display="flex"
-							flexDirection="column"
-							justifyContent="space-between"
-							boxShadow={
-								colorMode === "light"
-									? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-									: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-							}
-							backdropFilter="blur(8px)"
-						>
-							<Flex justify="space-between" align="center" mb={2}>
-								<HStack spacing={2.5}>
-									<Box
-										w="32px"
-										h="32px"
-										borderRadius="10px"
-										bg="panel.elevated"
-										flexShrink={0}
-									/>
-									<Box
-										w={i === 1 ? "75px" : i === 2 ? "65px" : "85px"}
-										h="16px"
-										borderRadius="md"
-										bg="panel.elevated"
-									/>
-								</HStack>
-								<Box
-									w="45px"
-									h="20px"
-									borderRadius="full"
-									bg="panel.elevated"
-								/>
-							</Flex>
-
-							<Stack spacing={2} mt={2}>
-								<Box
-									w={i === 1 ? "110px" : "90px"}
-									h="26px"
-									borderRadius="md"
-									bg="panel.elevated"
-								/>
-								<Box
-									w="full"
-									h="4px"
-									borderRadius="full"
-									bg="panel.elevated"
-									opacity={0.6}
-								/>
-							</Stack>
-						</Box>
+						<div key={i} className="bg-panel-surface rounded-[20px] border border-panel-border! p-4 sm:p-5 flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+							<div>
+								<div className="flex justify-between items-center mb-3">
+									<div className="flex flex-row gap-2.5 items-center">
+										<div className="w-[32px] h-[32px] rounded-[9px] bg-panel-elevated shrink-0" />
+										<div className="w-[90px] h-[16px] rounded-md bg-panel-elevated" />
+									</div>
+									{i <= 2 && <div className="w-[75px] h-[22px] rounded-full bg-panel-elevated" />}
+								</div>
+								<div className="flex items-baseline gap-1.5 mb-1">
+									<div className="w-[65px] h-[24px] rounded-md bg-panel-elevated" />
+									<div className={cn("h-[16px] rounded-md bg-panel-elevated", i === 1 ? "w-[45px]" : "w-[60px]")} />
+								</div>
+								{i === 1 && (
+									<div className="mt-0.5">
+										<div className="w-[150px] h-[14px] rounded-md bg-panel-elevated" />
+									</div>
+								)}
+							</div>
+							<div className="mt-3">
+								<div className="flex justify-between items-center mb-1.5">
+									<div className="w-[35px] h-[13px] rounded-xs bg-panel-elevated" />
+								</div>
+								<div className="w-full h-[4px] rounded-full bg-panel-elevated" />
+								<div className="flex justify-between items-center mt-2.5 pt-2.5 border-t border-panel-border!">
+									<div className="w-[80px] h-[14px] rounded-xs bg-panel-elevated" />
+									<div className="w-[70px] h-[14px] rounded-xs bg-panel-elevated" />
+								</div>
+							</div>
+						</div>
 					))}
-				</SimpleGrid>
+				</div>
 
-				<SimpleGrid
-					columns={{ base: 1, md: 2 }}
-					gap={{ base: 3, md: 4 }}
-					sx={{
-						"@media screen and (min-width: 768px) and (max-width: 910px)": {
-							"body:not(:has([data-sidebar-collapsed='true'])) &": {
-								gridTemplateColumns: "1fr !important",
-							},
-						},
-					}}
-				>
-					<Box
-						className="rb-glass-item"
-						bg="panel.surface"
-						borderRadius="20px"
-						borderWidth="1px"
-						borderColor="panel.border"
-						overflow="hidden"
-						boxShadow={
-							colorMode === "light"
-								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-								: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-						}
-						backdropFilter="blur(8px)"
-					>
-						<Flex
-							px={{ base: 4, sm: 5, md: 6 }}
-							py={3.5}
-							justify="space-between"
-							align="center"
-							borderBottomWidth="1px"
-							borderColor="panel.border"
-						>
-							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-								<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
-							</HStack>
-							<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
-						</Flex>
-						<Box p={{ base: 4, sm: 5, md: 6 }}>
-							<Stack spacing={3}>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box w="85px" h="15px" borderRadius="md" bg="panel.elevated" />
-									</HStack>
-									<Box w="75px" h="16px" borderRadius="md" bg="panel.elevated" />
-								</Flex>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box w="90px" h="15px" borderRadius="md" bg="panel.elevated" />
-									</HStack>
-									<Box w="75px" h="16px" borderRadius="md" bg="panel.elevated" />
-								</Flex>
-							</Stack>
-						</Box>
-					</Box>
+				<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4"}>
+					<div className="bg-panel-surface rounded-[20px] border border-panel-border! overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+						<div className="flex px-4 sm:px-5 md:px-6 py-3.5 justify-between items-center border-b border-panel-border!">
+							<div className="flex flex-row items-center gap-2.5">
+								<div className="w-[26px] h-[26px] rounded-[7px] bg-panel-elevated" />
+								<div className="w-[110px] h-[16px] rounded-md bg-panel-elevated" />
+							</div>
+							<div className="w-[75px] h-[22px] rounded-full bg-panel-elevated" />
+						</div>
+						<div className="p-4 sm:p-5 md:p-6">
+							<div className="flex flex-col gap-3">
+								<div className="flex justify-between items-center gap-3">
+									<div className="flex flex-row items-center gap-2.5">
+										<div className="w-[28px] h-[28px] rounded-[8px] bg-panel-elevated shrink-0" />
+										<div className="w-[85px] h-[15px] rounded-md bg-panel-elevated" />
+									</div>
+									<div className="w-[80px] h-[16px] rounded-md bg-panel-elevated" />
+								</div>
+								<div className="flex justify-between items-center gap-3">
+									<div className="flex flex-row items-center gap-2.5">
+										<div className="w-[28px] h-[28px] rounded-[8px] bg-panel-elevated shrink-0" />
+										<div className="w-[90px] h-[15px] rounded-md bg-panel-elevated" />
+									</div>
+									<div className="w-[80px] h-[16px] rounded-md bg-panel-elevated" />
+								</div>
+							</div>
+						</div>
+					</div>
 
-					<Box
-						className="rb-glass-item"
-						bg="panel.surface"
-						borderRadius="20px"
-						borderWidth="1px"
-						borderColor="panel.border"
-						overflow="hidden"
-						boxShadow={
-							colorMode === "light"
-								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-								: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-						}
-						backdropFilter="blur(8px)"
-					>
-						<Flex
-							px={{ base: 4, sm: 5, md: 6 }}
-							py={3.5}
-							justify="space-between"
-							align="center"
-							borderBottomWidth="1px"
-							borderColor="panel.border"
-						>
-							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-								<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
-							</HStack>
-						</Flex>
-						<Box p={{ base: 4, sm: 5, md: 6 }}>
-							<Stack spacing={3}>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box w="95px" h="15px" borderRadius="md" bg="panel.elevated" />
-									</HStack>
-									<Box w="80px" h="16px" borderRadius="md" bg="panel.elevated" />
-								</Flex>
-								<Flex justify="space-between" align="center" gap={3}>
-									<HStack spacing={2.5}>
-										<Box
-											w="28px"
-											h="28px"
-											borderRadius="8px"
-											bg="panel.elevated"
-											flexShrink={0}
-										/>
-										<Box w="90px" h="15px" borderRadius="md" bg="panel.elevated" />
-									</HStack>
-									<Box w="80px" h="16px" borderRadius="md" bg="panel.elevated" />
-								</Flex>
-							</Stack>
-						</Box>
-					</Box>
-				</SimpleGrid>
+					<div className="bg-panel-surface rounded-[20px] border border-panel-border! overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+						<div className="flex px-4 sm:px-5 md:px-6 py-3.5 justify-between items-center border-b border-panel-border!">
+							<div className="flex flex-row items-center gap-2.5">
+								<div className="w-[26px] h-[26px] rounded-[7px] bg-panel-elevated" />
+								<div className="w-[90px] h-[16px] rounded-md bg-panel-elevated" />
+							</div>
+						</div>
+						<div className="p-4 sm:p-5 md:p-6">
+							<div className="flex flex-col gap-3">
+								<div className="flex justify-between items-center gap-3">
+									<div className="flex flex-row items-center gap-2.5">
+										<div className="w-[28px] h-[28px] rounded-[8px] bg-panel-elevated shrink-0" />
+										<div className="w-[95px] h-[15px] rounded-md bg-panel-elevated" />
+									</div>
+									<div className="w-[110px] h-[16px] rounded-md bg-panel-elevated" />
+								</div>
+								<div className="flex justify-between items-center gap-3">
+									<div className="flex flex-row items-center gap-2.5">
+										<div className="w-[28px] h-[28px] rounded-[8px] bg-panel-elevated shrink-0" />
+										<div className="w-[90px] h-[15px] rounded-md bg-panel-elevated" />
+									</div>
+									<div className="w-[95px] h-[16px] rounded-md bg-panel-elevated" />
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
 
-				<Box
-					className="rb-glass-item"
-					bg="panel.surface"
-					borderRadius="20px"
-					borderWidth="1px"
-					borderColor="panel.border"
-					overflow="hidden"
-					boxShadow={
-						colorMode === "light"
-							? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-					}
-					backdropFilter="blur(8px)"
-				>
-					<Flex
-						px={{ base: 4, sm: 5, md: 6 }}
-						py={3.5}
-						justify="space-between"
-						align="center"
-						borderBottomWidth="1px"
-						borderColor="panel.border"
-					>
-						<HStack spacing={2.5}>
-							<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
-							<Box w="110px" h="16px" borderRadius="md" bg="panel.elevated" />
-						</HStack>
-						<Box w="75px" h="22px" borderRadius="full" bg="panel.elevated" />
-					</Flex>
-					<Box p={{ base: 4, sm: 5, md: 6 }}>
-						<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
+				<div className="bg-panel-surface rounded-[20px] border border-panel-border! overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+					<div className="flex px-4 sm:px-5 md:px-6 py-3.5 justify-between items-center border-b border-panel-border!">
+						<div className="flex flex-row items-center gap-2.5">
+							<div className="w-[26px] h-[26px] rounded-[7px] bg-panel-elevated" />
+							<div className="w-[110px] h-[16px] rounded-md bg-panel-elevated" />
+						</div>
+						<div className="w-[75px] h-[22px] rounded-full bg-panel-elevated" />
+					</div>
+					<div className="p-4 sm:p-5 md:p-6">
+						<div className="grid grid-cols-2 gap-3 md:gap-4">
 							{[1, 2].map((i) => (
-								<Box
-									key={i}
-									bg="panel.surface"
-									borderRadius="14px"
-									borderWidth="1px"
-									borderColor="panel.border"
-									p={{ base: 4, sm: 5 }}
-									display="flex"
-									flexDirection="column"
-									justifyContent="space-between"
-									boxShadow={
-										colorMode === "light"
-											? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-											: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-									}
-								>
-									<Box>
-										<Flex justify="space-between" align="center" mb={3}>
-											<HStack spacing={2.5} align="center">
-												<Box
-													w="32px"
-													h="32px"
-													borderRadius="10px"
-													bg="panel.elevated"
-													flexShrink={0}
-												/>
-												<Box
-													w={i === 1 ? "120px" : "130px"}
-													h="16px"
-													borderRadius="md"
-													bg="panel.elevated"
-												/>
-											</HStack>
-										</Flex>
-										<Flex align="baseline" gap={1.5} mb={1}>
-											<Box
-												w="55px"
-												h="24px"
-												borderRadius="md"
-												bg="panel.elevated"
-											/>
-											<Box
-												w="45px"
-												h="16px"
-												borderRadius="md"
-												bg="panel.elevated"
-											/>
-										</Flex>
-									</Box>
-									<Box mt={3}>
-										<Flex justify="space-between" align="center" mb={1.5}>
-											<Box
-												w="32px"
-												h="13px"
-												borderRadius="sm"
-												bg="panel.elevated"
-											/>
-										</Flex>
-										<Box
-											w="full"
-											h="4px"
-											borderRadius="full"
-											bg="panel.elevated"
-										/>
-										<Flex
-											justify="space-between"
-											align="center"
-											mt={2.5}
-											pt={2.5}
-											borderTopWidth="1px"
-											borderColor="panel.border"
-										>
-											<Box
-												w="75px"
-												h="14px"
-												borderRadius="sm"
-												bg="panel.elevated"
-											/>
-											<Box
-												w="70px"
-												h="14px"
-												borderRadius="sm"
-												bg="panel.elevated"
-											/>
-										</Flex>
-									</Box>
-								</Box>
+								<div key={i} className="bg-panel-surface rounded-[20px] border border-panel-border! p-4 sm:p-5 flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)]">
+									<div>
+										<div className="flex justify-between items-center mb-3">
+											<div className="flex flex-row gap-2.5 items-center">
+												<div className="w-[32px] h-[32px] rounded-[9px] bg-panel-elevated shrink-0" />
+												<div className={cn("h-[16px] rounded-md bg-panel-elevated", i === 1 ? "w-[120px]" : "w-[130px]")} />
+											</div>
+										</div>
+										<div className="flex items-baseline gap-1.5 mb-1">
+											<div className="w-[55px] h-[24px] rounded-md bg-panel-elevated" />
+											<div className="w-[45px] h-[16px] rounded-md bg-panel-elevated" />
+										</div>
+									</div>
+									<div className="mt-3">
+										<div className="flex justify-between items-center mb-1.5">
+											<div className="w-[32px] h-[13px] rounded-xs bg-panel-elevated" />
+										</div>
+										<div className="w-full h-[4px] rounded-full bg-panel-elevated" />
+										<div className="flex justify-between items-center mt-2.5 pt-2.5 border-t border-panel-border!">
+											<div className="w-[75px] h-[14px] rounded-xs bg-panel-elevated" />
+											<div className="w-[70px] h-[14px] rounded-xs bg-panel-elevated" />
+										</div>
+									</div>
+								</div>
 							))}
-						</SimpleGrid>
-					</Box>
-				</Box>
+						</div>
+					</div>
+				</div>
 
-				<Box
-					className="rb-glass-item"
-					bg="panel.surface"
-					borderRadius="20px"
-					borderWidth="1px"
-					borderColor="panel.border"
-					overflow="hidden"
-					boxShadow={
-						colorMode === "light"
-							? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-							: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-					}
-					backdropFilter="blur(8px)"
-				>
-					<Flex
-						px={{ base: 4, sm: 5, md: 6 }}
-						py={3.5}
-						justify="space-between"
-						align="center"
-						borderBottomWidth="1px"
-						borderColor="panel.border"
-					>
-						<HStack spacing={2.5}>
-							<Box w="26px" h="26px" borderRadius="8px" bg="panel.elevated" />
-							<Box w="90px" h="16px" borderRadius="md" bg="panel.elevated" />
-						</HStack>
-						<HStack
-							spacing={0.5}
-							bg="panel.elevated"
-							p={0.5}
-							borderRadius="10px"
-						>
-							<Box w="65px" h="22px" borderRadius="8px" bg="panel.surface" />
-							<Box w="60px" h="22px" borderRadius="8px" bg="transparent" />
-						</HStack>
-					</Flex>
-					<Box p={{ base: 4, sm: 5, md: 6 }}>
-						<Stack spacing={0}>
+				<div className="bg-panel-surface rounded-[20px] border border-panel-border! overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+					<div className="flex px-4 sm:px-5 md:px-6 py-3.5 justify-between items-center border-b border-panel-border!">
+						<div className="flex flex-row items-center gap-2.5">
+							<div className="w-[26px] h-[26px] rounded-[7px] bg-panel-elevated" />
+							<div className="w-[90px] h-[16px] rounded-md bg-panel-elevated" />
+						</div>
+						<div className="flex flex-row items-center gap-0.5 bg-panel-elevated p-0.5 rounded-[8px]">
+							<div className="w-[65px] h-[22px] rounded-[6px] bg-panel-surface" />
+							<div className="w-[60px] h-[22px] rounded-[6px] bg-transparent" />
+						</div>
+					</div>
+					<div className="p-4 sm:p-5 md:p-6">
+						<div className="flex flex-col gap-0">
 							{[
-								{
-									id: "skel-u-total",
-									hasTag: false,
-									hasHelper: false,
-									labelW: "55px",
-									valW: "35px",
-								},
-								{
-									id: "skel-u-active",
-									hasTag: true,
-									hasHelper: false,
-									labelW: "55px",
-									valW: "35px",
-								},
-								{
-									id: "skel-u-online",
-									hasTag: true,
-									hasHelper: true,
-									labelW: "55px",
-									valW: "35px",
-								},
-								{
-									id: "skel-u-onhold",
-									hasTag: false,
-									hasHelper: false,
-									labelW: "65px",
-									valW: "30px",
-								},
-								{
-									id: "skel-u-limited",
-									hasTag: false,
-									hasHelper: false,
-									labelW: "70px",
-									valW: "30px",
-								},
-								{
-									id: "skel-u-expired",
-									hasTag: false,
-									hasHelper: false,
-									labelW: "75px",
-									valW: "30px",
-								},
+								{ id: "skel-u-total", hasTag: false, hasHelper: false, labelW: "55px", valW: "35px" },
+								{ id: "skel-u-active", hasTag: true, hasHelper: false, labelW: "55px", valW: "35px" },
+								{ id: "skel-u-online", hasTag: true, hasHelper: true, labelW: "55px", valW: "35px" },
+								{ id: "skel-u-onhold", hasTag: false, hasHelper: false, labelW: "65px", valW: "30px" },
+								{ id: "skel-u-limited", hasTag: false, hasHelper: false, labelW: "70px", valW: "30px" },
+								{ id: "skel-u-expired", hasTag: false, hasHelper: false, labelW: "75px", valW: "30px" },
 							].map((row, idx) => (
-								<Flex
-									key={row.id}
-									justify="space-between"
-									align="center"
-									py={2.5}
-									borderBottomWidth={idx === 5 ? "0" : "1px"}
-									borderColor="panel.border"
-								>
-									<HStack spacing={3} minW={0}>
-										<Box
-											w="7px"
-											h="7px"
-											borderRadius="full"
-											bg="panel.elevated"
-											me="3px"
-											flexShrink={0}
-										/>
-										<Box
-											w={row.labelW}
-											h="14px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-										{row.hasTag && (
-											<Box
-												w="36px"
-												h="18px"
-												borderRadius="md"
-												bg="panel.elevated"
-											/>
-										)}
-									</HStack>
-									<VStack align="flex-end" spacing={0.5} flexShrink={0}>
-										<Box
-											w={row.valW}
-											h="16px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-										{row.hasHelper && (
-											<Box
-												w="100px"
-												h="12px"
-												borderRadius="sm"
-												bg="panel.elevated"
-												mt={0.5}
-											/>
-										)}
-									</VStack>
-								</Flex>
+								<div key={row.id} className={cn("flex justify-between items-center py-2.5 border-panel-border!", idx === 5 ? "border-b-0" : "border-b")}>
+									<div className="flex flex-row items-center gap-3 min-w-0!">
+										<div className="w-[7px] h-[7px] rounded-full bg-panel-elevated me-[3px] shrink-0" />
+										<div style={{ width: row.labelW }} className="h-[14px] rounded-md bg-panel-elevated" />
+										{row.hasTag && <div className="w-[36px] h-[18px] rounded-md bg-panel-elevated" />}
+									</div>
+									<div className="flex flex-col items-end gap-0.5 shrink-0">
+										<div style={{ width: row.valW }} className="h-[16px] rounded-md bg-panel-elevated" />
+										{row.hasHelper && <div className="w-[100px] h-[12px] rounded-xs bg-panel-elevated mt-0.5" />}
+									</div>
+								</div>
 							))}
-						</Stack>
-					</Box>
-				</Box>
+						</div>
+					</div>
+				</div>
 
 				{canSeeGlobal && (
-					<Box
-						className="rb-glass-item"
-						bg="panel.surface"
-						borderRadius="20px"
-						borderWidth="1px"
-						borderColor="panel.border"
-						overflow="hidden"
-						boxShadow={
-							colorMode === "light"
-								? "0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)"
-								: "inset 0 1px 0 0 rgba(255, 255, 255, 0.08)"
-						}
-						backdropFilter="blur(8px)"
-					>
-						<Flex
-							px={{ base: 4, sm: 5, md: 6 }}
-							py={3.5}
-							justify="space-between"
-							align="center"
-							borderBottomWidth="1px"
-							borderColor="panel.border"
-						>
-							<HStack spacing={2.5}>
-								<Box w="26px" h="26px" borderRadius="7px" bg="panel.elevated" />
-								<Box w="85px" h="16px" borderRadius="md" bg="panel.elevated" />
-							</HStack>
-						</Flex>
-						<Box p={{ base: 4, sm: 5, md: 6 }}>
-							<Stack spacing={0}>
+					<div className="bg-panel-surface rounded-[20px] border border-panel-border! overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
+						<div className="flex px-4 sm:px-5 md:px-6 py-3.5 justify-between items-center border-b border-panel-border!">
+							<div className="flex flex-row items-center gap-2.5">
+								<div className="w-[26px] h-[26px] rounded-[7px] bg-panel-elevated" />
+								<div className="w-[85px] h-[16px] rounded-md bg-panel-elevated" />
+							</div>
+						</div>
+						<div className="p-4 sm:p-5 md:p-6">
+							<div className="flex flex-col gap-0">
 								{[
 									{ id: "skel-a-total", labelW: "75px", valW: "40px" },
 									{ id: "skel-a-full", labelW: "85px", valW: "40px" },
@@ -2589,67 +1303,33 @@ export const Statistics: FC<BoxProps> = (props) => {
 									{ id: "skel-a-standard", labelW: "80px", valW: "40px" },
 									{ id: "skel-a-top", labelW: "75px", valW: "120px" },
 								].map((row, idx) => (
-									<Flex
-										key={row.id}
-										justify="space-between"
-										align="center"
-										py={2.5}
-										borderBottomWidth={idx === 4 ? "0" : "1px"}
-										borderColor="panel.border"
-									>
-										<HStack spacing={3} minW={0}>
-											<Box
-												w="7px"
-												h="7px"
-												borderRadius="full"
-												bg="panel.elevated"
-												me="3px"
-												flexShrink={0}
-											/>
-											<Box
-												w={row.labelW}
-												h="14px"
-												borderRadius="md"
-												bg="panel.elevated"
-											/>
-										</HStack>
-										<Box
-											w={row.valW}
-											h="16px"
-											borderRadius="md"
-											bg="panel.elevated"
-										/>
-									</Flex>
+									<div key={row.id} className={cn("flex justify-between items-center py-2.5 border-panel-border!", idx === 4 ? "border-b-0" : "border-b")}>
+										<div className="flex flex-row items-center gap-3 min-w-0!">
+											<div className="w-[7px] h-[7px] rounded-full bg-panel-elevated me-[3px] shrink-0" />
+											<div style={{ width: row.labelW }} className="h-[14px] rounded-md bg-panel-elevated" />
+										</div>
+										<div style={{ width: row.valW }} className="h-[16px] rounded-md bg-panel-elevated" />
+									</div>
 								))}
-							</Stack>
-						</Box>
-					</Box>
+							</div>
+						</div>
+					</div>
 				)}
-			</Stack>
+			</div>
 		);
 	}
 
 	const activePercent =
 		systemData.total_user > 0
-			? formatPercent(
-					(systemData.users_active / systemData.total_user) * 100,
-					isRTL,
-				)
+			? formatPercent((systemData.users_active / systemData.total_user) * 100, isRTL)
 			: formatPercent(0, isRTL);
 	const onlinePercent =
 		systemData.total_user > 0
-			? formatPercent(
-					(systemData.online_users / systemData.total_user) * 100,
-					isRTL,
-				)
+			? formatPercent((systemData.online_users / systemData.total_user) * 100, isRTL)
 			: formatPercent(0, isRTL);
 
-	const myTotalUsers =
-		myUsersData?.total ?? systemData.personal_usage?.total_users ?? 0;
-	const myActiveUsers =
-		myUsersData?.active_total ??
-		myUsersData?.status_breakdown?.active ??
-		myTotalUsers;
+	const myTotalUsers = myUsersData?.total ?? systemData.personal_usage?.total_users ?? 0;
+	const myActiveUsers = myUsersData?.active_total ?? myUsersData?.status_breakdown?.active ?? myTotalUsers;
 	const myOnlineUsers = myUsersData?.online_total ?? 0;
 
 	const myActivePercent =
@@ -2662,244 +1342,75 @@ export const Statistics: FC<BoxProps> = (props) => {
 			: formatPercent(0, isRTL);
 
 	const myUsersList = myUsersData?.users ?? [];
-	const myOnHoldUsers =
-		myUsersData?.status_breakdown?.on_hold ??
-		myUsersList.filter((u) => u.status === "on_hold").length;
-	const myLimitedUsers =
-		myUsersData?.status_breakdown?.limited ??
-		myUsersList.filter((u) => u.status === "limited").length;
-	const myExpiredUsers =
-		myUsersData?.status_breakdown?.expired ??
-		myUsersList.filter((u) => u.status === "expired").length;
-	const myOnlineUploadSpeed = myUsersList.reduce(
-		(sum, u) => sum + (Number(u.upload_speed) || 0),
-		0,
-	);
-	const myOnlineDownloadSpeed = myUsersList.reduce(
-		(sum, u) => sum + (Number(u.download_speed) || 0),
-		0,
-	);
-	const myActiveUsersUsedTraffic = myUsersList.reduce(
-		(sum, u) => sum + (Number(u.used_traffic) || 0),
-		0,
-	);
+	const myOnHoldUsers = myUsersData?.status_breakdown?.on_hold ?? myUsersList.filter((u) => u.status === "on_hold").length;
+	const myLimitedUsers = myUsersData?.status_breakdown?.limited ?? myUsersList.filter((u) => u.status === "limited").length;
+	const myExpiredUsers = myUsersData?.status_breakdown?.expired ?? myUsersList.filter((u) => u.status === "expired").length;
+	const myOnlineUploadSpeed = myUsersList.reduce((sum, u) => sum + (Number(u.upload_speed) || 0), 0);
+	const myOnlineDownloadSpeed = myUsersList.reduce((sum, u) => sum + (Number(u.download_speed) || 0), 0);
+	const myActiveUsersUsedTraffic = myUsersList.reduce((sum, u) => sum + (Number(u.used_traffic) || 0), 0);
 
 	const panelInfo = maintenanceInfo?.panel;
 	const exactVersion =
 		panelInfo?.tag ||
 		panelInfo?.update?.current ||
-		(systemData.channel?.toLowerCase() === "dev"
-			? "dev"
-			: systemData.version) ||
+		(systemData.channel?.toLowerCase() === "dev" ? "dev" : systemData.version) ||
 		"-";
 
 	return (
-		<Stack
-			spacing={{ base: 4, md: 5 }}
-			w="full"
-			dir={isRTL ? "rtl" : "ltr"}
-			{...props}
-		>
-			{canSeeGlobal && (
-				<SystemDiagnostics issues={criticalIssues} criticalOnly />
-			)}
-			<Flex
-				align="center"
-				justify="space-between"
-				flexWrap="wrap"
-				gap={3}
-				px={1}
-				sx={{
-					"@media screen and (max-width: 599.98px)": {
-						flexWrap: "wrap !important",
-						alignItems: "flex-start !important",
-					},
-					"@media screen and (min-width: 600px) and (max-width: 1040px)": {
-						flexWrap: "wrap !important",
-						alignItems: "flex-start !important",
-					},
-					"@media screen and (min-width: 1040.02px)": {
-						"body:has([data-sidebar-collapsed='true']) &, body[data-sidebar-collapsed='true'] &":
-							{
-								flexWrap: "nowrap !important",
-								alignItems: "center !important",
-							},
-						"body:not([data-sidebar-collapsed='true']):not(:has([data-sidebar-collapsed='true'])) &":
-							{
-								flexWrap: "wrap !important",
-								alignItems: "flex-start !important",
-							},
-					},
-					"@media screen and (min-width: 1220px)": {
-						flexWrap: "nowrap !important",
-						alignItems: "center !important",
-					},
-				}}
-			>
-				<Flex
-					gap={{ base: 1.5, md: 2 }}
-					sx={{
-						flexDirection: "column",
-						alignItems: "flex-start",
-						"@media screen and (max-width: 599.98px)": {
-							flexDirection: "column !important",
-							alignItems: "flex-start !important",
-							width: "100% !important",
-							gap: "6px !important",
-						},
-						"@media screen and (min-width: 600px) and (max-width: 1040px)": {
-							flexDirection: "row !important",
-							alignItems: "center !important",
-							width: "100% !important",
-							gap: "12px !important",
-						},
-						"@media screen and (min-width: 1040.02px)": {
-							"body:has([data-sidebar-collapsed='true']) &, body[data-sidebar-collapsed='true'] &":
-								{
-									flexDirection: "column !important",
-									alignItems: "flex-start !important",
-									width: "auto !important",
-									gap: "6px !important",
-								},
-							"body:not([data-sidebar-collapsed='true']):not(:has([data-sidebar-collapsed='true'])) &":
-								{
-									flexDirection: "row !important",
-									alignItems: "center !important",
-									width: "100% !important",
-									gap: "12px !important",
-								},
-						},
-						"@media screen and (min-width: 1220px)": {
-							flexDirection: "column !important",
-							alignItems: "flex-start !important",
-							width: "auto !important",
-							gap: "6px !important",
-						},
-					}}
-				>
-					<Text
-						fontSize={{ base: "18px", md: "20px" }}
-						fontWeight="700"
-						color="panel.text"
-						letterSpacing="-0.02em"
-						whiteSpace="nowrap"
-						flexShrink={0}
-					>
+		<div dir={isRTL ? "rtl" : "ltr"} {...props} className="flex flex-col gap-4 md:gap-5 w-full">
+			{canSeeGlobal && <SystemDiagnostics issues={criticalIssues} criticalOnly />}
+			<div className="flex items-center justify-between flex-wrap gap-3 px-1">
+				<div className="flex flex-col items-start gap-1 min-[600px]:max-[1040px]:flex-row min-[600px]:max-[1040px]:items-center min-[600px]:max-[1040px]:gap-2.5 max-[599.98px]:flex-col max-[599.98px]:items-start max-[599.98px]:gap-1">
+					<p className="text-[18px] md:text-[20px] font-bold text-panel-text tracking-[-0.02em]">
 						{t("dashboard.system.overview")}
-					</Text>
-					<Flex align="center" gap={2} direction="row" flexWrap="nowrap" flexShrink={0}>
-						<Box
-							w="7px"
-							h="7px"
-							borderRadius="full"
-							bg={
-								systemData.xray_running && !hasXrayError ? "#22c55e" : "#ef4444"
-							}
-							sx={{
-								animation:
-									systemData.xray_running && !hasXrayError
-										? "livePulse 3.5s ease-in-out infinite"
-										: "none",
-								boxShadow:
-									systemData.xray_running && !hasXrayError
-										? "0 0 5px rgba(34, 197, 94, 0.4)"
-										: "0 0 5px rgba(239, 68, 68, 0.4)",
-								"@keyframes livePulse": {
-									"0%, 100%": { opacity: 0.65, transform: "scale(1)" },
-									"50%": {
-										opacity: 1,
-										transform: "scale(1.08)",
-										boxShadow: "0 0 8px rgba(34, 197, 94, 0.6)",
-									},
-								},
-							}}
-						/>
-						<Text fontSize="12px" color="panel.textSecondary" fontWeight="600">
-							{hasXrayError
-								? t("diagnostics.statusError")
-								: systemData.xray_running
-									? t("dashboard.system.statusRunning")
-									: t("dashboard.system.statusStopped")}
-						</Text>
+					</p>
+					<div className="flex-row flex items-center gap-2">
+						<div style={{
+								animation: systemData.xray_running && !hasXrayError ? "livePulse 3.5s ease-in-out infinite" : "none",
+								boxShadow: systemData.xray_running && !hasXrayError
+									? "0 0 5px rgba(34, 197, 94, 0.4)"
+									: "0 0 5px rgba(239, 68, 68, 0.4)",
+							}} className={cn("w-[7px] h-[7px] rounded-full", systemData.xray_running && !hasXrayError ? "bg-[#22c55e]" : "bg-[#ef4444]")} />
+						<p className="text-[12px] text-panel-text-secondary font-semibold">
+							{hasXrayError ? t("diagnostics.statusError") : systemData.xray_running ? t("dashboard.system.statusRunning") : t("dashboard.system.statusStopped")}
+						</p>
 						{systemData.os && (
-							<HStack
-								spacing={1.5}
-								align="center"
-								color="panel.textSecondary"
-								fontSize="12px"
-								fontWeight="600"
-							>
-								<Text as="span">·</Text>
-								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+							<div className="flex flex-row gap-1.5 items-center text-panel-text-secondary text-[12px] font-semibold">
+								<span>·</span>
+								<span dir="ltr" className="[unicode-bidi:isolate]">
 									{systemData.os}
-								</Text>
-							</HStack>
+								</span>
+							</div>
 						)}
 						{exactVersion && exactVersion !== "-" && (
-							<HStack
-								spacing={1.5}
-								align="center"
-								color="panel.textSecondary"
-								fontSize="12px"
-								fontWeight="600"
-							>
-								<Text as="span">·</Text>
-								<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
+							<div className="flex flex-row gap-1.5 items-center text-panel-text-secondary text-[12px] font-semibold">
+								<span>·</span>
+								<span dir="ltr" className="[unicode-bidi:isolate]">
 									{exactVersion}
-								</Text>
-							</HStack>
+								</span>
+							</div>
 						)}
-					</Flex>
-				</Flex>
-				<DashboardMaintenanceControls
-					channel={systemData.channel}
-					version={systemData.version}
-				/>
-			</Flex>
+					</div>
+				</div>
+				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
+			</div>
 
-			<SimpleGrid
-				columns={{ base: 1, sm: 2, xl: 4 }}
-				gap={{ base: 3, md: 4 }}
-				sx={{
-					"@media screen and (min-width: 768px) and (max-width: 910px)": {
-						"body:not(:has([data-sidebar-collapsed='true'])) &": {
-							gridTemplateColumns: "1fr !important",
-						},
-					},
-				}}
-			>
+			<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
 				<ResourceCard
 					label={t("dashboard.system.cpuUsage")}
-					icon={<CpuChipIcon width={16} />}
+					icon={<Cpu className="w-[16px]" />}
 					value={formatPercent(systemData.cpu_usage, false)}
 					percent={systemData.cpu_usage}
 					metaValue={formatNumberValue(systemData.cpu_cores)}
 					metaUnit={t("dashboard.system.core")}
 					subMeta={
 						systemData.load_avg && systemData.load_avg.length >= 3 ? (
-							<Flex
-								align="center"
-								gap={1.5}
-								fontSize="11px"
-								fontWeight="500"
-								color="panel.textMuted"
-								dir={isRTL ? "rtl" : "ltr"}
-							>
-								<Text as="span">{t("loadAverage")}:</Text>
-								<Text
-									as="span"
-									dir="ltr"
-									sx={{
-										fontVariantNumeric: "tabular-nums",
-										unicodeBidi: "isolate",
-									}}
-								>
-									{systemData.load_avg
-										.slice(0, 3)
-										.map((v) => v.toFixed(2))
-										.join(" · ")}
-								</Text>
-							</Flex>
+							<div dir={isRTL ? "rtl" : "ltr"} className="flex items-center gap-1.5 text-[11px] font-medium text-panel-text-muted">
+								<span>{t("loadAverage")}:</span>
+								<span dir="ltr" className="[font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
+									{systemData.load_avg.slice(0, 3).map((v) => v.toFixed(2)).join(" · ")}
+								</span>
+							</div>
 						) : undefined
 					}
 					footerLeft={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.cpu_history.map((e) => e.value)), isRTL)}`}
@@ -2917,7 +1428,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.memoryUsage")}
-					icon={<ServerStackIcon width={16} />}
+					icon={<Server className="w-[16px]" />}
 					value={formatBytes(systemData.memory.current, 1)}
 					totalValue={formatBytes(systemData.memory.total, 1)}
 					percent={systemData.memory.percent}
@@ -2936,7 +1447,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.swapUsage")}
-					icon={<CircleStackIcon width={16} />}
+					icon={<Database className="w-[16px]" />}
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
@@ -2946,7 +1457,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 				/>
 				<ResourceCard
 					label={t("dashboard.system.diskUsage")}
-					icon={<CircleStackIcon width={16} />}
+					icon={<Database className="w-[16px]" />}
 					value={formatBytes(systemData.disk.current, 1)}
 					totalValue={formatBytes(systemData.disk.total, 1)}
 					percent={systemData.disk.percent}
@@ -2954,253 +1465,141 @@ export const Statistics: FC<BoxProps> = (props) => {
 					footerRight={`${t("dashboard.system.average")}: ${formatPercent(average(systemData.disk_history.map((e) => e.value)), isRTL)}`}
 					isRTL={isRTL}
 				/>
-			</SimpleGrid>
+			</div>
 
-			<SimpleGrid
-				columns={{ base: 1, md: 2 }}
-				gap={{ base: 3, md: 4 }}
-				sx={{
-					"@media screen and (min-width: 768px) and (max-width: 910px)": {
-						"body:not(:has([data-sidebar-collapsed='true'])) &": {
-							gridTemplateColumns: "1fr !important",
-						},
-					},
-				}}
-			>
+			<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4"}>
 				<SectionCard
 					title={
-						<HStack spacing={2.5}>
-							<Flex
-								w="26px"
-								h="26px"
-								align="center"
-								justify="center"
-								borderRadius="7px"
-								bg="panel.elevated"
-								color="panel.textSecondary"
-								data-rb-icon=""
-							>
-								<SignalIcon width={14} />
-							</Flex>
+						<div className="flex flex-row items-center gap-2.5">
+							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
+								<Signal className="w-[14px]" />
+							</div>
 							<span>{t("dashboard.system.bandwidthSpeed")}</span>
-						</HStack>
+						</div>
 					}
 					action={
-						<Button
-							size="xs"
-							h="22px"
-							px={2.5}
-							fontSize="11px"
-							variant="ghost"
-							borderRadius="full"
-							bg="panel.elevated"
-							color={
-								colorMode === "light"
-									? "panel.textSecondary"
-									: "panel.textMuted"
-							}
-							fontWeight={colorMode === "light" ? "600" : "500"}
-							transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-							data-rb-swap=""
-							_hover={{
-								md: {
-									bg: "panel.border !important",
-									color: "panel.text !important",
-								},
-							}}
-							_active={{
-								bg: "panel.borderStrong !important",
-								transform: "scale(0.97)",
-							}}
-							_focusVisible={{
-								outline: "2px solid var(--rb-panel-accent)",
-								outlineOffset: "2px",
-							}}
-							position="relative"
-							_after={{
-								content: '""',
-								position: "absolute",
-								top: "-10px",
-								bottom: "-10px",
-								left: "-10px",
-								right: "-10px",
-							}}
-							onClick={() =>
-								openHistory({
-									type: "network",
-									title: t("dashboard.system.bandwidthSpeed"),
-									networkEntries: systemData.network_history,
-								})
-							}
-						>
-							{t("dashboard.system.viewHistory")}
-						</Button>
+						<div className="flex flex-row items-center gap-2">
+							{canSeeGlobal ? (
+								<div className="flex flex-row items-center gap-0.5 bg-panel-elevated p-0.5 rounded-[8px] relative [transition:all_0.25s_ease]">
+									<div className="relative">
+										{bandwidthScope === "master" && (
+											<motion.div
+												layoutId="bandwidthScopeTabPill"
+												style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: "6px", backgroundColor: "var(--rb-panel-accent)", border: "1px solid var(--rb-panel-accent)", boxShadow: "0 1px 3px rgba(0,0,0,0.12)", zIndex: 1 }}
+												transition={{ type: "tween", ease: "easeInOut", duration: 0.25 }}
+											/>
+										)}
+										<Button onClick={() => setBandwidthScope("master")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", bandwidthScope === "master" ? "text-white" : "text-panel-text")}>
+											{t("dashboard.system.bandwidthScope.master")}
+										</Button>
+									</div>
+									<div className="relative">
+										{bandwidthScope === "total" && (
+											<motion.div
+												layoutId="bandwidthScopeTabPill"
+												style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: "6px", backgroundColor: "var(--rb-panel-accent)", border: "1px solid var(--rb-panel-accent)", boxShadow: "0 1px 3px rgba(0,0,0,0.12)", zIndex: 1 }}
+												transition={{ type: "tween", ease: "easeInOut", duration: 0.25 }}
+											/>
+										)}
+										<Button onClick={() => setBandwidthScope("total")} title={t("dashboard.system.bandwidthScope.totalHint")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", bandwidthScope === "total" ? "text-white" : "text-panel-text")}>
+											{t("dashboard.system.bandwidthScope.total")}
+										</Button>
+									</div>
+								</div>
+							) : null}
+							{!showTotalBandwidth ? (
+								<Button onClick={() =>
+										openHistory({
+											type: "network",
+											title: t("dashboard.system.bandwidthSpeed"),
+											networkEntries: systemData.network_history,
+										})
+									} variant="ghost" size="xs" className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2.5 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] [[role=group]:hover_&]:md:bg-panel-surface hover:md:bg-panel-border! hover:md:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium", colorMode === "light" ? "[[role=group]:hover_&]:md:text-panel-text" : "[[role=group]:hover_&]:md:text-panel-text-secondary"))}>
+									{t("dashboard.system.viewHistory")}
+								</Button>
+							) : null}
+						</div>
 					}
 				>
-					<Stack spacing={3}>
+					<div className="flex flex-col gap-3">
 						<SpeedItem
-							icon={<ArrowDownTrayIcon width={13} />}
+							icon={<Download className="w-[13px]" />}
 							label={t("dashboard.system.incomingSpeed")}
-							value={`${formatBytes(systemData.incoming_bandwidth_speed)}/s`}
+							value={`${formatBytes(showTotalBandwidth ? (systemData.total_incoming_bandwidth_speed ?? 0) : systemData.incoming_bandwidth_speed)}/s`}
 						/>
 						<SpeedItem
-							icon={<ArrowUpTrayIcon width={13} />}
+							icon={<Upload className="w-[13px]" />}
 							label={t("dashboard.system.outgoingSpeed")}
-							value={`${formatBytes(systemData.outgoing_bandwidth_speed)}/s`}
+							value={`${formatBytes(showTotalBandwidth ? (systemData.total_outgoing_bandwidth_speed ?? 0) : systemData.outgoing_bandwidth_speed)}/s`}
 						/>
-					</Stack>
+					</div>
 				</SectionCard>
 
 				<SectionCard
 					title={
-						<HStack spacing={2.5}>
-							<Flex
-								w="26px"
-								h="26px"
-								align="center"
-								justify="center"
-								borderRadius="7px"
-								bg="panel.elevated"
-								color="panel.textSecondary"
-								data-rb-icon=""
-							>
-								<ClockIcon width={14} />
-							</Flex>
+						<div className="flex flex-row items-center gap-2.5">
+							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
+								<Clock className="w-[14px]" />
+							</div>
 							<span>{t("dashboard.system.uptime")}</span>
-						</HStack>
+						</div>
 					}
 				>
-					<Stack spacing={3}>
-						<Flex align="center" justify="space-between" gap={3}>
-							<HStack spacing={2.5} color="panel.textMuted">
-								<Flex
-									w="28px"
-									h="28px"
-									align="center"
-									justify="center"
-									borderRadius="8px"
-									bg="panel.elevated"
-									flexShrink={0}
-									data-rb-icon=""
-								>
-									<ServerStackIcon width={13} />
-								</Flex>
-								<Text
-									fontSize="13px"
-									fontWeight="600"
-									color="panel.textSecondary"
-								>
+					<div className="flex h-full flex-col justify-between gap-3">
+						<div className="flex items-center justify-between gap-3">
+							<div className="flex flex-row items-center gap-2.5 text-panel-text-muted">
+								<div className="flex w-[28px] h-[28px] items-center justify-center rounded-[8px] bg-panel-elevated shrink-0">
+									<Server className="w-[13px]" />
+								</div>
+								<p className="text-[13px] font-semibold text-panel-text-secondary">
 									{t("dashboard.system.systemUptime")}
-								</Text>
-							</HStack>
+								</p>
+							</div>
 							{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
-						</Flex>
-						<Flex align="center" justify="space-between" gap={3}>
-							<HStack spacing={2.5} color="panel.textMuted">
-								<Flex
-									w="28px"
-									h="28px"
-									align="center"
-									justify="center"
-									borderRadius="8px"
-									bg="panel.elevated"
-									flexShrink={0}
-									data-rb-icon=""
-								>
-									<CircleStackIcon width={13} />
-								</Flex>
-								<Text
-									fontSize="13px"
-									fontWeight="600"
-									color="panel.textSecondary"
-								>
+						</div>
+						<div className="flex items-center justify-between gap-3">
+							<div className="flex flex-row items-center gap-2.5 text-panel-text-muted">
+								<div className="flex w-[28px] h-[28px] items-center justify-center rounded-[8px] bg-panel-elevated shrink-0">
+									<Database className="w-[13px]" />
+								</div>
+								<p className="text-[13px] font-semibold text-panel-text-secondary">
 									{t("dashboard.system.panelUptime")}
-								</Text>
-							</HStack>
-							{formatLocalizedDuration(
-								systemData.panel_uptime_seconds,
-								t,
-								isRTL,
-							)}
-						</Flex>
-					</Stack>
+								</p>
+							</div>
+							{formatLocalizedDuration(systemData.panel_uptime_seconds, t, isRTL)}
+						</div>
+					</div>
 				</SectionCard>
-			</SimpleGrid>
+			</div>
 
 			<SectionCard
 				noHover
 				roleGroup={false}
 				title={
-					<HStack spacing={2.5}>
-						<Flex
-							w="26px"
-							h="26px"
-							align="center"
-							justify="center"
-							borderRadius="7px"
-							bg="panel.elevated"
-							color="panel.textSecondary"
-							data-rb-icon=""
-						>
-							<CpuChipIcon width={14} />
-						</Flex>
+					<div className="flex flex-row items-center gap-2.5">
+						<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
+							<Cpu className="w-[14px]" />
+						</div>
 						<span>{t("dashboard.system.panelUsage")}</span>
-					</HStack>
+					</div>
 				}
 				action={
-					<Button
-						size="xs"
-						h="22px"
-						px={2.5}
-						fontSize="11px"
-						variant="ghost"
-						borderRadius="full"
-						bg="panel.elevated"
-						color={
-							colorMode === "light" ? "panel.textSecondary" : "panel.textMuted"
-						}
-						fontWeight={colorMode === "light" ? "600" : "500"}
-						transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-						_hover={{
-							md: {
-								bg: "panel.border !important",
-								color: "panel.text !important",
-							},
-						}}
-						_active={{
-							bg: "panel.borderStrong !important",
-							transform: "scale(0.97)",
-						}}
-						_focusVisible={{
-							outline: "2px solid var(--rb-panel-accent)",
-							outlineOffset: "2px",
-						}}
-						position="relative"
-						_after={{
-							content: '""',
-							position: "absolute",
-							top: "-10px",
-							bottom: "-10px",
-							left: "-10px",
-							right: "-10px",
-						}}
-						onClick={() =>
+					<Button onClick={() =>
 							openHistory({
 								type: "panel",
 								title: t("dashboard.system.panelUsage"),
 								cpuEntries: systemData.panel_cpu_history,
 								memoryEntries: systemData.panel_memory_history,
 							})
-						}
-					>
+						} variant="ghost" size="xs" className={cn("after:content-[''] after:absolute after:top-[-10px] after:bottom-[-10px] after:left-[-10px] after:right-[-10px]", cn("h-[22px] px-2.5 text-[11px] rounded-full bg-panel-elevated [transition:all_0.2s_ease] hover:bg-panel-border! hover:text-panel-text! active:bg-panel-border-strong! focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px] relative", colorMode === "light" ? "text-panel-text-secondary" : "text-panel-text-muted", colorMode === "light" ? "font-semibold" : "font-medium"))}>
 						{t("dashboard.system.viewHistory")}
 					</Button>
 				}
 			>
-				<SimpleGrid columns={{ base: 1, sm: 2 }} gap={{ base: 3, md: 4 }}>
+				<div className="grid grid-cols-2 gap-3 md:gap-4">
 					<ResourceCard
 						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
-						icon={<CpuChipIcon width={16} />}
+						icon={<Cpu className="w-[16px]" />}
 						value={formatPercent(systemData.panel_cpu_percent, false)}
 						percent={systemData.panel_cpu_percent}
 						metaValue={formatNumberValue(systemData.app_threads)}
@@ -3211,7 +1610,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 					/>
 					<ResourceCard
 						label={`${t("dashboard.system.memoryUsage")} (Panel)`}
-						icon={<ServerStackIcon width={16} />}
+						icon={<Server className="w-[16px]" />}
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}
 						percent={systemData.panel_memory_percent}
@@ -3219,40 +1618,22 @@ export const Statistics: FC<BoxProps> = (props) => {
 						footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.panel_memory_history.map((e) => e.value)), isRTL)}`}
 						isRTL={isRTL}
 					/>
-				</SimpleGrid>
+				</div>
 			</SectionCard>
 
 			<SectionCard
 				title={
-					<HStack spacing={2.5}>
-						<Flex
-							w="28px"
-							h="28px"
-							align="center"
-							justify="center"
-							borderRadius="10px"
-							bg="panel.elevated"
-							color="panel.textSecondary"
-							transition="background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-							data-rb-icon=""
-						>
-							<UserGroupIcon width={14} />
-						</Flex>
+					<div className="flex flex-row items-center gap-2.5">
+						<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
+							<Users className="w-[14px]" />
+						</div>
 						<span>{t("dashboard.users")}</span>
-					</HStack>
+					</div>
 				}
 				action={
 					canSeeGlobal ? (
-						<HStack
-							spacing={0.5}
-							bg="panel.elevated"
-							p={0.5}
-							borderRadius="10px"
-							position="relative"
-							transition="background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease"
-							data-rb-swap=""
-						>
-							<Box position="relative">
+						<div className="flex flex-row items-center gap-0.5 bg-panel-elevated p-0.5 rounded-[8px] relative [transition:all_0.25s_ease] [[role=group]:hover_&]:md:bg-panel-surface">
+							<div className="relative">
 								{userTab === "all" && (
 									<motion.div
 										layoutId="usersOverviewTabPill"
@@ -3262,49 +1643,24 @@ export const Statistics: FC<BoxProps> = (props) => {
 											left: 0,
 											right: 0,
 											bottom: 0,
-											borderRadius: "8px",
+											borderRadius: "6px",
 											backgroundColor: "var(--rb-panel-accent)",
 											border: "1px solid var(--rb-panel-accent)",
+											boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
 											zIndex: 1,
 										}}
 										transition={{
 											type: "tween",
-											ease: [0.16, 1, 0.3, 1],
-											duration: 0.22,
+											ease: "easeInOut",
+											duration: 0.25,
 										}}
 									/>
 								)}
-								<Button
-									size="xs"
-									h="22px"
-									px={2.5}
-									borderRadius="8px"
-									fontSize="11px"
-									fontWeight="600"
-									variant="ghost"
-									bg="transparent !important"
-									color={userTab === "all" ? "white" : "panel.textSecondary"}
-									position="relative"
-									zIndex={2}
-									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-									_hover={{
-										md: {
-											color: userTab === "all" ? "white" : "panel.text",
-										},
-									}}
-									_active={{
-										transform: "scale(0.97)",
-									}}
-									_focusVisible={{
-										outline: "2px solid var(--rb-panel-accent)",
-										outlineOffset: "2px",
-									}}
-									onClick={() => setUserTab("all")}
-								>
+								<Button onClick={() => setUserTab("all")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", userTab === "all" ? "text-white" : "text-panel-text", userTab === "all" ? "hover:md:text-white" : "hover:md:text-panel-text")}>
 									{t("dashboard.users.allUsers")}
 								</Button>
-							</Box>
-							<Box position="relative">
+							</div>
+							<div className="relative">
 								{userTab === "mine" && (
 									<motion.div
 										layoutId="usersOverviewTabPill"
@@ -3314,107 +1670,51 @@ export const Statistics: FC<BoxProps> = (props) => {
 											left: 0,
 											right: 0,
 											bottom: 0,
-											borderRadius: "8px",
+											borderRadius: "6px",
 											backgroundColor: "var(--rb-panel-accent)",
 											border: "1px solid var(--rb-panel-accent)",
+											boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
 											zIndex: 1,
 										}}
 										transition={{
 											type: "tween",
-											ease: [0.16, 1, 0.3, 1],
-											duration: 0.22,
+											ease: "easeInOut",
+											duration: 0.25,
 										}}
 									/>
 								)}
-								<Button
-									size="xs"
-									h="22px"
-									px={2.5}
-									borderRadius="8px"
-									fontSize="11px"
-									fontWeight="600"
-									variant="ghost"
-									bg="transparent !important"
-									color={userTab === "mine" ? "white" : "panel.textSecondary"}
-									position="relative"
-									zIndex={2}
-									transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-									_hover={{
-										md: {
-											color: userTab === "mine" ? "white" : "panel.text",
-										},
-									}}
-									_active={{
-										transform: "scale(0.97)",
-									}}
-									_focusVisible={{
-										outline: "2px solid var(--rb-panel-accent)",
-										outlineOffset: "2px",
-									}}
-									onClick={() => setUserTab("mine")}
-								>
+								<Button onClick={() => setUserTab("mine")} variant="ghost" size="xs" className={cn("h-[22px] px-2.5 rounded-[6px] text-[11px] font-semibold bg-transparent! relative z-[2] [transition:all_0.2s_ease] focus-visible:[outline:2px_solid_var(--rb-panel-accent)] focus-visible:[outline-offset:2px]", userTab === "mine" ? "text-white" : "text-panel-text", userTab === "mine" ? "hover:md:text-white" : "hover:md:text-panel-text")}>
 									{t("dashboard.users.myUsers")}
 								</Button>
-							</Box>
-						</HStack>
+							</div>
+						</div>
 					) : undefined
 				}
 			>
 				<AnimatedHeightWrapper activeKey={userTab}>
 					{canSeeGlobal && userTab === "all" ? (
-						<Stack spacing={0}>
-							<StatRow
-								label={t("dashboard.users.total")}
-								value={systemData.total_user}
-								tagColor="#3b82f6"
-							/>
-							<StatRow
-								label={t("dashboard.users.active")}
-								value={systemData.users_active}
-								tag={activePercent}
-								tagColor="#22c55e"
-							/>
+						<div className="flex flex-col gap-0">
+							<StatRow label={t("dashboard.users.total")} value={systemData.total_user} tagColor="#3b82f6" />
+							<StatRow label={t("dashboard.users.active")} value={systemData.users_active} tag={activePercent} tagColor="#22c55e" />
 							<StatRow
 								label={t("dashboard.users.online")}
 								value={systemData.online_users}
 								tag={onlinePercent}
 								tagColor="#06b6d4"
 								helper={
-									systemData.online_users_upload_speed ||
-									systemData.online_users_download_speed
+									systemData.online_users_upload_speed || systemData.online_users_download_speed
 										? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
 										: undefined
 								}
 							/>
-							<StatRow
-								label={t("dashboard.users.onHold")}
-								value={systemData.users_on_hold}
-								tagColor="#a855f7"
-							/>
-							<StatRow
-								label={t("dashboard.users.limited")}
-								value={systemData.users_limited}
-								tagColor="#f59e0b"
-							/>
-							<StatRow
-								label={t("dashboard.users.expired")}
-								value={systemData.users_expired}
-								tagColor="#f97316"
-							/>
-						</Stack>
+							<StatRow label={t("dashboard.users.onHold")} value={systemData.users_on_hold} tagColor="#a855f7" />
+							<StatRow label={t("dashboard.users.limited")} value={systemData.users_limited} tagColor="#f59e0b" />
+							<StatRow label={t("dashboard.users.expired")} value={systemData.users_expired} tagColor="#f97316" />
+						</div>
 					) : (
-						<Stack spacing={0}>
-							<StatRow
-								label={t("dashboard.users.total")}
-								value={myTotalUsers}
-								tagColor="#3b82f6"
-							/>
-							<StatRow
-								label={t("dashboard.users.active")}
-								value={myActiveUsers}
-								tag={myActivePercent}
-								tagColor="#22c55e"
-							/>
+						<div className="flex flex-col gap-0">
+							<StatRow label={t("dashboard.users.total")} value={myTotalUsers} tagColor="#3b82f6" />
+							<StatRow label={t("dashboard.users.active")} value={myActiveUsers} tag={myActivePercent} tagColor="#22c55e" />
 							<StatRow
 								label={t("dashboard.users.online")}
 								value={myOnlineUsers}
@@ -3426,21 +1726,9 @@ export const Statistics: FC<BoxProps> = (props) => {
 										: undefined
 								}
 							/>
-							<StatRow
-								label={t("dashboard.users.onHold")}
-								value={myOnHoldUsers}
-								tagColor="#a855f7"
-							/>
-							<StatRow
-								label={t("dashboard.users.limited")}
-								value={myLimitedUsers}
-								tagColor="#f59e0b"
-							/>
-							<StatRow
-								label={t("dashboard.users.expired")}
-								value={myExpiredUsers}
-								tagColor="#f97316"
-							/>
+							<StatRow label={t("dashboard.users.onHold")} value={myOnHoldUsers} tagColor="#a855f7" />
+							<StatRow label={t("dashboard.users.limited")} value={myLimitedUsers} tagColor="#f59e0b" />
+							<StatRow label={t("dashboard.users.expired")} value={myExpiredUsers} tagColor="#f97316" />
 							<StatRow
 								label={t("dashboard.users.currentUserUsage")}
 								value={formatBytes(myActiveUsersUsedTraffic, 1)}
@@ -3453,7 +1741,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									tagColor="#f59e0b"
 								/>
 							) : null}
-						</Stack>
+						</div>
 					)}
 				</AnimatedHeightWrapper>
 			</SectionCard>
@@ -3461,44 +1749,19 @@ export const Statistics: FC<BoxProps> = (props) => {
 			{canSeeGlobal && systemData.admin_overview && (
 				<SectionCard
 					title={
-						<HStack spacing={2.5}>
-							<Flex
-								w="26px"
-								h="26px"
-								align="center"
-								justify="center"
-								borderRadius="7px"
-								bg="panel.elevated"
-								color="panel.textSecondary"
-								data-rb-icon=""
-							>
-								<ShieldCheckIcon width={14} />
-							</Flex>
+						<div className="flex flex-row items-center gap-2.5">
+							<div className="flex w-[26px] h-[26px] items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary">
+								<ShieldCheck className="w-[14px]" />
+							</div>
 							<span>{t("dashboard.admins")}</span>
-						</HStack>
+						</div>
 					}
 				>
-					<Stack spacing={0}>
-						<StatRow
-							label={t("dashboard.admins.total")}
-							value={systemData.admin_overview.total_admins}
-							tagColor="#3b82f6"
-						/>
-						<StatRow
-							label={t("dashboard.admins.fullAccess")}
-							value={systemData.admin_overview.full_access_admins}
-							tagColor="#f59e0b"
-						/>
-						<StatRow
-							label={t("dashboard.admins.sudo")}
-							value={systemData.admin_overview.sudo_admins}
-							tagColor="#a855f7"
-						/>
-						<StatRow
-							label={t("dashboard.admins.standard")}
-							value={systemData.admin_overview.standard_admins}
-							tagColor="#22c55e"
-						/>
+					<div className="flex flex-col gap-0">
+						<StatRow label={t("dashboard.admins.total")} value={systemData.admin_overview.total_admins} tagColor="#3b82f6" />
+						<StatRow label={t("dashboard.admins.fullAccess")} value={systemData.admin_overview.full_access_admins} tagColor="#f59e0b" />
+						<StatRow label={t("dashboard.admins.sudo")} value={systemData.admin_overview.sudo_admins} tagColor="#a855f7" />
+						<StatRow label={t("dashboard.admins.standard")} value={systemData.admin_overview.standard_admins} tagColor="#22c55e" />
 						{systemData.admin_overview.top_admin_username && (
 							<StatRow
 								label={t("dashboard.admins.topAdmin")}
@@ -3507,12 +1770,12 @@ export const Statistics: FC<BoxProps> = (props) => {
 								accent
 							/>
 						)}
-					</Stack>
+					</div>
 				</SectionCard>
 			)}
 
 			<HistoryModal
-				isOpen={Boolean(historyPayload)}
+				open={Boolean(historyPayload)}
 				onClose={() => setHistoryPayload(null)}
 				payload={historyPayload}
 				intervalSeconds={historyInterval}
@@ -3520,6 +1783,6 @@ export const Statistics: FC<BoxProps> = (props) => {
 				t={t}
 				isRTL={isRTL}
 			/>
-		</Stack>
+		</div>
 	);
 };

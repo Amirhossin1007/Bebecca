@@ -944,5 +944,11 @@
 	"copy": "复制",
 	"copied": "已复制",
 	"admins.showPassword": "显示密码",
-	"admins.hidePassword": "隐藏密码"
+	"admins.hidePassword": "隐藏密码",
+	"next.table.toggleColumns": "列",
+	"diagnostics.levelTitle": "级别",
+	"diagnostics.sourceTitle": "来源",
+	"diagnostics.resourceTitle": "资源",
+	"diagnostics.detailTitle": "详情",
+	"diagnostics.sectionTitle": "分区"
 }

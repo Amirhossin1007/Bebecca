@@ -1,13 +1,8 @@
-import {
-	Box,
-	Button,
-	Flex,
-	HStack,
-	Icon,
-	Text,
-	VStack,
-} from "@chakra-ui/react";
-import { ArrowUpTrayIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
+import { createElement } from "react";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Upload, FileText } from "lucide-react";
+
+import { cn } from "lib/cn";
 import {
 	type ChangeEvent,
 	type DragEvent,
@@ -22,8 +17,11 @@ type FileDropzoneProps = {
 	accept?: string;
 	description?: ReactNode;
 	emptyText: ReactNode;
-	isDisabled?: boolean;
-	onFileSelect: (file: File | null) => void;
+	disabled?: boolean;
+	multiple?: boolean;
+	onFileSelect?: (file: File | null) => void;
+	onFilesSelect?: (files: File[]) => void;
+	selectedFiles?: File[];
 	selectedFile?: File | null;
 	title: ReactNode;
 };
@@ -46,22 +44,44 @@ export const FileDropzone = ({
 	accept,
 	description,
 	emptyText,
-	isDisabled = false,
+	disabled: isDisabled,
+	multiple = false,
 	onFileSelect,
+	onFilesSelect,
 	selectedFile,
+	selectedFiles,
 	title,
 }: FileDropzoneProps) => {
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
+		const tone = isDragging
+			? "border-panel-accent! bg-panel-elevated"
+			: "border-panel-border! bg-panel-surface";
+		const hoverTone = "md:hover:border-panel-border-strong! md:hover:bg-panel-elevated";
+		const iconBorder = isDragging ? "border-panel-accent!" : "border-panel-border!";
+		const iconBg = isDragging ? "bg-panel-surface" : "bg-panel-elevated";
+		const mutedColor = "text-panel-text-muted";
+
+	const hasSelection = selectedFiles
+		? selectedFiles.length > 0
+		: Boolean(selectedFile);
 
 	useEffect(() => {
-		if (!selectedFile && inputRef.current) {
+		if (!hasSelection && inputRef.current) {
 			inputRef.current.value = "";
 		}
-	}, [selectedFile]);
+	}, [hasSelection]);
 
 	const selectFile = (fileList: FileList | null) => {
-		onFileSelect(fileList?.[0] ?? null);
+		if (multiple) {
+			const files = Array.from(fileList ?? []);
+			if (inputRef.current) {
+				inputRef.current.value = "";
+			}
+			onFilesSelect?.(files);
+			return;
+		}
+		onFileSelect?.(fileList?.[0] ?? null);
 	};
 
 	const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -105,112 +125,38 @@ export const FileDropzone = ({
 	};
 
 	return (
-		<Box
-			role="button"
-			tabIndex={isDisabled ? -1 : 0}
-			aria-disabled={isDisabled}
-			borderWidth="1px"
-			borderStyle="dashed"
-			borderColor={isDragging ? "var(--rb-panel-accent)" : "panel.border"}
-			borderRadius="20px"
-			bg={isDragging ? "panel.elevated" : "panel.surface"}
-			cursor={isDisabled ? "not-allowed" : "pointer"}
-			opacity={isDisabled ? 0.55 : 1}
-			px={{ base: 4, sm: 5 }}
-			py={5}
-			transition="background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
-			_active={isDisabled ? undefined : { transform: "scale(0.995)" }}
-			onClick={openFileDialog}
-			onDragLeave={handleDragLeave}
-			onDragOver={handleDragOver}
-			onDrop={handleDrop}
-			onKeyDown={handleKeyDown}
-			_focusVisible={{
-				outline: "2px solid var(--rb-panel-accent)",
-				outlineOffset: "2px",
-			}}
-			_hover={
-				isDisabled
-					? undefined
-					: {
-							md: {
-								borderColor: "panel.borderStrong",
-								bg: "panel.elevated",
-							},
-						}
-			}
-		>
+		<div role="button" tabIndex={isDisabled ? -1 : 0} aria-disabled={isDisabled} onClick={openFileDialog} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop} onKeyDown={handleKeyDown} className={cn("border border-dashed rounded-[20px] px-4 sm:px-5 py-5 transition-[background-color,border-color] duration-200 active:scale-[0.995]", tone, !isDisabled && hoverTone, isDisabled ? "cursor-not-allowed opacity-[0.55]" : "cursor-pointer opacity-100")}>
 			<input
 				ref={inputRef}
 				type="file"
 				accept={accept}
+				multiple={multiple}
 				disabled={isDisabled}
 				onChange={handleInputChange}
 				style={{ display: "none" }}
 			/>
-			<HStack spacing={4} align="center">
-				<Flex
-					w="44px"
-					h="44px"
-					align="center"
-					justify="center"
-					flexShrink={0}
-					borderRadius="12px"
-					bg={isDragging ? "panel.surface" : "panel.elevated"}
-					color="panel.text"
-					borderWidth="1px"
-					borderColor="panel.border"
-					transition="background-color 0.18s cubic-bezier(0.16, 1, 0.3, 1)"
-				>
-					<Icon
-						as={selectedFile ? DocumentTextIcon : ArrowUpTrayIcon}
-						boxSize="20px"
-						color={
-							selectedFile ? "var(--rb-panel-accent)" : "panel.textSecondary"
-						}
-					/>
-				</Flex>
-				<VStack align="stretch" spacing={0.5} minW={0} flex="1">
-					<Text
-						fontSize="13px"
-						fontWeight="700"
-						color="panel.text"
-						noOfLines={1}
-					>
+			<div className="flex flex-row gap-4 items-center">
+				<div className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl border p-2.5 transition-colors", iconBorder, iconBg)}>
+					{createElement(hasSelection ? FileText : Upload, { className: cn("size-5", hasSelection ? "text-panel-accent" : "text-panel-text-secondary") })}
+				</div>
+				<div className="flex flex-col items-stretch gap-1 min-w-0! flex-1">
+					<p className="text-[13px] font-bold text-panel-text truncate">
 						{selectedFile?.name || title}
-					</Text>
-					<Text fontSize="12px" color="panel.textMuted" noOfLines={2}>
+					</p>
+					<p className={cn("text-[12px] line-clamp-2", mutedColor)}>
 						{selectedFile
 							? formatFileSize(selectedFile.size)
 							: description || emptyText}
-					</Text>
-				</VStack>
-				<Button
-					size="xs"
-					h="30px"
-					px={3}
-					flexShrink={0}
-					borderRadius="10px"
-					borderWidth="1px"
-					borderColor="panel.border"
-					bg="panel.elevated"
-					color="panel.text"
-					fontSize="12px"
-					fontWeight="600"
-					transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-					_hover={{
-						md: {
-							bg: "panel.surface",
-							borderColor: "panel.borderStrong",
-						},
-					}}
-					_active={{ transform: "scale(0.96)" }}
+					</p>
+				</div>
+				<button
+					type="button"
 					tabIndex={-1}
-					as="span"
+					className="hidden sm:inline-flex h-[30px] shrink-0 items-center justify-center rounded-[10px] border border-panel-border bg-panel-elevated px-3 text-[12px] font-semibold text-panel-text transition-all md:hover:border-panel-border-strong md:hover:bg-panel-surface active:scale-95"
 				>
 					{emptyText}
-				</Button>
-			</HStack>
-		</Box>
+				</button>
+			</div>
+		</div>
 	);
 };

@@ -108,6 +108,34 @@ func (s *Server) liveUserSpeedTotalFor(principal adminPrincipal) liveUserSpeedTo
 	return result
 }
 
+type liveAdminSpeed struct {
+	UploadSpeed   uint64 `json:"upload_speed"`
+	DownloadSpeed uint64 `json:"download_speed"`
+}
+
+func (s *Server) liveAdminSpeedsFor(principal adminPrincipal) map[int64]liveAdminSpeed {
+	s.liveUserSpeedsMu.RLock()
+	defer s.liveUserSpeedsMu.RUnlock()
+	result := make(map[int64]liveAdminSpeed)
+	for scope, total := range s.liveUserSpeedTotals {
+		if !principal.Context.Admin.Role.IsGlobal() {
+			var serviceID *int64
+			if scope.HasService {
+				value := scope.ServiceID
+				serviceID = &value
+			}
+			if !canViewUserTraffic(principal.Context.Admin, serviceID) {
+				continue
+			}
+		}
+		speed := result[scope.AdminID]
+		speed.UploadSpeed += total.Upload
+		speed.DownloadSpeed += total.Download
+		result[scope.AdminID] = speed
+	}
+	return result
+}
+
 func hasAdvancedUserFilter(filters []string, target string) bool {
 	for _, filter := range filters {
 		if strings.EqualFold(strings.TrimSpace(filter), target) {

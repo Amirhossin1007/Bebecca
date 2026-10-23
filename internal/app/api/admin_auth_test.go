@@ -106,6 +106,7 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			users_limit INTEGER NULL,
 			delete_user_usage_limit_enabled INTEGER DEFAULT 0,
 			delete_user_usage_limit BIGINT NULL,
+			usage_coefficient REAL NULL,
 			created_at DATETIME NULL,
 			updated_at DATETIME NULL
 		)`,

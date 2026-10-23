@@ -1,54 +1,15 @@
-import {
-	Alert,
-	AlertDescription,
-	AlertIcon,
-	Box,
-	Button,
-	chakra,
-	FormControl,
-	FormErrorMessage,
-	FormLabel,
-	HStack,
-	IconButton,
-	Input as CInput,
-	InputGroup,
-	InputLeftElement,
-	InputRightElement,
-	Menu,
-	MenuButton,
-	MenuItem,
-	MenuList,
-	Portal,
-	Text,
-	Tooltip,
-	useColorMode,
-	useColorModeValue,
-	VStack,
-} from "@chakra-ui/react";
-import {
-	ArrowRightOnRectangleIcon,
-	CheckIcon,
-	ClipboardDocumentCheckIcon,
-	ClipboardDocumentIcon,
-	EyeIcon,
-	EyeSlashIcon,
-	LockClosedIcon,
-	MoonIcon,
-	ShieldCheckIcon,
-	SunIcon,
-	UserIcon,
-} from "@heroicons/react/24/outline";
+import { Button } from "components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { LogIn, Check, Copy, CheckCheck, Eye, EyeOff, Lock, Moon, ShieldCheck, Sun, User } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useColorMode } from "lib/color-mode";
 import logoUrl from "assets/logo.svg";
 import { Language } from "components/Language";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-	type FC,
-	type ReactElement,
-	type ReactNode,
-	useEffect,
-	useState,
-} from "react";
+
+import { cn } from "lib/cn";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import {
 	type FieldErrors,
 	useForm,
@@ -75,40 +36,6 @@ const schema = z.object({
 	password: z.string().min(1, "login.fieldRequired"),
 });
 
-export const LogoIcon = chakra("img", {
-	baseStyle: {
-		h: 8,
-		w: 8,
-	},
-});
-
-const LoginIcon = chakra(ArrowRightOnRectangleIcon, {
-	baseStyle: {
-		h: 5,
-		strokeWidth: "2px",
-		w: 5,
-	},
-});
-
-const Eye = chakra(EyeIcon, { baseStyle: { h: 4, w: 4 } });
-const EyeSlash = chakra(EyeSlashIcon, { baseStyle: { h: 4, w: 4 } });
-const User = chakra(UserIcon, { baseStyle: { h: 5, strokeWidth: "1.8px", w: 5 } });
-const Lock = chakra(LockClosedIcon, {
-	baseStyle: { h: 5, strokeWidth: "1.8px", w: 5 },
-});
-const Moon = chakra(MoonIcon, { baseStyle: { h: 4, w: 4 } });
-const Sun = chakra(SunIcon, { baseStyle: { h: 4, w: 4 } });
-const Check = chakra(CheckIcon, { baseStyle: { h: 4, w: 4 } });
-const Shield = chakra(ShieldCheckIcon, {
-	baseStyle: { h: 5, strokeWidth: "1.8px", w: 5 },
-});
-const CopyIcon = chakra(ClipboardDocumentIcon, {
-	baseStyle: { h: 3.5, w: 3.5 },
-});
-const CopiedIcon = chakra(ClipboardDocumentCheckIcon, {
-	baseStyle: { h: 3.5, w: 3.5 },
-});
-
 const THEME_KEY = "rb-theme";
 const CHAKRA_THEME_KEY = "chakra-ui-color-mode";
 const CUSTOM_THEMES_KEY = "rb-custom-themes";
@@ -118,105 +45,6 @@ type LoginThemeMode = "dark" | "light";
 type LoginFormValues = {
 	username: string;
 	password: string;
-};
-
-type LoginFieldProps = {
-	autoComplete: string;
-	dir: "ltr" | "rtl";
-	endElement?: ReactNode;
-	errorMessage?: string;
-	icon: ReactNode;
-	label: string;
-	placeholder: string;
-	registration: UseFormRegisterReturn;
-	type?: string;
-};
-
-const LoginField: FC<LoginFieldProps> = ({
-	autoComplete,
-	dir,
-	endElement,
-	errorMessage,
-	icon,
-	label,
-	placeholder,
-	registration,
-	type = "text",
-}) => {
-	const isInvalid = Boolean(errorMessage);
-	const fieldBg = useColorModeValue("white", "var(--rb-panel-main)");
-	const borderColor = useColorModeValue(
-		"var(--rb-panel-border)",
-		"var(--rb-panel-border)",
-	);
-	const textColor = useColorModeValue(
-		"var(--rb-panel-text)",
-		"var(--rb-panel-text)",
-	);
-	const mutedColor = useColorModeValue(
-		"var(--rb-panel-text-muted)",
-		"var(--rb-panel-text-muted)",
-	);
-
-	return (
-		<FormControl isInvalid={isInvalid}>
-			<FormLabel
-				color={textColor}
-				fontSize="xs"
-				fontWeight="600"
-				letterSpacing="0.01em"
-				mb={1.5}
-			>
-				{label}
-			</FormLabel>
-			<InputGroup dir={dir}>
-				<InputLeftElement
-					color={isInvalid ? "red.400" : mutedColor}
-					h="44px"
-					pointerEvents="none"
-				>
-					{icon}
-				</InputLeftElement>
-				<CInput
-					{...registration}
-					autoComplete={autoComplete}
-					bg={fieldBg}
-					borderColor={isInvalid ? "red.400" : borderColor}
-					borderRadius="10px"
-					color={textColor}
-					fontSize="sm"
-					h="44px"
-					pe={endElement ? "3rem" : 4}
-					placeholder={placeholder}
-					ps="3rem"
-					transition="border-color 160ms cubic-bezier(0.2, 0, 0, 1), box-shadow 160ms cubic-bezier(0.2, 0, 0, 1), background-color 160ms cubic-bezier(0.2, 0, 0, 1)"
-					type={type}
-					_placeholder={{ color: mutedColor }}
-					_hover={{
-						md: {
-							borderColor: isInvalid
-								? "red.400"
-								: "var(--rb-panel-border-strong)",
-						},
-					}}
-					_focusVisible={{
-						borderColor: isInvalid ? "red.400" : "var(--rb-panel-accent)",
-						boxShadow: isInvalid
-							? "0 0 0 1px rgba(248, 113, 113, 0.6)"
-							: "0 0 0 1px var(--rb-panel-accent)",
-					}}
-				/>
-				{endElement && (
-					<InputRightElement color={mutedColor} h="44px">
-						{endElement}
-					</InputRightElement>
-				)}
-			</InputGroup>
-			<FormErrorMessage fontSize="xs" mt={1.5}>
-				{errorMessage}
-			</FormErrorMessage>
-		</FormControl>
-	);
 };
 
 const applyLoginThemeMode = (theme: LoginThemeMode) => {
@@ -243,85 +71,122 @@ const applyLoginThemeMode = (theme: LoginThemeMode) => {
 	updateThemeColor(theme);
 };
 
-const LoginThemeMenu: FC = () => {
+type LoginFieldProps = {
+	autoComplete: string;
+	dir: "ltr" | "rtl";
+	endElement?: ReactNode;
+	errorMessage?: string;
+	icon: ReactNode;
+	id: string;
+	label: string;
+	placeholder: string;
+	registration: UseFormRegisterReturn;
+	type?: string;
+};
+
+function LoginField({
+	autoComplete,
+	dir,
+	endElement,
+	errorMessage,
+	icon,
+	id,
+	label,
+	placeholder,
+	registration,
+	type = "text",
+}: LoginFieldProps) {
+	const invalid = Boolean(errorMessage);
+
+	return (
+		<div className="space-y-1.5">
+			<label htmlFor={id} className="block text-xs font-semibold text-panel-text tracking-[0.01em]">
+				{label}
+			</label>
+			<div className="relative" dir={dir}>
+				<span
+					className={cn(
+						"pointer-events-none absolute start-3 top-1/2 -translate-y-1/2",
+						invalid ? "text-panel-danger" : "text-panel-text-muted",
+					)}
+				>
+					{icon}
+				</span>
+				<input
+					{...registration}
+					id={id}
+					autoComplete={autoComplete}
+					aria-invalid={invalid || undefined}
+					type={type}
+					placeholder={placeholder}
+					className={cn(
+						"h-11 w-full rounded-[10px] border bg-panel-main ps-11 text-sm text-panel-text outline-none transition-[border-color,box-shadow] placeholder:text-panel-text-muted",
+						endElement ? "pe-11" : "pe-3",
+						invalid
+							? "border-panel-danger focus-visible:border-panel-danger focus-visible:ring-1 focus-visible:ring-panel-danger/60"
+							: "border-panel-border md:hover:border-panel-border-strong focus-visible:border-panel-accent focus-visible:ring-1 focus-visible:ring-panel-accent",
+					)}
+				/>
+				{endElement ? (
+					<span className="absolute end-1.5 top-1/2 -translate-y-1/2">
+						{endElement}
+					</span>
+				) : null}
+			</div>
+			{errorMessage ? (
+				<p role="alert" className="text-xs text-panel-danger mt-1 font-medium">
+					{errorMessage}
+				</p>
+			) : null}
+		</div>
+	);
+}
+
+const LoginThemeMenu = () => {
 	const { t } = useTranslation();
 	const { colorMode, setColorMode } = useColorMode();
-	const activeTheme = colorMode === "light" ? "light" : "dark";
-	const menuBg = useColorModeValue("panel.surface", "panel.surface");
-	const menuBorder = useColorModeValue("panel.border", "panel.border");
-	const hoverBg = useColorModeValue("panel.elevated", "panel.elevated");
-	const textColor = useColorModeValue("panel.text", "panel.text");
+	const activeTheme: LoginThemeMode = colorMode === "light" ? "light" : "dark";
 
 	const selectTheme = (theme: LoginThemeMode) => {
 		applyLoginThemeMode(theme);
 		setColorMode(theme);
 	};
 
-	const options: Array<{
-		key: LoginThemeMode;
-		label: string;
-		icon: ReactElement;
-	}> = [
-		{ key: "dark", label: t("theme.dark"), icon: <Moon /> },
-		{ key: "light", label: t("theme.light"), icon: <Sun /> },
+	const options: Array<{ key: LoginThemeMode; label: string; icon: ReactNode }> = [
+		{ key: "dark", label: t("theme.dark"), icon: <Moon className="size-4" /> },
+		{ key: "light", label: t("theme.light"), icon: <Sun className="size-4" /> },
 	];
 
 	return (
-		<Menu placement="bottom-end" strategy="fixed" autoSelect={false}>
-			<MenuButton
-				as={IconButton}
-				aria-label={t("header.theme")}
-				borderRadius="10px"
-				h="36px"
-				icon={activeTheme === "dark" ? <Moon /> : <Sun />}
-				minH="36px"
-				minW="36px"
-				size="sm"
-				variant="ghost"
-				w="36px"
-				_active={{ transform: "scale(0.96)" }}
-				_hover={{
-					md: {
-						bg: hoverBg,
-					},
-				}}
-			/>
-			<Portal>
-				<MenuList
-					bg={menuBg}
-					borderColor={menuBorder}
-					borderRadius="14px"
-					boxShadow="0 12px 36px rgba(0, 0, 0, 0.28)"
-					color={textColor}
-					minW="160px"
-					p={1.5}
-				>
-					{options.map((option) => (
-						<MenuItem
-							borderRadius="8px"
-							key={option.key}
-							icon={option.icon}
-							onClick={() => selectTheme(option.key)}
-							_hover={{ bg: hoverBg }}
-						>
-							<HStack justify="space-between" w="full">
-								<Text fontSize="sm">{option.label}</Text>
-								{activeTheme === option.key ? <Check /> : null}
-							</HStack>
-						</MenuItem>
-					))}
-				</MenuList>
-			</Portal>
-		</Menu>
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button type="button" aria-label={t("header.theme")} variant="ghost" size="icon" className="size-9 rounded-[10px] text-panel-text hover:bg-panel-elevated active:scale-95 transition-all">
+					{activeTheme === "dark" ? (
+						<Moon className="size-4" />
+					) : (
+						<Sun className="size-4" />
+					)}
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent className="items-end min-w-40 rounded-[14px] border border-panel-border! bg-panel-surface text-panel-text shadow-xl backdrop-blur-md z-[9999] p-1.5">
+				{options.map((option) => (
+					<DropdownMenuItem key={option.key} onSelect={() => selectTheme(option.key)} className="rounded-[8px] cursor-pointer">
+						{option.icon}
+						<span className="flex-1">{option.label}</span>
+						{activeTheme === option.key ? (
+							<Check className="size-4 text-panel-accent" />
+						) : null}
+					</DropdownMenuItem>
+				))}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 };
 
-export const Login: FC = () => {
+export const Login = () => {
 	const [error, setError] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
-	const [step, setStep] = useState<"credentials" | "otp" | "setup">(
-		"credentials",
-	);
+	const [step, setStep] = useState<"credentials" | "otp" | "setup">("credentials");
 	const [otp, setOTP] = useState("");
 	const [setup, setSetup] = useState<TOTPSetup | null>(null);
 	const [challengeLoading, setChallengeLoading] = useState(false);
@@ -329,39 +194,6 @@ export const Login: FC = () => {
 	const navigate = useNavigate();
 	const { t, i18n } = useTranslation();
 	const dir = i18n.language === "fa" ? "rtl" : "ltr";
-	const pageBg = useColorModeValue(
-		"var(--rb-panel-main)",
-		"var(--rb-panel-main)",
-	);
-	const surfaceBg = useColorModeValue(
-		"var(--rb-panel-surface)",
-		"var(--rb-panel-surface)",
-	);
-	const elevatedBg = useColorModeValue(
-		"var(--rb-panel-elevated)",
-		"var(--rb-panel-elevated)",
-	);
-	const borderColor = useColorModeValue(
-		"var(--rb-panel-border)",
-		"var(--rb-panel-border)",
-	);
-	const textColor = useColorModeValue(
-		"var(--rb-panel-text)",
-		"var(--rb-panel-text)",
-	);
-	const mutedColor = useColorModeValue(
-		"var(--rb-panel-text-muted)",
-		"var(--rb-panel-text-muted)",
-	);
-	const logoFilter = useColorModeValue(
-		"brightness(0)",
-		"brightness(0) invert(1)",
-	);
-	const accentColor = "var(--rb-panel-accent)";
-	const inputFieldBg = useColorModeValue("white", "var(--rb-panel-main)");
-	const alertBg = useColorModeValue("red.50", "rgba(239, 68, 68, 0.12)");
-	const alertBorder = useColorModeValue("red.200", "rgba(239, 68, 68, 0.3)");
-	const alertColor = useColorModeValue("red.700", "red.300");
 
 	const {
 		register,
@@ -370,10 +202,7 @@ export const Login: FC = () => {
 		watch,
 	} = useForm<LoginFormValues>({
 		resolver: zodResolver(schema),
-		defaultValues: {
-			password: "",
-			username: "",
-		},
+		defaultValues: { password: "", username: "" },
 	});
 
 	const usernameValue = watch("username") || "";
@@ -473,10 +302,6 @@ export const Login: FC = () => {
 		}
 	};
 
-	const handleInvalid = async (_errors: FieldErrors<LoginFormValues>) => {
-		setError("");
-	};
-
 	const handleCopySecret = async () => {
 		if (!setup?.secret) return;
 		try {
@@ -486,114 +311,58 @@ export const Login: FC = () => {
 		} catch {}
 	};
 
-	const passwordToggle = (
-		<IconButton
-			aria-label={
-				showPassword
-					? t("admins.hidePassword")
-					: t("admins.showPassword")
-			}
-			borderRadius="8px"
-			color={mutedColor}
-			h="32px"
-			icon={showPassword ? <EyeSlash /> : <Eye />}
-			minH="32px"
-			minW="32px"
-			onClick={() => setShowPassword((visible) => !visible)}
-			onMouseDown={(event) => event.preventDefault()}
-			size="sm"
-			variant="ghost"
-			w="32px"
-			_active={{ transform: "scale(0.92)" }}
-			_hover={{
-				base: { bg: "transparent" },
-				md: { bg: elevatedBg, color: textColor },
-			}}
-		/>
-	);
+	const handleInvalid = async (_errors: FieldErrors<LoginFormValues>) => {
+		setError("");
+	};
+
+	const title =
+		step === "credentials"
+			? t("login.welcome")
+			: step === "otp"
+				? t("login.twoFactorTitle")
+				: t("login.setupTwoFactorTitle");
+	const subtitle =
+		step === "credentials"
+			? t("login.welcomeBack")
+			: step === "otp"
+				? t("login.twoFactorHint")
+				: t("login.setupTwoFactorHint");
 
 	return (
-		<Box
-			alignItems="center"
-			bg={pageBg}
-			display="flex"
-			justifyContent="center"
-			minH="100dvh"
-			position="relative"
-			px={{ base: 4, sm: 6 }}
-			py={{ base: 8, sm: 12 }}
-			w="full"
-		>
-			<VStack maxW="420px" spacing={6} w="full">
-				<motion.div
-					initial={{ opacity: 0, y: 16 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-					style={{ width: "100%" }}
-				>
-					<Box
-						bg={surfaceBg}
-						borderColor={borderColor}
-						borderRadius="20px"
-						borderWidth="1px"
-						boxShadow="0 24px 64px -12px rgba(0, 0, 0, 0.32)"
-						p={{ base: 6, sm: 8 }}
-						position="relative"
-						w="full"
-					>
-					<HStack justifyContent="space-between" mb={6} spacing={3}>
-						<HStack color={textColor} minW={0} spacing={3}>
-							<Box
-								alignItems="center"
-								bg={elevatedBg}
-								borderColor={borderColor}
-								borderRadius="12px"
-								borderWidth="1px"
-								display="inline-flex"
-								flexShrink={0}
-								h="42px"
-								justifyContent="center"
-								w="42px"
-							>
-								<LogoIcon
+		<div className="flex min-h-[100dvh] w-full items-center justify-center bg-panel-main px-4 py-8 sm:px-6 sm:py-12">
+			<motion.div
+				initial={{ opacity: 0, y: 16 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+				className="w-full max-w-[420px]"
+			>
+				<div className="rounded-[20px] border border-panel-border! bg-panel-surface p-6 sm:p-8 shadow-[0_24px_64px_-12px_rgba(0,0,0,0.32)]">
+					<div className="mb-6 flex items-center justify-between gap-3">
+						<div className="flex min-w-0 items-center gap-3 text-panel-text">
+							<span className="inline-flex size-[42px] shrink-0 items-center justify-center rounded-[12px] border border-panel-border! bg-panel-elevated">
+								<img
 									alt={t("menu")}
-									filter={logoFilter}
 									src={logoUrl}
+									className="size-6 [filter:brightness(0)] dark:[filter:brightness(0)_invert(1)]"
 								/>
-							</Box>
-							<VStack align="start" spacing={0}>
-								<Text fontSize="lg" fontWeight="800" letterSpacing="-0.02em" lineHeight="1.2">
-									Rebecca
-								</Text>
-								<Text color={mutedColor} fontSize="2xs" fontWeight="500">
-									Admin Panel
-								</Text>
-							</VStack>
-						</HStack>
-						<HStack flexShrink={0} spacing={1.5}>
+							</span>
+							<div className="flex flex-col">
+								<span className="truncate text-lg font-extrabold tracking-[-0.02em] leading-tight">Rebecca</span>
+								<span className="text-[10px] font-medium text-panel-text-muted">Admin Panel</span>
+							</div>
+						</div>
+						<div className="flex shrink-0 items-center gap-1.5">
 							<Language triggerVariant="ghost" />
 							<LoginThemeMenu />
-						</HStack>
-					</HStack>
+						</div>
+					</div>
 
-					<VStack align="stretch" mb={6} spacing={1} textAlign="start">
-						<Text color={textColor} fontSize="lg" fontWeight="700" letterSpacing="-0.01em">
-							{step === "credentials"
-								? t("login.welcome")
-								: step === "otp"
-									? t("login.twoFactorTitle")
-									: t("login.setupTwoFactorTitle")}
-						</Text>
-						<Text color={mutedColor} fontSize="xs" lineHeight="1.5">
-							{step === "credentials"
-								? t("login.welcomeBack")
-								: step === "otp"
-									? t("login.twoFactorHint")
-									: t("login.setupTwoFactorHint")}
-						</Text>
-					</VStack>
+					<div className="space-y-1 mb-6 text-start">
+						<h1 className="text-lg font-bold text-panel-text tracking-[-0.01em]">{title}</h1>
+						<p className="text-xs text-panel-text-muted leading-relaxed">{subtitle}</p>
+					</div>
 
-					<Box>
+					<div>
 						<AnimatePresence initial={false} mode="wait">
 							{step === "credentials" ? (
 								<motion.div
@@ -602,11 +371,12 @@ export const Login: FC = () => {
 									animate={{ opacity: 1, x: 0 }}
 									exit={{ opacity: 0, x: 12 }}
 									transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-									style={{ width: "100%" }}
+									className="w-full"
 								>
 									<form onSubmit={handleSubmit(login, handleInvalid)}>
-										<VStack spacing={4}>
+										<div className="space-y-4">
 											<LoginField
+												id="login-username"
 												autoComplete="username"
 												dir={dir}
 												errorMessage={
@@ -614,66 +384,60 @@ export const Login: FC = () => {
 														? t(errors.username.message as string)
 														: undefined
 												}
-												icon={<User />}
+												icon={<User className="size-4" />}
 												label={t("username")}
 												placeholder={t("username")}
 												registration={register("username")}
 											/>
 											<LoginField
+												id="login-password"
 												autoComplete="current-password"
 												dir={dir}
-												endElement={passwordToggle}
+												endElement={
+													<button
+														type="button"
+														aria-label={
+															showPassword
+																? t("admins.hidePassword")
+																: t("admins.showPassword")
+														}
+														onMouseDown={(event) => event.preventDefault()}
+														onClick={() => setShowPassword((visible) => !visible)}
+														className="inline-flex size-8 items-center justify-center rounded-[8px] text-panel-text-muted transition-colors hover:text-panel-text hover:bg-panel-elevated active:scale-90"
+													>
+														{showPassword ? (
+															<EyeOff className="size-4" />
+														) : (
+															<Eye className="size-4" />
+														)}
+													</button>
+												}
 												errorMessage={
 													errors.password?.message
 														? t(errors.password.message as string)
 														: undefined
 												}
-												icon={<Lock />}
+												icon={<Lock className="size-4" />}
 												label={t("password")}
 												placeholder={t("password")}
 												registration={register("password")}
 												type={showPassword ? "text" : "password"}
 											/>
 
-											{error && (
-												<Alert
-													bg={alertBg}
-													borderColor={alertBorder}
-													borderRadius="10px"
-													borderWidth="1px"
-													color={alertColor}
-													fontSize="xs"
-													py={2.5}
-													w="full"
+											{error ? (
+												<div
+													role="alert"
+													className="rounded-[10px] border border-panel-danger/30 bg-panel-danger/10 px-3.5 py-2.5 text-xs text-panel-danger font-medium"
 												>
-													<AlertIcon color="red.400" />
-													<AlertDescription fontWeight="500">{error}</AlertDescription>
-												</Alert>
-											)}
+													{error}
+												</div>
+											) : null}
 
-											<Button
-												bg={accentColor}
-												borderRadius="10px"
-												color="white"
-												fontWeight="600"
-												h="44px"
-												isDisabled={!canSubmit}
-												isLoading={isSubmitting}
-												leftIcon={<LoginIcon />}
-												mt={2}
-												type="submit"
-												w="full"
-												transition="all 160ms cubic-bezier(0.2, 0, 0, 1)"
-												_active={{ transform: "scale(0.98)" }}
-												_hover={{
-													md: {
-														bg: "var(--rb-panel-accent-hover)",
-													},
-												}}
-											>
-												{t("login")}
+											<Button type="submit" disabled={!canSubmit || isSubmitting} className="mt-2 h-11 w-full rounded-[10px] text-sm font-semibold active:scale-[0.98] transition-transform">
+												<LogIn className="size-4" />
+												{isSubmitting ? t("login.loading") : t("login")}
 											</Button>
-										</VStack>
+										</div>
 									</form>
 								</motion.div>
 							) : (
@@ -683,185 +447,80 @@ export const Login: FC = () => {
 									animate={{ opacity: 1, x: 0 }}
 									exit={{ opacity: 0, x: -12 }}
 									transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-									style={{ width: "100%" }}
+									className="w-full space-y-4"
 								>
-									<VStack spacing={4}>
-										{step === "setup" && setup && (
-											<VStack spacing={3} w="full">
-												<Box
-													alignItems="center"
-													bg="white"
-													borderRadius="14px"
-													boxShadow="0 4px 16px rgba(0, 0, 0, 0.08)"
-													display="flex"
-													justifyContent="center"
-													p={3}
+									{step === "setup" && setup ? (
+										<div className="flex flex-col items-center gap-3 w-full">
+											<div className="w-fit rounded-[14px] bg-white p-3 shadow-md">
+												<QRCodeCanvas value={setup.uri} size={168} />
+											</div>
+											<div className="flex items-center justify-between w-full px-3 py-2 rounded-[10px] border border-panel-border! bg-panel-elevated">
+												<p className="break-all font-mono text-xs font-semibold text-panel-text tracking-wider truncate">
+													{setup.secret}
+												</p>
+												<button
+													type="button"
+													aria-label={copiedSecret ? t("copied") : t("copy")}
+													onClick={handleCopySecret}
+													className="inline-flex size-7 items-center justify-center rounded-[6px] text-panel-text-muted hover:text-panel-text hover:bg-panel-surface transition-colors shrink-0"
 												>
-													<QRCodeCanvas value={setup.uri} size={168} />
-												</Box>
-												<HStack
-													bg={elevatedBg}
-													borderColor={borderColor}
-													borderRadius="10px"
-													borderWidth="1px"
-													justify="space-between"
-													px={3}
-													py={2}
-													w="full"
-												>
-													<Text
-														color={textColor}
-														fontFamily="mono"
-														fontSize="xs"
-														fontWeight="600"
-														letterSpacing="0.05em"
-														noOfLines={1}
-													>
-														{setup.secret}
-													</Text>
-													<Tooltip
-														hasArrow
-														label={copiedSecret ? t("copied") : t("copy")}
-														placement="top"
-													>
-														<IconButton
-															aria-label={t("copy")}
-															borderRadius="8px"
-															color={copiedSecret ? "green.400" : mutedColor}
-															h="28px"
-															icon={copiedSecret ? <CopiedIcon /> : <CopyIcon />}
-															minH="28px"
-															minW="28px"
-															onClick={handleCopySecret}
-															size="xs"
-															variant="ghost"
-															w="28px"
-															_hover={{
-																md: {
-																	bg: surfaceBg,
-																	color: textColor,
-																},
-															}}
-														/>
-													</Tooltip>
-												</HStack>
-											</VStack>
-										)}
+													{copiedSecret ? (
+														<CheckCheck className="size-3.5 text-green-500" />
+													) : (
+														<Copy className="size-3.5" />
+													)}
+												</button>
+											</div>
+										</div>
+									) : null}
 
-										<FormControl>
-											<FormLabel
-												color={textColor}
-												fontSize="xs"
-												fontWeight="600"
-												letterSpacing="0.01em"
-												mb={1.5}
-											>
-												{t("login.authenticationCode")}
-											</FormLabel>
-											<InputGroup dir="ltr">
-												<InputLeftElement
-													color={mutedColor}
-													h="44px"
-													pointerEvents="none"
-												>
-													<Shield />
-												</InputLeftElement>
-												<CInput
-													autoComplete="one-time-code"
-													bg={inputFieldBg}
-													borderColor={borderColor}
-													borderRadius="10px"
-													color={textColor}
-													fontFamily="mono"
-													fontSize="lg"
-													fontWeight="700"
-													h="44px"
-													inputMode="numeric"
-													letterSpacing="0.32em"
-													maxLength={6}
-													ps="3rem"
-													textAlign="center"
-													transition="border-color 160ms cubic-bezier(0.2, 0, 0, 1), box-shadow 160ms cubic-bezier(0.2, 0, 0, 1)"
-													value={otp}
-													onChange={(event) =>
-														setOTP(event.target.value.replace(/\D/g, ""))
-													}
-													_hover={{
-														md: {
-															borderColor: "var(--rb-panel-border-strong)",
-														},
-													}}
-													_focusVisible={{
-														borderColor: "var(--rb-panel-accent)",
-														boxShadow: "0 0 0 1px var(--rb-panel-accent)",
-													}}
-												/>
-											</InputGroup>
-										</FormControl>
-
-										{error && (
-											<Alert
-												bg={alertBg}
-												borderColor={alertBorder}
-												borderRadius="10px"
-												borderWidth="1px"
-												color={alertColor}
-												fontSize="xs"
-												py={2.5}
-												w="full"
-											>
-												<AlertIcon color="red.400" />
-												<AlertDescription fontWeight="500">{error}</AlertDescription>
-											</Alert>
-										)}
-
-										<Button
-											bg={accentColor}
-											borderRadius="10px"
-											color="white"
-											fontWeight="600"
-											h="44px"
-											isDisabled={otp.length !== 6}
-											isLoading={challengeLoading}
-											onClick={step === "otp" ? submitOTP : confirmSetup}
-											w="full"
-											transition="all 160ms cubic-bezier(0.2, 0, 0, 1)"
-											_active={{ transform: "scale(0.98)" }}
-											_hover={{
-												md: {
-													bg: "var(--rb-panel-accent-hover)",
-												},
-											}}
+									<div className="space-y-1.5">
+										<label
+											htmlFor="login-otp"
+											className="block text-xs font-semibold text-panel-text tracking-[0.01em]"
 										>
-											{t("continue")}
-										</Button>
-										<Button
-											borderRadius="10px"
-											color={mutedColor}
-											fontWeight="500"
-											h="38px"
-											onClick={cancelChallenge}
-											variant="ghost"
-											w="full"
-											_active={{ transform: "scale(0.98)" }}
-											_hover={{
-												md: {
-													bg: elevatedBg,
-													color: textColor,
-												},
-											}}
+											{t("login.authenticationCode")}
+										</label>
+										<div className="relative" dir="ltr">
+											<span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-panel-text-muted">
+												<ShieldCheck className="size-4" />
+											</span>
+											<input
+												id="login-otp"
+												inputMode="numeric"
+												autoComplete="one-time-code"
+												maxLength={6}
+												value={otp}
+												onChange={(event) =>
+													setOTP(event.target.value.replace(/\D/g, ""))
+												}
+												className="h-11 w-full rounded-[10px] border border-panel-border! bg-panel-main ps-10 text-center font-mono text-lg font-bold tracking-[0.32em] text-panel-text outline-none transition-[border-color,box-shadow] md:hover:border-panel-border-strong focus-visible:border-panel-accent focus-visible:ring-1 focus-visible:ring-panel-accent"
+											/>
+										</div>
+									</div>
+
+									{error ? (
+										<div
+											role="alert"
+											className="rounded-[10px] border border-panel-danger/30 bg-panel-danger/10 px-3.5 py-2.5 text-xs text-panel-danger font-medium"
 										>
-											{t("back")}
-										</Button>
-									</VStack>
+											{error}
+										</div>
+									) : null}
+
+									<Button onClick={step === "otp" ? submitOTP : confirmSetup} disabled={otp.length !== 6 || challengeLoading} className="h-11 w-full rounded-[10px] text-sm font-semibold active:scale-[0.98] transition-transform">
+										{t("continue")}
+									</Button>
+									<Button onClick={cancelChallenge} variant="ghost" className="h-10 w-full rounded-[10px] text-sm text-panel-text-muted hover:text-panel-text hover:bg-panel-elevated active:scale-[0.98] transition-transform">
+										{t("back")}
+									</Button>
 								</motion.div>
 							)}
 						</AnimatePresence>
-					</Box>
-				</Box>
-				</motion.div>
-			</VStack>
-		</Box>
+					</div>
+				</div>
+			</motion.div>
+		</div>
 	);
 };
 

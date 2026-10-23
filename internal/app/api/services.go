@@ -25,19 +25,21 @@ type serviceHostAssignment struct {
 }
 
 type serviceWritePayload struct {
-	Name        string                  `json:"name"`
-	Description *string                 `json:"description"`
-	Hosts       []serviceHostAssignment `json:"hosts"`
-	AdminIDs    []int64                 `json:"admin_ids"`
+	Name             string                  `json:"name"`
+	Description      *string                 `json:"description"`
+	Hosts            []serviceHostAssignment `json:"hosts"`
+	AdminIDs         []int64                 `json:"admin_ids"`
+	UsageCoefficient *float64                `json:"usage_coefficient"`
 }
 
 type serviceAdminLimitUpdatePayload struct {
-	TrafficLimitMode            *string `json:"traffic_limit_mode"`
-	DataLimit                   *int64  `json:"data_limit"`
-	ShowUserTraffic             *bool   `json:"show_user_traffic"`
-	UsersLimit                  *int64  `json:"users_limit"`
-	DeleteUserUsageLimitEnabled *bool   `json:"delete_user_usage_limit_enabled"`
-	DeleteUserUsageLimit        *int64  `json:"delete_user_usage_limit"`
+	TrafficLimitMode            *string  `json:"traffic_limit_mode"`
+	DataLimit                   *int64   `json:"data_limit"`
+	ShowUserTraffic             *bool    `json:"show_user_traffic"`
+	UsersLimit                  *int64   `json:"users_limit"`
+	DeleteUserUsageLimitEnabled *bool    `json:"delete_user_usage_limit_enabled"`
+	DeleteUserUsageLimit        *int64   `json:"delete_user_usage_limit"`
+	UsageCoefficient            *float64 `json:"usage_coefficient"`
 	fields                      map[string]json.RawMessage
 }
 
@@ -51,6 +53,7 @@ type serviceBaseResponse struct {
 	ID                  int64   `json:"id"`
 	Name                string  `json:"name"`
 	Description         *string `json:"description"`
+	UsageCoefficient    float64 `json:"usage_coefficient"`
 	UsedTraffic         int64   `json:"used_traffic"`
 	LifetimeUsedTraffic int64   `json:"lifetime_used_traffic"`
 	HostCount           int64   `json:"host_count"`
@@ -82,6 +85,7 @@ type serviceAdminResponse struct {
 	DeleteUserUsageLimitEnabled bool                           `json:"delete_user_usage_limit_enabled"`
 	DeleteUserUsageLimit        *int64                         `json:"delete_user_usage_limit"`
 	DeletedUsersUsage           int64                          `json:"deleted_users_usage"`
+	UsageCoefficient            *float64                       `json:"usage_coefficient"`
 }
 
 type serviceDetailResponse struct {
@@ -248,11 +252,16 @@ func (s *Server) handleServiceCreate(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		now := dbTimestamp(time.Now().UTC())
+		usageCoefficient := 1.0
+		if payload.UsageCoefficient != nil {
+			usageCoefficient = roundServiceUsageCoefficient(*payload.UsageCoefficient)
+		}
 		res, err := tx.ExecContext(
 			r.Context(),
-			`INSERT INTO services (name, description, used_traffic, lifetime_used_traffic, users_usage, created_at, updated_at) VALUES (?, ?, 0, 0, 0, ?, ?)`,
+			`INSERT INTO services (name, description, used_traffic, lifetime_used_traffic, users_usage, usage_coefficient, created_at, updated_at) VALUES (?, ?, 0, 0, 0, ?, ?, ?)`,
 			strings.TrimSpace(payload.Name),
 			nullableTrimmedString(payload.Description),
+			usageCoefficient,
 			now,
 			now,
 		)
@@ -322,6 +331,13 @@ func (s *Server) handleServiceUpdate(w http.ResponseWriter, r *http.Request, ser
 		if _, ok := fields["description"]; ok {
 			assignments = append(assignments, "description = ?")
 			args = append(args, nullableTrimmedString(payload.Description))
+		}
+		if _, ok := fields["usage_coefficient"]; ok {
+			if payload.UsageCoefficient == nil {
+				return statusError{status: http.StatusBadRequest, detail: "usage_coefficient is required"}
+			}
+			assignments = append(assignments, "usage_coefficient = ?")
+			args = append(args, roundServiceUsageCoefficient(*payload.UsageCoefficient))
 		}
 		if len(assignments) > 0 {
 			assignments = append(assignments, "updated_at = ?")
@@ -576,6 +592,17 @@ func (s *Server) handleServiceAdminLimitUpdate(w http.ResponseWriter, r *http.Re
 		if _, ok := payload.fields["delete_user_usage_limit"]; ok {
 			assignments = append(assignments, "delete_user_usage_limit = ?")
 			args = append(args, nullableInt64(payload.DeleteUserUsageLimit))
+		}
+		if _, ok := payload.fields["usage_coefficient"]; ok {
+			var coefficient any
+			if payload.UsageCoefficient != nil {
+				if err := validateServiceUsageCoefficient(*payload.UsageCoefficient); err != nil {
+					return err
+				}
+				coefficient = roundServiceUsageCoefficient(*payload.UsageCoefficient)
+			}
+			assignments = append(assignments, "usage_coefficient = ?")
+			args = append(args, coefficient)
 		}
 		if len(assignments) == 0 {
 			return nil
@@ -886,7 +913,28 @@ func rawIsNullAPI(raw json.RawMessage) bool {
 	return strings.EqualFold(strings.TrimSpace(string(raw)), "null")
 }
 
+const (
+	serviceUsageCoefficientMin = 0.01
+	serviceUsageCoefficientMax = 100.0
+)
+
+func validateServiceUsageCoefficient(value float64) error {
+	if math.IsNaN(value) || value < serviceUsageCoefficientMin || value > serviceUsageCoefficientMax {
+		return statusError{status: http.StatusBadRequest, detail: "usage_coefficient must be between 0.01 and 100"}
+	}
+	return nil
+}
+
+func roundServiceUsageCoefficient(value float64) float64 {
+	return math.Round(value*100) / 100
+}
+
 func validateServiceWriteTx(ctx context.Context, tx *sql.Tx, payload serviceWritePayload, create bool) error {
+	if payload.UsageCoefficient != nil {
+		if err := validateServiceUsageCoefficient(*payload.UsageCoefficient); err != nil {
+			return err
+		}
+	}
 	if create && strings.TrimSpace(payload.Name) == "" {
 		return statusError{status: http.StatusBadRequest, detail: "Service name is required"}
 	}
@@ -933,6 +981,7 @@ func (s *Server) servicesList(r *http.Request, dbadmin adminapp.Admin, name stri
 	s.id,
 	s.name,
 	s.description,
+	COALESCE(s.usage_coefficient, 1),
 	COALESCE(s.used_traffic, 0),
 	COALESCE(s.lifetime_used_traffic, 0),
 	COALESCE(SUM(CASE WHEN h.id IS NOT NULL AND COALESCE(h.is_disabled, 0) = 0 THEN 1 ELSE 0 END), 0) AS host_count,
@@ -940,7 +989,7 @@ func (s *Server) servicesList(r *http.Request, dbadmin adminapp.Admin, name stri
 FROM services s` + join + `
 LEFT JOIN service_hosts sh ON sh.service_id = s.id
 LEFT JOIN hosts h ON h.id = sh.host_id` + whereSQL + `
-GROUP BY s.id, s.name, s.description, s.used_traffic, s.lifetime_used_traffic
+GROUP BY s.id, s.name, s.description, s.used_traffic, s.lifetime_used_traffic, s.usage_coefficient
 ORDER BY s.created_at DESC, s.id DESC`
 	queryArgs := append([]any{}, args...)
 	if limit != nil {
@@ -997,6 +1046,7 @@ func (s *Server) serviceBase(ctx context.Context, serviceID int64) (serviceBaseR
 	s.id,
 	s.name,
 	s.description,
+	COALESCE(s.usage_coefficient, 1),
 	COALESCE(s.used_traffic, 0),
 	COALESCE(s.lifetime_used_traffic, 0),
 	COALESCE(SUM(CASE WHEN h.id IS NOT NULL AND COALESCE(h.is_disabled, 0) = 0 THEN 1 ELSE 0 END), 0) AS host_count,
@@ -1005,7 +1055,7 @@ FROM services s
 LEFT JOIN service_hosts sh ON sh.service_id = s.id
 LEFT JOIN hosts h ON h.id = sh.host_id
 WHERE s.id = ?
-GROUP BY s.id, s.name, s.description, s.used_traffic, s.lifetime_used_traffic`, serviceID)
+GROUP BY s.id, s.name, s.description, s.used_traffic, s.lifetime_used_traffic, s.usage_coefficient`, serviceID)
 	item, err := scanServiceBase(row)
 	if err == sql.ErrNoRows {
 		return serviceBaseResponse{}, statusError{status: http.StatusNotFound, detail: "Service not found"}
@@ -1059,7 +1109,8 @@ func (s *Server) serviceAdmins(ctx context.Context, serviceID int64) ([]serviceA
 	l.users_limit,
 	COALESCE(l.delete_user_usage_limit_enabled, 0),
 	l.delete_user_usage_limit,
-	COALESCE(l.deleted_users_usage, 0)
+	COALESCE(l.deleted_users_usage, 0),
+	l.usage_coefficient
 FROM service_admins l
 JOIN admins a ON a.id = l.admin_id
 WHERE l.service_id = ? AND COALESCE(a.status, '') != 'deleted'
@@ -1094,7 +1145,8 @@ func (s *Server) serviceAdmin(ctx context.Context, serviceID int64, adminID int6
 	l.users_limit,
 	COALESCE(l.delete_user_usage_limit_enabled, 0),
 	l.delete_user_usage_limit,
-	COALESCE(l.deleted_users_usage, 0)
+	COALESCE(l.deleted_users_usage, 0),
+	l.usage_coefficient
 FROM service_admins l
 JOIN admins a ON a.id = l.admin_id
 WHERE l.service_id = ? AND l.admin_id = ? AND COALESCE(a.status, '') != 'deleted'`, serviceID, adminID)
@@ -1112,7 +1164,7 @@ type serviceBaseScanner interface {
 func scanServiceBase(scanner serviceBaseScanner) (serviceBaseResponse, error) {
 	var item serviceBaseResponse
 	var description sql.NullString
-	if err := scanner.Scan(&item.ID, &item.Name, &description, &item.UsedTraffic, &item.LifetimeUsedTraffic, &item.HostCount, &item.UserCount); err != nil {
+	if err := scanner.Scan(&item.ID, &item.Name, &description, &item.UsageCoefficient, &item.UsedTraffic, &item.LifetimeUsedTraffic, &item.HostCount, &item.UserCount); err != nil {
 		return serviceBaseResponse{}, err
 	}
 	item.Description = nullStringPtrLocal(description)
@@ -1126,6 +1178,7 @@ func scanServiceAdmin(scanner serviceBaseScanner) (serviceAdminResponse, error) 
 	var mode string
 	var dataLimit, usersLimit, deleteLimit sql.NullInt64
 	var showTraffic, deleteEnabled int64
+	var usageCoefficient sql.NullFloat64
 	if err := scanner.Scan(
 		&item.ID,
 		&item.Username,
@@ -1139,6 +1192,7 @@ func scanServiceAdmin(scanner serviceBaseScanner) (serviceAdminResponse, error) 
 		&deleteEnabled,
 		&deleteLimit,
 		&item.DeletedUsersUsage,
+		&usageCoefficient,
 	); err != nil {
 		return serviceAdminResponse{}, err
 	}
@@ -1151,6 +1205,9 @@ func scanServiceAdmin(scanner serviceBaseScanner) (serviceAdminResponse, error) 
 	item.UsersLimit = nullInt64PtrLocal(usersLimit)
 	item.DeleteUserUsageLimitEnabled = deleteEnabled != 0
 	item.DeleteUserUsageLimit = nullInt64PtrLocal(deleteLimit)
+	if usageCoefficient.Valid {
+		item.UsageCoefficient = &usageCoefficient.Float64
+	}
 	return item, nil
 }
 
@@ -1298,7 +1355,7 @@ func adminCanDeleteUsersTx(ctx context.Context, tx *sql.Tx, adminID int64) (bool
 	if err != nil {
 		return false, false, err
 	}
-	permissions, err := adminapp.BuildPermissions(role, jsonTextFromDB(rawPermissions))
+	permissions, err := adminapp.BuildPermissions(role, adminapp.JSONText(rawPermissions))
 	if err != nil {
 		return false, false, err
 	}

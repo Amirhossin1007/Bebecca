@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 )
 
@@ -36,16 +37,16 @@ func (r Repository) subscriptionOutboundTags(ctx context.Context) []string {
 
 func routingIssues(target string, config map[string]any, extraTags []string) []ConfigIssue {
 	known := map[string]bool{"API": true}
-	known[stringValue(mapValue(config["api"])["tag"])] = true
+	known[jsonvalue.String(mapValue(config["api"])["tag"])] = true
 	for _, tag := range extraTags {
 		known[tag] = true
 	}
 	for _, outbound := range listOfMaps(config["outbounds"]) {
-		known[stringValue(outbound["tag"])] = true
+		known[jsonvalue.String(outbound["tag"])] = true
 	}
 	issues := []ConfigIssue{}
 	for index, rule := range listOfMaps(mapValue(config["routing"])["rules"]) {
-		tag := stringValue(rule["outboundTag"])
+		tag := jsonvalue.String(rule["outboundTag"])
 		if tag == "" || known[tag] {
 			continue
 		}
@@ -86,7 +87,7 @@ func (r Repository) ConfigIssues(ctx context.Context) ([]ConfigIssue, error) {
 		messages := map[string]bool{}
 		tags := map[string]bool{}
 		for _, inbound := range listOfMaps(item.Config["inbounds"]) {
-			tag := stringValue(inbound["tag"])
+			tag := jsonvalue.String(inbound["tag"])
 			existingTags[tag] = true
 			err := inboundValidationError(inbound)
 			if tags[tag] {

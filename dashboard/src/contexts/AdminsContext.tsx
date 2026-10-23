@@ -17,6 +17,8 @@ export type AdminFilters = {
 	limit: number;
 	offset: number;
 	sort: string;
+	roleFilter: string;
+	statusFilter: string;
 };
 
 type AdminsStore = {
@@ -59,6 +61,31 @@ type AdminsStore = {
 	closeAdminDialog: () => void;
 };
 
+const buildAdminQuery = (filters: AdminFilters) => {
+	const query: Record<string, string | number> = {};
+	if (filters.search) {
+		query.username = filters.search;
+		query.match_case = String(filters.matchCase);
+		query.match_whole_word = String(filters.matchWholeWord);
+	}
+	if (filters.offset !== undefined) {
+		query.offset = filters.offset;
+	}
+	if (filters.limit !== undefined) {
+		query.limit = filters.limit;
+	}
+	if (filters.roleFilter) {
+		query.role = filters.roleFilter;
+	}
+	if (filters.statusFilter) {
+		query.status = filters.statusFilter;
+	}
+	if (filters.sort) {
+		query.sort = filters.sort;
+	}
+	return query;
+};
+
 const createDefaultFilters = (): AdminFilters => ({
 	search: "",
 	matchCase: false,
@@ -66,6 +93,8 @@ const createDefaultFilters = (): AdminFilters => ({
 	limit: getAdminsPerPageLimitSize(),
 	offset: 0,
 	sort: "username",
+	roleFilter: "",
+	statusFilter: "",
 });
 
 const isAbortError = (error: unknown): boolean => {
@@ -167,27 +196,7 @@ export const useAdminsStore = create<AdminsStore>((set, get) => ({
 			...stateFilters,
 			...overrides,
 		};
-		const query: Record<string, string | number> = {};
-		if (filters.search) {
-			query.username = filters.search;
-			query.match_case = String(filters.matchCase);
-			query.match_whole_word = String(filters.matchWholeWord);
-		}
-		if (filters.offset !== undefined) {
-			query.offset = filters.offset;
-		}
-		if (filters.limit !== undefined) {
-			query.limit = filters.limit;
-		}
-		if (filters.sort) {
-			if (filters.sort === "data_usage") {
-				query.sort = "users_usage";
-			} else if (filters.sort === "data_limit") {
-				query.sort = "data_limit";
-			} else {
-				query.sort = filters.sort;
-			}
-		}
+		const query = buildAdminQuery(filters);
 
 		const requestKey = JSON.stringify(query);
 		if (loading && currentRequestKey === requestKey && inflight) {
@@ -275,23 +284,11 @@ export const useAdminsStore = create<AdminsStore>((set, get) => ({
 			limit: 1000,
 			offset: 0,
 			sort: "username",
+			roleFilter: "",
+			statusFilter: "",
 			...overrides,
 		};
-		const query: Record<string, string | number> = {};
-		if (filters.search) {
-			query.username = filters.search;
-			query.match_case = String(filters.matchCase);
-			query.match_whole_word = String(filters.matchWholeWord);
-		}
-		if (filters.offset !== undefined) {
-			query.offset = filters.offset;
-		}
-		if (filters.limit !== undefined) {
-			query.limit = filters.limit;
-		}
-		if (filters.sort) {
-			query.sort = filters.sort;
-		}
+		const query = buildAdminQuery(filters);
 
 		if (
 			!force &&

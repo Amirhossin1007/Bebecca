@@ -79,6 +79,7 @@ type UserPayloadBase struct {
 	OnHoldExpireDuration   *int64                     `json:"on_hold_expire_duration,omitempty"`
 	OnHoldTimeout          *string                    `json:"on_hold_timeout,omitempty"`
 	IPLimit                *int64                     `json:"ip_limit,omitempty"`
+	SpeedLimitKbps         *int64                     `json:"speed_limit_kbps,omitempty"`
 	AutoDeleteInDays       *int64                     `json:"auto_delete_in_days,omitempty"`
 	NextPlans              []NextPlanPayload          `json:"next_plans,omitempty"`
 }
@@ -102,6 +103,7 @@ type UserServiceCreate struct {
 	AutoDeleteInDays       *int64                     `json:"auto_delete_in_days,omitempty"`
 	NextPlans              []NextPlanPayload          `json:"next_plans,omitempty"`
 	IPLimit                *int64                     `json:"ip_limit,omitempty"`
+	SpeedLimitKbps         *int64                     `json:"speed_limit_kbps,omitempty"`
 	Flow                   *string                    `json:"flow,omitempty"`
 	CredentialKey          *string                    `json:"credential_key,omitempty"`
 }
@@ -156,21 +158,24 @@ type ServiceInfo struct {
 }
 
 type UserSnapshot struct {
-	ID          int64
-	Username    string
-	Status      UserStatus
-	UsedTraffic int64
-	DataLimit   *int64
-	ServiceID   *int64
-	AdminID     *int64
+	ID             int64
+	Username       string
+	Status         UserStatus
+	UsedTraffic    int64
+	DataLimit      *int64
+	ServiceID      *int64
+	AdminID        *int64
+	SpeedLimitKbps int64
+	IPLimit        int64
 }
 
 type MutationContext struct {
-	ActiveUsers        int64
-	ServiceActiveUsers map[int64]int64
-	Services           map[int64]ServiceInfo
-	Inbounds           map[string]InboundInfo
-	ExistingUser       *UserSnapshot
+	ActiveUsers           int64
+	ServiceActiveUsers    map[int64]int64
+	Services              map[int64]ServiceInfo
+	Inbounds              map[string]InboundInfo
+	ExistingUser          *UserSnapshot
+	UserSpeedLimitEnabled bool
 }
 
 func (p UserServiceCreate) ToUserCreate(service ServiceInfo) UserCreate {
@@ -188,6 +193,7 @@ func (p UserServiceCreate) ToUserCreate(service ServiceInfo) UserCreate {
 			OnHoldExpireDuration:   p.OnHoldExpireDuration,
 			OnHoldTimeout:          p.OnHoldTimeout,
 			IPLimit:                p.IPLimit,
+			SpeedLimitKbps:         p.SpeedLimitKbps,
 			AutoDeleteInDays:       p.AutoDeleteInDays,
 			NextPlans:              p.NextPlans,
 		},

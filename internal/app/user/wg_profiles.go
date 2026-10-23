@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"golang.org/x/crypto/curve25519"
+
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 )
 
 const (
@@ -96,7 +98,7 @@ func (s Service) wgProfiles(ctx context.Context, userID int64, hostTag string, i
 	for _, selected := range selectedHosts {
 		host := selected.host
 		inbound, ok := inbounds[host.InboundTag]
-		if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != protocol {
+		if !ok || normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) != protocol {
 			continue
 		}
 		inboundVariables := cloneFormatVariables(variables)
@@ -118,7 +120,7 @@ func (s Service) wgProfiles(ctx context.Context, userID int64, hostTag string, i
 		}
 		profiles = append(profiles, WGProfile{
 			HostTag:         tag,
-			HostName:        firstNonEmptyString(host.Remark, remark, address),
+			HostName:        jsonvalue.FirstNonEmpty(host.Remark, remark, address),
 			InboundTag:      host.InboundTag,
 			Remark:          remark,
 			Filename:        WGProfileFilename(item.Username, tag),
@@ -136,7 +138,7 @@ func (s Service) wgProfiles(ctx context.Context, userID int64, hostTag string, i
 }
 
 func (s Service) generateWGProfile(ctx context.Context, user UserDetail, req SubscriptionRenderRequest) (SubscriptionHTTPResponse, error) {
-	profiles, err := s.WGProfiles(ctx, user.ID, firstNonEmptyString(req.HostTag, req.InboundTag), true)
+	profiles, err := s.WGProfiles(ctx, user.ID, jsonvalue.FirstNonEmpty(req.HostTag, req.InboundTag), true)
 	if err != nil {
 		return SubscriptionHTTPResponse{}, err
 	}
@@ -155,7 +157,7 @@ func (s Service) generateWGProfile(ctx context.Context, user UserDetail, req Sub
 }
 
 func (s Service) generateAWGProfile(ctx context.Context, user UserDetail, req SubscriptionRenderRequest) (SubscriptionHTTPResponse, error) {
-	profiles, err := s.AWGProfiles(ctx, user.ID, firstNonEmptyString(req.HostTag, req.InboundTag), true)
+	profiles, err := s.AWGProfiles(ctx, user.ID, jsonvalue.FirstNonEmpty(req.HostTag, req.InboundTag), true)
 	if err != nil {
 		return SubscriptionHTTPResponse{}, err
 	}
@@ -229,7 +231,7 @@ func buildWGProfileMaterialForProtocol(item ConfigLinkUser, remark string, addre
 	}
 	settings := normalizeWGProfileSettings(mapValue(inbound["settings"]))
 	settings["dns_servers"] = wgHostDNSServers(host)
-	port := intValue(inbound["port"])
+	port := jsonvalue.Int(inbound["port"])
 	if port < 1 || port > 65535 {
 		return wgProfileMaterial{}, fmt.Errorf("WireGuard port is required")
 	}
@@ -237,9 +239,9 @@ func buildWGProfileMaterialForProtocol(item ConfigLinkUser, remark string, addre
 	if err != nil {
 		return wgProfileMaterial{}, err
 	}
-	clientAddress := item.WireGuardAddresses[stringValue(inbound["tag"])]
+	clientAddress := item.WireGuardAddresses[jsonvalue.String(inbound["tag"])]
 	if clientAddress == "" {
-		clientAddress = WGIPv4AddressForUser(item.ID, stringValue(settings["address_pool"]), stringValue(settings["server_address"]))
+		clientAddress = WGIPv4AddressForUser(item.ID, jsonvalue.String(settings["address_pool"]), jsonvalue.String(settings["server_address"]))
 	}
 	clientAddress += "/32"
 	endpoint := formatWGEndpoint(address, portString(inbound["port"]))
@@ -286,7 +288,7 @@ func normalizeWGProfileSettings(settings map[string]any) map[string]any {
 	for key, value := range settings {
 		out[key] = value
 	}
-	pool := strings.TrimSpace(firstNonEmptyString(out["address_pool"], out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
+	pool := strings.TrimSpace(jsonvalue.FirstNonEmpty(out["address_pool"], out["ipv4_pool_cidr"], out["ipv4PoolCidr"]))
 	if pool == "" {
 		pool = defaultWGProfilePoolCIDR
 	}
@@ -294,14 +296,14 @@ func normalizeWGProfileSettings(settings map[string]any) map[string]any {
 	out["ipv4_pool_cidr"] = pool
 	delete(out, "dns_servers")
 	delete(out, "dnsServers")
-	out["allowed_ips"] = stringList(firstNonEmptyAny(out["allowed_ips"], out["allowedIPs"]))
+	out["allowed_ips"] = stringList(jsonvalue.FirstNonEmptyAny(out["allowed_ips"], out["allowedIPs"]))
 	if len(stringList(out["allowed_ips"])) == 0 {
 		out["allowed_ips"] = []string{"0.0.0.0/0"}
 	}
 	if _, ok := out["persistent_keepalive"]; !ok {
 		out["persistent_keepalive"] = 25
 	}
-	if publicKey := strings.TrimSpace(firstNonEmptyString(out["public_key"], out["publicKey"])); publicKey != "" {
+	if publicKey := strings.TrimSpace(jsonvalue.FirstNonEmpty(out["public_key"], out["publicKey"])); publicKey != "" {
 		out["public_key"] = publicKey
 	}
 	return out
@@ -315,7 +317,7 @@ func buildWGConfigBody(privateKey string, clientAddress string, serverPublicKey 
 	if dns := stringList(settings["dns_servers"]); len(dns) > 0 {
 		writeWGLine(&b, "DNS = "+strings.Join(dns, ", "))
 	}
-	if mtu := intValue(settings["mtu"]); mtu > 0 {
+	if mtu := jsonvalue.Int(settings["mtu"]); mtu > 0 {
 		writeWGLine(&b, "MTU = "+fmt.Sprint(mtu))
 	}
 	writeWGLine(&b, "")
@@ -323,7 +325,7 @@ func buildWGConfigBody(privateKey string, clientAddress string, serverPublicKey 
 	writeWGLine(&b, "PublicKey = "+serverPublicKey)
 	writeWGLine(&b, "Endpoint = "+endpoint)
 	writeWGLine(&b, "AllowedIPs = "+strings.Join(stringList(settings["allowed_ips"]), ", "))
-	if keepalive := intValue(settings["persistent_keepalive"]); keepalive > 0 {
+	if keepalive := jsonvalue.Int(settings["persistent_keepalive"]); keepalive > 0 {
 		writeWGLine(&b, "PersistentKeepalive = "+fmt.Sprint(keepalive))
 	}
 	return b.String()
@@ -337,18 +339,18 @@ func buildAWGConfigBody(privateKey string, clientAddress string, serverPublicKey
 	if dns := stringList(settings["dns_servers"]); len(dns) > 0 {
 		writeWGLine(&b, "DNS = "+strings.Join(dns, ", "))
 	}
-	if mtu := intValue(settings["mtu"]); mtu > 0 {
+	if mtu := jsonvalue.Int(settings["mtu"]); mtu > 0 {
 		writeWGLine(&b, "MTU = "+fmt.Sprint(mtu))
 	}
 	for _, item := range []struct{ name, key string }{{"Jc", "jc"}, {"Jmin", "jmin"}, {"Jmax", "jmax"}, {"S1", "s1"}, {"S2", "s2"}, {"H1", "h1"}, {"H2", "h2"}, {"H3", "h3"}, {"H4", "h4"}} {
-		writeWGLine(&b, item.name+" = "+fmt.Sprint(intValue(settings[item.key])))
+		writeWGLine(&b, item.name+" = "+fmt.Sprint(jsonvalue.Int(settings[item.key])))
 	}
 	writeWGLine(&b, "")
 	writeWGLine(&b, "[Peer]")
 	writeWGLine(&b, "PublicKey = "+serverPublicKey)
 	writeWGLine(&b, "Endpoint = "+endpoint)
 	writeWGLine(&b, "AllowedIPs = "+strings.Join(stringList(settings["allowed_ips"]), ", "))
-	if keepalive := intValue(settings["persistent_keepalive"]); keepalive > 0 {
+	if keepalive := jsonvalue.Int(settings["persistent_keepalive"]); keepalive > 0 {
 		writeWGLine(&b, "PersistentKeepalive = "+fmt.Sprint(keepalive))
 	}
 	return b.String()
@@ -365,13 +367,13 @@ func buildWGURI(remark string, address string, port string, privateKey string, c
 	if dns := stringList(settings["dns_servers"]); len(dns) > 0 {
 		values.Set("dns", strings.Join(dns, ","))
 	}
-	if psk := strings.TrimSpace(firstNonEmptyString(settings["pre_shared_key"], settings["preshared_key"], settings["presharedKey"])); psk != "" {
+	if psk := strings.TrimSpace(jsonvalue.FirstNonEmpty(settings["pre_shared_key"], settings["preshared_key"], settings["presharedKey"])); psk != "" {
 		values.Set("presharedkey", psk)
 	}
-	if mtu := intValue(settings["mtu"]); mtu > 0 {
+	if mtu := jsonvalue.Int(settings["mtu"]); mtu > 0 {
 		values.Set("mtu", fmt.Sprint(mtu))
 	}
-	if keepalive := intValue(settings["persistent_keepalive"]); keepalive > 0 {
+	if keepalive := jsonvalue.Int(settings["persistent_keepalive"]); keepalive > 0 {
 		values.Set("keepalive", fmt.Sprint(keepalive))
 	}
 	u := url.URL{
@@ -397,10 +399,10 @@ func wgReservedBytes(settings map[string]any) string {
 }
 
 func wgServerPublicKey(settings map[string]any) (string, error) {
-	if publicKey := strings.TrimSpace(stringValue(settings["public_key"])); publicKey != "" {
+	if publicKey := strings.TrimSpace(jsonvalue.String(settings["public_key"])); publicKey != "" {
 		return publicKey, nil
 	}
-	privateText := strings.TrimSpace(firstNonEmptyString(settings["private_key"], settings["privateKey"]))
+	privateText := strings.TrimSpace(jsonvalue.FirstNonEmpty(settings["private_key"], settings["privateKey"]))
 	privateKey, err := base64.StdEncoding.DecodeString(privateText)
 	if err != nil || len(privateKey) != 32 {
 		return "", fmt.Errorf("WireGuard private_key must be a 32-byte base64 key")
@@ -443,7 +445,7 @@ func wgProfileDownloadURL(baseURL *url.URL, basePath string, hostTag string, pro
 }
 
 func WGHostTag(host Host, remark string, address string) string {
-	return WGSafePathComponent(firstNonEmptyString(host.Remark, remark, host.Address, address, host.InboundTag, "wireguard"))
+	return WGSafePathComponent(jsonvalue.FirstNonEmpty(host.Remark, remark, host.Address, address, host.InboundTag, "wireguard"))
 }
 
 func WGHostTagMatches(host Host, remark string, address string, generated string, requested string) bool {

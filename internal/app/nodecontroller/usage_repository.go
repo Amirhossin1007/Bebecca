@@ -774,6 +774,10 @@ func (r Repository) persistUserUsage(ctx context.Context, tx *sql.Tx, node NodeR
 	serviceUsage := map[int64]int64{}
 	adminServiceUsage := map[[2]int64]int64{}
 	persistedUserUsage := map[int64]int64{}
+	coefficients, err := r.adminServiceUsageCoefficientsTx(ctx, tx, mapping)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load admin usage coefficients: %w", err)
+	}
 
 	for _, userID := range keysInt64(aggregated) {
 		value := aggregated[userID]
@@ -783,14 +787,17 @@ func (r Repository) persistUserUsage(ctx context.Context, tx *sql.Tx, node NodeR
 			continue
 		}
 		persistedUserUsage[userID] = value
+		charged := value
+		if row.AdminID.Valid && row.ServiceID.Valid {
+			pair := [2]int64{row.AdminID.Int64, row.ServiceID.Int64}
+			charged = scaleUserUsage(value, coefficients[pair])
+			adminServiceUsage[pair] += charged
+		}
 		if row.AdminID.Valid {
-			adminUsage[row.AdminID.Int64] += value
+			adminUsage[row.AdminID.Int64] += charged
 		}
 		if row.ServiceID.Valid {
 			serviceUsage[row.ServiceID.Int64] += value
-			if row.AdminID.Valid {
-				adminServiceUsage[[2]int64{row.AdminID.Int64, row.ServiceID.Int64}] += value
-			}
 		}
 	}
 	if len(persistedUserUsage) > 0 {
@@ -866,11 +873,62 @@ WHERE admin_id = ? AND service_id = ?`,
 	return persistedUserUsage, operations, nil
 }
 
+func (r Repository) adminServiceUsageCoefficientsTx(ctx context.Context, tx *sql.Tx, mapping map[int64]usageUserMapping) (map[[2]int64]float64, error) {
+	serviceIDs := map[int64]struct{}{}
+	for _, row := range mapping {
+		if row.AdminID.Valid && row.ServiceID.Valid {
+			serviceIDs[row.ServiceID.Int64] = struct{}{}
+		}
+	}
+	coefficients := map[[2]int64]float64{}
+	if len(serviceIDs) == 0 {
+		return coefficients, nil
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT s.id, COALESCE(s.usage_coefficient, 1), sa.admin_id, sa.usage_coefficient
+FROM services s
+LEFT JOIN service_admins sa ON sa.service_id = s.id
+WHERE s.id IN (`+placeholders(len(serviceIDs))+`)`, int64Args(keysStructInt64(serviceIDs))...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	serviceDefaults := map[int64]float64{}
+	overrides := map[[2]int64]float64{}
+	for rows.Next() {
+		var serviceID int64
+		var serviceDefault float64
+		var adminID sql.NullInt64
+		var override sql.NullFloat64
+		if err := rows.Scan(&serviceID, &serviceDefault, &adminID, &override); err != nil {
+			return nil, err
+		}
+		serviceDefaults[serviceID] = normalizeUsageFactor(serviceDefault)
+		if adminID.Valid && override.Valid {
+			overrides[[2]int64{adminID.Int64, serviceID}] = normalizeUsageFactor(override.Float64)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for _, row := range mapping {
+		if !row.AdminID.Valid || !row.ServiceID.Valid {
+			continue
+		}
+		pair := [2]int64{row.AdminID.Int64, row.ServiceID.Int64}
+		if override, ok := overrides[pair]; ok {
+			coefficients[pair] = override
+			continue
+		}
+		coefficients[pair] = serviceDefaults[row.ServiceID.Int64]
+	}
+	return coefficients, nil
+}
+
 func (r Repository) loadUsageUserMapping(ctx context.Context, tx *sql.Tx, userIDs []int64) (map[int64]usageUserMapping, error) {
 	if len(userIDs) == 0 {
 		return map[int64]usageUserMapping{}, nil
 	}
-	query := `SELECT id, admin_id, service_id FROM users WHERE status IN ('active', 'on_hold') AND id IN (` + placeholders(len(userIDs)) + `)`
+	query := `SELECT id, admin_id, service_id FROM users WHERE COALESCE(status, '') IN ('active', 'on_hold') AND id IN (` + placeholders(len(userIDs)) + `)`
 	rows, err := tx.QueryContext(ctx, query, int64Args(userIDs)...)
 	if err != nil {
 		return nil, err
@@ -921,7 +979,7 @@ func (r Repository) batchTouchUsersOnline(ctx context.Context, exec usageExecer,
 	return forEachInt64Chunk(userIDs, usagePersistBatchSize, func(chunk []int64) error {
 		query := `INSERT INTO user_presence (user_id, online_at)
 SELECT id, ? FROM users
-WHERE status IN ('active', 'on_hold') AND id IN (` + placeholders(len(chunk)) + `)`
+WHERE COALESCE(status, '') IN ('active', 'on_hold') AND id IN (` + placeholders(len(chunk)) + `)`
 		args := make([]any, 0, 2+len(chunk))
 		args = append(args, r.timeArg(now))
 		args = append(args, int64Args(chunk)...)

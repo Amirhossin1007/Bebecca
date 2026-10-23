@@ -1,66 +1,25 @@
+import { Button } from "components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { Sheet, SheetContent, SheetTitle } from "components/ui/sheet";
+import { TriangleAlert } from "lucide-react";
+import { LogOut, ArrowLeftRight, Share, Menu, Bell, BookOpen, Briefcase, Check, Database, Clock, SquareCode, Settings, Settings2, Terminal, Copy, Eye, House as HeroHomeIcon, Languages, Link, Server, LayoutGrid, User as UserIcon, Users, Wrench, Bell as BellSolidIcon, Briefcase as BriefcaseSolidIcon, Settings as Cog6ToothSolidIcon, House as HomeSolidIcon, Users as UserGroupSolidIcon, User as UserSolidIcon } from "lucide-react";
 import {
-	Box,
-	Button,
-	chakra,
-	Drawer,
-	DrawerBody,
-	DrawerContent,
-	Flex,
-	HStack,
-	IconButton,
-	Menu,
-	MenuButton,
-	MenuItem,
-	MenuList,
-	type PlacementWithLogical,
-	Popover,
-	PopoverBody,
-	PopoverContent,
-	PopoverTrigger,
-	Portal,
-	SimpleGrid,
-	Text,
-	useBreakpointValue,
-	useColorModeValue,
-	useDisclosure,
-	VStack,
-} from "@chakra-ui/react";
-import {
-	ArrowLeftOnRectangleIcon,
-	ArrowsRightLeftIcon,
-	ArrowUpOnSquareIcon,
-	BellIcon,
-	BoltIcon,
-	BookOpenIcon,
-	BriefcaseIcon,
-	ChartBarIcon,
-	CheckIcon,
-	ChevronDownIcon,
-	CircleStackIcon,
-	ClockIcon,
-	CodeBracketSquareIcon,
-	Cog6ToothIcon,
-	Cog8ToothIcon,
-	CommandLineIcon,
-	DocumentDuplicateIcon,
-	DocumentTextIcon,
-	EyeIcon,
-	ExclamationTriangleIcon,
-	HomeIcon as HeroHomeIcon,
-	LanguageIcon,
-	LinkIcon,
-	ServerStackIcon,
-	Squares2X2Icon,
-	UserCircleIcon,
-	UserGroupIcon,
-	WrenchScrewdriverIcon,
-} from "@heroicons/react/24/outline";
-import { AnimatePresence, motion } from "framer-motion";
+	Breadcrumb,
+	BreadcrumbItem,
+	BreadcrumbLink,
+	BreadcrumbList,
+	BreadcrumbPage,
+	BreadcrumbSeparator,
+} from "components/ui/breadcrumb";
+import { motion, useReducedMotion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
+import { useQuery } from "@tanstack/react-query";
 import {
+	type CSSProperties,
 	type ElementType,
-	type FC,
 	type MouseEvent as ReactMouseEvent,
+	type PointerEvent as ReactPointerEvent,
 	useCallback,
 	useEffect,
 	useMemo,
@@ -69,144 +28,56 @@ import {
 } from "react";
 import ReactCountryFlag from "react-country-flag";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "react-query";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { logout as logoutSession } from "service/auth";
-import { getSponsors, type SponsorAsset } from "service/sponsors";
 import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import { clearClientSession } from "utils/session";
-import { ReactComponent as ImperialIranFlag } from "../assets/imperial-iran-flag.svg";
+import { getSponsors, type SponsorAsset } from "service/sponsors";
+import ImperialIranFlag from "../assets/imperial-iran-flag.svg?react";
 import { AppSidebar } from "./AppSidebar";
 import { useSheetSwipeToClose } from "hooks/useSheetSwipeToClose";
+import { useDisclosure } from "hooks/useDisclosure";
+import { useMediaQuery } from "hooks/useMediaQuery";
+
+import { cn } from "lib/cn";
 import { GitHubStars } from "./GitHubStars";
 import { HeaderCalendar } from "./HeaderCalendar";
-import {
-	NotificationMenuItem,
-	NotificationProvider,
-	useNotificationCenter,
-} from "./NotificationBell";
-import { SponsorCarousel } from "./SponsorCarousel";
+import { NotificationBell } from "./NotificationBell";
 import ThemeSelector from "./ThemeSelector";
-import {
-	Breadcrumb,
-	BreadcrumbEllipsisDropdown,
-	BreadcrumbItem,
-	BreadcrumbLink,
-	BreadcrumbList,
-	BreadcrumbPage,
-	BreadcrumbSeparator,
-} from "./ui/breadcrumb";
+import { SponsorCarousel } from "./SponsorCarousel";
 
-const iconProps = {
-	baseStyle: {
-		w: 4,
-		h: 4,
-	},
+const LogoutIcon = LogOut;
+const MenuIcon = Menu;
+const LanguageIconStyled = Languages;
+const DocsIcon = SquareCode;
+const PHPMyAdminIcon = Database;
+const ExternalAppsIcon = Terminal;
+const PlaceholderIcon = Copy;
+const PersonIcon = UserIcon;
+const MasterSettingsIcon = Settings2;
+const XraySettingsIcon = Wrench;
+const TAB_ICONS: Record<string, [ElementType, ElementType]> = {
+	dashboard: [HeroHomeIcon, HomeSolidIcon],
+	users: [Users, UserGroupSolidIcon],
+	admins: [Briefcase, BriefcaseSolidIcon],
+	settings: [Settings, Cog6ToothSolidIcon],
+	myaccount: [UserIcon, UserSolidIcon],
+	notifications: [Bell, BellSolidIcon],
 };
+const ServicesIcon = LayoutGrid;
+const HostsIcon = Link;
+const HAProxyIcon = ArrowLeftRight;
+const NodesIcon = Server;
+const InsightsIcon = Eye;
+const RecentActionsIcon = Clock;
+const ShareIcon = Share;
+const TutorialIcon = BookOpen;
 
-const LogoutIcon = chakra(ArrowLeftOnRectangleIcon, iconProps);
-const LanguageIconStyled = chakra(LanguageIcon, iconProps);
-const DocsIcon = chakra(CodeBracketSquareIcon, iconProps);
-const PHPMyAdminIcon = chakra(CircleStackIcon, iconProps);
-const ExternalAppsIcon = chakra(CommandLineIcon, iconProps);
-const PlaceholderIcon = chakra(DocumentDuplicateIcon, iconProps);
-const MasterSettingsIcon = chakra(Cog8ToothIcon, iconProps);
-const XraySettingsIcon = chakra(WrenchScrewdriverIcon, iconProps);
-const ServicesIcon = chakra(Squares2X2Icon, iconProps);
-const HostsIcon = chakra(LinkIcon, iconProps);
-const HAProxyIcon = chakra(ArrowsRightLeftIcon, iconProps);
-const NodesIcon = chakra(ServerStackIcon, iconProps);
-const InsightsIcon = chakra(EyeIcon, iconProps);
-const SystemErrorsIcon = chakra(ExclamationTriangleIcon, iconProps);
-const RecentActionsIcon = chakra(ClockIcon, iconProps);
-const ShareIcon = chakra(ArrowUpOnSquareIcon, iconProps);
-const TutorialIcon = chakra(BookOpenIcon, iconProps);
-const UsageIcon = chakra(ChartBarIcon, iconProps);
-const MyAccountIcon = chakra(UserCircleIcon, iconProps);
-const AdminIcon = chakra(BriefcaseIcon, iconProps);
-const BulkActionsIcon = chakra(BoltIcon, iconProps);
-const UsersGroupIcon = chakra(UserGroupIcon, iconProps);
-const UsersListIcon = chakra(UserGroupIcon, iconProps);
-const NotificationNavIcon = chakra(BellIcon, iconProps);
-const XrayLogsIcon = chakra(DocumentTextIcon, iconProps);
-const ChevronDownIconStyled = chakra(ChevronDownIcon, {
-	baseStyle: { w: 3.5, h: 3.5 },
-});
+const TINT_CLASS =
+	"bg-[color-mix(in_srgb,var(--primary-500)_12%,transparent)] text-[var(--primary-500)] dark:bg-[color-mix(in_srgb,var(--primary-300)_20%,transparent)] dark:text-[var(--primary-300)]";
 
-const dockIconStyle = {
-	baseStyle: {
-		w: "19px",
-		h: "19px",
-	},
-};
-
-const DockHomeIcon = chakra(HeroHomeIcon, dockIconStyle);
-const DockUsersIcon = chakra(UserGroupIcon, dockIconStyle);
-const DockAdminsIcon = chakra(BriefcaseIcon, dockIconStyle);
-const DockNotificationsIcon = chakra(BellIcon, dockIconStyle);
-const DockMyAccountIcon = chakra(UserCircleIcon, dockIconStyle);
-const DockSettingsIcon = chakra(Cog6ToothIcon, dockIconStyle);
-
-const getDockIcon = (key: string): ElementType => {
-	switch (key) {
-		case "dashboard":
-			return DockHomeIcon;
-		case "users":
-			return DockUsersIcon;
-		case "admins":
-			return DockAdminsIcon;
-		case "notifications":
-			return DockNotificationsIcon;
-		case "myaccount":
-			return DockMyAccountIcon;
-		case "settings":
-			return DockSettingsIcon;
-		default:
-			return DockHomeIcon;
-	}
-};
-
-const AnimatedHamburger: FC<{ isOpen: boolean; isRTL: boolean }> = ({
-	isOpen,
-	isRTL,
-}) => {
-	const x1Mid = isRTL ? (isOpen ? 7 : 2) : 2;
-	const x2Mid = isRTL ? 14 : isOpen ? 9 : 14;
-	const x1Bot = isRTL ? (isOpen ? 4.5 : 2) : 2;
-	const x2Bot = isRTL ? 14 : isOpen ? 11.5 : 14;
-
-	return (
-		<Box
-			as="svg"
-			width="15"
-			height="15"
-			viewBox="0 0 16 16"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="1.25"
-			strokeLinecap="round"
-			display="block"
-		>
-			<line x1="2" y1="3.5" x2="14" y2="3.5" />
-			<motion.line
-				x1={x1Mid}
-				y1="8"
-				x2={x2Mid}
-				y2="8"
-				animate={{ x1: x1Mid, x2: x2Mid }}
-				transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-			/>
-			<motion.line
-				x1={x1Bot}
-				y1="12.5"
-				x2={x2Bot}
-				y2="12.5"
-				animate={{ x1: x1Bot, x2: x2Bot }}
-				transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-			/>
-		</Box>
-	);
-};
+const DOCK_CLASS =
+	"border-[rgba(15,23,42,0.08)]! bg-[color-mix(in_srgb,var(--rb-panel-surface)_78%,transparent)] shadow-[0_12px_32px_rgba(15,23,42,0.14),0_1px_3px_rgba(15,23,42,0.08)] [backdrop-filter:saturate(180%)_blur(20px)] dark:border-[rgba(255,255,255,0.09)]! dark:bg-[color-mix(in_srgb,var(--rb-panel-surface)_72%,transparent)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.5)]";
 
 type SettingsMenuItem = {
 	key: string;
@@ -222,203 +93,50 @@ type BottomNavItem = {
 	kind?: "menu" | "link";
 };
 
-let textMeasureCanvas: HTMLCanvasElement | null = null;
-const measureBreadcrumbLabel = (text: string, isPage = false): number => {
-	if (!text) return 0;
-	if (typeof document === "undefined") {
-		return Math.ceil(text.length * (isPage ? 8.5 : 8));
-	}
-	if (!textMeasureCanvas) {
-		textMeasureCanvas = document.createElement("canvas");
-	}
-	const ctx = textMeasureCanvas.getContext("2d");
-	if (!ctx) {
-		return Math.ceil(text.length * (isPage ? 8.5 : 8));
-	}
-	ctx.font = `${isPage ? "600" : "500"} 12.5px Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-	return Math.ceil(ctx.measureText(text).width);
-};
-
-function AppLayoutContent() {
-	const { unread } = useNotificationCenter();
+export function AppLayout() {
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-	const handleSidebarExpand = useCallback(() => setSidebarCollapsed(false), []);
-	const [isMobile, setIsMobile] = useState(() => {
-		if (typeof window === "undefined") return false;
-		return window.innerWidth < 769;
-	});
-
-	useEffect(() => {
-		if (typeof window === "undefined") return;
-		const mq = window.matchMedia("(max-width: 768.98px)");
-		const update = () => setIsMobile(mq.matches);
-		update();
-		mq.addEventListener("change", update);
-		return () => mq.removeEventListener("change", update);
-	}, []);
-
-	useEffect(() => {
-		if (typeof document === "undefined" || !document.body) return;
-		if (sidebarCollapsed && !isMobile) {
-			document.body.setAttribute("data-sidebar-collapsed", "true");
-		} else {
-			document.body.removeAttribute("data-sidebar-collapsed");
-		}
-		return () => {
-			document.body?.removeAttribute("data-sidebar-collapsed");
-		};
-	}, [sidebarCollapsed, isMobile]);
-
+	const isMobile = !useMediaQuery("(min-width: 48em)");
 	const sidebarDrawer = useDisclosure();
-	const handleDrawerClose = useCallback(
-		() => sidebarDrawer.onClose(),
-		[sidebarDrawer.onClose],
-	);
 	useSheetSwipeToClose();
 	const languageMenu = useDisclosure();
 	const userMenu = useDisclosure();
 	const accountMenu = useDisclosure();
 	const settingsMenu = useDisclosure();
-	const [activeProfileSubmenu, setActiveProfileSubmenu] = useState<
-		"notifications" | "language" | "theme" | "calendar" | null
-	>(null);
-	const [pressingProfileSubmenu, setPressingProfileSubmenu] = useState<
-		"notifications" | "language" | "theme" | "calendar" | null
-	>(null);
-	const profileSubmenuTimerRef = useRef<number | null>(null);
-
-	useEffect(() => {
-		return () => {
-			if (profileSubmenuTimerRef.current) {
-				window.clearTimeout(profileSubmenuTimerRef.current);
-			}
-		};
-	}, []);
-
-	const toggleProfileSubmenu = useCallback(
-		(target: "notifications" | "language" | "theme" | "calendar") => {
-			if (profileSubmenuTimerRef.current) {
-				window.clearTimeout(profileSubmenuTimerRef.current);
-				profileSubmenuTimerRef.current = null;
-			}
-
-			if (activeProfileSubmenu === target) {
-				languageMenu.onClose();
-				setActiveProfileSubmenu(null);
-				setPressingProfileSubmenu(null);
-				return;
-			}
-
-			languageMenu.onClose();
-			setPressingProfileSubmenu(target);
-			profileSubmenuTimerRef.current = window.setTimeout(() => {
-				setPressingProfileSubmenu(null);
-				setActiveProfileSubmenu(target);
-				if (target === "language") {
-					languageMenu.onOpen();
-				}
-			}, 100);
-		},
-		[activeProfileSubmenu, languageMenu],
-	);
 	const { t, i18n } = useTranslation();
 	const { userData, getUserIsSuccess } = useGetUser();
-	const cachedRole = useMemo(() => {
-		try {
-			return localStorage.getItem("rb-user-role");
-		} catch {
-			return null;
-		}
-	}, []);
-	const effectiveRole = getUserIsSuccess
-		? userData.role
-		: (cachedRole as AdminRole | null);
 	const canSeeSponsors =
-		effectiveRole === AdminRole.FullAccess || effectiveRole === AdminRole.Sudo;
-
-	useEffect(() => {
-		if (getUserIsSuccess && userData.role) {
-			try {
-				localStorage.setItem("rb-user-role", userData.role);
-			} catch {}
-		}
-	}, [getUserIsSuccess, userData.role]);
-
-	const sponsorsQuery = useQuery("sponsors", getSponsors, {
-		staleTime: 5 * 60 * 1000,
-		cacheTime: 30 * 60 * 1000,
+		getUserIsSuccess &&
+		(userData.role === AdminRole.FullAccess || userData.role === AdminRole.Sudo);
+	const sponsorsQuery = useQuery({ queryKey: ["sponsors"], queryFn: getSponsors, staleTime: 5 * 60 * 1000,
+		gcTime: 30 * 60 * 1000,
 		retry: false,
-		enabled: canSeeSponsors,
-		initialData: () => {
-			try {
-				const raw = sessionStorage.getItem("rb-sponsors-cache");
-				return raw ? JSON.parse(raw) : undefined;
-			} catch {
-				return undefined;
-			}
-		},
-		initialDataUpdatedAt: 0,
-		onSuccess: (data) => {
-			try {
-				sessionStorage.setItem("rb-sponsors-cache", JSON.stringify(data));
-			} catch {}
-		},
-	});
+		enabled: canSeeSponsors, });
 	const sponsorData = canSeeSponsors ? sponsorsQuery.data : undefined;
-	const sponsorHeaderItems = useMemo(
-		() =>
-			(sponsorData?.header ?? []).slice(0, 3).map((asset: SponsorAsset) => ({
-				id: asset.id,
-				src: asset.image_url,
-				alt: asset.alt || asset.label || "Sponsor",
-				href: asset.target_url,
-				label: asset.label,
-				isSponsor: true,
-			})),
-		[sponsorData?.header],
+	const sponsorHeaderItems = (sponsorData?.header ?? []).slice(0, 3).map(
+		(asset: SponsorAsset) => ({
+			id: asset.id,
+			src: asset.image_url,
+			alt: asset.alt || asset.label || "Sponsor",
+			href: asset.target_url,
+			label: asset.label,
+			isSponsor: true,
+		}),
 	);
-	const sponsorHeaderMobileItems = useMemo(
-		() =>
-			(sponsorData?.header_mobile ?? []).slice(0, 3).map((asset: SponsorAsset) => ({
-				id: asset.id,
-				src: asset.image_url,
-				alt: asset.alt || asset.label || "Sponsor",
-				href: asset.target_url,
-				label: asset.label,
-				isSponsor: true,
-			})),
-		[sponsorData?.header_mobile],
-	);
-	const sponsorSidebarLogoItems = useMemo(() => {
-		const rawLogoList: SponsorAsset[] = [
-			...(sponsorData?.sidebar_logo ?? []),
-			...((sponsorData as unknown as { sidebarLogo?: SponsorAsset[] })?.sidebarLogo ?? []),
-			...(sponsorData?.sidebar ?? []).filter(
-				(a: SponsorAsset) => a.placement === "sidebar_logo",
-			),
-		];
-		return rawLogoList
-			.filter((a, i, arr) => arr.findIndex((x) => x.id === a.id) === i)
-			.slice(0, 5);
-	}, [
-		sponsorData?.sidebar_logo,
-		(sponsorData as unknown as { sidebarLogo?: SponsorAsset[] })?.sidebarLogo,
-		sponsorData?.sidebar,
-	]);
-	const sponsorSidebarBanners = useMemo(
-		() =>
-			(sponsorData?.sidebar ?? [])
-				.filter((a: SponsorAsset) => a.placement !== "sidebar_logo")
-				.slice(0, 5),
-		[sponsorData?.sidebar],
-	);
-	const mobileHeaderItems = useMemo(
-		() =>
-			sponsorHeaderMobileItems.length > 0
-				? sponsorHeaderMobileItems
-				: sponsorHeaderItems,
-		[sponsorHeaderMobileItems, sponsorHeaderItems],
-	);
+	const sponsorHeaderMobileItems = (sponsorData?.header_mobile ?? [])
+		.slice(0, 3)
+		.map((asset: SponsorAsset) => ({
+			id: asset.id,
+			src: asset.image_url,
+			alt: asset.alt || asset.label || "Sponsor",
+			href: asset.target_url,
+			label: asset.label,
+			isSponsor: true,
+		}));
+	const sponsorSidebarLogoItems = (sponsorData?.sidebar_logo ?? []).slice(0, 5);
+	const sponsorSidebarBanners = (sponsorData?.sidebar ?? []).slice(0, 5);
+	const mobileHeaderItems = sponsorHeaderMobileItems.length > 0
+		? sponsorHeaderMobileItems
+		: sponsorHeaderItems;
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [activeLocationHash, setActiveLocationHash] = useState(
@@ -428,100 +146,43 @@ function AppLayoutContent() {
 	const tutorialsUrl = "/tutorials";
 	const sectionAccess = userData.permissions?.sections;
 	const userMenuContentRef = useRef<HTMLDivElement | null>(null);
+	const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
 	const contentRef = useRef<HTMLDivElement | null>(null);
 	const [showIosPrompt, setShowIosPrompt] = useState(false);
+	const accountHoldTimeout = useRef<number | null>(null);
+	const accountHoldOpened = useRef(false);
+	const accountHoldStartPoint = useRef<{ x: number; y: number } | null>(null);
+	const settingsHoldTimeout = useRef<number | null>(null);
+	const settingsHoldOpened = useRef(false);
+	const settingsHoldStartPoint = useRef<{ x: number; y: number } | null>(null);
 	const tabContentRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+	const navDragRef = useRef<{
+		active: boolean;
+		moved: boolean;
+		startX: number;
+		startY: number;
+		pointerId: number | null;
+	}>({
+		active: false,
+		moved: false,
+		startX: 0,
+		startY: 0,
+		pointerId: null,
+	});
+	const navMoveRaf = useRef<number | null>(null);
+	const navMovePoint = useRef<{ x: number; y: number } | null>(null);
+	const suppressNavClickUntil = useRef(0);
 	const [previewTabKey, setPreviewTabKey] = useState<string | null>(null);
 	const previewTabKeyRef = useRef<string | null>(null);
-	const headerRef = useRef<HTMLDivElement | null>(null);
-	const [calendarCompact, setCalendarCompact] = useState(false);
-	const [breadcrumbMode, setBreadcrumbMode] = useState<
-		"full" | "compact" | "minimal"
-	>("full");
-	const [bannerShrinkable, setBannerShrinkable] = useState(false);
-	const [canTruncateLastCrumbState, setCanTruncateLastCrumbState] =
-		useState(false);
-	const [bannerDimensions, setBannerDimensions] = useState({
-		natural: 220,
-		half: 110,
-	});
-	const canTruncateLastCrumb =
-		canTruncateLastCrumbState &&
-		calendarCompact &&
-		breadcrumbMode === "minimal" &&
-		(sponsorHeaderItems.length === 0 || bannerShrinkable);
-	const [mobileDockOpenGroups, setMobileDockOpenGroups] = useState<
-		Record<string, boolean>
-	>({
-		users_hub: true,
-		core_routing: false,
-		system_tools: false,
-		observability: false,
-	});
-	const dockSettingsScrollRef = useRef<HTMLDivElement | null>(null);
-	const dockSettingsScrollAnimRef = useRef<number | null>(null);
-
-	useEffect(() => {
-		return () => {
-			if (dockSettingsScrollAnimRef.current !== null) {
-				cancelAnimationFrame(dockSettingsScrollAnimRef.current);
-			}
-		};
-	}, []);
-
-	useEffect(() => {
-		const dir = i18n.dir(i18n.language);
-		document.documentElement.dir = dir;
-		document.documentElement.lang = i18n.language;
-		if (document.body) {
-			document.body.dir = dir;
-		}
-		window.dispatchEvent(new Event("resize"));
-		const raf = requestAnimationFrame(() => {
-			window.dispatchEvent(new Event("resize"));
-		});
-		return () => cancelAnimationFrame(raf);
-	}, [i18n.language, i18n]);
-	useEffect(() => {
-		if (!isMobile) return;
-		const resetScroll = () => {
-			if (window.scrollY !== 0 || window.scrollX !== 0) {
-				window.scrollTo(0, 0);
-			}
-		};
-		window.addEventListener("scroll", resetScroll, { passive: true });
-		resetScroll();
-		return () => window.removeEventListener("scroll", resetScroll);
-	}, [isMobile]);
-
-	const languagePlacement =
-		useBreakpointValue<PlacementWithLogical>({
-			base: "bottom-start",
-			md: isRTL ? "right-start" : "left-start",
-		}) ?? (isRTL ? "right-start" : "left-start");
-
-	const menuBg = useColorModeValue("panel.surface", "panel.surface");
-	const menuBorder = useColorModeValue("panel.border", "panel.border");
-	const dockBg = useColorModeValue("panel.surface", "panel.surface");
-	const dockBorder = useColorModeValue("panel.border", "panel.border");
-	const menuShadow = useColorModeValue(
-		"0 1px 2px rgba(0, 0, 0, 0.03), inset 0 1px 0 0 rgba(255, 255, 255, 0.8)",
-		"inset 0 1px 0 0 rgba(255, 255, 255, 0.08)",
-	);
-	const dockShadow = menuShadow;
-	const dockInactiveText = useColorModeValue("gray.700", "gray.300");
-	const dockInactiveIcon = useColorModeValue("gray.600", "gray.400");
-	const shellBorder = useColorModeValue("panel.border", "panel.border");
-	const shellHeaderBg = useColorModeValue("panel.surface", "panel.surface");
-	const shellHeaderShadow = useColorModeValue(
-		"0 2px 10px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03)",
-		"0 4px 16px rgba(0, 0, 0, 0.24), 0 1px 2px rgba(0, 0, 0, 0.12)",
-	);
-	const headerButtonBg = useColorModeValue("panel.elevated", "panel.elevated");
-	const headerButtonHoverBg = useColorModeValue(
-		"panel.borderStrong",
-		"panel.borderStrong",
-	);
+	const [isNavDragging, setIsNavDragging] = useState(false);
+	const [pendingTabKey, setPendingTabKey] = useState<string | null>(null);
+	const reduceMotion = useReducedMotion();
+	const navSpring = reduceMotion
+		? { duration: 0 }
+		: { type: "spring" as const, stiffness: 300, damping: 30, mass: 0.8 };
+	const tapSpring = reduceMotion
+		? { duration: 0 }
+		: { type: "spring" as const, stiffness: 520, damping: 32, mass: 0.6 };
 
 	useEffect(() => {
 		const syncHash = () => setActiveLocationHash(window.location.hash);
@@ -555,211 +216,160 @@ function AppLayoutContent() {
 		{ code: "ru", label: "Русский", flag: "RU" },
 	];
 
-	const isFullAccess = userData.role === AdminRole.FullAccess;
-	const isPrivilegedAdmin = isFullAccess || userData.role === AdminRole.Sudo;
-
-	const defaultSelfPermissions = {
-		self_myaccount: false,
-		self_change_password: false,
-		self_api_keys: false,
-		self_placeholders: false,
-	};
-	const baseSelf =
-		userData.permissions?.self_permissions ?? defaultSelfPermissions;
-	const selfAccess = isFullAccess
-		? { self_myaccount: true, self_change_password: true, self_api_keys: true }
-		: baseSelf;
-
-	const canViewUsage = Boolean(sectionAccess?.[AdminSection.Usage]);
-	const canViewAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
-	const canViewServicesSection = Boolean(
-		sectionAccess?.[AdminSection.Services],
-	);
-	const canViewHosts =
-		isPrivilegedAdmin && Boolean(sectionAccess?.[AdminSection.Hosts]);
-	const canViewNodes = Boolean(sectionAccess?.[AdminSection.Nodes]);
+	const isPrivilegedAdmin =
+		userData.role === AdminRole.FullAccess || userData.role === AdminRole.Sudo;
 	const canViewRecentActions =
-		isFullAccess ||
+		userData.role === AdminRole.FullAccess ||
 		(userData.role === AdminRole.Sudo &&
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray]));
 	const canManagePlaceholders =
-		isFullAccess ||
+		userData.role === AdminRole.FullAccess ||
 		(userData.role === AdminRole.Sudo &&
 			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
-		Boolean(baseSelf.self_placeholders);
+		Boolean(userData.permissions?.self_permissions?.self_placeholders);
 
-	const isChangingLanguageRef = useRef(false);
-
-	const changeLanguage = async (lang: string) => {
-		isChangingLanguageRef.current = true;
-		setSuppressDockTransition(true);
-		const nextDir = i18n.dir(lang);
-
-		const userMenuEl = document.getElementById("rb-user-menu");
-		const langMenuEl = document.querySelector(
-			'[data-language-menu-list="true"]',
-		) as HTMLElement | null;
-		if (userMenuEl) userMenuEl.style.display = "none";
-		if (langMenuEl) langMenuEl.style.display = "none";
-
-		document.documentElement.dir = nextDir;
-		document.documentElement.lang = lang;
-		if (document.body) {
-			document.body.dir = nextDir;
-		}
-
-		await i18n.changeLanguage(lang);
-
-		userMenu.onOpen();
-		languageMenu.onOpen();
-		setActiveProfileSubmenu("language");
-
-		requestAnimationFrame(() => {
-			window.dispatchEvent(new Event("resize"));
-			isChangingLanguageRef.current = false;
-		});
-	};
-
-	const closeUserMenu = useCallback(() => {
-		if (isChangingLanguageRef.current) return;
-		if (profileSubmenuTimerRef.current) {
-			window.clearTimeout(profileSubmenuTimerRef.current);
-			profileSubmenuTimerRef.current = null;
-		}
-		userMenu.onClose();
-		languageMenu.onClose();
-		setActiveProfileSubmenu(null);
-		setPressingProfileSubmenu(null);
-	}, [userMenu.onClose, languageMenu.onClose]);
-
-	const isAnyProfileMenuOpen =
-		userMenu.isOpen ||
-		languageMenu.isOpen ||
-		activeProfileSubmenu !== null;
-
-	useEffect(() => {
-		if (!isAnyProfileMenuOpen) return;
-		const handleDocumentPointerDown = (event: MouseEvent | TouchEvent) => {
-			if (isChangingLanguageRef.current) return;
-			const path =
-				typeof event.composedPath === "function" ? event.composedPath() : [];
-			const rawTarget = event.target as Node | null;
-			const el =
-				rawTarget instanceof Element
-					? rawTarget
-					: rawTarget?.parentElement;
-
-			const isSubmenuNode = (node: Element) =>
-				Boolean(
-					node.closest?.(
-						'[data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"], [data-calendar-menu-list="true"]',
-					),
-				);
-
-			const isUserMenuNode = (node: Element) =>
-				Boolean(
-					node.id === "rb-user-menu" ||
-						node.closest?.('#rb-user-menu, [data-profile-menu="true"]'),
-				);
-
-			const isSubmenuTrigger = (node: Element) =>
-				Boolean(
-					node.closest?.(
-						'[data-submenu-trigger="true"], [data-theme-trigger="true"], [data-calendar-trigger="true"]',
-					),
-				);
-
-			const clickedInSubmenu =
-				path.some((n) => n instanceof Element && isSubmenuNode(n)) ||
-				Boolean(el && isSubmenuNode(el));
-
-			const clickedInUserMenu =
-				path.some((n) => n instanceof Element && isUserMenuNode(n)) ||
-				Boolean(el && isUserMenuNode(el));
-
-			const clickedInSubmenuTrigger =
-				path.some((n) => n instanceof Element && isSubmenuTrigger(n)) ||
-				Boolean(el && isSubmenuTrigger(el));
-
-			if (clickedInUserMenu && !clickedInSubmenu && !clickedInSubmenuTrigger) {
-				if (activeProfileSubmenu !== null) {
-					if (profileSubmenuTimerRef.current) {
-						window.clearTimeout(profileSubmenuTimerRef.current);
-						profileSubmenuTimerRef.current = null;
+	const settingsMenuItems = useMemo(() => {
+		const items: Array<SettingsMenuItem | null> = [
+			isPrivilegedAdmin
+				? {
+						key: "errors",
+						label: "errors",
+						to: "/errors",
+						icon: InsightsIcon,
 					}
-					languageMenu.onClose();
-					setActiveProfileSubmenu(null);
-					setPressingProfileSubmenu(null);
-				}
-				return;
-			}
-
-			const isInside = path.some((node) => {
-				if (!(node instanceof Element)) return false;
-				return Boolean(
-					node.id === "rb-user-menu" ||
-						node.closest?.(
-							'#rb-user-menu, [data-profile-window="true"], [data-header-profile="true"], [data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"], [data-calendar-menu-list="true"], [data-profile-menu="true"]',
-						),
-				);
-			});
-			const isInsideFallback = Boolean(
-				el?.closest?.(
-					'#rb-user-menu, [data-profile-window="true"], [data-header-profile="true"], [data-profile-submenu="true"], [data-language-menu-list="true"], [data-notification-menu-list="true"], [data-theme-menu-list="true"], [data-profile-menu="true"]',
-				),
-			);
-			if (isInside || isInsideFallback) {
-				return;
-			}
-			closeUserMenu();
-		};
-		const handleKeyDown = (event: KeyboardEvent) => {
-			if (event.key === "Escape") {
-				closeUserMenu();
-			}
-		};
-		if (typeof window !== "undefined" && "PointerEvent" in window) {
-			document.addEventListener("pointerdown", handleDocumentPointerDown, true);
-		} else {
-			document.addEventListener("mousedown", handleDocumentPointerDown, true);
-			document.addEventListener("touchstart", handleDocumentPointerDown, {
-				passive: true,
-				capture: true,
-			});
-		}
-		document.addEventListener("keydown", handleKeyDown);
-		return () => {
-			if (typeof window !== "undefined" && "PointerEvent" in window) {
-				document.removeEventListener("pointerdown", handleDocumentPointerDown, true);
-			} else {
-				document.removeEventListener("mousedown", handleDocumentPointerDown, true);
-				document.removeEventListener("touchstart", handleDocumentPointerDown, true);
-			}
-			document.removeEventListener("keydown", handleKeyDown);
-		};
+				: null,
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Services]
+				? {
+						key: "services",
+						label: t("services.title"),
+						to: "/services",
+						icon: ServicesIcon,
+					}
+				: null,
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Hosts]
+				? {
+						key: "hosts",
+						label: t("header.hostSettings"),
+						to: "/hosts",
+						icon: HostsIcon,
+					}
+				: null,
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Nodes]
+				? {
+						key: "node-settings",
+						label: t("header.nodeSettings"),
+						to: "/node-settings",
+						icon: NodesIcon,
+					}
+				: null,
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Integrations]
+				? {
+						key: "settings",
+						label: t("header.integrationSettings"),
+						to: "/settings",
+						icon: MasterSettingsIcon,
+					}
+				: null,
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Xray]
+				? {
+						key: "xray-settings",
+						label: t("header.xraySettings"),
+						to: "/xray-settings",
+						icon: XraySettingsIcon,
+					}
+				: null,
+			isPrivilegedAdmin
+				? {
+						key: "haproxy",
+						label: t("haproxy.title"),
+						to: "/haproxy",
+						icon: HAProxyIcon,
+					}
+				: null,
+			isPrivilegedAdmin && sectionAccess?.[AdminSection.Xray]
+				? {
+						key: "access-insights",
+						label: t("header.accessInsights"),
+						to: "/access-insights",
+						icon: InsightsIcon,
+					}
+				: null,
+			canViewRecentActions
+				? {
+						key: "recent-actions",
+						label: t("recentActions.title"),
+						to: "/recent-actions",
+						icon: RecentActionsIcon,
+					}
+				: null,
+			isPrivilegedAdmin
+				? {
+						key: "phpmyadmin",
+						label: t("phpmyadmin.menu"),
+						to: "/phpmyadmin",
+						icon: PHPMyAdminIcon,
+					}
+				: null,
+			isPrivilegedAdmin
+				? {
+						key: "external-apps",
+						label: t("externalApps.menu"),
+						to: "/external-apps",
+						icon: ExternalAppsIcon,
+					}
+				: null,
+			isPrivilegedAdmin
+				? {
+						key: "api-docs",
+						label: t("apiDocs.menu"),
+						to: "/api-docs",
+						icon: DocsIcon,
+					}
+				: null,
+			canManagePlaceholders
+				? {
+						key: "placeholders",
+						label: isPrivilegedAdmin
+							? t("placeholders.menu")
+							: t("placeholders.settingsMenu"),
+						to: "/placeholders",
+						icon: PlaceholderIcon,
+					}
+				: null,
+			{
+				key: "tutorials",
+				label: t("tutorials.menu"),
+				to: tutorialsUrl,
+				icon: TutorialIcon,
+			},
+		];
+		return items.filter(Boolean) as SettingsMenuItem[];
 	}, [
-		isAnyProfileMenuOpen,
-		closeUserMenu,
-		activeProfileSubmenu,
-		languageMenu.onClose,
+		canManagePlaceholders,
+		canViewRecentActions,
+		isPrivilegedAdmin,
+		sectionAccess,
+		t,
 	]);
 
-	const prevRTLRef = useRef(isRTL);
-	const [suppressDockTransition, setSuppressDockTransition] = useState(false);
+	const hasSettingsMenu = settingsMenuItems.length > 0;
 
-	if (prevRTLRef.current !== isRTL) {
-		prevRTLRef.current = isRTL;
-		setSuppressDockTransition(true);
-	}
+	const changeLanguage = (lang: string) => {
+		i18n.changeLanguage(lang);
+	};
 
-	useEffect(() => {
-		if (suppressDockTransition) {
-			const timer = setTimeout(() => {
-				setSuppressDockTransition(false);
-			}, 350);
-			return () => clearTimeout(timer);
-		}
-	}, [suppressDockTransition]);
+	const closeUserMenu = () => {
+		userMenu.onClose();
+		languageMenu.onClose();
+	};
+
+	const handleUserMenuClose = () => {
+		if (isThemeModalOpen) return;
+		closeUserMenu();
+	};
+
+	const handleThemeModalOpen = () => setIsThemeModalOpen(true);
+	const handleThemeModalClose = () => setIsThemeModalOpen(false);
 
 	useEffect(() => {
 		if (!isMobile) return;
@@ -841,34 +451,22 @@ function AppLayoutContent() {
 		};
 	}, [isMobile, isRTL, sidebarDrawer]);
 
-	const hasSettingsMenu = Boolean(
-		canViewNodes ||
-			canViewHosts ||
-			canViewServicesSection ||
-			canViewUsage ||
-			isPrivilegedAdmin ||
-			sectionAccess?.[AdminSection.Xray] ||
-			sectionAccess?.[AdminSection.Integrations] ||
-			canViewRecentActions ||
-			canManagePlaceholders ||
-			true,
-	);
-
 	const bottomNavItems = useMemo<BottomNavItem[]>(() => {
-		const items: BottomNavItem[] = [];
 		const canSeeAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
-		items.push({ key: "users", label: t("users"), to: "/users" });
+		const items: BottomNavItem[] = [
+			{ key: "users", label: t("nav.users"), to: "/users" },
+		];
 		if (canSeeAdmins) {
-			items.push({ key: "admins", label: t("admins"), to: "/admins" });
+			items.push({ key: "admins", label: t("nav.admins"), to: "/admins" });
 		}
-		if (items.length + 3 + (hasSettingsMenu ? 1 : 0) <= 5) {
+			if (items.length + 3 + (hasSettingsMenu ? 1 : 0) <= 5) {
 			items.push({
 				key: "notifications",
 				label: t("notifications.menu"),
 				to: "/notifications",
 			});
 		}
-		items.push({ key: "myaccount", label: t("myaccount.menu"), to: "/myaccount" });
+		items.push({ key: "myaccount", label: t("nav.myaccount"), to: "/myaccount" });
 		if (hasSettingsMenu) {
 			items.push({ key: "settings", label: t("header.settings"), kind: "menu" });
 		}
@@ -880,341 +478,6 @@ function AppLayoutContent() {
 		return items;
 	}, [t, sectionAccess, hasSettingsMenu]);
 
-	const dockRoutes = useMemo(
-		() => new Set(bottomNavItems.map((item) => item.to).filter(Boolean) as string[]),
-		[bottomNavItems],
-	);
-
-	const mobileDockSections = useMemo(
-		() =>
-			[
-				{
-					id: "sec_users",
-					title: t("sidebar.sections.users"),
-					items: [
-						{
-							type: "group" as const,
-							id: "users_hub",
-							title: t("sidebar.groups.userHub"),
-							icon: UsersGroupIcon,
-							subItems: [
-								!dockRoutes.has("/users")
-									? {
-											id: "users_list",
-											title: t("sidebar.usersList"),
-											to: "/users",
-											icon: UsersListIcon,
-										}
-									: null,
-								!dockRoutes.has("/bulk-actions")
-									? {
-											id: "bulk-actions",
-											title: t("bulkActions.menu"),
-											to: "/bulk-actions",
-											icon: BulkActionsIcon,
-										}
-									: null,
-							].filter(Boolean) as Array<{
-								id: string;
-								title: string;
-								to: string;
-								icon: ElementType;
-							}>,
-						},
-					].filter((item) => item.subItems.length > 0),
-				},
-				{
-					id: "sec_infrastructure",
-					title: t("sidebar.sections.infrastructure"),
-					items: [
-						canViewNodes && !dockRoutes.has("/node-settings")
-							? {
-									type: "direct" as const,
-									key: "node-settings",
-									label: t("header.nodeSettings"),
-									to: "/node-settings",
-									icon: NodesIcon,
-								}
-							: null,
-						canViewHosts && !dockRoutes.has("/hosts")
-							? {
-									type: "direct" as const,
-									key: "hosts",
-									label: t("header.hostSettings"),
-									to: "/hosts",
-									icon: HostsIcon,
-								}
-							: null,
-						canViewServicesSection && !dockRoutes.has("/services")
-							? {
-									type: "direct" as const,
-									key: "services",
-									label: t("services.title"),
-									to: "/services",
-									icon: ServicesIcon,
-								}
-							: null,
-					].filter(Boolean) as Array<{
-						type: "direct";
-						key: string;
-						label: string;
-						to: string;
-						icon: ElementType;
-					}>,
-				},
-				{
-					id: "sec_traffic_admins",
-					title: t("sidebar.sections.trafficAndAdmins"),
-					items: [
-						selfAccess.self_myaccount && !dockRoutes.has("/myaccount")
-							? {
-									type: "direct" as const,
-									key: "myaccount",
-									label: t("myaccount.menu"),
-									to: "/myaccount",
-									icon: MyAccountIcon,
-								}
-							: null,
-						canViewUsage && !dockRoutes.has("/usage")
-							? {
-									type: "direct" as const,
-									key: "usage",
-									label: t("usage.menu"),
-									to: "/usage",
-									icon: UsageIcon,
-								}
-							: null,
-						canViewAdmins && !dockRoutes.has("/admins")
-							? {
-									type: "direct" as const,
-									key: "admins",
-									label: t("admins"),
-									to: "/admins",
-									icon: AdminIcon,
-								}
-							: null,
-					].filter(Boolean) as Array<{
-						type: "direct";
-						key: string;
-						label: string;
-						to: string;
-						icon: ElementType;
-					}>,
-				},
-				{
-					id: "sec_system",
-					title: t("sidebar.sections.system"),
-					items: [
-						{
-							type: "group" as const,
-							id: "core_routing",
-							title: t("sidebar.groups.coreRouting"),
-							icon: XraySettingsIcon,
-							subItems: [
-								sectionAccess?.[AdminSection.Xray] &&
-								!dockRoutes.has("/xray-settings")
-									? {
-											id: "xray-settings",
-											title: t("header.xraySettings"),
-											to: "/xray-settings",
-											icon: XraySettingsIcon,
-										}
-									: null,
-								isPrivilegedAdmin && !dockRoutes.has("/haproxy")
-									? {
-											id: "haproxy",
-											title: t("haproxy.title"),
-											to: "/haproxy",
-											icon: HAProxyIcon,
-										}
-									: null,
-							].filter(Boolean) as Array<{
-								id: string;
-								title: string;
-								to: string;
-								icon: ElementType;
-							}>,
-						},
-						{
-							type: "group" as const,
-							id: "system_tools",
-							title: t("sidebar.groups.system"),
-							icon: MasterSettingsIcon,
-							subItems: [
-								sectionAccess?.[AdminSection.Integrations] &&
-								!dockRoutes.has("/settings")
-									? {
-											id: "settings",
-											title: t("header.integrationSettings"),
-											to: "/settings",
-											icon: MasterSettingsIcon,
-										}
-									: null,
-								!dockRoutes.has("/notifications")
-									? {
-											id: "notifications",
-											title: t("notifications.menu"),
-											to: "/notifications",
-											icon: NotificationNavIcon,
-										}
-									: null,
-								canManagePlaceholders && !dockRoutes.has("/placeholders")
-									? {
-											id: "placeholders",
-											title: isPrivilegedAdmin
-												? t("placeholders.menu")
-												: t("placeholders.settingsMenu"),
-											to: "/placeholders",
-											icon: PlaceholderIcon,
-										}
-									: null,
-								isPrivilegedAdmin && !dockRoutes.has("/phpmyadmin")
-									? {
-											id: "phpmyadmin",
-											title: t("phpmyadmin.menu"),
-											to: "/phpmyadmin",
-											icon: PHPMyAdminIcon,
-										}
-									: null,
-								isPrivilegedAdmin && !dockRoutes.has("/external-apps")
-									? {
-											id: "external-apps",
-											title: t("externalApps.menu"),
-											to: "/external-apps",
-											icon: ExternalAppsIcon,
-										}
-									: null,
-							].filter(Boolean) as Array<{
-								id: string;
-								title: string;
-								to: string;
-								icon: ElementType;
-							}>,
-						},
-						{
-							type: "group" as const,
-							id: "observability",
-							title: t("sidebar.groups.observability"),
-							icon: InsightsIcon,
-							subItems: [
-								sectionAccess?.[AdminSection.Xray] &&
-								!dockRoutes.has("/xray-logs")
-									? {
-											id: "xray-logs",
-											title: t("pages.xray.logs"),
-											to: "/xray-logs",
-											icon: XrayLogsIcon,
-										}
-									: null,
-								(Boolean(sectionAccess?.[AdminSection.Xray]) ||
-									isPrivilegedAdmin) &&
-								!dockRoutes.has("/errors")
-									? {
-											id: "errors",
-											title: t("errors.title", "Errors"),
-											to: "/errors",
-											icon: SystemErrorsIcon,
-										}
-									: null,
-								sectionAccess?.[AdminSection.Xray] &&
-								!dockRoutes.has("/access-insights")
-									? {
-											id: "access-insights",
-											title: t("header.accessInsights"),
-											to: "/access-insights",
-											icon: InsightsIcon,
-										}
-									: null,
-								canViewRecentActions && !dockRoutes.has("/recent-actions")
-									? {
-											id: "recent-actions",
-											title: t("recentActions.title"),
-											to: "/recent-actions",
-											icon: RecentActionsIcon,
-										}
-									: null,
-							].filter(Boolean) as Array<{
-								id: string;
-								title: string;
-								to: string;
-								icon: ElementType;
-							}>,
-						},
-					].filter((item) => item.subItems.length > 0),
-				},
-				{
-					id: "sec_docs",
-					title: t("sidebar.sections.docs"),
-					items: [
-						!dockRoutes.has(tutorialsUrl)
-							? {
-									type: "direct" as const,
-									key: "tutorials",
-									label: t("sidebar.tutorialsAndFaq"),
-									to: tutorialsUrl,
-									icon: TutorialIcon,
-								}
-							: null,
-						isPrivilegedAdmin && !dockRoutes.has("/api-docs")
-							? {
-									type: "direct" as const,
-									key: "api-docs",
-									label: t("apiDocs.menu"),
-									to: "/api-docs",
-									icon: DocsIcon,
-								}
-							: null,
-					].filter(Boolean) as Array<{
-						type: "direct";
-						key: string;
-						label: string;
-						to: string;
-						icon: ElementType;
-					}>,
-				},
-			].filter((sec) => sec.items.length > 0),
-		[
-			t,
-			dockRoutes,
-			canViewNodes,
-			canViewHosts,
-			canViewServicesSection,
-			canViewUsage,
-			canViewAdmins,
-			canViewRecentActions,
-			canManagePlaceholders,
-			isPrivilegedAdmin,
-			sectionAccess,
-			selfAccess.self_myaccount,
-		],
-	);
-
-	const settingsMenuItems = useMemo<SettingsMenuItem[]>(() => {
-		const items: SettingsMenuItem[] = [];
-		for (const sec of mobileDockSections) {
-			for (const entry of sec.items) {
-				if (entry.type === "direct") {
-					items.push({
-						key: entry.key,
-						label: entry.label,
-						to: entry.to,
-						icon: entry.icon,
-					});
-				} else if (entry.type === "group") {
-					for (const sub of entry.subItems) {
-						items.push({
-							key: sub.id,
-							label: sub.title,
-							to: sub.to,
-							icon: sub.icon,
-						});
-					}
-				}
-			}
-		}
-		return items;
-	}, [mobileDockSections]);
-
 	const activeSettingsItem = useMemo(
 		() =>
 			settingsMenuItems.find((item) => {
@@ -1224,25 +487,7 @@ function AppLayoutContent() {
 		[settingsMenuItems, location.pathname],
 	);
 	const isSettingsRoute = Boolean(activeSettingsItem);
-	const popoverModifiers = useMemo(
-		() => [
-			{
-				name: "preventOverflow",
-				options: {
-					boundary: "viewport",
-					padding: 12,
-				},
-			},
-			{
-				name: "flip",
-				options: {
-					boundary: "viewport",
-					padding: 12,
-				},
-			},
-		],
-		[],
-	);
+	const activeSettingsKey = activeSettingsItem?.key ?? null;
 
 	const resolveActive = useCallback(
 		(item: BottomNavItem) => {
@@ -1258,10 +503,130 @@ function AppLayoutContent() {
 		const activeItem = bottomNavItems.find((item) => resolveActive(item));
 		return activeItem?.key ?? null;
 	}, [bottomNavItems, resolveActive]);
-	const selectedTabKey = previewTabKey ?? activeTabKey;
+	const selectedTabKey = previewTabKey ?? pendingTabKey ?? activeTabKey;
+	useEffect(() => {
+		setPendingTabKey((pending) => (pending === activeTabKey ? null : pending));
+	}, [activeTabKey]);
+
+	const navKeyAtPoint = (clientX: number, clientY: number) => {
+		for (const item of bottomNavItems) {
+			const node = tabContentRefs.current[item.key];
+			if (!node) continue;
+			const rect = node.getBoundingClientRect();
+			if (
+				clientX >= rect.left &&
+				clientX <= rect.right &&
+				clientY >= rect.top &&
+				clientY <= rect.bottom
+			) {
+				return item.key;
+			}
+		}
+		return null;
+	};
+
+	const handleNavPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+		if (!isMobile) return;
+		const key = navKeyAtPoint(event.clientX, event.clientY);
+		if (!key) return;
+		const target = bottomNavItems.find((item) => item.key === key);
+		if (target?.kind === "menu") {
+			return;
+		}
+		navDragRef.current.active = true;
+		navDragRef.current.moved = false;
+		navDragRef.current.startX = event.clientX;
+		navDragRef.current.startY = event.clientY;
+		navDragRef.current.pointerId = event.pointerId;
+		setPreviewTabKeySafe(key);
+	};
+
+	const handleNavPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+		if (!navDragRef.current.active) return;
+		navMovePoint.current = { x: event.clientX, y: event.clientY };
+		if (navMoveRaf.current) return;
+		navMoveRaf.current = window.requestAnimationFrame(() => {
+			navMoveRaf.current = null;
+			const point = navMovePoint.current;
+			if (!point) return;
+			const dx = point.x - navDragRef.current.startX;
+			const dy = point.y - navDragRef.current.startY;
+			if (!navDragRef.current.moved && Math.hypot(dx, dy) < 6) {
+				return;
+			}
+			if (!navDragRef.current.moved) {
+				navDragRef.current.moved = true;
+				setIsNavDragging(true);
+			}
+			const key = navKeyAtPoint(point.x, point.y);
+			if (key && key !== previewTabKeyRef.current) {
+				setPreviewTabKeySafe(key);
+			}
+		});
+	};
+
+	const resetNavDrag = () => {
+		navDragRef.current.active = false;
+		navDragRef.current.moved = false;
+		navDragRef.current.pointerId = null;
+	};
+
+	const finalizeNavDrag = () => {
+		if (!navDragRef.current.active) return;
+		const key = previewTabKeyRef.current;
+		const moved = navDragRef.current.moved;
+		resetNavDrag();
+		if (navMoveRaf.current) {
+			window.cancelAnimationFrame(navMoveRaf.current);
+			navMoveRaf.current = null;
+		}
+		setIsNavDragging(false);
+		setPreviewTabKeySafe(null);
+		if (!moved) {
+			const target = bottomNavItems.find((item) => item.key === key);
+			if (key && key !== activeTabKey && target?.to && !accountHoldOpened.current) {
+				setPendingTabKey(key);
+				navigate(target.to);
+			}
+			return;
+		}
+		suppressNavClickUntil.current = Date.now() + 400;
+		if (!key) return;
+		const target = bottomNavItems.find((item) => item.key === key);
+		if (!target) return;
+		if (target.key === "settings") {
+			openSettingsMenu();
+			return;
+		}
+		if (key !== activeTabKey && target.to) {
+			setPendingTabKey(key);
+			navigate(target.to);
+		}
+	};
+
+	const handleNavPointerUp = () => {
+		finalizeNavDrag();
+	};
+
+	const handleNavPointerCancel = () => {
+		if (!navDragRef.current.active) return;
+		resetNavDrag();
+		if (navMoveRaf.current) {
+			window.cancelAnimationFrame(navMoveRaf.current);
+			navMoveRaf.current = null;
+		}
+		setIsNavDragging(false);
+		setPreviewTabKeySafe(null);
+	};
 
 	const handleNavClick = (to?: string) => {
 		if (!to) {
+			return;
+		}
+		if (Date.now() < suppressNavClickUntil.current) {
+			return;
+		}
+		if (navDragRef.current.active || isNavDragging) {
 			return;
 		}
 		handleSettingsMenuClose();
@@ -1269,11 +634,78 @@ function AppLayoutContent() {
 		if (to !== location.pathname) navigate(to);
 	};
 
+	const clearAccountHoldTimer = () => {
+		if (accountHoldTimeout.current) {
+			window.clearTimeout(accountHoldTimeout.current);
+			accountHoldTimeout.current = null;
+		}
+	};
+
+	const handleAccountHoldStart = () => {
+		if (!isMobile) return;
+		clearAccountHoldTimer();
+		accountHoldOpened.current = false;
+		accountHoldTimeout.current = window.setTimeout(() => {
+			accountHoldOpened.current = true;
+			handleSettingsMenuClose();
+			accountMenu.onOpen();
+		}, 560);
+	};
+
+	const handleAccountHoldEnd = () => {
+		clearAccountHoldTimer();
+		accountHoldStartPoint.current = null;
+	};
+
+	const handleAccountHoldMove = (clientX: number, clientY: number) => {
+		const start = accountHoldStartPoint.current;
+		if (!start || accountHoldOpened.current) return;
+		const dx = clientX - start.x;
+		const dy = clientY - start.y;
+		if (Math.hypot(dx, dy) > 12) {
+			clearAccountHoldTimer();
+		}
+	};
+
 	const handleAccountMenuClose = () => {
+		accountHoldOpened.current = false;
 		accountMenu.onClose();
 	};
 
+	const clearSettingsHoldTimer = () => {
+		if (settingsHoldTimeout.current) {
+			window.clearTimeout(settingsHoldTimeout.current);
+			settingsHoldTimeout.current = null;
+		}
+	};
+
+	const handleSettingsHoldStart = () => {
+		if (!isMobile) return;
+		clearSettingsHoldTimer();
+		settingsHoldOpened.current = false;
+		settingsHoldTimeout.current = window.setTimeout(() => {
+			settingsHoldOpened.current = true;
+			openSettingsMenu();
+		}, 560);
+	};
+
+	const handleSettingsHoldEnd = () => {
+		clearSettingsHoldTimer();
+		settingsHoldStartPoint.current = null;
+	};
+
+	const handleSettingsHoldMove = (clientX: number, clientY: number) => {
+		const start = settingsHoldStartPoint.current;
+		if (!start || settingsHoldOpened.current) return;
+		const dx = clientX - start.x;
+		const dy = clientY - start.y;
+		if (Math.hypot(dx, dy) > 12) {
+			clearSettingsHoldTimer();
+		}
+	};
+
 	const handleSettingsMenuClose = () => {
+		settingsHoldOpened.current = false;
 		settingsMenu.onClose();
 		if (previewTabKeyRef.current === "settings") {
 			setPreviewTabKeySafe(null);
@@ -1287,6 +719,7 @@ function AppLayoutContent() {
 	};
 
 	const handleSettingsMenuToggle = () => {
+		if (Date.now() < suppressNavClickUntil.current) return;
 		if (settingsMenu.isOpen) {
 			handleSettingsMenuClose();
 			return;
@@ -1300,194 +733,25 @@ function AppLayoutContent() {
 		"/usage": "services",
 		"/xray-settings": "basic",
 	};
-	const breadcrumbItems = useMemo(() => {
-		const path = location.pathname;
-		const hashKey = (activeLocationHash || "")
-			.replace(/^#/, "")
-			.split("?")[0]
-			.toLowerCase();
-
-		let items: { label: string; path?: string }[] = [];
-
-		if (path === "/") {
-			items = [{ label: t("dashboard"), path: "/" }];
-		} else if (path === "/users") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.userHub") },
-				{ label: t("sidebar.usersList"), path: "/users" },
-			];
-		} else if (path === "/bulk-actions") {
-			const bulkActionsTabs: Record<string, string> = {
-				edit: t("bulkActions.tabs.edit"),
-				delete: t("bulkActions.tabs.delete"),
-				permissions: t("bulkActions.tabs.permissions"),
-			};
-			const activeBulkTab = bulkActionsTabs[hashKey];
-			if (activeBulkTab) {
-				items = [
-					{ label: t("dashboard"), path: "/" },
-					{ label: t("sidebar.groups.userHub") },
-					{ label: t("bulkActions.menu"), path: "/bulk-actions" },
-					{ label: activeBulkTab },
-				];
-			} else {
-				items = [
-					{ label: t("dashboard"), path: "/" },
-					{ label: t("sidebar.groups.userHub") },
-					{ label: t("bulkActions.menu"), path: "/bulk-actions" },
-				];
-			}
-		} else if (path === "/admins") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("admins"), path: "/admins" },
-			];
-		} else if (path === "/myaccount") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("myaccount.menu"), path: "/myaccount" },
-			];
-		} else if (path === "/usage") {
-			const usageTabs: Record<string, string> = {
-				services: t("usage.tabs.services"),
-				admins: t("usage.tabs.admins"),
-				nodes: t("usage.tabs.nodes"),
-			};
-			const activeUsageTab = usageTabs[hashKey] || usageTabs.services;
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("usage.menu"), path: "/usage#services" },
-				{ label: activeUsageTab },
-			];
-		} else if (path === "/hosts") {
-			const hostsTabs: Record<string, string> = {
-				inbounds: t("hostsPage.tabInbounds"),
-				hosts: t("hostsPage.tabHosts"),
-			};
-			const activeHostsTab = hostsTabs[hashKey] || hostsTabs.inbounds;
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("header.hostSettings"), path: "/hosts#inbounds" },
-				{ label: activeHostsTab },
-			];
-		} else if (path === "/services") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("services.title"), path: "/services" },
-			];
-		} else if (path === "/node-settings") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("header.nodeSettings"), path: "/node-settings" },
-			];
-		} else if (path === "/xray-logs") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.observability") },
-				{ label: t("pages.xray.logs"), path: "/xray-logs" },
-			];
-		} else if (path === "/access-insights") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.observability") },
-				{ label: t("header.accessInsights"), path: "/access-insights" },
-			];
-		} else if (path === "/recent-actions") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.observability") },
-				{ label: t("recentActions.title"), path: "/recent-actions" },
-			];
-		} else if (path === "/xray-settings") {
-			const xrayTabs: Record<string, string> = {
-				basic: t("pages.xray.basicTemplate"),
-				routing: t("pages.xray.Routings"),
-				outbounds: t("pages.xray.Outbounds"),
-				reverse: t("pages.xray.reverse.title"),
-				balancers: t("pages.xray.Balancers"),
-				dns: t("DNS"),
-				advanced: t("pages.xray.advancedTemplate"),
-			};
-			const activeXrayTab = xrayTabs[hashKey] || xrayTabs.basic;
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.coreRouting") },
-				{ label: t("header.xraySettings"), path: "/xray-settings#basic" },
-				{ label: activeXrayTab },
-			];
-		} else if (path === "/haproxy") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.coreRouting") },
-				{ label: t("haproxy.title"), path: "/haproxy" },
-			];
-		} else if (path === "/notifications") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
-				{ label: t("notifications.menu"), path: "/notifications" },
-			];
-		} else if (path === "/settings") {
-			const settingsTabs: Record<string, string> = {
-				panel: t("settings.panel.tabTitle"),
-				telegram: t("settings.telegram"),
-				subscriptions: t("settings.subscriptions.tabTitle"),
-				ssl: t("settings.ssl.tabTitle"),
-			};
-			const activeSettingsTab = settingsTabs[hashKey] || settingsTabs.panel;
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
-				{ label: t("header.integrationSettings"), path: "/settings#panel" },
-				{ label: activeSettingsTab },
-			];
-		} else if (path === "/placeholders") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
-				{ label: t("placeholders.menu"), path: "/placeholders" },
-			];
-		} else if (path === "/phpmyadmin") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
-				{ label: t("phpmyadmin.menu"), path: "/phpmyadmin" },
-			];
-		} else if (path === "/external-apps") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
-				{ label: t("externalApps.menu"), path: "/external-apps" },
-			];
-		} else if (path === "/api-docs") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("apiDocs.menu"), path: "/api-docs" },
-			];
-		} else if (path === "/tutorials") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.tutorialsAndFaq"), path: "/tutorials" },
-			];
-		} else {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				...path
-					.split("/")
-					.filter(Boolean)
-					.map((part) => ({
-						label: part.replace(/[-_]+/g, " "),
-					})),
-			];
+	const locationTrail = [
+		"dashboard",
+		...location.pathname.split("/").filter(Boolean),
+		activeLocationHash.replace(/^#/, "") ||
+			settingsDefaultTabByPath[location.pathname] ||
+			"",
+	]
+		.filter(Boolean)
+		.map((part) => part.replace(/[-_]+/g, " "));
+	const openCurrentPage = () => {
+		const defaultTab = settingsDefaultTabByPath[location.pathname];
+		if (defaultTab) {
+			window.location.hash = defaultTab;
+			return;
 		}
-
-		return items;
-	}, [location.pathname, activeLocationHash, t]);
+		navigate(location.pathname);
+	};
 
 	const navigateToSettingsItem = (target: string) => {
-		settingsMenu.onClose();
-		setPreviewTabKeySafe("settings");
 		const defaultTab = settingsDefaultTabByPath[target];
 		if (defaultTab) {
 			navigate(`${target}#${defaultTab}`);
@@ -1496,2183 +760,515 @@ function AppLayoutContent() {
 		navigate(target);
 	};
 
-	useEffect(() => {
-		if (previewTabKeyRef.current && activeTabKey === previewTabKeyRef.current) {
-			previewTabKeyRef.current = null;
-			setPreviewTabKey(null);
-		}
-	}, [activeTabKey]);
-
-	useEffect(() => {
-		const firstBannerSrc = sponsorHeaderItems[0]?.src;
-		if (!firstBannerSrc) return;
-		const probe = new Image();
-		const update = () => {
-			if (probe.naturalWidth && probe.naturalHeight) {
-				const natural = Math.round(
-					(probe.naturalWidth / probe.naturalHeight) * 40,
-				);
-				const half = Math.max(90, Math.round(natural / 2));
-				setBannerDimensions((prev) => {
-					if (prev.natural === natural && prev.half === half) return prev;
-					return { natural, half };
-				});
-			}
-		};
-		probe.onload = update;
-		probe.src = firstBannerSrc;
-		if (probe.complete) update();
-	}, [sponsorHeaderItems[0]?.src]);
-
-	useEffect(() => {
-		const headerEl = headerRef.current;
-		if (!headerEl) return;
-		const _pathKey = location.pathname + location.hash;
-		void _pathKey;
-		const checkFit = () => {
-			if (!headerRef.current) return;
-			const totalWidth = headerRef.current.clientWidth;
-			const hasBanner = sponsorHeaderItems.length > 0;
-			const bannerImg = headerRef.current.querySelector<HTMLImageElement>(
-				"[data-header-banner] img",
-			);
-			let naturalBannerWidth = 0;
-			if (hasBanner) {
-				if (bannerImg?.naturalWidth && bannerImg.naturalHeight) {
-					naturalBannerWidth = Math.round(
-						(bannerImg.naturalWidth / bannerImg.naturalHeight) * 40,
-					);
-				} else {
-					naturalBannerWidth = bannerDimensions.natural;
-				}
-			}
-			const bannerWidth = hasBanner ? naturalBannerWidth + 2 : 0;
-			const minBannerWidth = hasBanner
-				? Math.max(Math.round(naturalBannerWidth * 0.5), 60)
-				: 0;
-
-			const profileEl = headerRef.current.querySelector<HTMLElement>(
-				"[data-header-profile]",
-			);
-			const starsEl = headerRef.current.querySelector<HTMLElement>(
-				"[data-github-stars]",
-			);
-			const profileWidth = profileEl ? profileEl.offsetWidth : 80;
-			const starsWidth = starsEl ? starsEl.offsetWidth : 80;
-			const isFa = i18n.language?.startsWith("fa");
-			const fullCalendarWidth = isFa ? 180 : 196;
-			const compactCalendarWidth = 36;
-			const compactControlsWidth =
-				compactCalendarWidth + 8 + starsWidth + 8 + profileWidth;
-			const fullControlsWidth =
-				fullCalendarWidth + 8 + starsWidth + 8 + profileWidth;
-
-			const navButtonEl = headerRef.current.querySelector<HTMLElement>(
-				"[aria-label='Toggle Sidebar']",
-			);
-			const navButtonWidth = navButtonEl ? navButtonEl.offsetWidth : 34;
-			const isDesktop = window.innerWidth >= 768;
-			const headerPadding = isDesktop ? 40 : 24;
-			const hstackGap = 12;
-			const navDividerGaps = 25;
-			const bannerGap = hasBanner ? 10 : 0;
-
-			const fixedOverheadFull =
-				headerPadding +
-				hstackGap +
-				navButtonWidth +
-				navDividerGaps +
-				bannerGap +
-				fullControlsWidth;
-			const fixedOverheadCompact =
-				headerPadding +
-				hstackGap +
-				navButtonWidth +
-				navDividerGaps +
-				bannerGap +
-				compactControlsWidth;
-
-			const spaceFullCalendar = totalWidth - fixedOverheadFull;
-			const spaceCompactCalendar = totalWidth - fixedOverheadCompact;
-
-			const crumbCount = breadcrumbItems.length;
-			const fullBreadcrumbWidth =
-				crumbCount === 0
-					? 0
-					: crumbCount === 1
-						? measureBreadcrumbLabel(breadcrumbItems[0]?.label || "", true)
-						: breadcrumbItems.reduce((acc, item, idx) => {
-								const isLast = idx === crumbCount - 1;
-								return (
-									acc +
-									measureBreadcrumbLabel(item.label || "", isLast) +
-									(idx > 0 ? 26 : 0)
-								);
-							}, 0);
-
-			const compactBreadcrumbWidth =
-				crumbCount <= 2
-					? fullBreadcrumbWidth
-					: measureBreadcrumbLabel(breadcrumbItems[0]?.label || "", false) +
-						26 +
-						22 +
-						26 +
-						measureBreadcrumbLabel(
-							breadcrumbItems[crumbCount - 1]?.label || "",
-							true,
-						);
-
-			const minimalBreadcrumbWidth =
-				crumbCount <= 1
-					? measureBreadcrumbLabel(breadcrumbItems[0]?.label || "", true)
-					: 22 +
-						26 +
-						measureBreadcrumbLabel(
-							breadcrumbItems[crumbCount - 1]?.label || "",
-							true,
-						);
-
-			const buffer = 18;
-			const stage1Needed = fullBreadcrumbWidth + bannerWidth + buffer;
-			const stage2Needed = fullBreadcrumbWidth + bannerWidth + buffer;
-			const stage3Needed = compactBreadcrumbWidth + bannerWidth + buffer;
-			const stage4Needed = minimalBreadcrumbWidth + bannerWidth + buffer;
-			const stage5Needed = minimalBreadcrumbWidth + minBannerWidth + buffer;
-
-			let nextCalendarCompact = true;
-			let nextBreadcrumbMode: "full" | "compact" | "minimal" = "minimal";
-			let nextBannerShrinkable = false;
-			let nextTruncate = true;
-
-			if (spaceFullCalendar >= stage1Needed) {
-				nextCalendarCompact = false;
-				nextBreadcrumbMode = "full";
-				nextBannerShrinkable = false;
-				nextTruncate = false;
-			} else if (spaceCompactCalendar >= stage2Needed) {
-				nextCalendarCompact = true;
-				nextBreadcrumbMode = "full";
-				nextBannerShrinkable = false;
-				nextTruncate = false;
-			} else if (spaceCompactCalendar >= stage3Needed) {
-				nextCalendarCompact = true;
-				nextBreadcrumbMode = "compact";
-				nextBannerShrinkable = false;
-				nextTruncate = false;
-			} else if (spaceCompactCalendar >= stage4Needed) {
-				nextCalendarCompact = true;
-				nextBreadcrumbMode = "minimal";
-				nextBannerShrinkable = false;
-				nextTruncate = false;
-			} else if (hasBanner && spaceCompactCalendar >= stage5Needed) {
-				nextCalendarCompact = true;
-				nextBreadcrumbMode = "minimal";
-				nextBannerShrinkable = true;
-				nextTruncate = false;
-			} else {
-				nextCalendarCompact = true;
-				nextBreadcrumbMode = "minimal";
-				nextBannerShrinkable = hasBanner;
-				nextTruncate = true;
-			}
-
-			setCalendarCompact((prev) =>
-				prev !== nextCalendarCompact ? nextCalendarCompact : prev,
-			);
-			setBreadcrumbMode((prev) =>
-				prev !== nextBreadcrumbMode ? nextBreadcrumbMode : prev,
-			);
-			setBannerShrinkable((prev) =>
-				prev !== nextBannerShrinkable ? nextBannerShrinkable : prev,
-			);
-			setCanTruncateLastCrumbState((prev) =>
-				prev !== nextTruncate ? nextTruncate : prev,
-			);
-		};
-		const timer = setTimeout(checkFit, 20);
-		const ro = new ResizeObserver(checkFit);
-		ro.observe(headerEl);
-		return () => {
-			clearTimeout(timer);
-			ro.disconnect();
-		};
-	}, [
-		location.pathname,
-		location.hash,
-		sponsorHeaderItems.length,
-		breadcrumbItems,
-		i18n.language,
-		bannerDimensions.natural,
-	]);
-
 	return (
 		<>
-			<Box display="none" aria-hidden="true">
+			<div aria-hidden="true" className="hidden">
 				<ThemeSelector minimal trigger="icon" />
-			</Box>
-			<Flex
-				minH={{ base: "100dvh", md: "100vh" }}
-				maxH={{ base: "100dvh", md: "100vh" }}
-				h={{ base: "100dvh", md: "100vh" }}
-				overflow="hidden"
-				direction={isRTL ? "row-reverse" : "row"}
+			</div>
+			<div
 				dir={isRTL ? "rtl" : "ltr"}
-				bg="panel.app"
-				sx={{
-					"--rb-sidebar-offset": isMobile
-						? "0px"
-						: sidebarCollapsed
-							? "88px"
-							: "calc(var(--rb-sidebar-width, 240px) + 20px)",
-				}}
+				className={cn(
+					"flex min-h-[100vh] max-h-[100vh] overflow-hidden bg-panel-app",
+					isRTL ? "flex-row-reverse" : "flex-row",
+				)}
+				style={
+					{
+						"--rb-sidebar-offset": isMobile
+							? "0px"
+							: sidebarCollapsed
+								? "88px"
+								: "248px",
+					} as CSSProperties
+				}
 			>
 				{!isMobile ? (
-					<Box
-						className="rb-desktop-sidebar"
-						display={{ base: "none", md: "block" }}
-						data-sidebar-collapsed={sidebarCollapsed ? "true" : undefined}
-					>
-						<AppSidebar
-							collapsed={sidebarCollapsed}
-							sponsors={sponsorSidebarLogoItems}
-							sidebarBanners={sponsorSidebarBanners}
-							onRequestExpand={handleSidebarExpand}
-						/>
-					</Box>
+					<AppSidebar
+						collapsed={sidebarCollapsed}
+						sponsors={sponsorSidebarLogoItems}
+						sidebarBanners={sponsorSidebarBanners}
+						onRequestExpand={() => setSidebarCollapsed(false)}
+					/>
 				) : null}
 
-				<Flex
+				<div
 					ref={contentRef}
-					flex="1"
-					direction="column"
-					minW="0"
-					h="full"
-					overflow="hidden"
-					ml={{
-						base: "0",
-						md: isRTL
-							? "0"
-							: sidebarCollapsed
-								? "88px"
-								: "calc(var(--rb-sidebar-width, 240px) + 20px)",
-					}}
-					mr={{
-						base: "0",
-						md: !isRTL
-							? "0"
-							: sidebarCollapsed
-								? "88px"
-								: "calc(var(--rb-sidebar-width, 240px) + 20px)",
-					}}
-					transition={
-						suppressDockTransition
-							? "none"
-							: "margin 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
-					}
-					bg="panel.main"
-					position="relative"
-					sx={{
-						willChange: isMobile ? undefined : "margin",
+					className="flex min-w-0 flex-1 flex-col overflow-hidden"
+					style={{
+						marginLeft: isMobile || isRTL ? "0" : sidebarCollapsed ? "88px" : "248px",
+						marginRight: isMobile || !isRTL ? "0" : sidebarCollapsed ? "88px" : "248px",
+						transition: "margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
 					}}
 				>
-					<Box position="relative" zIndex={100} flexShrink={0}>
-						<Box
-							ref={headerRef}
-							as="header"
-							h="52px"
-							minH="52px"
-							borderWidth="1px"
-							borderColor={shellBorder}
-							borderRadius="18px"
-							bg={shellHeaderBg}
-							boxShadow={shellHeaderShadow}
-							overflow="hidden"
-							mt="3"
-							mx={{ base: "3", md: "4" }}
-							display="flex"
-							alignItems="center"
-							px={{ base: 3, md: 5 }}
-							justifyContent="space-between"
-							userSelect="none"
-							gap={3}
-							dir={isRTL ? "rtl" : "ltr"}
-							sx={{
-								transform: "translateZ(0)",
-							}}
-						>
-						<HStack
-							spacing={2.5}
-							alignItems="center"
-							flex="1"
-							minW="0"
-							h="full"
-							overflow="hidden"
-						>
-							<IconButton
-								size="sm"
-								w="34px"
-								h="34px"
-								minW="34px"
-								variant="ghost"
-								borderRadius={{ base: "full", md: "12px" }}
-								borderWidth="1px"
-								borderColor={shellBorder}
-								aria-label={t("a11y.toggleSidebar")}
-								onClick={() => {
+					<header className="sticky top-3 z-40 mx-3 mt-3 flex h-14 min-h-14 shrink-0 select-none items-center justify-between gap-4 rounded-2xl border border-panel-border! bg-panel-surface px-3 md:mx-4 md:px-5">
+						<div className="flex min-w-0 flex-1 items-center gap-3">
+							<Button aria-label={t("a11y.toggleSidebar")} onClick={() => {
 									if (isMobile) sidebarDrawer.onOpen();
 									else setSidebarCollapsed(!sidebarCollapsed);
-								}}
-								icon={
-									<AnimatedHamburger
-										isOpen={isMobile ? sidebarDrawer.isOpen : !sidebarCollapsed}
-										isRTL={isRTL}
-									/>
-								}
-								flexShrink={0}
-								bg={headerButtonBg}
-								color="panel.textSecondary"
-								_hover={{
-									md: {
-										bg: headerButtonHoverBg,
-										borderColor: "panel.borderStrong",
-										color: "panel.text",
-									},
-								}}
-								_active={{ transform: "scale(0.95)" }}
-								transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-							/>
-							<Box
-								w="1px"
-								h="16px"
-								bg="panel.border"
-								mx={0.5}
-								flexShrink={0}
-								display={{ base: "none", md: "block" }}
-							/>
-							<Breadcrumb
-								data-header-breadcrumb
-								display={{ base: "none", md: "flex" }}
-								minW={canTruncateLastCrumb ? "0" : "fit-content"}
-								overflow={canTruncateLastCrumb ? "hidden" : "visible"}
-								dir={isRTL ? "rtl" : "ltr"}
-								flexShrink={canTruncateLastCrumb ? 1 : 0}
-							>
-								<BreadcrumbList
-									minW={canTruncateLastCrumb ? "0" : "fit-content"}
-								>
-									{breadcrumbItems.length === 1 && (
-										<BreadcrumbItem
-											minW={canTruncateLastCrumb ? "0" : "fit-content"}
-											flexShrink={canTruncateLastCrumb ? 1 : 0}
-										>
-											<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
-												{breadcrumbItems[0].label}
+								}} variant="outline" size="icon" className="shrink-0 border-panel-border! bg-panel-elevated hover:bg-panel-border-strong">
+								<MenuIcon className="size-4" />
+							</Button>
+
+							<Breadcrumb dir="ltr" className="hidden min-w-0 shrink md:block">
+								<BreadcrumbList className="flex-nowrap items-center gap-1 overflow-hidden text-xs whitespace-nowrap md:text-sm">
+									<BreadcrumbItem className="shrink-0">
+										<BreadcrumbLink asChild>
+											<button
+												type="button"
+												onClick={() => navigate("/")}
+												className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
+											>
+												dashboard
+											</button>
+										</BreadcrumbLink>
+									</BreadcrumbItem>
+									{locationTrail.length > 1 && (
+										<>
+											<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
+											<BreadcrumbItem>
+												<BreadcrumbLink asChild>
+													<button
+														type="button"
+														onClick={openCurrentPage}
+														className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
+													>
+														{locationTrail[1]}
+													</button>
+												</BreadcrumbLink>
+											</BreadcrumbItem>
+										</>
+									)}
+									{locationTrail.length > 2 && (
+										<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
+									)}
+									{locationTrail.length > 2 && (
+										<BreadcrumbItem className="min-w-0">
+											<BreadcrumbPage className="truncate text-xs font-semibold text-panel-text-secondary md:text-sm">
+												{locationTrail.slice(2).join(" → ")}
 											</BreadcrumbPage>
 										</BreadcrumbItem>
 									)}
-									{breadcrumbItems.length === 2 && (
-										<>
-											{breadcrumbMode === "minimal" ? (
-												<>
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbEllipsisDropdown
-															items={[breadcrumbItems[0]]}
-															onNavigate={(path) => navigate(path)}
-														/>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem
-														minW={canTruncateLastCrumb ? "0" : "fit-content"}
-														flexShrink={canTruncateLastCrumb ? 1 : 0}
-													>
-														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
-															{breadcrumbItems[1].label}
-														</BreadcrumbPage>
-													</BreadcrumbItem>
-												</>
-											) : (
-												<>
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbLink
-															isClickable={Boolean(breadcrumbItems[0].path)}
-															onClick={() => {
-																if (breadcrumbItems[0].path) {
-																	navigate(breadcrumbItems[0].path);
-																}
-															}}
-														>
-															{breadcrumbItems[0].label}
-														</BreadcrumbLink>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem
-														minW={canTruncateLastCrumb ? "0" : "fit-content"}
-														flexShrink={canTruncateLastCrumb ? 1 : 0}
-													>
-														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
-															{breadcrumbItems[1].label}
-														</BreadcrumbPage>
-													</BreadcrumbItem>
-												</>
-											)}
-										</>
-									)}
-									{breadcrumbItems.length === 3 && (
-										<>
-											{breadcrumbMode === "full" && (
-												<>
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbLink
-															isClickable={Boolean(breadcrumbItems[0].path)}
-															onClick={() => {
-																if (breadcrumbItems[0].path) {
-																	navigate(breadcrumbItems[0].path);
-																}
-															}}
-														>
-															{breadcrumbItems[0].label}
-														</BreadcrumbLink>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbLink
-															isClickable={Boolean(breadcrumbItems[1].path)}
-															onClick={() => {
-																if (breadcrumbItems[1].path) {
-																	navigate(breadcrumbItems[1].path);
-																}
-															}}
-														>
-															{breadcrumbItems[1].label}
-														</BreadcrumbLink>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem
-														minW={canTruncateLastCrumb ? "0" : "fit-content"}
-														flexShrink={canTruncateLastCrumb ? 1 : 0}
-													>
-														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
-															{breadcrumbItems[2].label}
-														</BreadcrumbPage>
-													</BreadcrumbItem>
-												</>
-											)}
-											{breadcrumbMode === "compact" && (
-												<>
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbLink
-															isClickable={Boolean(breadcrumbItems[0].path)}
-															onClick={() => {
-																if (breadcrumbItems[0].path) {
-																	navigate(breadcrumbItems[0].path);
-																}
-															}}
-														>
-															{breadcrumbItems[0].label}
-														</BreadcrumbLink>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbEllipsisDropdown
-															items={[breadcrumbItems[1]]}
-															onNavigate={(path) => navigate(path)}
-														/>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem
-														minW={canTruncateLastCrumb ? "0" : "fit-content"}
-														flexShrink={canTruncateLastCrumb ? 1 : 0}
-													>
-														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
-															{breadcrumbItems[2].label}
-														</BreadcrumbPage>
-													</BreadcrumbItem>
-												</>
-											)}
-											{breadcrumbMode === "minimal" && (
-												<>
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbEllipsisDropdown
-															items={[breadcrumbItems[0], breadcrumbItems[1]]}
-															onNavigate={(path) => navigate(path)}
-														/>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem
-														minW={canTruncateLastCrumb ? "0" : "fit-content"}
-														flexShrink={canTruncateLastCrumb ? 1 : 0}
-													>
-														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
-															{breadcrumbItems[2].label}
-														</BreadcrumbPage>
-													</BreadcrumbItem>
-												</>
-											)}
-										</>
-									)}
-									{breadcrumbItems.length === 4 && (
-										<>
-											{breadcrumbMode === "full" && (
-												<>
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbLink
-															isClickable={Boolean(breadcrumbItems[0].path)}
-															onClick={() => {
-																if (breadcrumbItems[0].path) {
-																	navigate(breadcrumbItems[0].path);
-																}
-															}}
-														>
-															{breadcrumbItems[0].label}
-														</BreadcrumbLink>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbLink
-															isClickable={Boolean(breadcrumbItems[1].path)}
-															onClick={() => {
-																if (breadcrumbItems[1].path) {
-																	navigate(breadcrumbItems[1].path);
-																}
-															}}
-														>
-															{breadcrumbItems[1].label}
-														</BreadcrumbLink>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbLink
-															isClickable={Boolean(breadcrumbItems[2].path)}
-															onClick={() => {
-																if (breadcrumbItems[2].path) {
-																	navigate(breadcrumbItems[2].path);
-																}
-															}}
-														>
-															{breadcrumbItems[2].label}
-														</BreadcrumbLink>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem
-														minW={canTruncateLastCrumb ? "0" : "fit-content"}
-														flexShrink={canTruncateLastCrumb ? 1 : 0}
-													>
-														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
-															{breadcrumbItems[3].label}
-														</BreadcrumbPage>
-													</BreadcrumbItem>
-												</>
-											)}
-											{breadcrumbMode === "compact" && (
-												<>
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbLink
-															isClickable={Boolean(breadcrumbItems[0].path)}
-															onClick={() => {
-																if (breadcrumbItems[0].path) {
-																	navigate(breadcrumbItems[0].path);
-																}
-															}}
-														>
-															{breadcrumbItems[0].label}
-														</BreadcrumbLink>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbEllipsisDropdown
-															items={[breadcrumbItems[1], breadcrumbItems[2]]}
-															onNavigate={(path) => navigate(path)}
-														/>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem
-														minW={canTruncateLastCrumb ? "0" : "fit-content"}
-														flexShrink={canTruncateLastCrumb ? 1 : 0}
-													>
-														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
-															{breadcrumbItems[3].label}
-														</BreadcrumbPage>
-													</BreadcrumbItem>
-												</>
-											)}
-											{breadcrumbMode === "minimal" && (
-												<>
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbEllipsisDropdown
-															items={[
-																breadcrumbItems[0],
-																breadcrumbItems[1],
-																breadcrumbItems[2],
-															]}
-															onNavigate={(path) => navigate(path)}
-														/>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem
-														minW={canTruncateLastCrumb ? "0" : "fit-content"}
-														flexShrink={canTruncateLastCrumb ? 1 : 0}
-													>
-														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
-															{breadcrumbItems[3].label}
-														</BreadcrumbPage>
-													</BreadcrumbItem>
-												</>
-											)}
-										</>
-									)}
-									{breadcrumbItems.length > 4 && (
-										<>
-											{breadcrumbMode === "minimal" ? (
-												<>
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbEllipsisDropdown
-															items={breadcrumbItems.slice(0, -1)}
-															onNavigate={(path) => navigate(path)}
-														/>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem
-														minW={canTruncateLastCrumb ? "0" : "fit-content"}
-														flexShrink={canTruncateLastCrumb ? 1 : 0}
-													>
-														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
-															{
-																breadcrumbItems[breadcrumbItems.length - 1]
-																	.label
-															}
-														</BreadcrumbPage>
-													</BreadcrumbItem>
-												</>
-											) : (
-												<>
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbLink
-															isClickable={Boolean(breadcrumbItems[0].path)}
-															onClick={() => {
-																if (breadcrumbItems[0].path) {
-																	navigate(breadcrumbItems[0].path);
-																}
-															}}
-														>
-															{breadcrumbItems[0].label}
-														</BreadcrumbLink>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem flexShrink={0}>
-														<BreadcrumbEllipsisDropdown
-															items={breadcrumbItems.slice(1, -1)}
-															onNavigate={(path) => navigate(path)}
-														/>
-													</BreadcrumbItem>
-													<BreadcrumbSeparator flexShrink={0} />
-													<BreadcrumbItem
-														minW={canTruncateLastCrumb ? "0" : "fit-content"}
-														flexShrink={canTruncateLastCrumb ? 1 : 0}
-													>
-														<BreadcrumbPage isTruncated={canTruncateLastCrumb}>
-															{
-																breadcrumbItems[breadcrumbItems.length - 1]
-																	.label
-															}
-														</BreadcrumbPage>
-													</BreadcrumbItem>
-												</>
-											)}
-										</>
-									)}
 								</BreadcrumbList>
 							</Breadcrumb>
+							{mobileHeaderItems.length > 0 && (
+								<div className="block w-[160px] min-w-0 shrink sm:w-[220px] md:hidden md:w-[360px]">
+									<SponsorCarousel items={mobileHeaderItems} variant="banner" />
+								</div>
+							)}
+							{sponsorHeaderItems.length > 0 && (
+								<div className="hidden w-[160px] min-w-0 shrink sm:w-[220px] md:block md:w-[360px]">
+									<SponsorCarousel items={sponsorHeaderItems} variant="banner" />
+								</div>
+							)}
+						</div>
 
-							<AnimatePresence mode="wait">
-								{mobileHeaderItems.length > 0 && (
-									<motion.div
-										key={mobileHeaderItems[0]?.id || "mobile-banner"}
-										initial={{ opacity: 0, y: -80 }}
-										animate={{ opacity: 1, y: 0 }}
-										exit={{ opacity: 0, y: -80 }}
-										transition={{
-											duration: 0.5,
-											delay: 0.7,
-											ease: [0.16, 1, 0.3, 1],
-										}}
-										style={{
-											minWidth: 40,
-											maxWidth: "100%",
-											display: isMobile ? "flex" : "none",
-											alignItems: "center",
-											justifyContent: "flex-start",
-											flexShrink: 1,
-										}}
-									>
-										<Box
-											data-header-mobile-banner="true"
-											maxW="100%"
-											minW="40px"
-											maxH="40px"
-											display="flex"
-											alignItems="center"
-											justifyContent="flex-start"
-											flexShrink={1}
-											overflow="hidden"
-										>
-											<SponsorCarousel
-												items={mobileHeaderItems}
-												variant="banner"
-												animateIn={false}
-											/>
-										</Box>
-									</motion.div>
-								)}
-							</AnimatePresence>
-							<AnimatePresence mode="wait">
-								{sponsorHeaderItems.length > 0 && (
-									<motion.div
-										key={sponsorHeaderItems[0]?.id || "desktop-banner"}
-										initial={{ opacity: 0, y: -80 }}
-										animate={{ opacity: 1, y: 0 }}
-										exit={{ opacity: 0, y: -80 }}
-										transition={{
-											duration: 0.5,
-											delay: 0.7,
-											ease: [0.16, 1, 0.3, 1],
-										}}
-										style={{
-											minWidth: bannerShrinkable
-												? Math.max(
-														Math.round(bannerDimensions.natural * 0.5),
-														60,
-													)
-												: bannerDimensions.natural,
-											maxWidth: bannerDimensions.natural,
-											width: bannerShrinkable ? "100%" : bannerDimensions.natural,
-											flexShrink: bannerShrinkable ? 1 : 0,
-											display: isMobile ? "none" : "flex",
-											alignItems: "center",
-										}}
-									>
-										<Box
-											data-header-banner="true"
-											w={
-												bannerShrinkable
-													? "100%"
-													: `${bannerDimensions.natural}px`
-											}
-											maxW={`${bannerDimensions.natural}px`}
-											minW={
-												bannerShrinkable
-													? `${Math.max(
-															Math.round(bannerDimensions.natural * 0.5),
-															60,
-														)}px`
-													: `${bannerDimensions.natural}px`
-											}
-											maxH="40px"
-											display={{ base: "none", md: "flex" }}
-											alignItems="center"
-											justifyContent="center"
-											flexShrink={bannerShrinkable ? 1 : 0}
-											overflow="hidden"
-										>
-											<SponsorCarousel
-												items={sponsorHeaderItems}
-												variant="banner"
-												animateIn={false}
-											/>
-										</Box>
-									</motion.div>
-								)}
-							</AnimatePresence>
-						</HStack>
-
-						<HStack
-							data-header-controls="true"
-							spacing={{ base: 1.5, sm: 2 }}
-							alignItems="center"
-							flexShrink={0}
-							h="full"
-						>
-							<Box display={{ base: "none", md: "inline-flex" }}>
-								<HeaderCalendar isCompact={calendarCompact} />
-							</Box>
-							<GitHubStars />
+						<div className="flex shrink-0 items-center gap-2">
+							<div className="flex h-[34px] items-center rounded-full border border-panel-border! bg-panel-elevated px-1">
+								<HeaderCalendar />
+								{getUserIsSuccess && userData.username && <NotificationBell />}
+								<GitHubStars />
+							</div>
 
 							{getUserIsSuccess && userData.username && (
-								<Menu
-									key={`user-menu-${isRTL ? "rtl" : "ltr"}`}
-									placement={isRTL ? "bottom-start" : "bottom-end"}
-									strategy="fixed"
-									gutter={8}
-									computePositionOnMount
-									isLazy={false}
-									autoSelect={false}
-									closeOnSelect={false}
-									closeOnBlur={false}
-									isOpen={userMenu.isOpen}
-									onOpen={userMenu.onOpen}
-									onClose={() => {}}
-								>
-									<MenuButton
-										as={Button}
-										data-header-profile="true"
-										size="sm"
-										variant="outline"
-										h="34px"
-										w={{ base: "34px", md: "auto" }}
-										minW={{ base: "34px", md: "auto" }}
-										p={{ base: 0, md: "6px 12px" }}
-										borderRadius={{ base: "full", md: "12px" }}
-										borderColor={shellBorder}
-										bg="panel.surface"
-										color="panel.text"
-										boxShadow="0 1px 3px rgba(0, 0, 0, 0.04)"
-										_hover={{
-											md: {
-												bg: "panel.elevated",
-												borderColor: "panel.borderStrong",
-												boxShadow: "0 4px 14px rgba(0, 0, 0, 0.08)",
-											},
-										}}
-										_active={{ bg: "panel.elevated", transform: "scale(0.98)" }}
-										aria-label={t("a11y.userMenu")}
-										display="inline-flex"
-										alignItems="center"
-										justifyContent="center"
-										transition="all 0.16s cubic-bezier(0.2, 0, 0, 1)"
-										onClick={() => {
-											if (userMenu.isOpen) {
-												if (activeProfileSubmenu !== null) {
-													if (profileSubmenuTimerRef.current) {
-														window.clearTimeout(profileSubmenuTimerRef.current);
-														profileSubmenuTimerRef.current = null;
-													}
-													languageMenu.onClose();
-													setActiveProfileSubmenu(null);
-													setPressingProfileSubmenu(null);
-													return;
-												}
-												closeUserMenu();
-											} else {
-												userMenu.onOpen();
-											}
-										}}
-									>
-										<HStack
-											spacing={2}
-											align="center"
-											justify="center"
-											dir={isRTL ? "rtl" : "ltr"}
-										>
-											<Box position="relative" display="inline-flex">
-												<Flex
-													w="18px"
-													h="18px"
-													align="center"
-													justify="center"
-													color="panel.text"
-													flexShrink={0}
+								<DropdownMenu open={userMenu.isOpen} onOpenChange={(open) => {
+										if (open) userMenu.onOpen();
+										else handleUserMenuClose();
+									}}>
+									<DropdownMenuTrigger asChild>
+										<Button aria-label={t("a11y.userMenu")} variant="outline" className="h-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-elevated ps-1 pe-1 text-sm font-semibold hover:bg-panel-border-strong sm:pe-3">
+											<span className="flex items-center gap-2">
+												<span
+													className={cn(
+														"flex size-6 shrink-0 items-center justify-center rounded-full",
+														TINT_CLASS,
+													)}
 												>
-													<UserCircleIcon style={{ width: "18px", height: "18px" }} />
-												</Flex>
-												{unread > 0 && (
-													<Box
-														position="absolute"
-														top="-1px"
-														insetInlineEnd="-1px"
-														w="7px"
-														h="7px"
-														borderRadius="full"
-														bg="var(--chakra-colors-accent)"
-														border="1.5px solid var(--chakra-colors-panel-surface)"
-													/>
-												)}
-											</Box>
-											<Text
-												display={{ base: "none", md: "inline" }}
-												maxW={{ base: "100px", md: "140px" }}
-												fontSize="12px"
-												fontWeight="600"
-												lineHeight="normal"
-												color="panel.text"
-												isTruncated
-												dir="ltr"
-												sx={{ unicodeBidi: "isolate" }}
-											>
-												{userData.username}
-											</Text>
-										</HStack>
-									</MenuButton>
-									<Portal>
-										<MenuList
-											dir={isRTL ? "rtl" : "ltr"}
-											ref={userMenuContentRef}
-											id="rb-user-menu"
-											data-profile-window="true"
-											data-profile-menu="true"
-											w="240px"
-											minW="240px"
-											maxW="240px"
-											p={2}
-											borderRadius="20px"
-											borderWidth="1px"
-											borderColor="panel.border"
-											bg="panel.surface"
-											boxShadow={menuShadow}
-											zIndex={9999}
-											userSelect="none"
-											sx={{
-												".chakra-menu__menuitem:not(.rb-logout-menu-item)": {
-													bg: "transparent !important",
-													borderRadius: "10px",
-													h: "38px",
-													px: "12px",
-													my: "2px",
-													fontSize: "13px",
-													fontWeight: "500",
-													transition: "all 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
-													"@media (min-width: 769px)": {
-														"&:hover": {
-															bg: "var(--rb-panel-elevated) !important",
-														},
-													},
-													"&:active, &:focus-visible": {
-														bg: "var(--rb-panel-elevated) !important",
-													},
-													"&:focus:not(:focus-visible)": {
-														bg: "transparent !important",
-													},
-												},
-												".rb-logout-menu-item, .chakra-menu__menuitem.rb-logout-menu-item": {
-													color: "red.400 !important",
-													fontWeight: "600 !important",
-													bg: "transparent !important",
-													borderRadius: "10px !important",
-													h: "38px !important",
-													px: "12px !important",
-													my: "2px !important",
-													fontSize: "13px !important",
-													"--menu-bg": "transparent !important",
-													transition:
-														"all 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important",
-													"@media (min-width: 769px)": {
-														"&:hover, &[data-hover]": {
-															color: "red.400 !important",
-															bg: "rgba(239, 68, 68, 0.14) !important",
-															"--menu-bg": "rgba(239, 68, 68, 0.14) !important",
-														},
-													},
-													"&:active, &[data-active]": {
-														color: "red.400 !important",
-														bg: "rgba(239, 68, 68, 0.22) !important",
-														"--menu-bg": "rgba(239, 68, 68, 0.22) !important",
-														transform: "scale(0.98) !important",
-													},
-													"&:focus-visible, &[data-focus]": {
-														bg: "rgba(239, 68, 68, 0.14) !important",
-														"--menu-bg": "rgba(239, 68, 68, 0.14) !important",
-													},
-													"&:focus:not(:focus-visible):not(:hover):not(:active):not([data-hover]):not([data-focus])":
-														{
-															bg: "transparent !important",
-															"--menu-bg": "transparent !important",
-														},
-												},
-											}}
-										>
-											<Flex
-												align="center"
-												gap={3}
-												p={2.5}
-												mb={1.5}
-												borderRadius="14px"
-												bg="panel.elevated"
-												borderWidth="1px"
-												borderColor="panel.border"
-											>
-												<Flex
-													w="32px"
-													h="32px"
-													borderRadius="10px"
-													align="center"
-													justify="center"
-													bg="panel.surface"
-													borderWidth="1px"
-													borderColor="panel.border"
-													color="panel.text"
-													flexShrink={0}
+													<PersonIcon className="size-3.5" />
+												</span>
+												<span className="hidden max-w-[100px] truncate sm:inline sm:max-w-[130px]">
+													{userData.username}
+												</span>
+											</span>
+										</Button>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align={isRTL ? "start" : "end"} sideOffset={8} className="min-w-[236px]! rounded-xl border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-xl select-none">
+										<div ref={userMenuContentRef}>
+											<div className="mx-1.5 mt-1 mb-1.5 flex items-center gap-3 rounded-lg bg-panel-main px-3 py-2.5">
+												<span
+													className={cn(
+														"flex size-9 shrink-0 items-center justify-center rounded-full",
+														TINT_CLASS,
+													)}
 												>
-													<UserCircleIcon style={{ width: "18px", height: "18px" }} />
-												</Flex>
-												<VStack align="flex-start" spacing={0} minW={0}>
-													<Text
-														fontWeight="700"
-														fontSize="13px"
-														color="panel.text"
-														isTruncated
-													>
+													<PersonIcon className="size-5" />
+												</span>
+												<div className="flex min-w-0 flex-col">
+													<span className="max-w-[160px] truncate text-sm font-semibold">
 														{userData.username}
-													</Text>
-													<Text
-														fontSize="11px"
-														fontWeight="500"
-														color="panel.textMuted"
-														isTruncated
-													>
+													</span>
+													<span className="text-xs text-panel-text-secondary">
 														{roleLabel}
-													</Text>
-												</VStack>
-											</Flex>
+													</span>
+												</div>
+											</div>
 
 											{isMobile && (
-												<Box display={{ base: "block", md: "none" }} w="full">
-													<HeaderCalendar
-														key={`cal-menu-${isRTL ? "rtl" : "ltr"}`}
-														inMenu={true}
-														placement={languagePlacement}
-														isOpen={activeProfileSubmenu === "calendar"}
-														isPressing={pressingProfileSubmenu === "calendar"}
-														onToggle={() => toggleProfileSubmenu("calendar")}
-														onClose={() => {
-															if (activeProfileSubmenu === "calendar") {
-																setActiveProfileSubmenu(null);
-															}
-														}}
-													/>
-												</Box>
+												<div className="w-full block md:hidden">
+													<HeaderCalendar inMenu={true} />
+												</div>
 											)}
-
-											<NotificationMenuItem
-												key={`notif-menu-${isRTL ? "rtl" : "ltr"}`}
-												placement={languagePlacement}
-												onNavigate={closeUserMenu}
-												isOpen={activeProfileSubmenu === "notifications"}
-												isPressing={pressingProfileSubmenu === "notifications"}
-												onToggle={() => toggleProfileSubmenu("notifications")}
-												onClose={() => {}}
-											/>
-
-											<Menu
-												key={`lang-menu-${isRTL ? "rtl" : "ltr"}`}
-												placement={languagePlacement}
-												strategy="fixed"
-												isOpen={
-													activeProfileSubmenu === "language" ||
-													languageMenu.isOpen
-												}
-												onOpen={() => {
-													languageMenu.onOpen();
-													setActiveProfileSubmenu("language");
-												}}
-												onClose={() => {}}
-												closeOnSelect={false}
-												closeOnBlur={false}
-												isLazy={false}
-												autoSelect={false}
-											>
-												<MenuButton
-													as={Button}
-													leftIcon={<LanguageIconStyled />}
-													variant="ghost"
-													data-submenu-trigger="true"
-													w="full"
-													h="38px"
-													justifyContent="flex-start"
-													fontWeight="500"
-													fontSize="13px"
-													borderRadius="12px"
-													px={3}
-													bg={
-														pressingProfileSubmenu === "language" ||
-														activeProfileSubmenu === "language" ||
-														languageMenu.isOpen
-															? "panel.elevated"
-															: "transparent"
-													}
-													color="panel.text"
-													transform={
-														pressingProfileSubmenu === "language"
-															? "scale(0.96)"
-															: undefined
-													}
-													transition="all 0.12s cubic-bezier(0.2, 0, 0, 1)"
-													_hover={{ md: { bg: "panel.elevated" } }}
-													_active={{
-														bg: "panel.elevated",
-														transform: "scale(0.96)",
-													}}
-													_focusVisible={{ bg: "panel.elevated" }}
-													onClick={(e: ReactMouseEvent) => {
-														e.stopPropagation();
-														toggleProfileSubmenu("language");
-													}}
-												>
-													<HStack justify="space-between" w="full" minW={0}>
-														<Text color="panel.text">
-															{t("header.language")}
-														</Text>
-														<Text
-															fontSize="11px"
-															fontWeight="600"
-															color="panel.textMuted"
-														>
-															{languageItems.find(
-																(item) => item.code === i18n.language,
-															)?.label || "English"}
-														</Text>
-													</HStack>
-												</MenuButton>
-												<Portal>
-													<MenuList
-														dir={isRTL ? "rtl" : "ltr"}
-														data-profile-window="true"
-														data-profile-submenu="true"
-														data-language-menu-list="true"
-														minW="170px"
-														p={1.5}
-														borderRadius="20px"
-														borderWidth="1px"
-														borderColor="panel.border"
-														bg="panel.surface"
-														boxShadow="0 20px 48px rgba(0, 0, 0, 0.35)"
-														zIndex={10005}
-														userSelect="none"
-														sx={{
-															".chakra-menu__menuitem": {
-																bg: "transparent !important",
-																borderRadius: "8px",
-																h: "36px",
-																px: "10px",
-																my: "1px",
-																fontSize: "12px",
-																fontWeight: "500",
-																"@media (min-width: 769px)": {
-																	"&:hover": {
-																		bg: "panel.elevated !important",
-																	},
-																},
-																"&:active, &:focus-visible": {
-																	bg: "panel.elevated !important",
-																},
-																"&:focus:not(:focus-visible)": {
-																	bg: "transparent !important",
-																},
-															},
-														}}
-													>
-														{languageItems.map(({ code, label, flag }) => {
-															const isActiveLang = i18n.language === code;
-															return (
-																<MenuItem
-																	key={code}
-																	onClick={(e: ReactMouseEvent) => {
-																		e.preventDefault();
-																		e.stopPropagation();
-																		changeLanguage(code);
-																	}}
-																>
-																	<HStack justify="space-between" w="full">
-																		<HStack spacing={2.5}>
-																			{code === "fa" ? (
-																				<ImperialIranFlag
-																					style={{
-																						width: "16px",
-																						height: "12px",
-																					}}
-																				/>
-																			) : (
-																				<ReactCountryFlag
-																					countryCode={flag}
-																					svg
-																					style={{
-																						width: "16px",
-																						height: "12px",
-																					}}
-																				/>
-																			)}
-																			<Text
-																				fontWeight={
-																					isActiveLang ? "700" : "500"
-																				}
-																			>
-																				{label}
-																			</Text>
-																		</HStack>
-																		{isActiveLang && (
-																			<CheckIcon
-																				width={15}
-																				color="panel.text"
-																			/>
-																		)}
-																	</HStack>
-																</MenuItem>
-															);
-														})}
-													</MenuList>
-												</Portal>
-											</Menu>
+											<Popover open={languageMenu.isOpen} onOpenChange={(open) =>
+													open ? languageMenu.onOpen() : languageMenu.onClose()
+												}>
+												<PopoverTrigger asChild>
+													<Button onClick={(event: ReactMouseEvent) => event.stopPropagation()} variant="ghost" className="h-10 w-full justify-start gap-3 rounded-md bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
+														<LanguageIconStyled className="size-4 shrink-0" />
+														<span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+															<span>{t("header.language")}</span>
+															<span className="text-xs text-panel-text-secondary">
+																{languageItems.find(
+																	(item) => item.code === i18n.language,
+																)?.label || "English"}
+															</span>
+														</span>
+													</Button>
+												</PopoverTrigger>
+												<PopoverContent side={isMobile ? "bottom" : isRTL ? "left" : "right"} align="start" className="min-w-[160px]! rounded-md border-panel-border! bg-panel-surface py-2 text-panel-text shadow-lg select-none">
+													{languageItems.map(({ code, label, flag }) => {
+														const isActiveLang = i18n.language === code;
+														return (
+															<button
+																key={code}
+																type="button"
+																onClick={() => {
+																	changeLanguage(code);
+																	languageMenu.onClose();
+																}}
+																className="flex w-full items-center justify-between gap-3 px-3 py-2 text-sm text-panel-text transition-colors hover:bg-panel-elevated focus-visible:bg-panel-elevated focus-visible:outline-none"
+															>
+																<span className="flex items-center gap-2">
+																	{code === "fa" ? (
+																		<ImperialIranFlag
+																			style={{ width: "16px", height: "12px" }}
+																		/>
+																	) : (
+																		<ReactCountryFlag
+																			countryCode={flag}
+																			svg
+																			style={{ width: "16px", height: "12px" }}
+																		/>
+																	)}
+																	<span>{label}</span>
+																</span>
+																{isActiveLang && <Check width={16} />}
+															</button>
+														);
+													})}
+												</PopoverContent>
+											</Popover>
 
 											<ThemeSelector
-												key={`theme-menu-${isRTL ? "rtl" : "ltr"}`}
 												trigger="menuItem"
 												triggerLabel={t("header.theme")}
-												isOpen={activeProfileSubmenu === "theme"}
-												isPressing={pressingProfileSubmenu === "theme"}
-												onToggle={() => toggleProfileSubmenu("theme")}
-												onClose={() => {}}
+												portalContainer={userMenuContentRef}
+												onModalOpen={handleThemeModalOpen}
+												onModalClose={handleThemeModalClose}
 											/>
 
-											<MenuItem
-												className="rb-logout-menu-item"
-												icon={<LogoutIcon />}
-												color="red.400"
-												transition="all 0.16s cubic-bezier(0.16, 1, 0.3, 1)"
-												_hover={{
-													md: {
-														bg: "rgba(239, 68, 68, 0.14) !important",
-														color: "red.400 !important",
-													},
-												}}
-												_focus={{
-													bg: "rgba(239, 68, 68, 0.14) !important",
-													color: "red.400 !important",
-												}}
-												_active={{
-													bg: "rgba(239, 68, 68, 0.22) !important",
-													color: "red.400 !important",
-													transform: "scale(0.98)",
-												}}
-												onClick={async () => {
+											<DropdownMenuSeparator className="my-2 opacity-60" />
+											<DropdownMenuItem onSelect={async () => {
 													try {
 														await logoutSession();
 													} finally {
 														clearClientSession();
 														navigate("/login");
 													}
-												}}
-											>
+												}} className="px-3 py-1.5 text-sm text-[#E53E3E] focus:bg-[color-mix(in_srgb,#ef4444_12%,transparent)] focus:text-[#E53E3E]">
+												<LogoutIcon className="size-4" />
 												{t("header.logout")}
-											</MenuItem>
-										</MenuList>
-									</Portal>
-								</Menu>
+											</DropdownMenuItem>
+										</div>
+									</DropdownMenuContent>
+								</DropdownMenu>
 							)}
-						</HStack>
-					</Box>
-					<Box
-						position="absolute"
-						left="0"
-						right="0"
-						bottom="-16px"
-						h="16px"
-						pointerEvents="none"
-						bg="linear-gradient(180deg, var(--rb-panel-main) 0%, transparent 100%)"
-						zIndex={99}
-					/>
-				</Box>
-				<Box
-					as="main"
-					flex="1"
-					p={{ base: 3, md: 4 }}
-					pt={{ base: 2.5, md: 3 }}
-					pb={{ base: "40", md: "4" }}
-					overflow="auto"
-					minH="0"
-					bg="transparent"
-					sx={{
-						transform: "translateZ(0)",
-						overscrollBehavior: "contain",
-					}}
-				>
-					<Outlet />
-				</Box>
-			</Flex>
+						</div>
+					</header>
+
+					<main className="min-h-0 flex-1 overflow-auto bg-panel-main p-3 pb-40 md:p-4 md:pb-4">
+						<Outlet />
+					</main>
+				</div>
 
 				{isMobile && (
-					<Drawer
-						isOpen={sidebarDrawer.isOpen}
-						placement={isRTL ? "right" : "left"}
-						onClose={sidebarDrawer.onClose}
-						size="full"
-						autoFocus={false}
-						returnFocusOnClose={false}
-						trapFocus={false}
-						blockScrollOnMount={false}
-						preserveScrollBarGap={false}
-					>
-						<DrawerContent
-							maxW="100vw"
-							w="100vw"
-							h="100dvh"
-							maxH="100dvh"
-							bg="panel.surface"
-							boxShadow="none"
-							borderRadius="0"
-							zIndex={17000}
-						>
-							<DrawerBody p={0} overflow="hidden" bg="panel.surface">
+					<Sheet open={sidebarDrawer.isOpen} onOpenChange={(open) =>
+							open ? sidebarDrawer.onOpen() : sidebarDrawer.onClose()
+						}>
+						<SheetContent side={isRTL ? "right" : "left"} className="rb-sidebar-drawer w-[312px] max-w-[100vw] bg-panel-sidebar">
+							<SheetTitle className="sr-only">{t("a11y.toggleSidebar")}</SheetTitle>
+							<div className="h-full overflow-y-auto">
 								<AppSidebar
 									collapsed={false}
 									sponsors={sponsorSidebarLogoItems}
 									sidebarBanners={sponsorSidebarBanners}
 									inDrawer
-									onRequestExpand={handleDrawerClose}
+									onRequestExpand={sidebarDrawer.onClose}
 								/>
-							</DrawerBody>
-						</DrawerContent>
-					</Drawer>
+							</div>
+						</SheetContent>
+					</Sheet>
 				)}
+
 				{isMobile && (
 					<>
 						{showIosPrompt && (
-							<Box
-								position="fixed"
-								left="0"
-								right="0"
-								bottom={{ base: "86px", sm: "90px" }}
-								px="4"
-								zIndex={2000}
-							>
-								<Box
-									bg={menuBg}
-									borderRadius="20px"
-									borderWidth="1px"
-									borderColor={menuBorder}
-									px="4"
-									py="3"
-									display="flex"
-									alignItems="center"
-									gap="3"
-									boxShadow="lg"
-								>
-									<Box
-										w="8"
-										h="8"
-										borderRadius="full"
-										bg="whiteAlpha.600"
-										_dark={{ bg: "whiteAlpha.300" }}
-										display="flex"
-										alignItems="center"
-										justifyContent="center"
-									>
-										<ShareIcon />
-									</Box>
-									<Box flex="1">
-										<Text fontWeight="semibold" fontSize="sm">
-											{t("pwa.ios.title")}
-										</Text>
-										<Text
-											fontSize="xs"
-											color="gray.600"
-											_dark={{ color: "gray.300" }}
-										>
+							<div className="fixed inset-x-0 bottom-[86px] z-[2000] px-4 sm:bottom-[90px]">
+								<div className="flex items-center gap-3 rounded-[20px] border border-panel-border! bg-panel-surface px-4 py-3 shadow-lg">
+									<span className="flex size-8 items-center justify-center rounded-full bg-[rgba(255,255,255,0.48)] dark:bg-[rgba(255,255,255,0.16)]">
+										<ShareIcon className="size-4" />
+									</span>
+									<div className="flex-1">
+										<p className="text-sm font-semibold">{t("pwa.ios.title")}</p>
+										<p className="text-xs text-[#4A5568] dark:text-[#CBD5E0]">
 											{t("pwa.ios.body")}
-										</Text>
-									</Box>
-									<Button
-										size="sm"
-										variant="ghost"
-										onClick={() => {
+										</p>
+									</div>
+									<Button onClick={() => {
 											setShowIosPrompt(false);
 											localStorage.setItem("ios-pwa-tip-shown", "1");
-										}}
-									>
+										}} variant="ghost" size="xs" className="text-sm">
 										{t("pwa.ios.dismiss")}
 									</Button>
-								</Box>
-							</Box>
+								</div>
+							</div>
 						)}
-						<Box
-							className="rb-mobile-dock"
-							display={{
-								base: sidebarDrawer.isOpen ? "none" : "block",
-								md: "none",
-							}}
-							position="fixed"
-							left="0"
-							right="0"
-							bottom="calc(env(safe-area-inset-bottom, 0px) + 12px)"
-							zIndex={1500}
-							px="3"
-							pointerEvents="none"
-						>
-							<Box
-								pointerEvents="auto"
-								bg={dockBg}
-								borderColor={dockBorder}
-								boxShadow={dockShadow}
-								borderWidth="1px"
-								borderRadius="24px"
-								px="2"
-								py="1.5"
-								maxW="min(440px, calc(100vw - 20px))"
-								mx="auto"
-							>
-								<Box position="relative" w="full">
-									{(() => {
-										const dockItemCount = bottomNavItems.length;
-										const activeDockIndex = bottomNavItems.findIndex(
-											(it) => it.key === selectedTabKey,
-										);
-										if (activeDockIndex < 0 || dockItemCount === 0) return null;
-										return (
-											<Box
-												position="absolute"
-												top="0"
-												bottom="0"
-												width={`calc(100% / ${dockItemCount})`}
-												left={isRTL ? undefined : "0px"}
-												right={isRTL ? "0px" : undefined}
-												transform={
-													isRTL
-														? `translateX(calc(-${activeDockIndex * 100}%))`
-														: `translateX(calc(${activeDockIndex * 100}%))`
-												}
-												transition={
-													suppressDockTransition
-														? "none !important"
-														: "transform 0.28s cubic-bezier(0.16, 1, 0.3, 1)"
-												}
-												p="2px"
-												pointerEvents="none"
-												zIndex={0}
-												sx={{
-													willChange: "transform",
-												}}
-											>
-												<Box
-													w="full"
-													h="full"
-													borderRadius="16px"
-													bg="panel.elevated"
-													borderWidth="1px"
-													borderColor="panel.borderStrong"
-													boxShadow="0 2px 8px rgba(0, 0, 0, 0.12)"
-												/>
-											</Box>
-										);
-									})()}
 
-									<SimpleGrid
-										columns={bottomNavItems.length}
-										spacing={0}
-										w="full"
-										position="relative"
-										alignItems="center"
-										dir={isRTL ? "rtl" : "ltr"}
-										zIndex={1}
-									>
-										{bottomNavItems.map((item) => {
-											const isActive = resolveActive(item);
-											const isSelected = selectedTabKey === item.key;
-											const isSettings = item.key === "settings";
-											const currentSettingsItem = isSettings ? activeSettingsItem : null;
-											const DisplayIcon = currentSettingsItem?.icon || getDockIcon(item.key);
-											const displayLabel = currentSettingsItem?.label || item.label;
-											const navContent = (
-												<Box
-													w="full"
-													display="flex"
-													flexDirection="column"
-													alignItems="center"
-													justifyContent="center"
-													minW="0"
-													py="1"
-													px="0.5"
-													position="relative"
-													zIndex={1}
-													overflow="hidden"
-												>
-													<Box
-														w="22px"
-														h="22px"
-														display="grid"
-														placeItems="center"
-														position="relative"
-														color={
-															isSelected
-																? "var(--rb-panel-accent)"
-																: dockInactiveIcon
-														}
-														transform={
-															isSelected
-																? "scale(1.05) translateY(-0.5px)"
-																: "scale(1) translateY(0)"
-														}
-														transition="all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-													>
-														<DisplayIcon />
-														{item.key === "notifications" && unread > 0 && (
-															<Box
-																position="absolute"
-																top="-1px"
-																insetInlineEnd="-1px"
-																w="6px"
-																h="6px"
-																borderRadius="full"
-																bg="var(--chakra-colors-accent)"
+						<div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)]">
+							<div
+								className={cn(
+									"pointer-events-auto mx-auto max-w-[min(480px,100%)] rounded-[30px] border p-1.5",
+									DOCK_CLASS,
+								)}
+							>
+								<div
+									className="relative flex items-center justify-between"
+									dir={isRTL ? "rtl" : "ltr"}
+									onPointerDown={handleNavPointerDown}
+									onPointerMove={handleNavPointerMove}
+									onPointerUp={handleNavPointerUp}
+									onPointerCancel={handleNavPointerCancel}
+									style={{ touchAction: "pan-y" }}
+								>
+									{bottomNavItems.map((item) => {
+										const isActive = resolveActive(item);
+										const isSelected = selectedTabKey === item.key;
+										const settingsLabel =
+											item.key === "settings" && activeSettingsItem?.label
+												? activeSettingsItem.label
+												: item.label;
+										const customIcon =
+											item.key === "settings" ? activeSettingsItem?.icon : undefined;
+										const [OutlineTabIcon, SolidTabIcon] = customIcon
+											? [customIcon, customIcon]
+											: (TAB_ICONS[item.key] ?? TAB_ICONS.myaccount);
+										const tabLabelClass = isSelected
+											? "text-[var(--primary-500)] dark:text-[var(--primary-300)]"
+											: "text-panel-text-secondary";
+										const tabButtonClass = cn(
+											"relative z-[1] h-auto min-h-12 min-w-0 flex-1 select-none rounded-md px-0 hover:bg-transparent focus:bg-transparent active:bg-transparent",
+											isActive
+												? "text-[var(--primary-500)] dark:text-[var(--primary-300)]"
+												: "text-[#4A5568] dark:text-[#CBD5E0]",
+										);
+										const navContent = (
+											<motion.div
+												whileTap={reduceMotion ? undefined : { scale: 0.88 }}
+												transition={tapSpring}
+												className="w-full"
+											>
+												<div className="flex w-full flex-col items-center gap-1 py-1">
+													<div className="relative grid h-8 w-14 place-items-center">
+														{isSelected && (
+															<motion.span
+																layoutId="mobile-bottom-nav-indicator"
+																transition={navSpring}
+																className="absolute inset-0 rounded-2xl bg-[color-mix(in_srgb,var(--primary-500)_12%,transparent)] dark:bg-[color-mix(in_srgb,var(--primary-300)_20%,transparent)]"
 															/>
 														)}
-													</Box>
-													<Text
-														fontSize="10px"
-														lineHeight="1.2"
-														fontWeight={isSelected ? "600" : "500"}
-														textAlign="center"
-														whiteSpace="nowrap"
-														overflow="hidden"
-														textOverflow="ellipsis"
-														maxW="100%"
-														px="1"
-														mt="2px"
-														title={displayLabel}
-														color={isSelected ? "panel.text" : dockInactiveText}
-														transition="color 0.2s ease"
+														<div
+															className={cn(
+																"relative grid place-items-center",
+																tabLabelClass,
+															)}
+														>
+															<motion.span
+																initial={false}
+																animate={{
+																	opacity: isSelected ? 0 : 1,
+																	scale: isSelected ? 0.8 : 1,
+																}}
+																transition={navSpring}
+																className="grid place-items-center [grid-area:1/1]"
+															>
+																<OutlineTabIcon className="size-[22px]" />
+															</motion.span>
+															<motion.span
+																initial={false}
+																animate={{
+																	opacity: isSelected ? 1 : 0,
+																	scale: isSelected ? 1 : 0.8,
+																}}
+																transition={navSpring}
+																className="grid place-items-center [grid-area:1/1]"
+															>
+																<SolidTabIcon className="size-[22px]" />
+															</motion.span>
+														</div>
+													</div>
+													<span
+														className={cn(
+															"max-w-full truncate px-1 text-center text-[10px] leading-[1.1] transition-colors duration-[250ms]",
+															tabLabelClass,
+															isSelected ? "font-semibold" : "font-medium",
+														)}
 													>
-														{displayLabel}
-													</Text>
-												</Box>
-											);
+														{settingsLabel}
+													</span>
+												</div>
+											</motion.div>
+										);
 
-											if (item.key === "settings") {
-												return (
-													<Popover
-														key={item.key}
-														isOpen={settingsMenu.isOpen}
-														onClose={handleSettingsMenuClose}
-														placement="top"
-														gutter={12}
-														closeOnBlur
-														modifiers={popoverModifiers}
-														strategy="fixed"
-													>
-														<PopoverTrigger>
-															<Button
-																variant="ghost"
-																size="sm"
-																ref={(node) => {
-																	tabContentRefs.current[item.key] = node;
-																}}
-																onClick={() => {
-																	handleSettingsMenuToggle();
-																}}
-																color={isActive ? "primary.500" : "gray.600"}
-																_dark={{
-																	color: isActive ? "primary.300" : "gray.300",
-																}}
-																w="full"
-																minW="0"
-																minH="46px"
-																h="auto"
-																px="0"
-																borderRadius="full"
-																position="relative"
-																overflow="hidden"
-																zIndex={1}
-																sx={{ touchAction: "manipulation" }}
-																userSelect="none"
-																transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
-																_hover={{ bg: "transparent" }}
-																_active={{
-																	bg: "transparent",
-																	transform: "scale(0.96)",
-																}}
-																_focus={{ bg: "transparent" }}
-															>
-																{navContent}
-															</Button>
-														</PopoverTrigger>
-														<Portal>
-															<PopoverContent
-																ref={dockSettingsScrollRef}
-																w="min(270px, calc(100vw - 24px))"
-																maxW="calc(100vw - 24px)"
-																maxH="calc(100vh - 130px)"
-																overflowY="auto"
-																borderRadius="20px"
-																bg="panel.surface"
-																borderColor="panel.border"
-																borderWidth="1px"
-																boxShadow={menuShadow}
-																p={2.5}
-																dir={isRTL ? "rtl" : "ltr"}
-															>
-																<PopoverBody p={0}>
-																	<Box
-																		px={2.5}
-																		pt={1.5}
-																		pb={1}
-																		borderBottomWidth="1px"
-																		borderColor="panel.border"
-																		mb={2}
-																	>
-																		<Text
-																			fontSize="11px"
-																			fontWeight="700"
-																			color="panel.textMuted"
-																			textTransform="uppercase"
-																			letterSpacing="0.06em"
-																		>
-																			{t("header.settings")}
-																		</Text>
-																	</Box>
-																	<VStack align="stretch" spacing={2.5}>
-																		{mobileDockSections.map((sec) => (
-																			<Box key={sec.id} data-dock-section={sec.id}>
-																				<Text
-																					px={2}
-																					py={0.5}
-																					fontSize="10.5px"
-																					fontWeight="600"
-																					color="panel.textMuted"
-																					textTransform="uppercase"
-																					letterSpacing="0.06em"
-																				>
-																					{sec.title}
-																				</Text>
-																				<VStack
-																					align="stretch"
-																					spacing={1}
-																					mt={0.5}
-																				>
-																					{sec.items.map((entry) => {
-																						if (entry.type === "direct") {
-																							const ItemIcon = entry.icon;
-																							const isSelected =
-																								location.pathname ===
-																									entry.to ||
-																								(entry.to !== "/" &&
-																									location.pathname.startsWith(
-																										entry.to,
-																									));
-																							return (
-																								<Button
-																									key={entry.key}
-																									variant="ghost"
-																									size="sm"
-																									w="full"
-																									h="36px"
-																									borderRadius="10px"
-																									px={2.5}
-																									justifyContent="flex-start"
-																									leftIcon={<ItemIcon />}
-																									bg={
-																										isSelected
-																											? "panel.elevated"
-																											: "transparent"
-																									}
-																									color={
-																										isSelected
-																											? "panel.text"
-																											: "panel.textSecondary"
-																									}
-																									fontWeight={
-																										isSelected ? "600" : "500"
-																									}
-																									fontSize="12.5px"
-																									borderInlineStartWidth={
-																										isSelected ? "3px" : "0px"
-																									}
-																									borderInlineStartColor="var(--rb-panel-accent)"
-																									_hover={{
-																										md: {
-																											bg: "panel.elevated",
-																											color: "panel.text",
-																										},
-																									}}
-																									_active={{
-																										bg: "panel.elevated",
-																									}}
-																									onClick={() => {
-																										navigateToSettingsItem(
-																											entry.to,
-																										);
-																									}}
-																								>
-																									{entry.label}
-																								</Button>
-																							);
-																						}
-
-																						const GroupIcon = entry.icon;
-																						const isGroupOpen = Boolean(
-																							mobileDockOpenGroups[entry.id],
-																						);
-																						const isGroupActive =
-																							entry.subItems.some(
-																								(s) =>
-																									location.pathname === s.to ||
-																									(s.to !== "/" &&
-																										location.pathname.startsWith(
-																											s.to,
-																										)),
-																							);
-
-																						return (
-																							<Box key={entry.id} data-dock-group={entry.id}>
-																								<Flex
-																									align="center"
-																									justify="space-between"
-																									w="full"
-																									h="36px"
-																									px={2.5}
-																									borderRadius="10px"
-																									bg={
-																										isGroupActive &&
-																										!isGroupOpen
-																											? "panel.elevated"
-																											: "transparent"
-																									}
-																									color={
-																										isGroupActive
-																											? "panel.text"
-																											: "panel.textSecondary"
-																									}
-																									fontWeight={
-																										isGroupActive
-																											? "600"
-																											: "500"
-																									}
-																									fontSize="12.5px"
-																									cursor="pointer"
-																									borderInlineStartWidth={
-																										isGroupActive &&
-																										!isGroupOpen
-																											? "3px"
-																											: "0px"
-																									}
-																									borderInlineStartColor="var(--rb-panel-accent)"
-																									onClick={(e: ReactMouseEvent) => {
-																										const willOpen =
-																											!mobileDockOpenGroups[
-																												entry.id
-																											];
-																										if (
-																											willOpen &&
-																											dockSettingsScrollRef.current
-																										) {
-																											const triggerEl =
-																												e.currentTarget as HTMLElement;
-																											const groupWrapper =
-																												triggerEl.closest(
-																													"[data-dock-group]",
-																												);
-																											let anchorEl: HTMLElement | null =
-																												null;
-																											if (groupWrapper) {
-																												const nextSibling =
-																													groupWrapper.nextElementSibling as HTMLElement | null;
-																												if (nextSibling) {
-																													anchorEl = nextSibling;
-																												} else {
-																													const section =
-																														groupWrapper.closest(
-																															"[data-dock-section]",
-																														);
-																													if (section) {
-																														anchorEl =
-																															section.nextElementSibling as HTMLElement | null;
-																													}
-																												}
-																											}
-
-																											if (anchorEl) {
-																												if (
-																													dockSettingsScrollAnimRef.current !==
-																													null
-																												) {
-																													cancelAnimationFrame(
-																														dockSettingsScrollAnimRef.current,
-																													);
-																													dockSettingsScrollAnimRef.current =
-																														null;
-																												}
-																												const scrollEl = dockSettingsScrollRef.current;
-																												const initialTop =
-																													anchorEl.getBoundingClientRect()
-																														.top;
-																												const startTime =
-																													performance.now();
-																												setMobileDockOpenGroups(
-																													(prev) => ({
-																														...prev,
-																														[entry.id]: true,
-																													}),
-																												);
-																												const adjustScroll = (
-																													now: number,
-																												) => {
-																													if (
-																														!dockSettingsScrollRef.current ||
-																														!anchorEl
-																													)
-																														return;
-																													const currentTop =
-																														anchorEl.getBoundingClientRect()
-																															.top;
-																													const delta =
-																														currentTop -
-																														initialTop;
-																													if (
-																														Math.abs(delta) >=
-																														0.5
-																													) {
-																														scrollEl.scrollTop +=
-																															delta;
-																													}
-																													if (
-																														now - startTime <
-																														300
-																													) {
-																														dockSettingsScrollAnimRef.current =
-																															requestAnimationFrame(
-																																adjustScroll,
-																															);
-																													} else {
-																														const finalTop =
-																															anchorEl.getBoundingClientRect()
-																																.top;
-																														const finalDelta =
-																															finalTop -
-																															initialTop;
-																														if (
-																															Math.abs(finalDelta) >=
-																															0.5
-																														) {
-																															scrollEl.scrollTop +=
-																																finalDelta;
-																														}
-																														dockSettingsScrollAnimRef.current =
-																															null;
-																													}
-																												};
-																												dockSettingsScrollAnimRef.current =
-																													requestAnimationFrame(
-																														adjustScroll,
-																													);
-																												return;
-																											}
-																										}
-																										setMobileDockOpenGroups(
-																											(prev) => ({
-																												...prev,
-																												[entry.id]: willOpen,
-																											}),
-																										);
-																									}}
-																									_hover={{
-																										md: {
-																											bg: "panel.elevated",
-																											color: "panel.text",
-																										},
-																									}}
-																									_active={{
-																										bg: "panel.elevated",
-																									}}
-																								>
-																									<HStack
-																										spacing={2}
-																										align="center"
-																									>
-																										<Box
-																											as="span"
-																											color={
-																												isGroupActive
-																													? "var(--rb-panel-accent)"
-																													: "inherit"
-																											}
-																										>
-																											<GroupIcon />
-																										</Box>
-																										<Text noOfLines={1}>
-																											{entry.title}
-																										</Text>
-																									</HStack>
-																									<ChevronDownIconStyled
-																										color="panel.textMuted"
-																										transform={
-																											isGroupOpen
-																												? "rotate(180deg)"
-																												: "rotate(0deg)"
-																										}
-																										transition="transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
-																									/>
-																								</Flex>
-
-																								<AnimatePresence
-																									initial={false}
-																								>
-																									{isGroupOpen && (
-																										<motion.div
-																											initial={{
-																												opacity: 0,
-																												height: 0,
-																											}}
-																											animate={{
-																												opacity: 1,
-																												height: "auto",
-																											}}
-																											exit={{
-																												opacity: 0,
-																												height: 0,
-																											}}
-																											transition={{
-																												duration: 0.24,
-																												ease: [0.16, 1, 0.3, 1],
-																											}}
-																											style={{
-																												overflow: "hidden",
-																											}}
-																										>
-																											<Box
-																												ms="14px"
-																												ps="8px"
-																												my={1}
-																												borderInlineStart="1.5px solid"
-																												borderColor="panel.border"
-																											>
-																												<VStack
-																													align="stretch"
-																													spacing={0.5}
-																												>
-																													{entry.subItems.map(
-																														(sub) => {
-																															const isSubActive =
-																																location.pathname ===
-																																	sub.to ||
-																																(sub.to !==
-																																	"/" &&
-																																	location.pathname.startsWith(
-																																		sub.to,
-																																	));
-																															const SubIcon =
-																																sub.icon;
-																															return (
-																																<Button
-																																	key={sub.id}
-																																	variant="ghost"
-																																	size="sm"
-																																	w="full"
-																																	h="32px"
-																																	borderRadius="10px"
-																																	px={2}
-																																	justifyContent="flex-start"
-																																	leftIcon={
-																																		<SubIcon />
-																																	}
-																																	bg={
-																																		isSubActive
-																																			? "panel.elevated"
-																																			: "transparent"
-																																	}
-																																	color={
-																																		isSubActive
-																																			? "panel.text"
-																																			: "panel.textSecondary"
-																																	}
-																																	fontWeight={
-																																		isSubActive
-																																			? "600"
-																																			: "400"
-																																	}
-																																	fontSize="12px"
-																																	borderInlineStartWidth={
-																																		isSubActive
-																																			? "2.5px"
-																																			: "0px"
-																																	}
-																																	borderInlineStartColor="var(--rb-panel-accent)"
-																																	_hover={{
-																																		md: {
-																																			bg: "panel.elevated",
-																																			color:
-																																				"panel.text",
-																																		},
-																																	}}
-																																	_active={{
-																																		bg: "panel.elevated",
-																																	}}
-																																	onClick={() => {
-																																		navigateToSettingsItem(
-																																			sub.to,
-																																		);
-																																	}}
-																																>
-																																	{sub.title}
-																																</Button>
-																															);
-																														},
-																													)}
-																												</VStack>
-																											</Box>
-																										</motion.div>
-																									)}
-																								</AnimatePresence>
-																							</Box>
-																						);
-																					})}
-																				</VStack>
-																			</Box>
-																		))}
-																	</VStack>
-																</PopoverBody>
-															</PopoverContent>
-														</Portal>
-													</Popover>
-												);
-											}
-
-											if (item.key === "myaccount") {
-												return (
-													<Popover
-														key={item.key}
-														isOpen={accountMenu.isOpen}
-														onClose={handleAccountMenuClose}
-														autoFocus={false}
-														placement="top"
-														gutter={12}
-														closeOnBlur
-														modifiers={popoverModifiers}
-														strategy="fixed"
-													>
-														<PopoverTrigger>
-															<Button
-																variant="ghost"
-																size="sm"
-																ref={(node) => {
-																	tabContentRefs.current[item.key] = node;
-																}}
-																onClick={() => {
-																	handleAccountMenuClose();
-																	handleNavClick(item.to);
-																}}
-																color={isActive ? "primary.500" : "gray.600"}
-																_dark={{
-																	color: isActive ? "primary.300" : "gray.300",
-																}}
-																w="full"
-																minW="0"
-																minH="46px"
-																h="auto"
-																px="0"
-																borderRadius="full"
-																position="relative"
-																zIndex={1}
-																sx={{ touchAction: "manipulation" }}
-																userSelect="none"
-																transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
-																_hover={{ bg: "transparent" }}
-																_active={{
-																	bg: "transparent",
-																	transform: "scale(0.96)",
-																}}
-																_focus={{ bg: "transparent" }}
-															>
-																{navContent}
-															</Button>
-														</PopoverTrigger>
-														<Portal>
-															<PopoverContent
-																w="min(200px, calc(100vw - 24px))"
-																maxW="calc(100vw - 24px)"
-																borderRadius="20px"
-																bg="panel.surface"
-																borderColor="panel.border"
-																borderWidth="1px"
-																boxShadow={menuShadow}
-																p={2}
-															>
-																<PopoverBody p={0}>
-																	<Button
-																		variant="ghost"
-																		size="sm"
-																		w="full"
-																		h="38px"
-																		borderRadius="10px"
-																		justifyContent="flex-start"
-																		leftIcon={<LogoutIcon />}
-																		color="red.400"
-																		_hover={{
-																			md: {
-																				bg: "rgba(239, 68, 68, 0.12)",
-																				color: "red.400",
-																			},
-																		}}
-																		_active={{ bg: "rgba(239, 68, 68, 0.18)" }}
-																		_focus={{ bg: "transparent" }}
-																		_focusVisible={{
-																			bg: "rgba(239, 68, 68, 0.12)",
-																		}}
-																		onClick={async () => {
-																			try {
-																				await logoutSession();
-																			} finally {
-																				clearClientSession();
-																				handleAccountMenuClose();
-																				navigate("/login");
-																			}
-																		}}
-																	>
-																		{t("header.logout")}
-																	</Button>
-																</PopoverBody>
-															</PopoverContent>
-														</Portal>
-													</Popover>
-												);
-											}
-
+										if (item.key === "settings") {
 											return (
-												<Button
-													key={item.key}
-													variant="ghost"
-													size="sm"
-													ref={(node) => {
-														tabContentRefs.current[item.key] = node;
-													}}
-													onClick={() => {
-														if (item.to) {
-															handleNavClick(item.to);
-														}
-													}}
-													color={isActive ? "primary.500" : "gray.600"}
-													_dark={{
-														color: isActive ? "primary.300" : "gray.300",
-													}}
-													w="full"
-													minW="0"
-													minH="46px"
-													h="auto"
-													px="0"
-													borderRadius="full"
-													position="relative"
-													zIndex={1}
-													userSelect="none"
-													transition="transform 0.16s cubic-bezier(0.2, 0, 0, 1)"
-													_hover={{ bg: "transparent" }}
-													_active={{
-														bg: "transparent",
-														transform: "scale(0.96)",
-													}}
-													_focus={{ bg: "transparent" }}
-												>
-													{navContent}
-												</Button>
+												<Popover key={item.key} open={settingsMenu.isOpen} onOpenChange={(open) => {
+														if (open) openSettingsMenu();
+														else handleSettingsMenuClose();
+													}}>
+													<PopoverTrigger asChild>
+														<Button ref={(node) => {
+																tabContentRefs.current[item.key] = node;
+															}} onClick={(event) => {
+																// The click only toggles through handleSettingsMenuToggle, so
+																// stop the trigger from toggling on its own.
+																event.preventDefault();
+																if (settingsHoldOpened.current) return;
+																handleSettingsMenuToggle();
+															}} onPointerDown={(event) => {
+																if (event.pointerType === "mouse") return;
+																settingsHoldStartPoint.current = {
+																	x: event.clientX,
+																	y: event.clientY,
+																};
+																handleSettingsHoldStart();
+															}} onPointerMove={(event) => {
+																if (event.pointerType === "mouse") return;
+																handleSettingsHoldMove(event.clientX, event.clientY);
+															}} onPointerUp={handleSettingsHoldEnd} onPointerCancel={handleSettingsHoldEnd} onPointerLeave={handleSettingsHoldEnd} onContextMenu={(event) => {
+																if (isMobile) event.preventDefault();
+															}} variant="ghost" size="sm" className={tabButtonClass}>
+															{navContent}
+														</Button>
+													</PopoverTrigger>
+													<PopoverContent side="top" align="center" sideOffset={12} collisionPadding={12} className={cn(
+															"w-[min(210px,calc(100vw_-_24px))] max-w-[calc(100vw_-_24px)] max-h-[calc(100vh_-_160px)] overflow-y-auto rounded-[22px] p-2",
+															DOCK_CLASS,
+														)}>
+														<div className="flex flex-col gap-1">
+															{settingsMenuItems.map((entry) => {
+																const ItemIcon = entry.icon;
+																const isSelected = activeSettingsKey === entry.key;
+																return (
+																	<Button key={entry.key} aria-current={isSelected ? "page" : undefined} onClick={() => {
+																			handleSettingsMenuClose();
+																			navigateToSettingsItem(entry.to);
+																		}} variant="ghost" size="xs" className={cn(
+																			"w-full justify-start text-sm",
+																			isSelected
+																				? "bg-panel-elevated font-semibold"
+																				: "bg-transparent font-normal",
+																			isSelected || activeSettingsKey
+																				? "hover:bg-panel-elevated"
+																				: "hover:bg-transparent",
+																			"active:bg-panel-elevated focus-visible:shadow-[0_0_0_2px_var(--primary-200)]",
+																		)}>
+																		{ItemIcon ? <ItemIcon className="size-4" /> : null}
+																		{entry.label}
+																	</Button>
+																);
+															})}
+														</div>
+													</PopoverContent>
+												</Popover>
 											);
-										})}
-									</SimpleGrid>
-								</Box>
-							</Box>
-						</Box>
+										}
+
+										if (item.key === "myaccount") {
+											return (
+												<Popover key={item.key} open={accountMenu.isOpen} onOpenChange={(open) => {
+														if (!open) handleAccountMenuClose();
+													}}>
+													<PopoverTrigger asChild>
+														<Button ref={(node) => {
+																tabContentRefs.current[item.key] = node;
+															}} onClick={(event) => {
+																// Same as the settings tab: the click is handled below only.
+																event.preventDefault();
+																if (accountHoldOpened.current) return;
+																handleAccountMenuClose();
+																handleNavClick(item.to);
+															}} onPointerDown={(event) => {
+																if (event.pointerType === "mouse") return;
+																accountHoldStartPoint.current = {
+																	x: event.clientX,
+																	y: event.clientY,
+																};
+																handleAccountHoldStart();
+															}} onPointerMove={(event) => {
+																if (event.pointerType === "mouse") return;
+																handleAccountHoldMove(event.clientX, event.clientY);
+															}} onPointerUp={handleAccountHoldEnd} onPointerCancel={handleAccountHoldEnd} onPointerLeave={handleAccountHoldEnd} onContextMenu={(event) => {
+																if (isMobile) event.preventDefault();
+															}} variant="ghost" size="sm" className={tabButtonClass}>
+															{navContent}
+														</Button>
+													</PopoverTrigger>
+													<PopoverContent side="top" align="center" sideOffset={12} collisionPadding={12} onOpenAutoFocus={(event) => event.preventDefault()} className={cn(
+															"w-[min(180px,calc(100vw_-_24px))] max-w-[calc(100vw_-_24px)] max-h-[calc(100vh_-_160px)] overflow-y-auto rounded-[22px] p-2",
+															DOCK_CLASS,
+														)}>
+														<Button onClick={async () => {
+																try {
+																	await logoutSession();
+																} finally {
+																	clearClientSession();
+																	handleAccountMenuClose();
+																	navigate("/login");
+																}
+															}} variant="ghost" size="xs" className="w-full justify-start text-sm text-[#E53E3E] hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
+															<LogoutIcon className="size-4" />
+															{t("header.logout")}
+														</Button>
+													</PopoverContent>
+												</Popover>
+											);
+										}
+
+										return (
+											<Button key={item.key} ref={(node) => {
+													tabContentRefs.current[item.key] = node;
+												}} onClick={() => {
+													if (item.to) {
+														handleNavClick(item.to);
+													}
+												}} variant="ghost" size="sm" className={tabButtonClass}>
+												{navContent}
+											</Button>
+										);
+									})}
+								</div>
+							</div>
+						</div>
 					</>
 				)}
-			</Flex>
+			</div>
 		</>
-	);
-}
-
-export function AppLayout() {
-	return (
-		<NotificationProvider>
-			<AppLayoutContent />
-		</NotificationProvider>
 	);
 }

@@ -1,4 +1,6 @@
-import { FormControl, FormHelperText, FormLabel } from "@chakra-ui/react";
+import { Field, FieldDescription, FieldLabel } from "components/ui/field";
+import { TriangleAlert } from "lucide-react";
+
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import { useTranslation } from "react-i18next";
 
@@ -32,10 +34,10 @@ export const BuildVersionSelect = ({
 	if (builds.length === 0) return null;
 
 	return (
-		<FormControl>
-			<FormLabel fontSize="12px" fontWeight="600" color="panel.textSecondary">
+		<Field>
+			<FieldLabel className="text-[12px] font-semibold text-panel-text-secondary">
 				{t("dashboard.maintenance.buildVersion")}
-			</FormLabel>
+			</FieldLabel>
 			<Select
 				size="sm"
 				portalled={portalled}
@@ -57,12 +59,12 @@ export const BuildVersionSelect = ({
 					</option>
 				))}
 			</Select>
-			<FormHelperText fontSize="11px" color="panel.textMuted">
+			<FieldDescription className="text-[11px] text-panel-text-muted">
 				{t("dashboard.maintenance.buildVersionFloor", {
 					version: catalog?.floor,
 				})}
-			</FormHelperText>
-		</FormControl>
+			</FieldDescription>
+		</Field>
 	);
 };
 

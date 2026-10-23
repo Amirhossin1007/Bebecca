@@ -69,6 +69,7 @@ func (s *Server) Handler() http.Handler {
 	r.HandleFunc("/internal/node/haproxy-template/*", s.handleNodeHAProxyTemplate)
 	r.HandleFunc("/xray/*", s.requireSudo(s.handleXrayHelperPath))
 	r.HandleFunc("/inbounds/full", s.requireSudo(s.handleInboundsFull))
+	r.HandleFunc("/inbounds/speeds", s.requireSudo(s.handleInboundsSpeeds))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
 	r.HandleFunc("/inbounds", s.handleInboundsRootEntry)
 	r.HandleFunc("/hosts/certificate-fingerprint", s.requireAdmin(s.handleHostCertificateFingerprint))
@@ -90,6 +91,7 @@ func (s *Server) Handler() http.Handler {
 		s.registerSubscriptionRoutes(r)
 		s.registerNodeRoutes(r)
 		s.registerNotificationRoutes(r)
+		s.registerNoteRoutes(r)
 	})
 
 	r.NotFound(s.handleHomeOrSubscriptionPath)
@@ -113,6 +115,7 @@ func (s *Server) registerAdminRoutes(r chi.Router) {
 	r.HandleFunc("/admin/*", s.requireAdmin(s.handleAdminMutationPath))
 	r.HandleFunc("/admin", s.requireAdmin(s.handleAdminRoot))
 	r.HandleFunc("/admins", s.requireAdmin(s.handleAdminsList))
+	r.HandleFunc("/admins/speeds", s.requireAdmin(s.handleAdminsSpeeds))
 }
 
 func (s *Server) registerMyAccountRoutes(r chi.Router) {
@@ -152,6 +155,7 @@ func (s *Server) registerConfigRoutes(r chi.Router) {
 
 func (s *Server) registerInboundHostRoutes(r chi.Router) {
 	r.HandleFunc("/inbounds/full", s.requireSudo(s.handleInboundsFull))
+	r.HandleFunc("/inbounds/speeds", s.requireSudo(s.handleInboundsSpeeds))
 	r.HandleFunc("/inbounds/openvpn/runtime", s.requireSudo(s.handleOVRuntime))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
 	r.HandleFunc("/inbounds", s.handleInboundsRootEntry)
@@ -190,6 +194,7 @@ func (s *Server) registerSettingsRoutes(r chi.Router) {
 	r.HandleFunc("/settings/telegram", s.requireSudo(s.handleTelegramSettings))
 	r.HandleFunc("/settings/placeholders", s.requireAdmin(s.handleSubscriptionPlaceholders))
 	r.HandleFunc("/settings/subscriptions/certificates/issue", s.requireSudo(s.handleCertificateIssue))
+	r.HandleFunc("/settings/subscriptions/certificates/issue-node", s.requireSudo(s.handleCertificateIssueNode))
 	r.HandleFunc("/settings/subscriptions/certificates/import", s.requireSudo(s.handleCertificateImport))
 	r.HandleFunc("/settings/subscriptions/certificates/renew", s.requireSudo(s.handleCertificateRenew))
 	r.HandleFunc("/settings/subscriptions/certificates/*", s.requireSudo(s.handleCertificatePath))

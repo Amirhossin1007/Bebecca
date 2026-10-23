@@ -20,10 +20,15 @@ func (c Controller) runtimeConfigRequest(ctx context.Context, node NodeRow, oper
 }
 
 func (c Controller) runtimeConfigRequestFromInbounds(ctx context.Context, node NodeRow, operationID string, configJSON string, inbounds []map[string]any) (*nodev1.RuntimeConfigRequest, error) {
+	userSpeedLimits, err := c.runtimeUserSpeedLimits(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("user speed limits: %w", err)
+	}
 	req := &nodev1.RuntimeConfigRequest{
 		OperationId:     operationID,
 		ConfigJson:      configJSON,
 		DesiredRevision: operationRevision(operationID),
+		UserSpeedLimits: userSpeedLimits,
 	}
 	ovRuntime, err := c.repo.ovRuntime(ctx, node.ID, inbounds)
 	if err != nil {

@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"strings"
 )
 
@@ -61,7 +62,7 @@ func (s Service) PPTPInfos(ctx context.Context, user UserDetail, subscriptionURL
 	for _, selected := range selectedHosts {
 		host := selected.host
 		inbound, ok := inbounds[host.InboundTag]
-		if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != "pptp" {
+		if !ok || normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) != "pptp" {
 			continue
 		}
 		inboundVariables := cloneFormatVariables(variables)
@@ -73,7 +74,7 @@ func (s Service) PPTPInfos(ctx context.Context, user UserDetail, subscriptionURL
 		}
 		result = append(result, PPTPInfo{
 			HostTag:    l2tpHostTag(host, remark, address),
-			HostName:   firstNonEmptyString(host.Remark, remark, address),
+			HostName:   jsonvalue.FirstNonEmpty(host.Remark, remark, address),
 			InboundTag: host.InboundTag,
 			Remark:     remark,
 			Server:     address,

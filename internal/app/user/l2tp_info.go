@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"strings"
 )
 
@@ -65,7 +66,7 @@ func (s Service) L2TPInfos(ctx context.Context, user UserDetail, subscriptionURL
 	for _, selected := range selectedHosts {
 		host := selected.host
 		inbound, ok := inbounds[host.InboundTag]
-		if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != "l2tp" {
+		if !ok || normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) != "l2tp" {
 			continue
 		}
 		inboundVariables := cloneFormatVariables(variables)
@@ -78,7 +79,7 @@ func (s Service) L2TPInfos(ctx context.Context, user UserDetail, subscriptionURL
 		settings := mapValue(effective["settings"])
 		result = append(result, L2TPInfo{
 			HostTag:    l2tpHostTag(host, remark, address),
-			HostName:   firstNonEmptyString(host.Remark, remark, address),
+			HostName:   jsonvalue.FirstNonEmpty(host.Remark, remark, address),
 			InboundTag: host.InboundTag,
 			Remark:     remark,
 			Server:     address,
@@ -89,7 +90,7 @@ func (s Service) L2TPInfos(ctx context.Context, user UserDetail, subscriptionURL
 			TunnelPort: 1702,
 			Username:   item.Username,
 			Password:   password,
-			IPSecPSK:   strings.TrimSpace(stringValue(settings["ipsec_psk"])),
+			IPSecPSK:   strings.TrimSpace(jsonvalue.String(settings["ipsec_psk"])),
 		})
 	}
 	_ = subscriptionURL
@@ -97,5 +98,5 @@ func (s Service) L2TPInfos(ctx context.Context, user UserDetail, subscriptionURL
 }
 
 func l2tpHostTag(host Host, remark string, address string) string {
-	return OVSafePathComponent(firstNonEmptyString(host.Remark, remark, host.Address, address, host.InboundTag, "l2tp"))
+	return OVSafePathComponent(jsonvalue.FirstNonEmpty(host.Remark, remark, host.Address, address, host.InboundTag, "l2tp"))
 }

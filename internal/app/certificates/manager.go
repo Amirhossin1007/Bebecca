@@ -39,6 +39,7 @@ var (
 	ErrBusy        = errors.New("another certificate operation is already running")
 	ErrNotFound    = errors.New("certificate not found")
 	ErrUnsupported = errors.New("certificate operation is not supported")
+	ErrNodeIssue   = errors.New("node certificate issuance failed")
 )
 
 type Record struct {
@@ -58,6 +59,7 @@ type Record struct {
 	FingerprintSHA256 *string  `json:"fingerprint_sha256"`
 	AutoRenew         bool     `json:"auto_renew"`
 	ServeTLS          bool     `json:"serve_tls"`
+	NodeID            *int64   `json:"node_id"`
 }
 
 type IssueRequest struct {
@@ -93,6 +95,7 @@ type Manager struct {
 	httpClient     *http.Client
 	run            Runner
 	operationMutex sync.Mutex
+	nodeIssuer     NodeIssuer
 }
 
 func NewManager(db *sql.DB, cfg Config) *Manager {
@@ -220,7 +223,7 @@ func (m *Manager) List(ctx context.Context) ([]Record, error) {
 }
 
 func (m *Manager) Get(ctx context.Context, domain string) (Record, error) {
-	domain, err := normalizeDomain(domain)
+	domain, err := normalizeRecordName(domain)
 	if err != nil {
 		return Record{}, err
 	}
@@ -406,12 +409,20 @@ func (m *Manager) RenewDue(ctx context.Context, before time.Time) []error {
 		return []error{err}
 	}
 	errs := []error{}
+	nodeRenewBefore := time.Now().UTC().Add(nodeIPCertificateRenewWindow)
 	for _, record := range records {
 		if !record.AutoRenew || record.NotAfter == nil || record.Status == "revoked" {
 			continue
 		}
 		notAfter, err := time.Parse(time.RFC3339, *record.NotAfter)
-		if err != nil || notAfter.After(before) {
+		if err != nil {
+			continue
+		}
+		threshold := before
+		if nodeIPCertificate(record) {
+			threshold = nodeRenewBefore
+		}
+		if notAfter.After(threshold) {
 			continue
 		}
 		if !m.operationMutex.TryLock() {
@@ -434,6 +445,9 @@ func (m *Manager) renewLocked(ctx context.Context, domain string, force bool) (R
 	}
 	if record.Status == "revoked" {
 		return Record{}, fmt.Errorf("%w: revoked certificates must be issued again", ErrUnsupported)
+	}
+	if record.NodeID != nil {
+		return m.renewNodeLocked(ctx, record)
 	}
 	provider := normalizeProvider(valueOrEmpty(record.Provider))
 	metadata := readMetadata(filepath.Join(m.baseDir, record.Domain, ".metadata"))
@@ -486,6 +500,9 @@ func (m *Manager) Revoke(ctx context.Context, domain string) (Record, error) {
 	}
 	if record.Status == "revoked" {
 		return record, nil
+	}
+	if record.NodeID != nil {
+		return Record{}, fmt.Errorf("%w: node-issued certificates are removed by deleting them", ErrUnsupported)
 	}
 	provider := normalizeProvider(valueOrEmpty(record.Provider))
 	if provider == "manual" {
@@ -704,6 +721,9 @@ func (m *Manager) enrich(record *Record) {
 	record.Path = filepath.Join(m.baseDir, record.Domain) + string(os.PathSeparator)
 	metadata := readMetadata(filepath.Join(m.baseDir, record.Domain, ".metadata"))
 	record.ServeTLS = metadataServesTLS(metadata)
+	if nodeID, err := strconv.ParseInt(strings.TrimSpace(metadata[nodeIssuedMetadataKey]), 10, 64); err == nil {
+		record.NodeID = &nodeID
+	}
 	metadataStatus := strings.ToLower(strings.TrimSpace(metadata["status"]))
 	if metadataStatus == "revoked" || metadataStatus == "revoking" {
 		record.Status = metadataStatus
@@ -731,18 +751,22 @@ func (m *Manager) enrich(record *Record) {
 	fingerprint := strings.ToUpper(hex.EncodeToString(fingerprintBytes[:]))
 	record.FingerprintSHA256 = &fingerprint
 	now := time.Now().UTC()
+	expiringWindow := 30 * 24 * time.Hour
+	if nodeIPCertificate(*record) {
+		expiringWindow = nodeIPCertificateRenewWindow
+	}
 	switch {
 	case now.Before(leaf.NotBefore):
 		record.Status = "not_yet_valid"
 	case !now.Before(leaf.NotAfter):
 		record.Status = "expired"
-	case leaf.NotAfter.Before(now.Add(30 * 24 * time.Hour)):
+	case leaf.NotAfter.Before(now.Add(expiringWindow)):
 		record.Status = "expiring"
 	default:
 		record.Status = "active"
 	}
 	provider := normalizeProvider(valueOrEmpty(record.Provider))
-	record.AutoRenew = (provider == "letsencrypt" || provider == "zerossl") && strings.TrimSpace(metadata["certbot_cert_name"]) != ""
+	record.AutoRenew = (provider == "letsencrypt" || provider == "zerossl") && (strings.TrimSpace(metadata["certbot_cert_name"]) != "" || record.NodeID != nil)
 }
 
 type rowScanner interface {
@@ -1073,6 +1097,9 @@ func decodeStringArray(value string) []string {
 	}
 	var result []string
 	if json.Unmarshal([]byte(value), &result) == nil {
+		if result == nil {
+			return []string{}
+		}
 		return result
 	}
 	return strings.FieldsFunc(value, func(char rune) bool { return char == ',' || char == ' ' || char == '\n' })

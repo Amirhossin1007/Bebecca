@@ -73,6 +73,17 @@ func ValidateUserCreatePermissions(admin adminapp.Admin, payload UserCreate, ctx
 	}); err != nil {
 		return err
 	}
+	if payload.DataLimit != nil {
+		if err := EnsureMinDataLimitPermission(admin, *payload.DataLimit, 0); err != nil {
+			return err
+		}
+	}
+	if err := EnsureSpeedLimitPermission(admin, optionalInt64(payload.SpeedLimitKbps), 0, ctx.UserSpeedLimitEnabled); err != nil {
+		return err
+	}
+	if err := EnsureIPLimitPermission(admin, optionalInt64(payload.IPLimit), 0); err != nil {
+		return err
+	}
 	if admin.UseServiceTrafficLimits && admin.Role != adminapp.RoleFullAccess {
 		return PermissionError{Detail: "This admin must create users inside an assigned service."}
 	}
@@ -116,6 +127,17 @@ func ValidateUserServiceCreatePermissions(admin adminapp.Admin, payload UserServ
 	}); err != nil {
 		return err
 	}
+	if payload.DataLimit != nil {
+		if err := EnsureMinDataLimitPermission(admin, *payload.DataLimit, 0); err != nil {
+			return err
+		}
+	}
+	if err := EnsureSpeedLimitPermission(admin, optionalInt64(payload.SpeedLimitKbps), 0, ctx.UserSpeedLimitEnabled); err != nil {
+		return err
+	}
+	if err := EnsureIPLimitPermission(admin, optionalInt64(payload.IPLimit), 0); err != nil {
+		return err
+	}
 	if err := EnsureUsersLimit(admin, &payload.ServiceID, ctx); err != nil {
 		return err
 	}
@@ -143,6 +165,33 @@ func ValidateUserModifyPermissions(admin adminapp.Admin, payload UserModify, ctx
 		NextPlans: payload.NextPlans,
 	}); err != nil {
 		return err
+	}
+	if payload.DataLimit != nil {
+		current := int64(0)
+		if ctx.ExistingUser != nil && ctx.ExistingUser.DataLimit != nil {
+			current = *ctx.ExistingUser.DataLimit
+		}
+		if err := EnsureMinDataLimitPermission(admin, *payload.DataLimit, current); err != nil {
+			return err
+		}
+	}
+	if payload.SpeedLimitKbps != nil {
+		current := int64(0)
+		if ctx.ExistingUser != nil {
+			current = ctx.ExistingUser.SpeedLimitKbps
+		}
+		if err := EnsureSpeedLimitPermission(admin, *payload.SpeedLimitKbps, current, ctx.UserSpeedLimitEnabled); err != nil {
+			return err
+		}
+	}
+	if payload.IPLimit != nil {
+		current := int64(0)
+		if ctx.ExistingUser != nil {
+			current = ctx.ExistingUser.IPLimit
+		}
+		if err := EnsureIPLimitPermission(admin, *payload.IPLimit, current); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -185,6 +234,9 @@ func EnsureUserConstraints(admin adminapp.Admin, input UserConstraintInput) erro
 				if err := EnsureDataLimitPermission(admin, *plan.DataLimit); err != nil {
 					return err
 				}
+				if err := EnsureMinDataLimitPermission(admin, *plan.DataLimit, 0); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -209,6 +261,65 @@ func EnsureDataLimitPermission(admin adminapp.Admin, dataLimit int64) error {
 		return PermissionError{Detail: fmt.Sprintf("Data limit %.2f GB exceeds maximum %.2f GB. Maximum allowed: %.2f GB", originalGB, maxGB, maxGB)}
 	}
 	return nil
+}
+
+func EnsureMinDataLimitPermission(admin adminapp.Admin, dataLimit int64, currentLimit int64) error {
+	if admin.Role == adminapp.RoleFullAccess {
+		return nil
+	}
+	minLimit := admin.Permissions.Users.MinDataLimitPerUser
+	if minLimit == nil || *minLimit <= 0 || dataLimit <= 0 || dataLimit == currentLimit {
+		return nil
+	}
+	if dataLimit < *minLimit {
+		minGB := float64(*minLimit) / (1024 * 1024 * 1024)
+		return PermissionError{Detail: fmt.Sprintf("Data limit is below the minimum allowed %.2f GB.", minGB)}
+	}
+	return nil
+}
+
+func EnsureSpeedLimitPermission(admin adminapp.Admin, speedKbps int64, currentKbps int64, enabled bool) error {
+	if speedKbps == currentKbps {
+		return nil
+	}
+	if !enabled {
+		return PermissionError{Detail: "User speed limits are turned off in the panel settings."}
+	}
+	if admin.Role == adminapp.RoleFullAccess {
+		return nil
+	}
+	perms := admin.Permissions.Users
+	if !perms.ManageSpeedLimit {
+		return PermissionError{Detail: "You're not allowed to change user speed limits."}
+	}
+	if speedKbps > 0 && perms.MaxSpeedLimitPerUser != nil && speedKbps > *perms.MaxSpeedLimitPerUser {
+		return PermissionError{Detail: fmt.Sprintf("Speed limit %.2f Mbps exceeds the maximum %.2f Mbps.", float64(speedKbps)/1000, float64(*perms.MaxSpeedLimitPerUser)/1000)}
+	}
+	return nil
+}
+
+func EnsureIPLimitPermission(admin adminapp.Admin, ipLimit int64, currentLimit int64) error {
+	if ipLimit == currentLimit {
+		return nil
+	}
+	if admin.Role == adminapp.RoleFullAccess {
+		return nil
+	}
+	perms := admin.Permissions.Users
+	if !perms.ManageIPLimit {
+		return PermissionError{Detail: "You're not allowed to change user IP limits."}
+	}
+	if ipLimit > 0 && perms.MaxIPLimitPerUser != nil && ipLimit > *perms.MaxIPLimitPerUser {
+		return PermissionError{Detail: fmt.Sprintf("IP limit %d exceeds the maximum %d.", ipLimit, *perms.MaxIPLimitPerUser)}
+	}
+	return nil
+}
+
+func optionalInt64(value *int64) int64 {
+	if value == nil {
+		return 0
+	}
+	return *value
 }
 
 func EnsureFlowPermission(admin adminapp.Admin, hasFlow bool) error {
