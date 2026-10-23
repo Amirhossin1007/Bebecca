@@ -238,7 +238,6 @@ type ThemePanelProps = {
 	onSelectAccent: (accent: string) => void;
 };
 
-/** The picker body. The icon, menu and nested-menu triggers all render it. */
 const ThemePanel: FC<ThemePanelProps> = ({
 	minimal,
 	activeTheme,
@@ -261,7 +260,7 @@ const ThemePanel: FC<ThemePanelProps> = ({
 							const Icon = theme.icon;
 							return (
 								<Button key={theme.key} onClick={() => onSelectTheme(theme.key)} variant="outline" className={cn(
-										"relative h-[72px] rounded-[6px] px-3 text-panel-text hover:border-panel-accent! hover:bg-panel-elevated",
+										"relative h-[72px] rounded-[10px] px-3 text-panel-text md:hover:border-panel-accent! md:hover:bg-panel-elevated active:bg-panel-elevated",
 										selected
 											? "border-2 border-panel-accent! bg-panel-elevated"
 											: "border border-panel-border! bg-transparent",
@@ -310,10 +309,10 @@ const ThemePanel: FC<ThemePanelProps> = ({
 												} as CSSProperties
 											}
 											className={cn(
-												"inline-flex h-[34px] min-w-[34px]! items-center justify-center rounded-[8px] bg-[var(--swatch)] text-white outline-none transition-all hover:bg-[var(--swatch-hover)] focus-visible:shadow-[0_0_0_2px_var(--rb-panel-accent)] active:scale-95",
+												"inline-flex h-[34px] min-w-[34px]! items-center justify-center rounded-[10px] bg-[var(--swatch)] text-white outline-none transition-all md:hover:bg-[var(--swatch-hover)] focus-visible:shadow-[0_0_0_2px_var(--rb-panel-accent)] active:scale-95",
 												selected
-													? "ring-2 ring-offset-2 ring-panel-text ring-offset-panel-surface dark:ring-white dark:ring-offset-panel-surface shadow-md"
-													: "border border-panel-border/60 hover:border-panel-border-strong",
+													? "ring-2 ring-panel-accent ring-offset-2 ring-offset-panel-surface"
+													: "border border-panel-border/60 md:hover:border-panel-border-strong",
 											)}
 										>
 											{selected ? <Check className="size-4" /> : null}
@@ -341,7 +340,6 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	const { t } = useTranslation();
 	const { colorMode, setColorMode } = useColorMode();
 	const themeMenu = useDisclosure();
-	// Chakra auto-placed the nested picker to the side on desktop and below the row on mobile.
 	const isWide = useMediaQuery("(min-width: 48em)");
 	const activeTheme = normalizeTheme(colorMode);
 	const [activeAccent, setActiveAccent] = useState(getStoredAccent);
@@ -385,7 +383,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 					open ? themeMenu.onOpen() : themeMenu.onClose()
 				}>
 				<PopoverTrigger asChild>
-					<Button onClick={(event: ReactMouseEvent) => event.stopPropagation()} variant="ghost" className="h-10 w-full justify-start gap-3 rounded-md bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
+					<Button onClick={(event: ReactMouseEvent) => event.stopPropagation()} variant="ghost" className="h-10 w-full justify-start gap-3 rounded-[12px] bg-transparent px-3 font-medium text-panel-text md:hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
 						<SwatchBook className="size-4 shrink-0" />
 						<span className="truncate">
 							{triggerLabel || t("header.theme")}

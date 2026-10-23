@@ -811,7 +811,6 @@ const ResourceCard: FC<{
 	const criticalColor = safe >= 90 ? "#ef4444" : safe >= 75 ? "#f59e0b" : accent;
 
 	return (
-		// biome-ignore lint/a11y/useSemanticElements: role=group is the hook the group's styles use for the card's hover styles
 		<div role="group" className="bg-panel-surface border border-panel-border! rounded-[20px] p-4 sm:p-5 relative overflow-hidden flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] [transition:border-color_0.25s_ease,_background-color_0.25s_ease,_box-shadow_0.25s_ease] hover:md:border-panel-border-strong! hover:md:bg-panel-elevated hover:md:shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_12px_32px_-4px_rgba(0,_0,_0,_0.22)]">
 			<div>
 				<div className="flex justify-between items-center mb-3">
@@ -1041,7 +1040,6 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 		queryFn: () => fetch("/system"),
 	});
 
-	// v5 removed onSuccess from useQuery: the side effect follows the data.
 	const fetchedVersion = rawSystemData?.version;
 	useEffect(() => {
 		if (fetchedVersion && version !== fetchedVersion) {

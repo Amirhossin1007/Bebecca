@@ -21,7 +21,6 @@ import {
 	normalizeTutorialLang,
 } from "utils/tutorials";
 
-/** Icons keep the sidebar's size without a styled-system wrapper. */
 const iconClass = "size-5 shrink-0";
 
 const HomeIconStyled = () => <House className={iconClass} />;
@@ -54,9 +53,7 @@ interface AppSidebarProps {
 	collapsed: boolean;
 	sponsors?: SponsorAsset[];
 	sidebarBanners?: SponsorAsset[];
-	/** when rendered inside a Drawer on mobile */
 	inDrawer?: boolean;
-	/** optional callback to request the parent to expand the sidebar */
 	onRequestExpand?: () => void;
 }
 
@@ -558,8 +555,6 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 															) : null}
 														</>
 													) : (
-														/* Collapsed rail: the label appears on hover, like
-														   the old Tooltip did. */
 														<span className="pointer-events-none absolute start-full top-1/2 z-20 ms-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-panel-border bg-panel-elevated px-2 py-1 text-xs text-panel-text opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
 															{item.title}
 														</span>

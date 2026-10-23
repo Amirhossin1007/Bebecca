@@ -799,7 +799,7 @@ export function AppLayout() {
 						transition: "margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
 					}}
 				>
-					<header className="sticky top-3 z-40 mx-3 mt-3 flex h-14 min-h-14 shrink-0 select-none items-center justify-between gap-4 rounded-2xl border border-panel-border! bg-panel-surface px-3 md:mx-4 md:px-5">
+					<header className="sticky top-3 z-40 mx-3 mt-3 flex h-14 min-h-14 shrink-0 select-none items-center justify-between gap-4 rounded-[20px] border border-panel-border! bg-panel-surface px-3 md:mx-4 md:px-5">
 						<div className="flex min-w-0 flex-1 items-center gap-3">
 							<Button aria-label={t("a11y.toggleSidebar")} onClick={() => {
 									if (isMobile) sidebarDrawer.onOpen();
@@ -890,9 +890,9 @@ export function AppLayout() {
 											</span>
 										</Button>
 									</DropdownMenuTrigger>
-									<DropdownMenuContent align={isRTL ? "start" : "end"} sideOffset={8} className="min-w-[236px]! rounded-xl border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-xl select-none">
+									<DropdownMenuContent align={isRTL ? "start" : "end"} sideOffset={8} className="min-w-[236px]! rounded-[14px] border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-xl select-none">
 										<div ref={userMenuContentRef}>
-											<div className="mx-1.5 mt-1 mb-1.5 flex items-center gap-3 rounded-lg bg-panel-main px-3 py-2.5">
+											<div className="mx-1.5 mt-1 mb-1.5 flex items-center gap-3 rounded-[12px] bg-panel-main px-3 py-2.5">
 												<span
 													className={cn(
 														"flex size-9 shrink-0 items-center justify-center rounded-full",
@@ -1146,8 +1146,6 @@ export function AppLayout() {
 														<Button ref={(node) => {
 																tabContentRefs.current[item.key] = node;
 															}} onClick={(event) => {
-																// The click only toggles through handleSettingsMenuToggle, so
-																// stop the trigger from toggling on its own.
 																event.preventDefault();
 																if (settingsHoldOpened.current) return;
 																handleSettingsMenuToggle();
@@ -1209,7 +1207,6 @@ export function AppLayout() {
 														<Button ref={(node) => {
 																tabContentRefs.current[item.key] = node;
 															}} onClick={(event) => {
-																// Same as the settings tab: the click is handled below only.
 																event.preventDefault();
 																if (accountHoldOpened.current) return;
 																handleAccountMenuClose();
