@@ -2,10 +2,10 @@ import { Button } from "components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Sheet, SheetContent, SheetTitle } from "components/ui/sheet";
-import { TriangleAlert } from "lucide-react";
 import { LogOut, ArrowLeftRight, Share, Menu, Bell, BookOpen, Briefcase, Check, Database, Clock, SquareCode, Settings, Settings2, Terminal, Copy, Eye, House as HeroHomeIcon, Languages, Link, Server, LayoutGrid, User as UserIcon, Users, Wrench, Bell as BellSolidIcon, Briefcase as BriefcaseSolidIcon, Settings as Cog6ToothSolidIcon, House as HomeSolidIcon, Users as UserGroupSolidIcon, User as UserSolidIcon } from "lucide-react";
 import {
 	Breadcrumb,
+	BreadcrumbEllipsisDropdown,
 	BreadcrumbItem,
 	BreadcrumbLink,
 	BreadcrumbList,
@@ -93,6 +93,23 @@ type BottomNavItem = {
 	kind?: "menu" | "link";
 };
 
+let textMeasureCanvas: HTMLCanvasElement | null = null;
+const measureBreadcrumbLabel = (text: string, isPage = false): number => {
+	if (!text) return 0;
+	if (typeof document === "undefined") {
+		return Math.ceil(text.length * (isPage ? 8.5 : 8));
+	}
+	if (!textMeasureCanvas) {
+		textMeasureCanvas = document.createElement("canvas");
+	}
+	const ctx = textMeasureCanvas.getContext("2d");
+	if (!ctx) {
+		return Math.ceil(text.length * (isPage ? 8.5 : 8));
+	}
+	ctx.font = `${isPage ? "600" : "500"} 12.5px Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+	return Math.ceil(ctx.measureText(text).width);
+};
+
 export function AppLayout() {
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const isMobile = !useMediaQuery("(min-width: 48em)");
@@ -146,6 +163,14 @@ export function AppLayout() {
 	const tutorialsUrl = "/tutorials";
 	const sectionAccess = userData.permissions?.sections;
 	const userMenuContentRef = useRef<HTMLDivElement | null>(null);
+	const [_responsiveStage, setResponsiveStage] = useState<number>(0);
+	const [breadcrumbMode, setBreadcrumbMode] = useState<
+		"full" | "short" | "ellipsis" | "hidden"
+	>("full");
+	const [canTruncateLastCrumb, setCanTruncateLastCrumb] = useState(false);
+	const [bannerShrinkable, setBannerShrinkable] = useState(false);
+	const [calendarCompact, setCalendarCompact] = useState(false);
+	const headerRef = useRef<HTMLElement>(null);
 	const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
 	const contentRef = useRef<HTMLDivElement | null>(null);
 	const [showIosPrompt, setShowIosPrompt] = useState(false);
@@ -733,23 +758,362 @@ export function AppLayout() {
 		"/usage": "services",
 		"/xray-settings": "basic",
 	};
-	const locationTrail = [
-		"dashboard",
-		...location.pathname.split("/").filter(Boolean),
-		activeLocationHash.replace(/^#/, "") ||
-			settingsDefaultTabByPath[location.pathname] ||
-			"",
-	]
-		.filter(Boolean)
-		.map((part) => part.replace(/[-_]+/g, " "));
-	const openCurrentPage = () => {
-		const defaultTab = settingsDefaultTabByPath[location.pathname];
-		if (defaultTab) {
-			window.location.hash = defaultTab;
+	const breadcrumbItems = useMemo(() => {
+		const path = location.pathname;
+		const hashKey = (activeLocationHash || "")
+			.replace(/^#/, "")
+			.split("?")[0]
+			.toLowerCase();
+
+		let items: { label: string; path?: string }[] = [];
+
+		if (path === "/") {
+			items = [{ label: t("dashboard"), path: "/" }];
+		} else if (path === "/users") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.userHub") },
+				{ label: t("sidebar.usersList"), path: "/users" },
+			];
+		} else if (path === "/bulk-actions") {
+			const bulkActionsTabs: Record<string, string> = {
+				edit: t("bulkActions.tabs.edit"),
+				delete: t("bulkActions.tabs.delete"),
+				permissions: t("bulkActions.tabs.permissions"),
+			};
+			const activeBulkTab = bulkActionsTabs[hashKey];
+			if (activeBulkTab) {
+				items = [
+					{ label: t("dashboard"), path: "/" },
+					{ label: t("sidebar.groups.userHub") },
+					{ label: t("bulkActions.menu"), path: "/bulk-actions" },
+					{ label: activeBulkTab },
+				];
+			} else {
+				items = [
+					{ label: t("dashboard"), path: "/" },
+					{ label: t("sidebar.groups.userHub") },
+					{ label: t("bulkActions.menu"), path: "/bulk-actions" },
+				];
+			}
+		} else if (path === "/admins") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("admins"), path: "/admins" },
+			];
+		} else if (path === "/myaccount") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("myaccount.menu"), path: "/myaccount" },
+			];
+		} else if (path === "/usage") {
+			const usageTabs: Record<string, string> = {
+				services: t("usage.tabs.services"),
+				admins: t("usage.tabs.admins"),
+				nodes: t("usage.tabs.nodes"),
+			};
+			const activeUsageTab = usageTabs[hashKey] || usageTabs.services;
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("usage.menu"), path: "/usage#services" },
+				{ label: activeUsageTab },
+			];
+		} else if (path === "/hosts") {
+			const hostsTabs: Record<string, string> = {
+				inbounds: t("hostsPage.tabInbounds"),
+				hosts: t("hostsPage.tabHosts"),
+			};
+			const activeHostsTab = hostsTabs[hashKey] || hostsTabs.inbounds;
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("header.hostSettings"), path: "/hosts#inbounds" },
+				{ label: activeHostsTab },
+			];
+		} else if (path === "/services") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("services.title"), path: "/services" },
+			];
+		} else if (path === "/node-settings") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("header.nodeSettings"), path: "/node-settings" },
+			];
+		} else if (path === "/xray-logs") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.observability") },
+				{ label: t("pages.xray.logs"), path: "/xray-logs" },
+			];
+		} else if (path === "/access-insights") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.observability") },
+				{ label: t("header.accessInsights"), path: "/access-insights" },
+			];
+		} else if (path === "/recent-actions") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.observability") },
+				{ label: t("recentActions.title"), path: "/recent-actions" },
+			];
+		} else if (path === "/xray-settings") {
+			const xrayTabs: Record<string, string> = {
+				basic: t("pages.xray.basicTemplate"),
+				routing: t("pages.xray.Routings"),
+				outbounds: t("pages.xray.Outbounds"),
+				reverse: t("pages.xray.reverse.title"),
+				balancers: t("pages.xray.Balancers"),
+				dns: t("DNS"),
+				advanced: t("pages.xray.advancedTemplate"),
+			};
+			const activeXrayTab = xrayTabs[hashKey] || xrayTabs.basic;
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.coreRouting") },
+				{ label: t("header.xraySettings"), path: "/xray-settings#basic" },
+				{ label: activeXrayTab },
+			];
+		} else if (path === "/haproxy") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.coreRouting") },
+				{ label: t("haproxy.title"), path: "/haproxy" },
+			];
+		} else if (path === "/notifications") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
+				{ label: t("notifications.menu"), path: "/notifications" },
+			];
+		} else if (path === "/settings") {
+			const settingsTabs: Record<string, string> = {
+				panel: t("settings.panel.tabTitle"),
+				telegram: t("settings.telegram"),
+				subscriptions: t("settings.subscriptions.tabTitle"),
+				ssl: t("settings.ssl.tabTitle"),
+			};
+			const activeSettingsTab = settingsTabs[hashKey] || settingsTabs.panel;
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
+				{ label: t("header.integrationSettings"), path: "/settings#panel" },
+				{ label: activeSettingsTab },
+			];
+		} else if (path === "/placeholders") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
+				{ label: t("placeholders.menu"), path: "/placeholders" },
+			];
+		} else if (path === "/phpmyadmin") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
+				{ label: t("phpmyadmin.menu"), path: "/phpmyadmin" },
+			];
+		} else if (path === "/external-apps") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.groups.system") },
+				{ label: t("externalApps.menu"), path: "/external-apps" },
+			];
+		} else if (path === "/api-docs") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("apiDocs.menu"), path: "/api-docs" },
+			];
+		} else if (path === "/tutorials") {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				{ label: t("sidebar.tutorialsAndFaq"), path: "/tutorials" },
+			];
+		} else {
+			items = [
+				{ label: t("dashboard"), path: "/" },
+				...path
+					.split("/")
+					.filter(Boolean)
+					.map((part) => ({
+						label: part.replace(/[-_]+/g, " "),
+					})),
+			];
+		}
+
+		return items;
+	}, [location.pathname, activeLocationHash, t]);
+	const checkFit = useCallback(() => {
+		if (isMobile) {
+			setBreadcrumbMode("hidden");
+			setCalendarCompact(false);
+			setBannerShrinkable(false);
+			setCanTruncateLastCrumb(false);
 			return;
 		}
-		navigate(location.pathname);
-	};
+
+		const headerEl = headerRef.current;
+		if (!headerEl) return;
+
+		const computed = window.getComputedStyle(headerEl);
+		const pl = Number.parseFloat(computed.paddingLeft) || 0;
+		const pr = Number.parseFloat(computed.paddingRight) || 0;
+		const availableWidth = headerEl.clientWidth - pl - pr;
+
+		const menuBtnWidth = 34;
+		const groupGap = 12;
+		const crumbItemGap = 8;
+		const sepWidth = 14;
+
+		let calendarWidth = 180;
+		const calEl = headerEl.querySelector('[data-calendar-widget="true"]');
+		if (calEl) {
+			const rect = calEl.getBoundingClientRect();
+			if (rect.width > 0) calendarWidth = rect.width;
+		}
+
+		let notifWidth = 0;
+		if (getUserIsSuccess && userData.username) notifWidth = 34;
+
+		let githubStarsWidth = 0;
+		const ghEl = headerEl.querySelector('[data-github-stars="true"]');
+		if (ghEl) {
+			const rect = ghEl.getBoundingClientRect();
+			if (rect.width > 0) githubStarsWidth = rect.width;
+		}
+
+		let profileWidth = 0;
+		const profEl = headerEl.querySelector('[data-header-profile="true"]');
+		if (profEl) {
+			const rect = profEl.getBoundingClientRect();
+			if (rect.width > 0) profileWidth = rect.width;
+		}
+
+		const rightControlsWidth =
+			calendarWidth + notifWidth + githubStarsWidth + profileWidth;
+
+		let bannerNominalWidth = 0;
+		const bannerEl = headerEl.querySelector('[data-header-banner="true"]');
+		if (bannerEl) {
+			bannerNominalWidth = 360;
+		}
+
+		const reservedWidth =
+			menuBtnWidth +
+			groupGap +
+			bannerNominalWidth +
+			(bannerNominalWidth > 0 ? groupGap : 0) +
+			rightControlsWidth;
+
+		const count = breadcrumbItems.length;
+
+		let fullCrumbsWidth = 0;
+		if (count > 0) {
+			for (let i = 0; i < count; i++) {
+				const isLast = i === count - 1;
+				const isFirst = i === 0;
+				const pad = isFirst || isLast ? 16 : 8;
+				fullCrumbsWidth +=
+					measureBreadcrumbLabel(breadcrumbItems[i].label, isLast) + pad;
+			}
+			fullCrumbsWidth += Math.max(0, count - 1) * (sepWidth + crumbItemGap * 2);
+		}
+
+		let shortCrumbsWidth = 0;
+		if (count > 0) {
+			const firstPad = 16;
+			const lastPad = 16;
+			const firstW =
+				measureBreadcrumbLabel(breadcrumbItems[0].label, false) + firstPad;
+			const lastW =
+				measureBreadcrumbLabel(
+					breadcrumbItems[count - 1].label,
+					count > 1,
+				) + lastPad;
+
+			if (count <= 2) {
+				shortCrumbsWidth = fullCrumbsWidth;
+			} else {
+				shortCrumbsWidth =
+					firstW +
+					sepWidth +
+					crumbItemGap * 2 +
+					22 +
+					sepWidth +
+					crumbItemGap * 2 +
+					lastW;
+			}
+		}
+
+		const stage0Needed = reservedWidth + fullCrumbsWidth;
+		const stage1Needed = reservedWidth + shortCrumbsWidth;
+		const stage2Needed = reservedWidth;
+		const stage3Needed = reservedWidth - 140;
+		const stage4Needed =
+			reservedWidth -
+			bannerNominalWidth -
+			(bannerNominalWidth > 0 ? groupGap : 0) +
+			shortCrumbsWidth;
+		const stage5Needed =
+			reservedWidth -
+			bannerNominalWidth -
+			(bannerNominalWidth > 0 ? groupGap : 0);
+
+		if (availableWidth >= stage0Needed) {
+			setResponsiveStage(0);
+			setBreadcrumbMode("full");
+			setBannerShrinkable(false);
+			setCalendarCompact(false);
+			setCanTruncateLastCrumb(false);
+		} else if (availableWidth >= stage1Needed) {
+			setResponsiveStage(1);
+			setBreadcrumbMode(count > 2 ? "short" : "full");
+			setBannerShrinkable(false);
+			setCalendarCompact(false);
+			setCanTruncateLastCrumb(false);
+		} else if (availableWidth >= stage2Needed) {
+			setResponsiveStage(2);
+			setBreadcrumbMode(count > 2 ? "short" : "full");
+			setBannerShrinkable(false);
+			setCalendarCompact(false);
+			setCanTruncateLastCrumb(true);
+		} else if (availableWidth >= stage3Needed) {
+			setResponsiveStage(3);
+			setBreadcrumbMode("ellipsis");
+			setBannerShrinkable(true);
+			setCalendarCompact(false);
+			setCanTruncateLastCrumb(false);
+		} else if (availableWidth >= stage4Needed) {
+			setResponsiveStage(4);
+			setBreadcrumbMode(count > 2 ? "short" : "full");
+			setBannerShrinkable(false);
+			setCalendarCompact(true);
+			setCanTruncateLastCrumb(false);
+		} else if (availableWidth >= stage5Needed) {
+			setResponsiveStage(5);
+			setBreadcrumbMode("ellipsis");
+			setBannerShrinkable(false);
+			setCalendarCompact(true);
+			setCanTruncateLastCrumb(false);
+		} else {
+			setResponsiveStage(6);
+			setBreadcrumbMode("hidden");
+			setBannerShrinkable(false);
+			setCalendarCompact(true);
+			setCanTruncateLastCrumb(false);
+		}
+	}, [
+		isMobile,
+		breadcrumbItems,
+		getUserIsSuccess,
+		userData.username,
+	]);
+
+	useEffect(() => {
+		checkFit();
+		const handleResize = () => checkFit();
+		window.addEventListener("resize", handleResize);
+		return () => window.removeEventListener("resize", handleResize);
+	}, [checkFit]);
 
 	const navigateToSettingsItem = (target: string) => {
 		const defaultTab = settingsDefaultTabByPath[target];
@@ -799,63 +1163,130 @@ export function AppLayout() {
 						transition: "margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
 					}}
 				>
-					<header className="sticky top-3 z-40 mx-3 mt-3 flex h-14 min-h-14 shrink-0 select-none items-center justify-between gap-4 rounded-[20px] border border-panel-border! bg-panel-surface px-3 md:mx-4 md:px-5">
+					<header
+						ref={headerRef}
+						className="sticky top-3 z-40 mx-3 mt-3 flex h-14 min-h-14 shrink-0 select-none items-center justify-between gap-4 rounded-[20px] border border-panel-border! bg-panel-surface px-3 md:mx-4 md:px-5"
+					>
 						<div className="flex min-w-0 flex-1 items-center gap-3">
-							<Button aria-label={t("a11y.toggleSidebar")} onClick={() => {
+							<Button
+								aria-label={t("a11y.toggleSidebar")}
+								onClick={() => {
 									if (isMobile) sidebarDrawer.onOpen();
 									else setSidebarCollapsed(!sidebarCollapsed);
-								}} variant="outline" size="icon" className="shrink-0 border-panel-border! bg-panel-elevated hover:bg-panel-border-strong">
+								}}
+								variant="outline"
+								size="icon"
+								className="shrink-0 border-panel-border! bg-panel-elevated hover:bg-panel-border-strong"
+							>
 								<MenuIcon className="size-4" />
 							</Button>
 
-							<Breadcrumb dir="ltr" className="hidden min-w-0 shrink md:block">
-								<BreadcrumbList className="flex-nowrap items-center gap-1 overflow-hidden text-xs whitespace-nowrap md:text-sm">
-									<BreadcrumbItem className="shrink-0">
-										<BreadcrumbLink asChild>
-											<button
-												type="button"
-												onClick={() => navigate("/")}
-												className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
-											>
-												dashboard
-											</button>
-										</BreadcrumbLink>
-									</BreadcrumbItem>
-									{locationTrail.length > 1 && (
-										<>
-											<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
+							{breadcrumbMode !== "hidden" && (
+								<Breadcrumb dir="ltr" className="hidden min-w-0 shrink md:block">
+									<BreadcrumbList className="flex-nowrap items-center gap-1 overflow-hidden text-xs whitespace-nowrap md:text-sm">
+										{breadcrumbMode === "ellipsis" ? (
 											<BreadcrumbItem>
-												<BreadcrumbLink asChild>
-													<button
-														type="button"
-														onClick={openCurrentPage}
-														className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
-													>
-														{locationTrail[1]}
-													</button>
-												</BreadcrumbLink>
+												<BreadcrumbEllipsisDropdown
+													items={breadcrumbItems}
+													onNavigate={(path) => navigate(path)}
+												/>
 											</BreadcrumbItem>
-										</>
-									)}
-									{locationTrail.length > 2 && (
-										<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
-									)}
-									{locationTrail.length > 2 && (
-										<BreadcrumbItem className="min-w-0">
-											<BreadcrumbPage className="truncate text-xs font-semibold text-panel-text-secondary md:text-sm">
-												{locationTrail.slice(2).join(" → ")}
-											</BreadcrumbPage>
-										</BreadcrumbItem>
-									)}
-								</BreadcrumbList>
-							</Breadcrumb>
+										) : breadcrumbMode === "short" ? (
+											<>
+												{breadcrumbItems.length > 0 && (
+													<BreadcrumbItem className="shrink-0">
+														<BreadcrumbLink asChild>
+															<button
+																type="button"
+																onClick={() =>
+																	breadcrumbItems[0].path &&
+																	navigate(breadcrumbItems[0].path)
+																}
+																className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
+															>
+																{breadcrumbItems[0].label}
+															</button>
+														</BreadcrumbLink>
+													</BreadcrumbItem>
+												)}
+												{breadcrumbItems.length > 2 && (
+													<>
+														<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
+														<BreadcrumbItem>
+															<BreadcrumbEllipsisDropdown
+																items={breadcrumbItems.slice(1, -1)}
+																onNavigate={(path) => navigate(path)}
+															/>
+														</BreadcrumbItem>
+													</>
+												)}
+												{breadcrumbItems.length > 1 && (
+													<>
+														<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
+														<BreadcrumbItem className={canTruncateLastCrumb ? "min-w-0" : "shrink-0"}>
+															<BreadcrumbPage
+																className={cn(
+																	"text-xs font-semibold text-panel-text-secondary md:text-sm",
+																	canTruncateLastCrumb && "truncate max-w-[120px]",
+																)}
+															>
+																{breadcrumbItems[breadcrumbItems.length - 1].label}
+															</BreadcrumbPage>
+														</BreadcrumbItem>
+													</>
+												)}
+											</>
+										) : (
+											breadcrumbItems.map((item, index) => {
+												const isLast = index === breadcrumbItems.length - 1;
+												return (
+													<React.Fragment key={`${item.label}-${index}`}>
+														{index > 0 && (
+															<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
+														)}
+														<BreadcrumbItem className={isLast ? "min-w-0" : "shrink-0"}>
+															{isLast ? (
+																<BreadcrumbPage
+																	className={cn(
+																		"text-xs font-semibold text-panel-text-secondary md:text-sm",
+																		canTruncateLastCrumb && "truncate max-w-[140px]",
+																	)}
+																>
+																	{item.label}
+																</BreadcrumbPage>
+															) : (
+																<BreadcrumbLink asChild>
+																	<button
+																		type="button"
+																		onClick={() => item.path && navigate(item.path)}
+																		className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
+																	>
+																		{item.label}
+																	</button>
+																</BreadcrumbLink>
+															)}
+														</BreadcrumbItem>
+													</React.Fragment>
+												);
+											})
+										)}
+									</BreadcrumbList>
+								</Breadcrumb>
+							)}
+
 							{mobileHeaderItems.length > 0 && (
 								<div className="block w-[160px] min-w-0 shrink sm:w-[220px] md:hidden md:w-[360px]">
 									<SponsorCarousel items={mobileHeaderItems} variant="banner" />
 								</div>
 							)}
 							{sponsorHeaderItems.length > 0 && (
-								<div className="hidden w-[160px] min-w-0 shrink sm:w-[220px] md:block md:w-[360px]">
+								<div
+									data-header-banner="true"
+									className={cn(
+										"hidden min-w-0 shrink md:block",
+										bannerShrinkable ? "w-[220px] max-w-[220px]" : "w-[360px] max-w-[360px]",
+									)}
+								>
 									<SponsorCarousel items={sponsorHeaderItems} variant="banner" />
 								</div>
 							)}
@@ -863,7 +1294,7 @@ export function AppLayout() {
 
 						<div className="flex shrink-0 items-center gap-2">
 							<div className="flex h-[34px] items-center rounded-full border border-panel-border! bg-panel-elevated px-1">
-								<HeaderCalendar />
+								<HeaderCalendar isCompact={calendarCompact} />
 								{getUserIsSuccess && userData.username && <NotificationBell />}
 								<GitHubStars />
 							</div>
@@ -874,7 +1305,12 @@ export function AppLayout() {
 										else handleUserMenuClose();
 									}}>
 									<DropdownMenuTrigger asChild>
-										<Button aria-label={t("a11y.userMenu")} variant="outline" className="h-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-elevated ps-1 pe-1 text-sm font-semibold hover:bg-panel-border-strong sm:pe-3">
+										<Button
+											data-header-profile="true"
+											aria-label={t("a11y.userMenu")}
+											variant="outline"
+											className="h-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-elevated ps-1 pe-1 text-sm font-semibold hover:bg-panel-border-strong sm:pe-3"
+										>
 											<span className="flex items-center gap-2">
 												<span
 													className={cn(

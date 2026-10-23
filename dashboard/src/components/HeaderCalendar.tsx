@@ -205,14 +205,16 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 						variant="ghost"
 						size="sm"
 						className={cn(
-							"hidden md:inline-flex px-3 rounded-[10px] text-panel-text hover:bg-panel-elevated transition-colors",
-							isCompact ? "max-w-[180px]" : "max-w-[320px]",
+							"hidden md:inline-flex rounded-[10px] text-panel-text hover:bg-panel-elevated transition-colors",
+							isCompact ? "h-[34px] w-[34px] p-0 justify-center" : "px-3 max-w-[320px]",
 						)}
 					>
 						<CalendarIcon className="size-4 shrink-0" />
-						<p className="truncate font-semibold text-[0.875rem]">
-							{formattedDate}
-						</p>
+						{!isCompact && (
+							<p className="truncate font-semibold text-[0.875rem]">
+								{formattedDate}
+							</p>
+						)}
 					</Button>
 				)}
 			</PopoverTrigger>

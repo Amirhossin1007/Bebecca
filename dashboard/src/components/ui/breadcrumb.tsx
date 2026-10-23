@@ -2,6 +2,12 @@ import * as React from "react"
 import { cn } from "lib/cn"
 import { ChevronRight, MoreHorizontal } from "lucide-react"
 import { Slot } from "radix-ui"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "components/ui/dropdown-menu"
 
 function Breadcrumb({ ...props }: React.ComponentProps<"nav">) {
   return <nav aria-label="breadcrumb" data-slot="breadcrumb" {...props} />
@@ -94,6 +100,44 @@ function BreadcrumbEllipsis({
       <MoreHorizontal className="size-4" />
       <span className="sr-only">More</span>
     </span>
+  )
+}
+
+export interface BreadcrumbEllipsisDropdownProps {
+  items: { label: string; path?: string }[]
+  onNavigate?: (path: string) => void
+}
+
+export function BreadcrumbEllipsisDropdown({
+  items,
+  onNavigate,
+}: BreadcrumbEllipsisDropdownProps) {
+  if (items.length === 0) return null
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Toggle breadcrumb menu"
+          className="inline-flex size-[22px] items-center justify-center rounded-[6px] text-panel-text-muted transition-colors hover:bg-panel-elevated hover:text-panel-text focus-visible:outline-none active:scale-95"
+        >
+          <MoreHorizontal className="size-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[140px] rounded-[10px] border-panel-border! bg-panel-surface p-1 shadow-lg">
+        {items.map((item, idx) => (
+          <DropdownMenuItem
+            key={`${item.label}-${idx}`}
+            onClick={() => item.path && onNavigate?.(item.path)}
+            disabled={!item.path}
+            className="cursor-pointer rounded-[6px] px-2.5 py-1.5 text-xs text-panel-text hover:bg-panel-elevated focus:bg-panel-elevated"
+          >
+            {item.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
