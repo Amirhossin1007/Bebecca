@@ -1,3 +1,4 @@
+import logoUrl from "assets/logo.svg";
 import {
 	Box,
 	Flex,
@@ -13,11 +14,11 @@ export const PageLoadingSkeleton: FC = () => (
 		w="full"
 		h={{
 			base: "calc(100dvh - 162px - env(safe-area-inset-bottom, 0px))",
-			md: "calc(100vh - 88px)",
+			md: "calc(100vh - 24px)",
 		}}
 		maxH={{
 			base: "calc(100dvh - 162px - env(safe-area-inset-bottom, 0px))",
-			md: "calc(100vh - 88px)",
+			md: "calc(100vh - 24px)",
 		}}
 		borderRadius="20px"
 		borderWidth="1px"
@@ -134,12 +135,12 @@ export const PanelLoadingSkeleton: FC = () => {
 					>
 						<HStack spacing={2.5} align="center">
 							<Box
-								w="30px"
-								h="30px"
-								borderRadius="8px"
-								bg="panel.elevated"
+								as="img"
+								src={logoUrl}
+								alt="Rebecca"
+								w="28px"
+								h="28px"
 								flexShrink={0}
-								className="rb-glass-item"
 							/>
 							<Box
 								w="78px"
@@ -616,7 +617,8 @@ export const PanelLoadingSkeleton: FC = () => {
 								display={{ base: "none", md: "inline-flex" }}
 								align="center"
 								justify="center"
-								w="120px"
+								w="auto"
+								minW="110px"
 								h="34px"
 								borderRadius="12px"
 								borderWidth="1px"
@@ -627,14 +629,14 @@ export const PanelLoadingSkeleton: FC = () => {
 								className="rb-glass-item"
 							>
 								<Box
-									w="18px"
-									h="18px"
+									w="20px"
+									h="20px"
 									borderRadius="full"
 									bg="panel.elevated"
 									flexShrink={0}
 								/>
 								<Box
-									w="70px"
+									w="64px"
 									h="12px"
 									borderRadius="sm"
 									bg="panel.elevated"
@@ -653,8 +655,8 @@ export const PanelLoadingSkeleton: FC = () => {
 								className="rb-glass-item"
 							>
 								<Box
-									w="18px"
-									h="18px"
+									w="20px"
+									h="20px"
 									borderRadius="full"
 									bg="panel.elevated"
 									flexShrink={0}
@@ -679,11 +681,11 @@ export const PanelLoadingSkeleton: FC = () => {
 						w="full"
 						h={{
 							base: "calc(100dvh - 162px - env(safe-area-inset-bottom, 0px))",
-							md: "calc(100vh - 88px)",
+							md: "calc(100vh - 24px)",
 						}}
 						maxH={{
 							base: "calc(100dvh - 162px - env(safe-area-inset-bottom, 0px))",
-							md: "calc(100vh - 88px)",
+							md: "calc(100vh - 24px)",
 						}}
 						borderRadius="20px"
 						borderWidth="1px"

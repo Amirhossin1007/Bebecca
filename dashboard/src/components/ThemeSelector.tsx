@@ -300,6 +300,14 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 		"panel.textSecondary",
 	);
 	const selectedAccentBorder = useColorModeValue("panel.text", "white");
+	const selectedAccentRing = useColorModeValue(
+		"0 0 0 2px var(--chakra-colors-panel-text)",
+		"0 0 0 2px rgba(255, 255, 255, 0.95)",
+	);
+	const selectedAccentHoverRing = useColorModeValue(
+		"0 0 0 3px var(--chakra-colors-panel-text)",
+		"0 0 0 3px rgba(255, 255, 255, 0.95)",
+	);
 
 	const popperModifiers = useMemo(
 		() => [
@@ -505,7 +513,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 									bg={accent.color}
 									boxShadow={
 										selected
-											? `0 0 0 2px var(--chakra-colors-panel-borderStrong), 0 4px 12px ${accent.color}55`
+											? `${selectedAccentRing}, 0 4px 12px ${accent.color}55`
 											: "0 2px 6px rgba(0, 0, 0, 0.15)"
 									}
 									transform={selected ? "scale(1.08)" : "scale(1)"}
@@ -513,7 +521,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 										md: {
 											bg: accent.hover,
 											transform: "scale(1.15)",
-											boxShadow: `0 0 0 3px var(--chakra-colors-panel-borderStrong), 0 4px 14px ${accent.color}66`,
+											boxShadow: `${selectedAccentHoverRing}, 0 4px 14px ${accent.color}66`,
 										},
 									}}
 									transition="all 0.22s cubic-bezier(0.16, 1, 0.3, 1)"

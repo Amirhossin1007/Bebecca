@@ -931,7 +931,7 @@ body {
     background: var(--rb-panel-border-strong, rgba(255, 255, 255, 0.22));
     border-radius: 9999px;
     flex-shrink: 0;
-    pointer-events: auto;
+    pointer-events: none;
     touch-action: none;
     cursor: grab;
   }

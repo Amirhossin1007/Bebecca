@@ -2710,11 +2710,15 @@ export const Statistics: FC<BoxProps> = (props) => {
 				gap={3}
 				px={1}
 				sx={{
-					"@media screen and (max-width: 767.98px)": {
+					"@media screen and (max-width: 599.98px)": {
 						flexWrap: "wrap !important",
 						alignItems: "flex-start !important",
 					},
-					"@media screen and (min-width: 768px) and (max-width: 939.98px)": {
+					"@media screen and (min-width: 600px) and (max-width: 1040px)": {
+						flexWrap: "wrap !important",
+						alignItems: "flex-start !important",
+					},
+					"@media screen and (min-width: 1040.02px)": {
 						"body:has([data-sidebar-collapsed='true']) &, body[data-sidebar-collapsed='true'] &":
 							{
 								flexWrap: "nowrap !important",
@@ -2726,7 +2730,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 								alignItems: "flex-start !important",
 							},
 					},
-					"@media screen and (min-width: 940px)": {
+					"@media screen and (min-width: 1220px)": {
 						flexWrap: "nowrap !important",
 						alignItems: "center !important",
 					},
@@ -2743,13 +2747,13 @@ export const Statistics: FC<BoxProps> = (props) => {
 							width: "100% !important",
 							gap: "6px !important",
 						},
-						"@media screen and (min-width: 600px) and (max-width: 767.98px)": {
+						"@media screen and (min-width: 600px) and (max-width: 1040px)": {
 							flexDirection: "row !important",
 							alignItems: "center !important",
 							width: "100% !important",
 							gap: "12px !important",
 						},
-						"@media screen and (min-width: 768px) and (max-width: 939.98px)": {
+						"@media screen and (min-width: 1040.02px)": {
 							"body:has([data-sidebar-collapsed='true']) &, body[data-sidebar-collapsed='true'] &":
 								{
 									flexDirection: "column !important",
@@ -2765,7 +2769,7 @@ export const Statistics: FC<BoxProps> = (props) => {
 									gap: "12px !important",
 								},
 						},
-						"@media screen and (min-width: 940px)": {
+						"@media screen and (min-width: 1220px)": {
 							flexDirection: "column !important",
 							alignItems: "flex-start !important",
 							width: "auto !important",

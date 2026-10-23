@@ -116,7 +116,8 @@ export const useSheetSwipeToClose = () => {
 
 			const isHeaderOrHandle = Boolean(
 				target.closest(".chakra-modal__header, [data-sheet-handle='true']") ||
-					target === dialog,
+					target === dialog ||
+					relativeY <= 40,
 			);
 
 			const body = dialog.querySelector<HTMLElement>(".chakra-modal__body");

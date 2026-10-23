@@ -969,6 +969,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 			}
 
 			if (anchorEl) {
+				const scrollEl = navScrollRef.current;
 				const initialTop = anchorEl.getBoundingClientRect().top;
 				const startTime = performance.now();
 				setOpenGroups((prev) => ({ ...prev, [group.id]: true }));
@@ -978,11 +979,16 @@ export const AppSidebar: FC<AppSidebarProps> = memo(({
 					const currentTop = anchorEl.getBoundingClientRect().top;
 					const delta = currentTop - initialTop;
 					if (Math.abs(delta) >= 0.5) {
-						navScrollRef.current.scrollTop += delta;
+						scrollEl.scrollTop += delta;
 					}
-					if (now - startTime < 360) {
+					if (now - startTime < 320) {
 						scrollAnimRef.current = requestAnimationFrame(adjustScroll);
 					} else {
+						const finalTop = anchorEl.getBoundingClientRect().top;
+						const finalDelta = finalTop - initialTop;
+						if (Math.abs(finalDelta) >= 0.5) {
+							scrollEl.scrollTop += finalDelta;
+						}
 						scrollAnimRef.current = null;
 					}
 				};

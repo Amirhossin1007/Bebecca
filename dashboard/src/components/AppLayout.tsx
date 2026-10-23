@@ -3285,6 +3285,7 @@ function AppLayoutContent() {
 																													dockSettingsScrollAnimRef.current =
 																														null;
 																												}
+																												const scrollEl = dockSettingsScrollRef.current;
 																												const initialTop =
 																													anchorEl.getBoundingClientRect()
 																														.top;
@@ -3314,19 +3315,31 @@ function AppLayoutContent() {
 																														Math.abs(delta) >=
 																														0.5
 																													) {
-																														dockSettingsScrollRef.current
-																															.scrollTop +=
+																														scrollEl.scrollTop +=
 																															delta;
 																													}
 																													if (
 																														now - startTime <
-																														320
+																														300
 																													) {
 																														dockSettingsScrollAnimRef.current =
 																															requestAnimationFrame(
 																																adjustScroll,
 																															);
 																													} else {
+																														const finalTop =
+																															anchorEl.getBoundingClientRect()
+																																.top;
+																														const finalDelta =
+																															finalTop -
+																															initialTop;
+																														if (
+																															Math.abs(finalDelta) >=
+																															0.5
+																														) {
+																															scrollEl.scrollTop +=
+																																finalDelta;
+																														}
 																														dockSettingsScrollAnimRef.current =
 																															null;
 																													}
