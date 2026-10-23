@@ -426,6 +426,13 @@
 	"login.loginYourAccount": "登录您的帐号",
 	"login.welcome": "欢迎",
 	"login.welcomeBack": "欢迎回来，请输入您的详细信息",
+	"login.twoFactorTitle": "双重身份验证",
+	"login.twoFactorHint": "请输入身份验证器应用中的 6 位数字代码。",
+	"login.setupTwoFactorTitle": "保护您的账户",
+	"login.setupTwoFactorHint": "请在继续之前扫描二维码。",
+	"login.authenticationCode": "身份验证码",
+	"continue": "继续",
+	"back": "返回",
 	"menu": "Rebecca",
 	"next": "下一页",
 	"noData": "No Data",
@@ -933,5 +940,9 @@
 	"sidebar.groups.system": "系统与工具",
 	"sidebar.tutorialsAndFaq": "教程 / 常见问题",
 	"header.calendar": "日历",
-	"calendar.today": "今天"
+	"calendar.today": "今天",
+	"copy": "复制",
+	"copied": "已复制",
+	"admins.showPassword": "显示密码",
+	"admins.hidePassword": "隐藏密码"
 }
