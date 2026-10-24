@@ -1,7 +1,6 @@
 import { Button } from "components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Badge } from "components/ui/badge";
-import { CircleAlert, CircleCheck, TriangleAlert } from "lucide-react";
 import { withClass } from "lib/withClass";
 import { CalendarDays, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sparkles as SparklesIcon } from "lucide-react";
 
@@ -122,7 +121,6 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 	const numberLocale = isPersian ? "fa-IR" : i18n.language || "en";
 	const badgeBg = "bg-blackAlpha-50 dark:bg-whiteAlpha-100";
 	const highlight = "border-primary-600! dark:border-primary-200!";
-	const border = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
 
 	useEffect(() => {
 		const timer = setInterval(() => setToday(new Date()), 60 * 1000);
@@ -202,11 +200,11 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = ({
 					</Button>
 				) : (
 					<Button
-						variant="ghost"
+						variant="outline"
 						size="sm"
 						className={cn(
-							"hidden md:inline-flex rounded-[10px] text-panel-text hover:bg-panel-elevated transition-colors",
-							isCompact ? "h-[34px] w-[34px] p-0 justify-center" : "px-3 max-w-[320px]",
+							"hidden md:inline-flex rounded-[12px] border-panel-border! bg-panel-surface text-panel-text shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:bg-panel-elevated hover:border-panel-border-strong! transition-colors h-[34px]",
+							isCompact ? "w-[34px] p-0 justify-center" : "px-3 max-w-[320px] gap-2",
 						)}
 					>
 						<CalendarIcon className="size-4 shrink-0" />

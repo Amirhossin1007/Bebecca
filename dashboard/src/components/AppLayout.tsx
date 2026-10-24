@@ -1293,11 +1293,9 @@ export function AppLayout() {
 						</div>
 
 						<div className="flex shrink-0 items-center gap-2">
-							<div className="flex h-[34px] items-center rounded-full border border-panel-border! bg-panel-elevated px-1">
-								<HeaderCalendar isCompact={calendarCompact} />
-								{getUserIsSuccess && userData.username && <NotificationBell />}
-								<GitHubStars />
-							</div>
+							<HeaderCalendar isCompact={calendarCompact} />
+							{getUserIsSuccess && userData.username && <NotificationBell />}
+							<GitHubStars />
 
 							{getUserIsSuccess && userData.username && (
 								<DropdownMenu open={userMenu.isOpen} onOpenChange={(open) => {
@@ -1309,7 +1307,7 @@ export function AppLayout() {
 											data-header-profile="true"
 											aria-label={t("a11y.userMenu")}
 											variant="outline"
-											className="h-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-elevated ps-1 pe-1 text-sm font-semibold hover:bg-panel-border-strong sm:pe-3"
+											className="h-[34px] min-w-[34px] rounded-[12px] border-panel-border! bg-panel-surface ps-2 pe-2 text-sm font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:bg-panel-elevated hover:border-panel-border-strong! sm:pe-3"
 										>
 											<span className="flex items-center gap-2">
 												<span

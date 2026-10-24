@@ -14,7 +14,6 @@ export const GitHubStars: FC = () => {
 				}
 			})
 			.catch(() => {
-				// Silently fail if API is unavailable
 			});
 	}, []);
 
@@ -27,7 +26,7 @@ export const GitHubStars: FC = () => {
 	};
 
 	return (
-		<button type="button" onClick={handleClick} aria-label="GitHub Stars" className="h-[34px] px-2.5 rounded-full bg-transparent text-panel-text-secondary inline-flex items-center gap-2 cursor-pointer [transition:background_0.15s_ease,_color_0.15s_ease,_transform_0.15s_ease] hover:bg-panel-elevated hover:text-panel-text hover:[transform:translateY(-1px)] active:[transform:translateY(0)] focus-visible:shadow-[0_0_0_2px_var(--rb-panel-accent)] focus-visible:outline-none">
+		<button type="button" onClick={handleClick} aria-label="GitHub Stars" className="h-[34px] px-3 rounded-[12px] border border-panel-border! bg-panel-surface text-panel-text shadow-[0_1px_3px_rgba(0,0,0,0.04)] inline-flex items-center gap-2 cursor-pointer [transition:background_0.15s_ease,_color_0.15s_ease,_border-color_0.15s_ease,_box-shadow_0.15s_ease] hover:bg-panel-elevated hover:border-panel-border-strong! active:scale-98 focus-visible:shadow-[0_0_0_2px_var(--rb-panel-accent)] focus-visible:outline-none">
 			<svg
 				width="16"
 				height="16"

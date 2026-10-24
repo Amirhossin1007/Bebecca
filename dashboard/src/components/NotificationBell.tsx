@@ -1,7 +1,6 @@
 import { Button } from "components/ui/button";
 import { Badge } from "components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
-import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { Bell } from "lucide-react";
 
 import { cn } from "lib/cn";
@@ -33,7 +32,7 @@ export const NotificationBell = () => {
 		<Popover>
 			<PopoverTrigger asChild>
 				<div className="relative inline-flex">
-					<Button aria-label={t("notifications.bell.label")} variant="ghost" size="sm" className={cn("size-8 p-0 rounded-full text-panel-text hover:bg-panel-elevated transition-colors")}>{<Bell className="w-[18px] h-[18px]" />}</Button>
+					<Button aria-label={t("notifications.bell.label")} variant="outline" size="sm" className={cn("size-[34px] p-0 rounded-full md:rounded-[12px] border-panel-border! bg-panel-surface text-panel-text shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:bg-panel-elevated hover:border-panel-border-strong! transition-colors")}>{<Bell className="w-[18px] h-[18px]" />}</Button>
 					{unread > 0 && (
 						<Badge className={cn("bg-destructive/10 text-destructive", "absolute top--1 right--1 rounded-full text-[0.625rem] px-1.5")}>
 							{unread > 99 ? "99+" : unread}
