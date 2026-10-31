@@ -505,7 +505,7 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 						</p>
 					</div>
 				) : timeseries.length ? (
-					<ReactApexChart type="area" options={areaOptions} series={areaSeries} className="h-360" />
+					<ReactApexChart type="area" height={360} options={areaOptions} series={areaSeries} />
 				) : (
 					<p className="text-center text-gray-500">
 						{t("noData")}
@@ -573,7 +573,7 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 						</p>
 					</div>
 				) : adminTimeseriesSeries[0]?.data?.length ? (
-					<ReactApexChart type="area" options={adminTimeseriesOptions} series={adminTimeseriesSeries} className="h-360" />
+					<ReactApexChart type="area" height={360} options={adminTimeseriesOptions} series={adminTimeseriesSeries} />
 				) : (
 					<p className="text-center text-gray-500">
 						{t("noData")}
@@ -613,7 +613,7 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 								</p>
 							</div>
 						) : adminUsage.length && adminTotal > 0 ? (
-							<ReactApexChart type="donut" options={donutOptions} series={donutSeries} className="h-320" />
+							<ReactApexChart type="donut" height={320} options={donutOptions} series={donutSeries} />
 						) : (
 							<p className="text-center text-gray-500">
 								{t("noData")}

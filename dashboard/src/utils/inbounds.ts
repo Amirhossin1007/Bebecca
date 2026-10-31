@@ -715,11 +715,16 @@ const createDefaultSockopt = (): SockoptFormValues => ({
 
 const parsePort = (value: string): number | string => {
 	if (!value) return 0;
-	const numeric = Number(value);
+	const normalized = value
+		.split(",")
+		.map((part) => part.trim())
+		.filter(Boolean)
+		.join(",");
+	const numeric = Number(normalized);
 	if (!Number.isNaN(numeric) && numeric > 0) {
 		return numeric;
 	}
-	return value.trim();
+	return normalized;
 };
 
 const isValidPortText = (value: string): boolean => {
@@ -728,6 +733,48 @@ const isValidPortText = (value: string): boolean => {
 	const port = Number(cleaned);
 	return Number.isInteger(port) && port >= 1 && port <= 65535;
 };
+
+const MULTI_PORT_PROTOCOLS = new Set([
+	"vmess",
+	"vless",
+	"trojan",
+	"shadowsocks",
+	"hysteria",
+]);
+
+export const supportsMultiplePorts = (protocol: string): boolean =>
+	MULTI_PORT_PROTOCOLS.has(protocol);
+
+const ASCII_TAG_PROTOCOLS = new Set([
+	"ssh",
+	"mtproto",
+	"web",
+	"openvpn",
+	"wireguard",
+	"amneziawg",
+	"sstp",
+	"gre",
+	"l2tp",
+	"pptp",
+	"ikev2",
+	"anyconnect",
+]);
+
+export const inboundTagAllowsEmoji = (protocol: string): boolean =>
+	!ASCII_TAG_PROTOCOLS.has(protocol);
+
+const isValidPortList = (value: string): boolean => {
+	const parts = value.split(",").map((part) => part.trim());
+	if (!parts.every((part) => isValidPortText(part))) return false;
+	const ports = parts.map(Number);
+	return new Set(ports).size === ports.length;
+};
+
+export const inboundPortNumbers = (value: string): number[] =>
+	value
+		.split(",")
+		.map((part) => Number(part.trim()))
+		.filter((port) => Number.isInteger(port) && port > 0);
 
 const isHostPortTarget = (value: string): boolean => {
 	const cleaned = value.trim();
@@ -876,7 +923,13 @@ export const validateInboundFormFields = (
 	if (!values.tag?.trim()) {
 		errors.tag = "Inbound tag is required.";
 	}
-	if (!isValidPortText(values.port ?? "")) {
+	const portText = values.port ?? "";
+	if (supportsMultiplePorts(values.protocol)) {
+		if (!isValidPortList(portText)) {
+			errors.port =
+				"Enter one port, or several separated by commas such as 443,8443. Each must be between 1 and 65535, without repeats.";
+		}
+	} else if (!isValidPortText(portText)) {
 		errors.port = "Port must be a number between 1 and 65535.";
 	}
 	const usageCoefficient = Number(values.usageCoefficient);
@@ -2607,7 +2660,7 @@ export const rawInboundToFormValues = (raw: RawInbound): InboundFormValues => {
 			stream?.tcpSettings?.header?.request?.headers?.Host,
 		),
 		tcpHttpPath: Array.isArray(stream?.tcpSettings?.header?.request?.path)
-			? stream.tcpSettings.header.request.path[0]
+			? (stream.tcpSettings.header.request.path[0] ?? "")
 			: base.tcpHttpPath,
 		grpcServiceName: stream?.grpcSettings?.serviceName ?? base.grpcServiceName,
 		grpcAuthority: stream?.grpcSettings?.authority ?? base.grpcAuthority,
@@ -3410,6 +3463,18 @@ const headersFromFormSingleValue = (
 	return Object.keys(record).length ? record : undefined;
 };
 
+export const parseHeaderPairs = (text: string): HeaderForm[] | undefined => {
+	const input = text.trim();
+	const pair = /([^\s=]+)=(?:"([^"]*)"|(\S+))\s*/y;
+	const headers: HeaderForm[] = [];
+	while (pair.lastIndex < input.length) {
+		const match = pair.exec(input);
+		if (!match) return undefined;
+		headers.push({ name: match[1], value: match[2] ?? match[3] });
+	}
+	return headers.length ? headers : undefined;
+};
+
 const getHeaderValue = (
 	headers: Record<string, string | string[]> | undefined,
 	headerName: string,
@@ -3550,12 +3615,12 @@ const buildStreamSettings = (
 			acceptProxyProtocol: values.httpupgradeAcceptProxyProtocol || undefined,
 			path: values.httpupgradePath,
 			host: values.httpupgradeHost,
-			headers: headersFromForm(values.httpupgradeHeaders),
+			headers: headersFromFormSingleValue(values.httpupgradeHeaders),
 		});
 	}
 
 	if (values.streamNetwork === "splithttp") {
-		const headers = headersFromForm(values.splithttpHeaders);
+		const headers = headersFromFormSingleValue(values.splithttpHeaders);
 		const splithttpSettings = cleanObject({
 			path: shouldIncludeValue(
 				values.splithttpPath,
@@ -3672,7 +3737,7 @@ const buildStreamSettings = (
 
 	if (values.streamNetwork === "xhttp") {
 		const mode = values.xhttpMode;
-		const headers = headersFromForm(values.xhttpHeaders);
+		const headers = headersFromFormSingleValue(values.xhttpHeaders);
 		const xhttpSettings = cleanObject({
 			path: shouldIncludeValue(values.xhttpPath, defaults.xhttpPath, initial, [
 				"streamSettings",

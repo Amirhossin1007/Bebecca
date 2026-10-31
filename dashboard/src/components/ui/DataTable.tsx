@@ -1,3 +1,4 @@
+import { AppleEmojiText } from "components/common/AppleEmojiText";
 import { Button } from "components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
@@ -279,7 +280,7 @@ const DataTableCellContent = <TData,>({
 <TooltipTrigger asChild><span className="inline-flex max-w-full">{content}</span></TooltipTrigger>
 <TooltipContent>{
 				<div dir="auto" className="max-w-[360px] max-h-[180px] overflow-y-auto whitespace-pre-wrap [word-break:break-word]">
-					{fullText}
+					<AppleEmojiText>{fullText}</AppleEmojiText>
 				</div>
 			}</TooltipContent>
 </Tooltip>
@@ -904,6 +905,16 @@ export function DataTable<TData>({
 													{summary && (
 														<div className="rb-resource-summary">
 															<DataTableCell row={row} column={summary} />
+														</div>
+													)}
+													{hasActions && (
+														<div className="shrink-0 rb-mobile-actions">
+															{resolvedRowActions.length > 0 ? (
+																<RowActionsMenu
+																	actions={resolvedRowActions}
+																	label={actionsLabel}
+																/>
+															) : null}
 														</div>
 													)}
 												</div>

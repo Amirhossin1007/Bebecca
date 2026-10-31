@@ -1,5 +1,5 @@
 import { Button } from "components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Badge } from "components/ui/badge";
 import { Input } from "components/ui/input";
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
@@ -16,7 +16,6 @@ import {
 	type KeyboardEvent,
 	type MouseEvent,
 	type ReactNode,
-	useEffect,
 	useId,
 	useMemo,
 	useRef,
@@ -69,6 +68,9 @@ export type PanelSelectProps = Omit<
 	}) => void;
 	onChange?: (event: ChangeEvent<HTMLSelectElement>) => void;
 	onValueChange?: (value: string | string[]) => void;
+	inputValue?: string;
+	onInputValueChange?: (value: string) => void;
+	interceptOption?: (value: string) => boolean;
 	options?: PanelSelectOption[];
 	placeholder?: string;
 	portalled?: boolean;
@@ -214,6 +216,9 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 			onBlur,
 			onChange,
 			onValueChange,
+			inputValue,
+			onInputValueChange,
+			interceptOption,
 			options = [],
 			placeholder,
 			portalled = true,
@@ -236,19 +241,18 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 		const [searchMatch, setSearchMatch] = useState(
 			DEFAULT_SEARCH_MATCH_OPTIONS,
 		);
-		const [customInput, setCustomInput] = useState("");
+		const [customInputDraft, setCustomInputDraft] = useState("");
+		const customInput = inputValue ?? customInputDraft;
+		const setCustomInput = (next: string) => {
+			setCustomInputDraft(next);
+			onInputValueChange?.(next);
+		};
 		const [multiOpen, setMultiOpen] = useState(false);
 		const [singleOpen, setSingleOpen] = useState(false);
 		const multiContainerRef = useRef<HTMLDivElement | null>(null);
 		const nestedMenuScrollRef = useRef<{ left: number; top: number } | null>(
 			null,
 		);
-		const [multiMenuRect, setMultiMenuRect] = useState<{
-			left: number;
-			top?: number;
-			bottom?: number;
-			width: number;
-		} | null>(null);
 		const normalizedOptions = useMemo(
 			() =>
 				dedupeOptions([
@@ -301,16 +305,17 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 				]),
 			[normalizedOptions, optionByValue, selectedValues],
 		);
+		const filterText = mode === "multiple" ? customInput : search;
 		const filteredOptions = useMemo(() => {
-			if (!search.trim()) return mergedOptions;
+			if (!filterText.trim()) return mergedOptions;
 			return mergedOptions.filter((option) =>
 				matchesSearch(
 					`${option.searchLabel} ${option.value}`,
-					search,
+					filterText,
 					searchMatch,
 				),
 			);
-		}, [mergedOptions, search, searchMatch]);
+		}, [mergedOptions, filterText, searchMatch]);
 		const searchable = showSearch ?? mergedOptions.length > 10;
 		const coarsePointer = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 		const customTerm = customInput.trim();
@@ -340,32 +345,6 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 		const controlHeight = "min-h-9";
 		const disabledState = isDisabled || Boolean(disabled);
 		const resolvedBorderColor = isInvalid ? invalidBorderColor : borderColor;
-
-		useEffect(() => {
-			if (!multiOpen) return;
-			const updateMultiMenuRect = () => {
-				const rect = multiContainerRef.current?.getBoundingClientRect();
-				if (!rect) return;
-				const menuHeight = 240;
-				const gap = 6;
-				const spaceBelow = window.innerHeight - rect.bottom;
-				const opensUp = spaceBelow < menuHeight + gap && rect.top > spaceBelow;
-				setMultiMenuRect({
-					left: rect.left,
-					width: rect.width,
-					...(opensUp
-						? { bottom: window.innerHeight - rect.top + gap }
-						: { top: rect.bottom + gap }),
-				});
-			};
-			updateMultiMenuRect();
-			window.addEventListener("resize", updateMultiMenuRect);
-			window.addEventListener("scroll", updateMultiMenuRect, true);
-			return () => {
-				window.removeEventListener("resize", updateMultiMenuRect);
-				window.removeEventListener("scroll", updateMultiMenuRect, true);
-			};
-		}, [multiOpen]);
 
 		const emitValue = (nextValue: string | string[]) => {
 			onValueChange?.(nextValue);
@@ -397,6 +376,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 
 		const toggleValue = (option: NormalizedOption) => {
 			if (option.disabled) return;
+			if (mode === "multiple" && interceptOption?.(option.value)) return;
 			if (mode === "single") {
 				emitValue(option.value);
 				emitBlur();
@@ -421,6 +401,17 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					(item) => item.toLowerCase() !== option.toLowerCase(),
 				),
 			);
+		};
+
+		const editValue = (item: string) => {
+			if (disabledState) return;
+			updateMultipleValues(
+				selectedValues.filter((value) => value.toLowerCase() !== item.toLowerCase()),
+			);
+			setCustomInput(item);
+			setSearch(item);
+			setMultiOpen(true);
+			multiContainerRef.current?.querySelector<HTMLInputElement>("input:not([type='hidden'])")?.focus();
 		};
 
 		const commitCustomInput = (rawValue = customInput) => {
@@ -559,7 +550,6 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 
 		if (mode === "multiple") {
 			return (
-				// biome-ignore lint/a11y/noStaticElementInteractions: closes the menu when focus leaves the control; the inputs keep focus
 				<div ref={multiContainerRef} onBlur={(event) => {
 						if (
 							!event.currentTarget.contains(event.relatedTarget as Node | null)
@@ -577,7 +567,13 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 						value={selectedValues.join(", ")}
 						readOnly
 					/>
-					{/* biome-ignore lint/a11y/noStaticElementInteractions: stops mousedown so the field keeps focus while the menu is used */}
+					<Popover open={multiOpen && !disabledState} onOpenChange={(open) => {
+							if (open) return;
+							commitCustomInput();
+							setMultiOpen(false);
+							emitBlur();
+						}}>
+						<PopoverAnchor asChild>
 					<div onMouseDown={(event) => {
 							if (disabledState) return;
 							const target = event.target as HTMLElement | null;
@@ -586,18 +582,21 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 							const input = event.currentTarget.querySelector("input");
 							input?.focus();
 							setMultiOpen(true);
-						}} className={cn(resolvedBorderColor, controlBg, focusBorderColor, focusRing, "border rounded-[10px] px-1.5 py-1 [transition:border-color_0.15s_ease,_box-shadow_0.15s_ease,_background_0.15s_ease]", controlHeight, isRTL ? (rightElement ? "pl-10" : "pl-2") : "", isRTL ? "" : (rightElement ? "pr-10" : "pr-2"), disabledState ? "cursor-not-allowed" : "cursor-text", disabledState ? "opacity-60" : "opacity-100")}>
+						}} className={cn(resolvedBorderColor, controlBg, focusBorderColor, focusRing, "border rounded-[10px] px-1.5 py-1 [transition:border-color_0.15s_ease,_box-shadow_0.15s_ease,_background_0.15s_ease]", controlHeight, rightElement ? "pe-10" : "pe-2", disabledState ? "cursor-not-allowed" : "cursor-text", disabledState ? "opacity-60" : "opacity-100")}>
 						<div className="flex flex-wrap gap-1.5 items-center">
 							{selectedValues.map((item) => (
 								<div key={item}>
-									<Badge className={cn("min-h-[22px] rounded-full", tagBg, tagColor)}>
-										
-											{renderLabel(
-												optionByValue.get(item.toLowerCase())?.label ?? item,
-											)}
-										
-										
-									</Badge>
+									{allowCustom && !disabledState ? (
+										<Badge asChild className={cn("min-h-[22px] rounded-full cursor-pointer", tagBg, tagColor)}>
+											<button type="button" onClick={() => editValue(item)}>
+												{renderLabel(optionByValue.get(item.toLowerCase())?.label ?? item)}
+											</button>
+										</Badge>
+									) : (
+										<Badge className={cn("min-h-[22px] rounded-full", tagBg, tagColor)}>
+											{renderLabel(optionByValue.get(item.toLowerCase())?.label ?? item)}
+										</Badge>
+									)}
 								</div>
 							))}
 							<div className="flex-1 min-w-[140px]!">
@@ -607,18 +606,18 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 							</div>
 						</div>
 						{rightElement && (
-							<div className={cn("absolute top-[7px] z-[1]", isRTL ? "left-[8px]" : "", isRTL ? "" : "right-[8px]")}>
+							<div className="absolute top-[7px] z-[1] end-[8px]">
 								{rightElement}
 							</div>
 						)}
 					</div>
-					{multiOpen && !disabledState && multiMenuRect && (
-						<>
-							<div dir={direction} style={{ left: `${multiMenuRect.left}px`, top: multiMenuRect.top === undefined ? undefined : `${multiMenuRect.top}px`, bottom: multiMenuRect.bottom === undefined ? undefined : `${multiMenuRect.bottom}px`, width: `${multiMenuRect.width}px` }} onMouseDown={(event) => event.preventDefault()} className={cn("[scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", cn("pointer-events-auto fixed z-[16060] border rounded-[14px] shadow-xl max-h-[240px] overflow-y-auto p-1", menuBg))}>
-								{optionList}
-							</div>
-						</>
-					)}
+					</PopoverAnchor>
+						<PopoverContent align="start" onOpenAutoFocus={(event) => event.preventDefault()} onInteractOutside={(event) => {
+								if (multiContainerRef.current?.contains(event.target as Node)) event.preventDefault();
+							}} onMouseDown={(event) => event.preventDefault()} className={cn("w-[var(--radix-popper-anchor-width)] max-h-[240px] overflow-y-auto p-1 rounded-[14px] border shadow-xl z-[16050] [scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", borderColor, menuBg)}>
+							{optionList}
+						</PopoverContent>
+						</Popover>
 				</div>
 			);
 		}
@@ -670,7 +669,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					readOnly
 				/>
 				<Popover open={singleOpen && !disabledState} onOpenChange={handleSingleOpenChange}>
-					<PopoverTrigger asChild><Button size={size === "md" ? "default" : size} disabled={disabledState} variant="outline" className={cn(controlBg, resolvedBorderColor, focusBorderColor, focusRing, hoverBorder, "w-full rounded-[10px] justify-between text-start [&>span]:w-full [&>span]:justify-between", rightElement ? "pr-16" : "", controlHeight, selectedValues.length ? "font-medium" : "font-normal")}>
+					<PopoverTrigger asChild><Button size={size === "md" ? "default" : size} disabled={disabledState} variant="outline" className={cn(controlBg, resolvedBorderColor, focusBorderColor, focusRing, hoverBorder, "w-full rounded-[10px] justify-between text-start [&>span]:w-full [&>span]:justify-between", rightElement ? "pe-16" : "", controlHeight, selectedValues.length ? "font-medium" : "font-normal")}>
 						<span className={cn("truncate", selectedValues.length ? "" : (mutedColor))}>
 							{renderLabel(buttonText)}
 						</span>
@@ -678,7 +677,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					{portalled ? <><div className="pointer-events-auto contents">{singleMenuList}</div></> : singleMenuList}
 				</Popover>
 				{rightElement && (
-					<div className={cn("absolute top-[50%] [transform:translateY(-50%)] z-[1]", isRTL ? "left-[8px]" : "", isRTL ? "" : "right-[36px]")}>
+					<div className="absolute top-[50%] [transform:translateY(-50%)] z-[1] end-[36px]">
 						{rightElement}
 					</div>
 				)}

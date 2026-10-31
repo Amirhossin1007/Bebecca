@@ -331,6 +331,15 @@ const HistoryModal: FC<{
 }> = ({ open: isOpen, onClose, payload, intervalSeconds, onIntervalChange, t, isRTL = false }) => {
 	const { colorMode } = useColorMode();
 	const [isSwitchingInterval, setIsSwitchingInterval] = useState(false);
+		const [isChartReady, setIsChartReady] = useState(false);
+		useEffect(() => {
+			if (!isOpen) {
+				setIsChartReady(false);
+				return;
+			}
+			const timer = window.setTimeout(() => setIsChartReady(true), 280);
+			return () => window.clearTimeout(timer);
+		}, [isOpen]);
 	const tabRefs = useRef<(HTMLDivElement | null)[]>([]);
 	const [pillStyle, setPillStyle] = useState<{ left: number; width: number }>({ left: 4, width: 0 });
 	const gridColor = colorMode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
@@ -675,7 +684,7 @@ const HistoryModal: FC<{
 	return (
 		<Dialog open={isOpen} onOpenChange={(open) => { if (!open) (onClose)(); }}>
 			
-			<DialogContent className="bg-panel-surface border border-panel-border! rounded-[20px] shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_32px_80px_rgba(0,0,0,0.6)] mx-3 sm:mx-6 overflow-hidden">
+			<DialogContent className="bg-panel-surface border border-panel-border! rounded-[20px] shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_32px_80px_rgba(0,0,0,0.6)] mx-3 sm:mx-6 max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden">
 				<DialogHeader className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-4 border-b border-panel-border! text-[0.875rem] font-bold">
 					<div className="flex items-center gap-3">
 						<div className="flex items-center justify-center w-8 h-8 rounded-[10px] bg-[color-mix(in_srgb,var(--rb-panel-accent)_12%,transparent)] text-[var(--rb-panel-accent)] border border-[color-mix(in_srgb,var(--rb-panel-accent)_25%,transparent)] shrink-0">
@@ -691,7 +700,7 @@ const HistoryModal: FC<{
 						</div>
 					</div>
 				</DialogHeader>
-				<div className={cn("px-5 py-4 overflow-y-auto", "px-4 md:px-6 py-4 md:py-5")}>
+				<div className={cn("min-h-0 flex-1 overflow-y-auto", "px-4 md:px-6 py-4 md:py-5")}>
 					<div className="flex flex-col gap-4">
 						{hasEnoughPoints && (
 							<div className="[&::-webkit-scrollbar]:hidden [scrollbar-width:none] p-1 rounded-full bg-panel-elevated w-full md:w-fit max-w-[100%] overflow-x-auto relative inline-flex items-center">
@@ -778,8 +787,12 @@ const HistoryModal: FC<{
 										</div>
 									}
 								>
-									{hasEnoughPoints && isOpen ? (
-										<HistoryChart key={`${payload?.title}-${intervalSeconds}-${colorMode}`} options={options} series={chartSeries} type="area" className="h-300 w-full" />
+									{hasEnoughPoints && isOpen && !isChartReady ? (
+											<div className="flex h-[300px] items-center justify-center">
+												<Spinner className="text-panel-accent" />
+											</div>
+										) : hasEnoughPoints && isOpen ? (
+										<HistoryChart key={`${payload?.title}-${intervalSeconds}-${colorMode}`} options={options} series={chartSeries} type="area" height={300} width="100%" />
 									) : (
 										<div className="flex-col flex h-[300px] items-center justify-center gap-2">
 											<p className="text-[13px] text-panel-text-muted">

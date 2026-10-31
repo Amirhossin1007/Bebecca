@@ -130,13 +130,13 @@ jobs:
           path: dashboard/build
 
       - name: Set up Go
-        if: matrix.asset_arch == 'amd64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
+        if: matrix.asset_arch == 'amd64' || matrix.asset_arch == 'arm64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
         uses: actions/setup-go@v6
         with:
           go-version-file: "go.mod"
 
       - name: Build Linux binary package
-        if: matrix.asset_arch == 'amd64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
+        if: matrix.asset_arch == 'amd64' || matrix.asset_arch == 'arm64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
         shell: bash
         env:
           ASSET_NAME: rebecca-linux-${{ matrix.asset_arch }}.tar.gz
@@ -150,7 +150,7 @@ jobs:
           sha256sum "dist/${ASSET_NAME}"
 
       - name: Upload Linux package artifact
-        if: matrix.asset_arch == 'amd64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
+        if: matrix.asset_arch == 'amd64' || matrix.asset_arch == 'arm64' || github.ref_type == 'tag' || github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full_matrix == true)
         uses: actions/upload-artifact@v4
         with:
           name: rebecca-linux-${{ matrix.asset_arch }}

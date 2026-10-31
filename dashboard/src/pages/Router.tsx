@@ -2,8 +2,9 @@ import { Button } from "components/ui/button";
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { cn } from "lib/cn";
 
+import { BootScreen } from "../components/BootScreen";
 import { PageLoadingSkeleton, PanelLoadingSkeleton } from "../components/ui";
-import { type ComponentType, lazy, type ReactNode, Suspense, useEffect } from "react";
+import { type ComponentType, type ReactNode, lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	createBrowserRouter,
@@ -16,6 +17,7 @@ import {
 import { fetch } from "../service/http";
 import { recoverFromStaleChunk } from "../utils/chunkRecovery";
 import { queryClient } from "../utils/react-query";
+import { hasRememberedSession, setRememberedSession } from "../utils/session";
 import { Login } from "./Login";
 
 const AppLayout = lazy(async () => ({
@@ -176,8 +178,12 @@ normalizeLegacyHashRoute(dashboardBasename);
 
 const SESSION_CHECK_RETRY_DELAY_MS = 1500;
 const SESSION_CHECK_MAX_ATTEMPTS = 40;
+const SESSION_REJECTED_MAX_ATTEMPTS = 2;
 
 const fetchSessionWithRetry = async () => {
+	const maxRejectedAttempts = hasRememberedSession()
+		? SESSION_REJECTED_MAX_ATTEMPTS
+		: 1;
 	for (let attempt = 1; ; attempt += 1) {
 		try {
 			return await fetch<{
@@ -189,10 +195,10 @@ const fetchSessionWithRetry = async () => {
 			const status =
 				(error as { response?: { status?: number }; status?: number })?.response
 					?.status ?? (error as { status?: number })?.status;
+			const rejected = status === 401 || status === 403;
 			if (
-				status === 401 ||
-				status === 403 ||
-				attempt >= SESSION_CHECK_MAX_ATTEMPTS
+				attempt >=
+				(rejected ? maxRejectedAttempts : SESSION_CHECK_MAX_ATTEMPTS)
 			) {
 				throw error;
 			}
@@ -210,8 +216,10 @@ const fetchAdminLoader = async ({ request }: { request: Request }) => {
 			const pathname = new URL(request.url).pathname.replace(/\/+$/, "");
 			if (!pathname.endsWith("/users")) throw redirect("/users/");
 		} else if (response?.state !== "active") {
+			setRememberedSession(false);
 			throw redirect("/login/");
 		}
+		setRememberedSession(true);
 		if (response && typeof response === "object" && "error" in response) {
 			throw new Error(`API error: ${response.error || "Unknown error"}`);
 		}
@@ -239,6 +247,7 @@ const fetchAdminLoader = async ({ request }: { request: Request }) => {
 			(error as { response?: { status?: number }; status?: number })?.response
 				?.status ?? (error as { status?: number })?.status;
 		if (status === 401 || status === 403) {
+			setRememberedSession(false);
 			throw redirect("/login/");
 		}
 		console.error("Loader error:", error);
@@ -250,8 +259,12 @@ export const router = createBrowserRouter(
 	[
 		{
 			path: "/",
-			element: <LazyPage Page={AppLayout} fallback={<PanelLoading />} />,
-			hydrateFallbackElement: <PanelLoading />,
+			element: (
+				<Suspense fallback={<BootScreen />}>
+					<AppLayout />
+				</Suspense>
+			),
+			hydrateFallbackElement: <BootScreen />,
 			errorElement: <RouteErrorPage />,
 			loader: fetchAdminLoader,
 			children: [

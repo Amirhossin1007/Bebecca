@@ -26,7 +26,7 @@ export const OnlineStatus: FC<UserStatusProps> = ({
 	const isRTL = i18n.language === "fa";
 	const currentTimeInSeconds = Math.floor(Date.now() / 1000);
 	const unixTime = parseServerTimeToUnix(lastOnline);
-	const marginLeft = withMargin ? "ml-2" : undefined;
+	const marginLeft = withMargin ? "ms-2" : undefined;
 
 	const timeDifferenceInSeconds = unixTime
 		? currentTimeInSeconds - unixTime

@@ -47,7 +47,7 @@ export const RowActionsMenu: FC<RowActionsMenuProps> = ({ actions, label = "Acti
 	const [open, setOpen] = useState(false);
 	if (actions.length === 0) return null;
 	const orderedActions = orderRowActions(actions);
-	const isRtl = document.documentElement.dir === "rtl";
+	const isRtl = typeof document !== "undefined" && document.documentElement.dir === "rtl";
 
 	return (
 		<DropdownMenu open={open} onOpenChange={setOpen}>

@@ -6,7 +6,7 @@ import { Button } from "components/ui/button";
 import { Dialog } from "components/ui/dialog";
 import { toast } from "components/ui/sonner";
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
-import { Download, RefreshCw, Signal } from "lucide-react";
+import { Download, Plus, RefreshCw, Signal } from "lucide-react";
 
 import { cn } from "lib/cn";
 import { FileDropzone } from "components/common/FileDropzone";
@@ -40,6 +40,7 @@ type Props = {
 	onClose: () => void;
 	initialOutbounds: OutboundJson[];
 	onSave: (outbound: OutboundJson, replaceIndex: number | null) => void;
+	onSaveMany: (outbounds: OutboundJson[]) => void;
 	onDelete: (index: number) => void;
 	// opens on this Mullvad outbound for editing; a new one when left out
 	initialTag?: string;
@@ -63,6 +64,7 @@ export const MullvadModal: FC<Props> = ({
 	onClose,
 	initialOutbounds,
 	onSave,
+	onSaveMany,
 	onDelete,
 	initialTag,
 	targetID,
@@ -185,6 +187,11 @@ export const MullvadModal: FC<Props> = ({
 		mullvadFormFromOutbound(editingOutbound),
 	);
 
+	const countryServers = servers.filter((server) => server.country === country);
+	const addableServers = countryServers.filter(
+		(server) => !tags.some((item) => item.toLowerCase() === server.name.toLowerCase()),
+	);
+
 	const tagTaken = tags.some(
 		(item, index) =>
 			index !== editingIndex && item.toLowerCase() === tag.trim().toLowerCase(),
@@ -254,6 +261,16 @@ export const MullvadModal: FC<Props> = ({
 		onClose();
 	};
 
+	const addCountryServers = () => {
+		onSaveMany(addableServers.map((server) => buildMullvadOutbound(server.name, server.form)));
+		const skipped = countryServers.length - addableServers.length;
+		toast.success(t("pages.xray.mullvad.bulkAdded", { count: addableServers.length }));
+		if (skipped > 0) {
+			toast.warning(t("pages.xray.mullvad.bulkSkipped", { count: skipped }));
+		}
+		onClose();
+	};
+
 	// stays open and goes back to the empty window
 	const deleteOutbound = () => {
 		onDelete(editingIndex);
@@ -304,9 +321,9 @@ export const MullvadModal: FC<Props> = ({
 							<Field data-invalid={tagTaken}>
 								<FieldLabel>{t("pages.xray.mullvad.name")}</FieldLabel>
 								<Input dir="ltr" value={tag} onChange={(event) => setTag(event.target.value)} className={cn(tagTaken ? "text-gray-500" : "")} />
-								<FieldError>
+								{tagTaken && <FieldError>
 									{t("pages.xray.mullvad.nameTaken")}
-								</FieldError>
+								</FieldError>}
 							</Field>
 						</div>
 						<Field>
@@ -362,6 +379,11 @@ export const MullvadModal: FC<Props> = ({
 									)}
 								</Field>
 							</div>
+						)}
+						{editingIndex < 0 && country && (
+							<Button disabled={addableServers.length === 0} onClick={addCountryServers} variant="outline" className="self-start">{<Plus className="w-[16px]" />}
+								{t("pages.xray.mullvad.addCountry", { count: addableServers.length, country: countryName(country, i18n.language) })}
+							</Button>
 						)}
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 							<Field>

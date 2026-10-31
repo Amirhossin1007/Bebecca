@@ -19,6 +19,7 @@ import { NumberField } from "components/ui/number-field";
 import { SegmentedControl } from "components/ui/segmented-control";
 import { InboundSectionNav } from "./InboundSectionNav";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "components/ui/dialog";
+import { inboundEntityPage } from "components/entityPage/EntityOverviews";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
 import { buttonVariants } from "components/ui/button";
 import { Loader2, Network, Plus, RefreshCw, Sparkles } from "lucide-react";
@@ -39,6 +40,7 @@ import {
 	useState,
 } from "react";
 import { type Control, Controller, type Path, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { EmojiShortcodeInput } from "components/common/EmojiShortcodeInput";
 import { useTranslation } from "react-i18next";
 import { canViewEntityNotes, type EntityNote } from "components/EntityNotePanel";
 import useGetUser from "hooks/useGetUser";
@@ -78,6 +80,10 @@ import {
 	tlsFingerprintOptions,
 	tlsUsageOptions,
 	tlsVersionOptions,
+	inboundPortNumbers,
+	inboundTagAllowsEmoji,
+	supportsMultiplePorts,
+	parseHeaderPairs,
 	validateInboundFormFields,
 	validateInboundFormValues,
 } from "utils/inbounds";
@@ -423,6 +429,7 @@ export const InboundFormModal: FC<Props> = ({
 	const {
 		fields: xhttpHeaderFields,
 		append: appendXhttpHeader,
+		insert: insertXhttpHeader,
 		remove: removeXhttpHeader,
 	} = useFieldArray({
 		control,
@@ -941,8 +948,7 @@ export const InboundFormModal: FC<Props> = ({
 			setPortWarning(null);
 			return;
 		}
-		const numeric = Number(portValue);
-		if (Number.isFinite(numeric) && BLOCKED_PORTS.has(numeric)) {
+		if (inboundPortNumbers(portValue).some((port) => BLOCKED_PORTS.has(port))) {
 			setPortWarning(t("inbounds.portWarningBlocked"));
 		} else {
 			setPortWarning(null);
@@ -980,7 +986,9 @@ export const InboundFormModal: FC<Props> = ({
 						? inb.targets
 						: ["master"];
 				return (
-					inb.port?.toString() === portValue &&
+					inboundPortNumbers(portValue).some((port) =>
+						inboundPortNumbers(String(inb.port ?? "")).includes(port),
+					) &&
 					inboundTargets.some((targetId) => selectedTargets.has(targetId))
 				);
 			})
@@ -1450,6 +1458,8 @@ export const InboundFormModal: FC<Props> = ({
 
 	return (
 		<Dialog
+			section="inbounds"
+			page={mode === "edit" && initialValue ? inboundEntityPage(initialValue) : undefined}
 			open={isOpen}
 			onOpenChange={(next) => {
 				if (!next) onClose();
@@ -1488,9 +1498,20 @@ export const InboundFormModal: FC<Props> = ({
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 											<FormControl required isInvalid={!!tagError || !!fieldValidationErrors.tag}>
 												<FormLabel helpKey="inbounds.tagHelp">{t("inbounds.tag")}</FormLabel>
-												<Input
-													{...register("tag", { required: true })}
-													disabled={isEditMode}
+												<Controller
+													control={control}
+													name="tag"
+													rules={{ required: true }}
+													render={({ field }) => (
+														<EmojiShortcodeInput
+															ref={field.ref}
+															value={field.value ?? ""}
+															onChange={field.onChange}
+															onBlur={field.onBlur}
+															disabled={isEditMode}
+															enabled={inboundTagAllowsEmoji(currentProtocol)}
+														/>
+													)}
 												/>
 												{(tagError || fieldValidationErrors.tag) && (
 													<p className="text-[0.75rem] text-red-500 mt-1">
@@ -1507,16 +1528,11 @@ export const InboundFormModal: FC<Props> = ({
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 											<FormControl required isInvalid={!!portError || !!fieldValidationErrors.port}>
 												<FormLabel helpKey="portHelp">{t("port")}</FormLabel>
-												<FormNumberField
-													control={control}
-													name="port"
-													rules={{ required: true }}
-													inputMode="numeric"
-													min={1}
-													max={65535}
-													placeholder="443"
+												<Input
+													{...register("port", { required: true })}
+													placeholder={supportsMultiplePorts(currentProtocol) ? "443,8443" : "443"}
 													disabled={currentProtocol === "l2tp" || currentProtocol === "ikev2" || currentProtocol === "gre" || currentProtocol === "web"}
-													invalid={!!portError || !!fieldValidationErrors.port}
+													aria-invalid={!!portError || !!fieldValidationErrors.port}
 												/>
 												<div className="flex flex-row items-center gap-2 justify-between mt-1">
 													<Button onClick={() => generateRandomPort()} disabled={
@@ -1528,6 +1544,11 @@ export const InboundFormModal: FC<Props> = ({
 														{t("inbounds.randomPort")}
 													</Button>
 												</div>
+												{supportsMultiplePorts(currentProtocol) && (
+													<p className="text-[0.75rem] text-muted-foreground mt-1">
+														{t("inbounds.portListHint")}
+													</p>
+												)}
 												{portWarning && (
 													<p className="text-[0.75rem] text-yellow-600 mt-1">
 														{portWarning}
@@ -4501,6 +4522,13 @@ export const InboundFormModal: FC<Props> = ({
 																			`xhttpHeaders.${index}.name` as const,
 																		)}
 																		placeholder={t("inbounds.ws.headerName")}
+																		onPaste={(event) => {
+																			const headers = parseHeaderPairs(event.clipboardData.getData("text"));
+																			if (!headers) return;
+																			event.preventDefault();
+																			removeXhttpHeader(index);
+																			insertXhttpHeader(index, headers);
+																		}}
 																	/>
 																</FormControl>
 																<FormControl>
@@ -4643,7 +4671,7 @@ export const InboundFormModal: FC<Props> = ({
 															))}
 														</div>
 													</div>
-													{xhttpMode === "packet-up" && (
+													{(xhttpMode === "packet-up" || xhttpMode === "auto") && (
 														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 															<FormControl>
 																<FormLabel helpKey="inbounds.xhttp.maxBufferedHelp">{t("inbounds.xhttp.maxBuffered")}</FormLabel>
@@ -4657,6 +4685,13 @@ export const InboundFormModal: FC<Props> = ({
 																<Input
 																	{...register("xhttpScMaxEachPostBytes")}
 																	placeholder="1000000"
+																/>
+															</FormControl>
+															<FormControl>
+																<FormLabel helpKey="inbounds.xhttp.minPostsIntervalHelp">{t("inbounds.xhttp.minPostsInterval")}</FormLabel>
+																<Input
+																	{...register("xhttpScMinPostsIntervalMs")}
+																	placeholder="30"
 																/>
 															</FormControl>
 														</div>

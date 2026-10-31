@@ -814,8 +814,8 @@ func validatePortAvailable(config map[string]any, inbound map[string]any, skipTa
 
 func inboundRuntimePorts(inbound map[string]any) []int {
 	ports := make([]int, 0, 2)
-	if port, err := parseConfigPort(inbound["port"]); err == nil && port > 0 {
-		ports = append(ports, port)
+	if listed, err := parseConfigPortList(inbound["port"]); err == nil {
+		ports = append(ports, listed...)
 	}
 	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	if protocol == "web" {

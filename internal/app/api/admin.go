@@ -814,6 +814,15 @@ func (s *Server) handleAdminUsageResetPath(w http.ResponseWriter, r *http.Reques
 				return err
 			}
 		}
+		if target.UsersUsage != 0 || target.CreatedTraffic != 0 {
+			zero := int64(0)
+			if err := s.recordRecentActionEventDetailsTx(r.Context(), tx, "admin.usage_reset", "admin", target.Username, "Reset admin usage", []recentActionValueChange{
+				{Field: "users_usage", Before: telegramapp.FormatOptionalBytes(&target.UsersUsage), After: telegramapp.FormatOptionalBytes(&zero)},
+				{Field: "created_traffic", Before: telegramapp.FormatOptionalBytes(&target.CreatedTraffic), After: telegramapp.FormatOptionalBytes(&zero)},
+			}, nil); err != nil {
+				return err
+			}
+		}
 		if _, err := tx.ExecContext(r.Context(), `UPDATE admins SET users_usage = 0, created_traffic = 0 WHERE id = ?`, target.ID); err != nil {
 			return err
 		}

@@ -14,6 +14,8 @@ export type OverviewBandProps = {
 	distribution?: { label: string; segments: OverviewSegment[] };
 	extra?: { label: string; value: ReactNode; caption?: ReactNode };
 	locale: string;
+	onSegmentSelect?: (key: string) => void;
+	selectedKey?: string | null;
 };
 
 const count = (value: number, locale: string) =>
@@ -22,12 +24,48 @@ const count = (value: number, locale: string) =>
 const share = (value: number, of: number) =>
 	of > 0 ? (value / of) * 100 : 0;
 
+const LINK_CLASS =
+	"cursor-pointer text-start underline decoration-panel-text-muted/60 underline-offset-4 transition-colors hover:text-panel-accent hover:decoration-panel-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-panel-accent rounded-sm";
+
+type SegmentLinkProps = {
+	as: "div" | "span";
+	label: string;
+	active: boolean;
+	onSelect?: () => void;
+	className?: string;
+	children: ReactNode;
+};
+
+const SegmentLink = ({ as, label, active, onSelect, className, children }: SegmentLinkProps) => {
+	if (!onSelect) {
+		const Tag = as;
+		return <Tag className={className}>{children}</Tag>;
+	}
+	return (
+		<button
+			type="button"
+			aria-label={label}
+			aria-pressed={active}
+			onClick={onSelect}
+			className={cn(
+				LINK_CLASS,
+				active && "text-panel-accent decoration-panel-accent",
+				className,
+			)}
+		>
+			{children}
+		</button>
+	);
+};
+
 export function OverviewBand({
 	total,
 	rows,
 	distribution,
 	extra,
 	locale,
+	onSegmentSelect,
+	selectedKey,
 }: OverviewBandProps) {
 	const distributionTotal = (distribution?.segments ?? []).reduce(
 		(sum, segment) => sum + segment.value,
@@ -83,7 +121,14 @@ export function OverviewBand({
 			{rows.length > 0 ? (
 				<div className="order-3 col-span-2 grid grid-cols-2 content-start gap-x-4 gap-y-3 border-t border-panel-border! pt-4 md:order-2 md:col-span-1 md:flex md:flex-col md:justify-between md:gap-3 md:border-s md:border-t-0 md:px-6 md:pt-0">
 					{rows.map((row) => (
-						<div key={row.key}>
+						<SegmentLink
+							key={row.key}
+							as="div"
+							className="block w-full"
+							label={row.label}
+							active={selectedKey === row.key}
+							onSelect={onSegmentSelect ? () => onSegmentSelect(row.key) : undefined}
+						>
 							<div className="flex items-center gap-1.5">
 								<span className={`size-1.5 rounded-full ${row.tone}`} />
 								<span className="text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-panel-text-muted">
@@ -98,7 +143,7 @@ export function OverviewBand({
 									<span>{count(share(row.value, total.value), locale)}%</span>
 								</span>
 							</div>
-						</div>
+						</SegmentLink>
 					))}
 				</div>
 			) : null}
@@ -127,8 +172,12 @@ export function OverviewBand({
 					</div>
 					<div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,7.5rem),1fr))] gap-x-4 gap-y-1">
 						{distribution.segments.map((segment) => (
-							<span
+							<SegmentLink
 								key={segment.key}
+								as="span"
+								label={segment.label}
+								active={selectedKey === segment.key}
+								onSelect={onSegmentSelect ? () => onSegmentSelect(segment.key) : undefined}
 								className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] text-panel-text-secondary"
 							>
 								<span className={`size-1.5 shrink-0 rounded-full ${segment.tone}`} />
@@ -136,7 +185,7 @@ export function OverviewBand({
 								<span className="rb-tabular ms-auto shrink-0 font-medium text-panel-text">
 									{count(segment.value, locale)}
 								</span>
-							</span>
+							</SegmentLink>
 						))}
 					</div>
 				</div>

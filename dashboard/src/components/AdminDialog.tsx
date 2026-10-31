@@ -14,13 +14,16 @@ import { Badge } from "components/ui/badge";
 import { DateTimeField } from "components/ui/date-time-field";
 import { DataSizeField } from "components/ui/data-size-field";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "components/ui/dialog";
+import { adminEntityPage } from "components/entityPage/EntityOverviews";
 import { FormField } from "components/ui/form-field";
 import { Input } from "components/ui/input";
 import { CheckRow } from "components/ui/check-row";
 import { NumberField } from "components/ui/number-field";
 import { Select, SelectContent, SelectItem, SelectItemText, SelectTrigger, SelectValue } from "components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
+import { AdminHistoryPanel } from "components/admins/AdminHistoryPanel";
 import { getDefaultPermissionsForRole } from "constants/adminPermissions";
+import type { AdminDialogTab } from "contexts/AdminsContext";
 import { useAdminsStore } from "contexts/AdminsContext";
 import useGetUser from "hooks/useGetUser";
 import { cn } from "lib/cn";
@@ -40,8 +43,6 @@ const GB_IN_BYTES = 1024 * 1024 * 1024;
 const MB_IN_BYTES = 1024 * 1024;
 const SUCCESS_CLOSE_DELAY_MS = 1000;
 const DEFAULT_MATCH = { matchCase: false, matchWholeWord: false } as const;
-
-type TabValue = "details" | "permissions";
 
 const clonePermissions = (role: AdminRole): AdminPermissions => getDefaultPermissionsForRole(role);
 
@@ -151,6 +152,7 @@ export const AdminDialog: FC = () => {
 	const admins = useAdminsStore((state) => state.admins);
 	const adminFromStore = useAdminsStore((state) => state.adminInDialog);
 	const isOpen = useAdminsStore((state) => state.isAdminDialogOpen);
+	const initialTab = useAdminsStore((state) => state.adminDialogInitialTab);
 	const closeAdminDialog = useAdminsStore((state) => state.closeAdminDialog);
 	const createAdmin = useAdminsStore((state) => state.createAdmin);
 	const fetchAdmins = useAdminsStore((state) => state.fetchAdmins);
@@ -278,7 +280,7 @@ export const AdminDialog: FC = () => {
 	});
 
 	const { register, handleSubmit, reset, formState, setValue, getValues, watch, setError } = form;
-	const [activeTab, setActiveTab] = useState<TabValue>("details");
+	const [activeTab, setActiveTab] = useState<AdminDialogTab>("details");
 	const [showPassword, setShowPassword] = useState(false);
 	const [serviceOptions, setServiceOptions] = useState<ServiceSummary[]>([]);
 	const [serviceSearch, setServiceSearch] = useState("");
@@ -457,16 +459,16 @@ export const AdminDialog: FC = () => {
 			setAdminExpireDate(null);
 			return;
 		}
-		if (admin) {
-			setAdminExpireDate(typeof admin.expire === "number" && admin.expire > 0 ? dayjs.unix(admin.expire).toDate() : null);
+		if (adminFromStore) {
+			setAdminExpireDate(typeof adminFromStore.expire === "number" && adminFromStore.expire > 0 ? dayjs.unix(adminFromStore.expire).toDate() : null);
 			return;
 		}
 		setAdminExpireDate(null);
-	}, [admin, isOpen]);
+	}, [adminFromStore, isOpen]);
 
 	useEffect(() => {
 		if (!isOpen) return;
-		setActiveTab("details");
+		setActiveTab(initialTab);
 		fetch<{ services: ServiceSummary[]; total?: number }>("/v2/services", { query: { limit: 500 } })
 			.then((resp) => {
 				const list = Array.isArray((resp as any).services)
@@ -479,24 +481,24 @@ export const AdminDialog: FC = () => {
 			.catch(() => setServiceOptions([]));
 		setServiceSearch("");
 
-		const nextRole: AdminRole = admin?.role ?? AdminRole.Standard;
-		const storedPermissions: AdminPermissions | null = admin?.permissions
-			? JSON.parse(JSON.stringify(admin.permissions))
+		const nextRole: AdminRole = adminFromStore?.role ?? AdminRole.Standard;
+		const storedPermissions: AdminPermissions | null = adminFromStore?.permissions
+			? JSON.parse(JSON.stringify(adminFromStore.permissions))
 			: null;
 		const nextPermissions = storedPermissions?.users ? storedPermissions : clonePermissions(nextRole);
 		reset({
-			username: admin?.username ?? "",
+			username: adminFromStore?.username ?? "",
 			password: "",
-			telegram_id: admin?.telegram_id !== undefined && admin?.telegram_id !== null ? String(admin.telegram_id) : "",
+			telegram_id: adminFromStore?.telegram_id !== undefined && adminFromStore?.telegram_id !== null ? String(adminFromStore.telegram_id) : "",
 			role: nextRole,
-			require_2fa: admin?.require_2fa ?? false,
-			traffic_limit_mode: admin?.traffic_limit_mode ?? AdminTrafficLimitMode.UsedTraffic,
-			use_service_traffic_limits: admin?.use_service_traffic_limits ?? false,
-			show_user_traffic: admin?.show_user_traffic ?? true,
-			delete_user_usage_limit_enabled: admin?.delete_user_usage_limit_enabled ?? false,
+			require_2fa: adminFromStore?.require_2fa ?? false,
+			traffic_limit_mode: adminFromStore?.traffic_limit_mode ?? AdminTrafficLimitMode.UsedTraffic,
+			use_service_traffic_limits: adminFromStore?.use_service_traffic_limits ?? false,
+			show_user_traffic: adminFromStore?.show_user_traffic ?? true,
+			delete_user_usage_limit_enabled: adminFromStore?.delete_user_usage_limit_enabled ?? false,
 			delete_user_usage_limit:
-				admin?.delete_user_usage_limit !== undefined && admin?.delete_user_usage_limit !== null
-					? String(Math.floor(admin.delete_user_usage_limit / MB_IN_BYTES))
+				adminFromStore?.delete_user_usage_limit !== undefined && adminFromStore?.delete_user_usage_limit !== null
+					? String(Math.floor(adminFromStore.delete_user_usage_limit / MB_IN_BYTES))
 					: "",
 			permissions: nextPermissions,
 			maxSpeedLimitPerUserMbps: nextPermissions.users.max_speed_limit_per_user
@@ -507,11 +509,11 @@ export const AdminDialog: FC = () => {
 				: "",
 			maxDataLimitPerUserGb: formatBytesToGbString(nextPermissions.users.max_data_limit_per_user),
 			minDataLimitPerUserGb: formatBytesToGbString(nextPermissions.users.min_data_limit_per_user),
-			data_limit: admin?.data_limit !== undefined && admin?.data_limit !== null ? String(Math.round((admin.data_limit / GB_IN_BYTES) * 1e9) / 1e9) : "",
-			users_limit: admin?.users_limit !== undefined && admin?.users_limit !== null ? String(admin.users_limit) : "",
-			services: admin?.services ?? [],
+			data_limit: adminFromStore?.data_limit !== undefined && adminFromStore?.data_limit !== null ? String(Math.round((adminFromStore.data_limit / GB_IN_BYTES) * 1e9) / 1e9) : "",
+			users_limit: adminFromStore?.users_limit !== undefined && adminFromStore?.users_limit !== null ? String(adminFromStore.users_limit) : "",
+			services: adminFromStore?.services ?? [],
 			service_limits: Object.fromEntries(
-				(admin?.service_limits ?? []).map((item) => [
+				(adminFromStore?.service_limits ?? []).map((item) => [
 					item.service_id,
 					{
 						traffic_limit_mode: item.traffic_limit_mode ?? AdminTrafficLimitMode.UsedTraffic,
@@ -534,7 +536,7 @@ export const AdminDialog: FC = () => {
 				]),
 			),
 		});
-	}, [admin, isOpen, reset]);
+	}, [adminFromStore, initialTab, isOpen, reset]);
 
 	useEffect(() => {
 		if (watchRole === AdminRole.FullAccess) {
@@ -845,7 +847,7 @@ export const AdminDialog: FC = () => {
 							</FormField>
 						</div>
 						{isCreated ? (
-							<div className="flex flex-col gap-2 pl-1">
+							<div className="flex flex-col gap-2 ps-1">
 								<CheckRow
 									checked={item.show_user_traffic}
 									onChange={(next) => setServiceLimitValue(serviceId, { show_user_traffic: next })}
@@ -1064,7 +1066,7 @@ export const AdminDialog: FC = () => {
 					</CheckRow>
 				) : null}
 				{!isFullAccessRole && !usePerServiceTrafficLimits && (hasGlobalDataLimit || isCreatedTrafficMode) ? (
-					<div className="flex flex-col gap-2 pl-1">
+					<div className="flex flex-col gap-2 ps-1">
 						<CheckRow
 							checked={isCreatedTrafficMode}
 							onChange={(next) =>
@@ -1078,7 +1080,7 @@ export const AdminDialog: FC = () => {
 							{t("admins.limitByCreatedTraffic")}
 						</CheckRow>
 						{isCreatedTrafficMode ? (
-							<div className="flex flex-col gap-2 pl-6">
+							<div className="flex flex-col gap-2 ps-6">
 								<CheckRow checked={Boolean(showUserTrafficValue)} onChange={(next) => setValue("show_user_traffic", next, { shouldDirty: true })}>
 									{t("admins.showUserTraffic")}
 								</CheckRow>
@@ -1228,6 +1230,8 @@ export const AdminDialog: FC = () => {
 
 	return (
 		<Dialog
+			section="admins"
+			page={admin ? adminEntityPage(admin) : undefined}
 			open={isOpen}
 			onOpenChange={(open) => {
 				if (!open && !isSubmitting) handleCloseAdminDialog();
@@ -1252,11 +1256,12 @@ export const AdminDialog: FC = () => {
 						</div>
 					</DialogHeader>
 
-					<Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as TabValue)} className="flex min-h-0 flex-1 flex-col">
+					<Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AdminDialogTab)} className="flex min-h-0 flex-1 flex-col">
 						<div className="border-b px-5 pt-2.5 pb-2.5">
 							<TabsList className="w-full">
 								<TabsTrigger value="details">{t("details")}</TabsTrigger>
 								<TabsTrigger value="permissions">{t("admins.permissionsTabLabel")}</TabsTrigger>
+								{mode === "edit" && admin ? <TabsTrigger value="history">{t("adminHistory.tab")}</TabsTrigger> : null}
 							</TabsList>
 						</div>
 						<div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
@@ -1266,6 +1271,11 @@ export const AdminDialog: FC = () => {
 							<TabsContent value="permissions" className="mt-0">
 								{permissionsTab}
 							</TabsContent>
+							{mode === "edit" && admin ? (
+								<TabsContent value="history" className="mt-0">
+									<AdminHistoryPanel username={admin.username} />
+								</TabsContent>
+							) : null}
 						</div>
 					</Tabs>
 

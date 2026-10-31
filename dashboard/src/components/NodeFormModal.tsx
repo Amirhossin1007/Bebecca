@@ -1,3 +1,4 @@
+import { AppleEmojiText } from "components/common/AppleEmojiText";
 import { Button } from "components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { Collapsible, CollapsibleContent } from "components/ui/collapsible";
@@ -12,6 +13,7 @@ import { useClipboard } from "hooks/useClipboard";
 
 import { CheckRow } from "components/ui/check-row";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "components/ui/dialog";
+import { nodeEntityPage } from "components/entityPage/EntityOverviews";
 import { FormField } from "components/ui/form-field";
 import { Input as UiInput } from "components/ui/input";
 import { DataSizeField } from "components/ui/data-size-field";
@@ -27,6 +29,7 @@ import {
 } from "contexts/NodesContext";
 import { FC, useCallback, useEffect, useState } from "react";
 import { type Resolver, Controller, useForm } from "react-hook-form";
+import { EmojiShortcodeInput } from "components/common/EmojiShortcodeInput";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import {
@@ -320,6 +323,8 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 
 	return (
 		<Dialog
+			section="nodes"
+			page={!isAddMode && node ? nodeEntityPage(node) : undefined}
 			open={isOpen}
 			onOpenChange={(open) => {
 				if (!open && !isLoading) handleClose();
@@ -338,7 +343,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 								{isAddMode ? t("nodes.addNewRebeccaNode") : t("nodes.editNode")}
 							</DialogTitle>
 							{!isAddMode && node?.name ? (
-								<DialogDescription className="truncate">{node.name}</DialogDescription>
+								<DialogDescription className="truncate"><AppleEmojiText>{node.name}</AppleEmojiText></DialogDescription>
 							) : null}
 						</div>
 					</DialogHeader>
@@ -383,7 +388,21 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 								) : null}
 								<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 									<FormField label={t("nodes.nodeName")} error={getInputError(errors?.name)}>
-										<UiInput placeholder="Rebecca-S2" maxLength={120} aria-invalid={Boolean(errors?.name) || undefined} {...form.register("name")} />
+										<Controller
+											control={form.control}
+											name="name"
+											render={({ field }) => (
+												<EmojiShortcodeInput
+													ref={field.ref}
+													value={field.value ?? ""}
+													onChange={field.onChange}
+													onBlur={field.onBlur}
+													placeholder="Rebecca-S2"
+													maxLength={120}
+													aria-invalid={Boolean(errors?.name) || undefined}
+												/>
+											)}
+										/>
 									</FormField>
 									<FormField label={t("nodes.nodeAddress")} error={getInputError(errors?.address)}>
 										<UiInput placeholder="192.168.1.1 or 2001:db8::1" aria-invalid={Boolean(errors?.address) || undefined} {...form.register("address")} />

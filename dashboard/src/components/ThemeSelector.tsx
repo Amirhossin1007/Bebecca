@@ -18,6 +18,8 @@ import { useTranslation } from "react-i18next";
 import { useDisclosure } from "hooks/useDisclosure";
 import { useMediaQuery } from "hooks/useMediaQuery";
 import { cn } from "lib/cn";
+import { ENTITY_PAGE_LABELS, ENTITY_PAGE_SECTIONS, useEntityPagePrefs } from "lib/entityPages";
+import { ToggleRow } from "components/ui/toggle-row";
 import { updateThemeColor } from "utils/themeColor";
 
 const THEME_OPTIONS: Array<{
@@ -238,6 +240,34 @@ type ThemePanelProps = {
 	onSelectAccent: (accent: string) => void;
 };
 
+const EntityPageToggles: FC<{ minimal?: boolean }> = ({ minimal }) => {
+	const { t } = useTranslation();
+	const pages = useEntityPagePrefs((state) => state.pages);
+	const setPage = useEntityPagePrefs((state) => state.setPage);
+
+	return (
+		<>
+			{!minimal ? (
+				<hr className="my-2 border-0 border-b border-panel-border! opacity-60" />
+			) : null}
+			<div>
+				<p className="mb-2 text-xs font-bold uppercase text-panel-text-secondary">
+					{t("entityPages.title", "Open as page")}
+				</p>
+				<div className="flex flex-col gap-2">
+					{ENTITY_PAGE_SECTIONS.map((section) => (
+						<ToggleRow
+							key={section}
+							title={t(`entityPages.${section}`, ENTITY_PAGE_LABELS[section])}
+							checked={Boolean(pages[section])}
+							onChange={(next) => setPage(section, next)}
+						/>
+					))}
+				</div>
+			</div>
+		</>
+	);
+};
 const ThemePanel: FC<ThemePanelProps> = ({
 	minimal,
 	activeTheme,
@@ -272,7 +302,7 @@ const ThemePanel: FC<ThemePanelProps> = ({
 										</span>
 									</span>
 									{selected ? (
-										<span className="absolute right-2 top-2 text-panel-accent">
+										<span className="absolute end-2 top-2 text-panel-accent">
 											<Check className="size-4" />
 										</span>
 									) : null}
@@ -325,6 +355,7 @@ const ThemePanel: FC<ThemePanelProps> = ({
 						})}
 					</div>
 				</div>
+				<EntityPageToggles minimal={minimal} />
 			</div>
 		</TooltipProvider>
 	);

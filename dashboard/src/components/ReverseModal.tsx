@@ -8,7 +8,8 @@ import { Input as UiInput } from "components/ui/input";
 import { SegmentedControl } from "components/ui/segmented-control";
 import { ArrowLeftRight } from "lucide-react";
 import { type FC, useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
+import { EmojiShortcodeInput } from "components/common/EmojiShortcodeInput";
 import { useTranslation } from "react-i18next";
 import {
 	SearchableTagSelect,
@@ -165,7 +166,20 @@ export const ReverseModal: FC<ReverseModalProps> = ({
 										error={tagInvalid ? (duplicateTag ? t("pages.xray.reverse.tagDuplicate") : t("pages.xray.reverse.tagError")) : undefined}
 										description={!tagInvalid ? (type === "public" ? t("pages.xray.reverse.tagPendingHint") : t("pages.xray.reverse.tagHint")) : undefined}
 									>
-										<UiInput {...form.register("tag")} placeholder="reverse-1" autoComplete="off" />
+										<Controller
+											control={form.control}
+											name="tag"
+											render={({ field }) => (
+												<EmojiShortcodeInput
+													ref={field.ref}
+													value={field.value ?? ""}
+													onChange={field.onChange}
+													onBlur={field.onBlur}
+													placeholder="reverse-1"
+													autoComplete="off"
+												/>
+											)}
+										/>
 									</FormField>
 								</div>
 							</FormSection>

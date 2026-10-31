@@ -3,7 +3,6 @@ import { Spinner } from "components/ui/spinner";
 import { toast } from "components/ui/sonner";
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { withClass } from "lib/withClass";
-import { cn } from "lib/cn";
 import { RefreshCw, Lock } from "lucide-react";
 
 import { AppDialog } from "components/dialogs/AppDialog";
@@ -104,10 +103,10 @@ const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 				</Icon>
 			} contentProps={{ className: "mx-3" }} headerProps={{ className: "pt-6" }} footerProps={{ className: "flex" }} footer={
 				<>
-					<Button onClick={onClose} variant="outline" size="sm" className="mr-3 w-full">
+					<Button onClick={onClose} variant="outline" size="sm" className="flex-1">
 						{t("cancel")}
 					</Button>
-					<Button onClick={onSubmit} size="sm" className={cn("bg-blue-600 text-white shadow-xs hover:bg-blue-700", "w-full")}>{loading ? <Spinner /> : undefined}
+					<Button onClick={onSubmit} size="sm" className="flex-1 bg-blue-600 text-white shadow-xs hover:bg-blue-700">{loading ? <Spinner /> : undefined}
 						{t(isRevoke ? "revoke" : "reset")}
 					</Button>
 				</>

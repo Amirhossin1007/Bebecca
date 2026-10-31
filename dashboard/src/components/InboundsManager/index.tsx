@@ -19,6 +19,7 @@ import { fetch, getAPIErrorMessage } from "service/http";
 import {
 	buildInboundPayload,
 	getInboundTraffic,
+	inboundPortNumbers,
 	type InboundFormValues,
 	protocolOptions,
 	type RawInbound,
@@ -417,9 +418,12 @@ export const InboundsManager: FC = () => {
 
 			const portNumber =
 				typeof inbound.port === "string" ? Number(inbound.port) : inbound.port;
+			const listedPorts = inboundPortNumbers(String(inbound.port ?? ""));
 			const nextPort = Number.isFinite(portNumber)
 				? portNumber + 1
-				: inbound.port;
+				: listedPorts.length > 1
+					? listedPorts.map((port) => port + 1).join(",")
+					: inbound.port;
 
 			setCloneTarget({
 				...inbound,
@@ -619,7 +623,7 @@ export const InboundsManager: FC = () => {
 				cell: (inbound) => {
 					const traffic = getInboundTraffic(inbound);
 					return (
-						<div dir="ltr" className="flex flex-row items-center gap-3 whitespace-nowrap text-[0.75rem] [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
+						<div dir="ltr" className="rb-stat-pair flex flex-row items-center gap-3 whitespace-nowrap text-[0.75rem] [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
 							<p className="text-teal-400">
 								↑ {SizeFormatter.sizeFormat(traffic.upload)}
 							</p>
@@ -645,7 +649,7 @@ export const InboundsManager: FC = () => {
 				cell: (inbound) => {
 					const speed = speeds[inbound.tag];
 					return (
-						<div dir="ltr" className="flex flex-row items-center gap-3 whitespace-nowrap text-[0.75rem] [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
+						<div dir="ltr" className="rb-stat-pair flex flex-row items-center gap-3 whitespace-nowrap text-[0.75rem] [font-variant-numeric:tabular-nums] [unicode-bidi:isolate]">
 							<p className="text-teal-400">
 								↑ {SizeFormatter.sizeFormat(speed?.upload_speed ?? 0)}/s
 							</p>
@@ -701,7 +705,7 @@ export const InboundsManager: FC = () => {
 					return (
 						<Tooltip>
 <TooltipTrigger asChild>
-							<div className="flex flex-row items-center gap-1 flex-wrap max-w-full">
+							<div className="rb-chip-list flex flex-row items-center gap-1 flex-wrap max-w-full">
 								{visibleTargets.map((targetId) => (
 									<Badge key={targetId} className="max-w-[80px]">
 										<span className="truncate">

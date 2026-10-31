@@ -83,7 +83,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 		};
 		const isNumber = type === "number";
 		const fieldClassName = cn(
-			"focus-visible:outline-none focus-visible:border-t-transparent! focus-visible:border-r-transparent! focus-visible:border-b-transparent! disabled:cursor-not-allowed",
+			"focus-visible:outline-none focus-visible:border-t-transparent! focus-visible:border-e-transparent! focus-visible:border-b-transparent! disabled:cursor-not-allowed",
 			isNumber && "pe-8",
 			startAdornment ? "rounded-s-none" : "rounded-md",
 			endAdornment ? "rounded-e-none" : "rounded-md",
@@ -111,12 +111,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 					{startAdornment && <div className="flex items-center rounded-s-md border border-e-0 border-input bg-muted px-3 text-sm">{startAdornment}</div>}
 					{field}
 					{endAdornment && (
-						<div className={cn("flex items-center rounded-e-md border border-s-0 border-input bg-muted px-3 text-sm", "rounded-l-[0] rounded-r-[6px] bg-transparent")}>
+						<div className={cn("flex items-center rounded-e-md border border-s-0 border-input bg-muted px-3 text-sm", "rounded-s-[0] rounded-e-[6px] bg-transparent")}>
 							{endAdornment}
 						</div>
 					)}
 					{clearable && value && value.length && (
-						<div onClick={clear} className={cn("absolute inset-y-0 end-0 z-10 flex items-center pe-3", "rounded-l-[0] rounded-r-[6px] bg-transparent cursor-pointer")}>
+						<div onClick={clear} className={cn("absolute inset-y-0 end-0 z-10 flex items-center pe-3", "rounded-s-[0] rounded-e-[6px] bg-transparent cursor-pointer")}>
 							<ClearIcon />
 						</div>
 					)}

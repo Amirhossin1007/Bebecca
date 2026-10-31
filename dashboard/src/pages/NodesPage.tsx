@@ -6,13 +6,11 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "components/ui/hov
 import { Button } from "components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { Alert, AlertDescription } from "components/ui/alert";
-import { Dialog, DialogContent, DialogFooter, DialogHeader } from "components/ui/dialog";
 import { toast } from "components/ui/sonner";
 import { CircleAlert, Info, TriangleAlert } from "lucide-react";
 import { withClass } from "lib/withClass";
 import { Plus as AddIcon, Download, RefreshCw, BookOpen, CircleCheck, Cpu, Trash2 as DeleteIcon, Copy, Pencil as EditIcon, Globe, Ban, ShieldCheck, Wrench } from "lucide-react";
 
-import { useClipboard } from "hooks/useClipboard";
 import { useDisclosure } from "hooks/useDisclosure";
 
 import { cn } from "lib/cn";
@@ -69,6 +67,7 @@ import type { BuildCatalog } from "../components/BuildVersionSelect";
 import { ConfirmDialog } from "../components/dialogs/ConfirmDialog";
 import { GeoUpdateDialog } from "../components/GeoUpdateDialog";
 import { NodeFormModal } from "../components/NodeFormModal";
+import { NodeInstallBundleDialog } from "../components/NodeInstallBundleDialog";
 import { NodeModalStatusBadge } from "../components/NodeModalStatusBadge";
 import {
 	NodeServiceUpdateDialog,
@@ -248,10 +247,13 @@ const formatNodeUptime = (value?: number | null) => {
 	return parts.join(" ");
 };
 
+const nodeNameSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
 const formatNodeNamePreview = (value?: string | null) => {
 	const text = value?.trim();
 	if (!text) return "";
-	return text.length > 10 ? `${text.slice(0, 10)}...` : text;
+	const graphemes = Array.from(nodeNameSegmenter.segment(text), ({ segment }) => segment);
+	return graphemes.length > 10 ? `${graphemes.slice(0, 10).join("")}...` : text;
 };
 
 const boundedPercent = (value?: number | null) =>
@@ -587,16 +589,6 @@ export const NodesPage: FC = () => {
 		certificate_key?: string | null;
 		name?: string | null;
 	} | null>(null);
-	const generatedCertificateValue = newNodeCertificate?.certificate ?? "";
-	const generatedCertificateKeyValue =
-		newNodeCertificate?.certificate_key ?? "";
-	const generatedCertificateBundleValue = generatedCertificateKeyValue
-		? `${generatedCertificateValue.trim()}\n${generatedCertificateKeyValue.trim()}\n`
-		: generatedCertificateValue;
-	const {
-		onCopy: copyGeneratedCertificateBundle,
-		hasCopied: generatedCertificateBundleCopied,
-	} = useClipboard(generatedCertificateBundleValue);
 	const {
 		isOpen: isResetConfirmOpen,
 		onOpen: openResetConfirm,
@@ -2500,7 +2492,7 @@ export const NodesPage: FC = () => {
 			)}
 
 			<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden">
-				<OverviewBand total={nodeOverview.total} rows={nodeOverview.rows} distribution={nodeOverview.distribution} extra={nodeOverview.extra} locale={locale} />
+				<OverviewBand total={nodeOverview.total} rows={nodeOverview.rows} distribution={nodeOverview.distribution} extra={nodeOverview.extra} locale={locale} onSegmentSelect={(key) => setStatusFilter((current) => (current === key ? "all" : key))} selectedKey={statusFilter === "all" ? null : statusFilter} />
 				<div className="border-t border-panel-border! p-3">
 					<div className="flex flex-col gap-2 xl:flex-row xl:items-center">
 						<div className="min-w-0 flex-1">
@@ -2816,77 +2808,12 @@ export const NodesPage: FC = () => {
 				loading={isUpdating}
 			/>
 			{newNodeCertificate && (
-				<Dialog open onOpenChange={(open) => { if (!open) (() => setNewNodeCertificate(null))(); }}>
-					
-					<DialogContent className={cn("border rounded-2xl shadow-2xl overflow-hidden mx-4 sm:mx-0 max-w-[calc(100vw_-_32px)] sm:max-w-[520px]", nodePanelBg, nodePanelBorder)}>
-						<DialogHeader className="px-6 pt-6 pb-2">
-							<div className="flex flex-row items-center gap-3">
-								<div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900 dark:text-primary-200">
-									<CertificateIconStyled />
-								</div>
-								<p>{t("nodes.newNodePublicKeyTitle")}</p>
-							</div>
-						</DialogHeader>
-						
-						<div className={cn("px-5 py-4 overflow-y-auto", "px-6 pb-2")}>
-							<div className="flex flex-col items-stretch gap-4">
-								<p className="text-[0.875rem] text-gray-600 dark:text-gray-300">
-									{t("nodes.newNodePublicKeyDesc")}
-								</p>
-								<div className="border rounded-lg overflow-hidden">
-									<div className="flex flex-row gap-2 justify-between items-center px-4 py-3 bg-gray-50 dark:bg-gray-800">
-										<div className="flex flex-col items-start gap-0">
-											<p className="font-semibold">
-												{t("nodes.installBundleLabel")}
-											</p>
-											{newNodeCertificate.name && (
-												<p className="text-[0.75rem] text-gray-500 dark:text-gray-400">
-													{newNodeCertificate.name}
-												</p>
-											)}
-										</div>
-										<div className="flex flex-row items-center gap-2">
-											<Button onClick={() => {
-													if (!generatedCertificateBundleValue) return;
-													copyGeneratedCertificateBundle();
-													toast.success(t("copied"), { duration: 2000 });
-												}} disabled={!generatedCertificateBundleValue} variant="outline" size="sm">{<CopyIconStyled />}
-												{generatedCertificateBundleCopied
-													? t("copied")
-													: t("copy")}
-											</Button>
-											<Button onClick={() => {
-													if (!generatedCertificateBundleValue) return;
-													const blob = new Blob(
-														[generatedCertificateBundleValue],
-														{
-															type: "text/plain",
-														},
-													);
-													const url = URL.createObjectURL(blob);
-													const anchor = document.createElement("a");
-													anchor.href = url;
-													anchor.download = "node_install_bundle.pem";
-													anchor.click();
-													URL.revokeObjectURL(url);
-												}} disabled={!generatedCertificateBundleValue} variant="outline" size="sm">{<DownloadIconStyled />}
-												{t("nodes.download-node-install-bundle")}
-											</Button>
-										</div>
-									</div>
-									<div className="px-4 py-3 bg-white dark:bg-gray-900 font-mono text-[0.75rem] whitespace-pre-wrap [word-break:break-word] max-h-[280px] overflow-auto">
-										{generatedCertificateBundleValue}
-									</div>
-								</div>
-							</div>
-						</div>
-						<DialogFooter className={cn("bg-blackAlpha-50 dark:bg-whiteAlpha-50 border-t px-6 py-4", nodePanelBorder)}>
-							<Button onClick={() => setNewNodeCertificate(null)}>
-								{t("close")}
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
+				<NodeInstallBundleDialog
+					name={newNodeCertificate.name}
+					certificate={newNodeCertificate.certificate}
+					certificateKey={newNodeCertificate.certificate_key}
+					onClose={() => setNewNodeCertificate(null)}
+				/>
 			)}
 		</div>
 	);

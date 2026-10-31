@@ -21,6 +21,8 @@ export type AdminFilters = {
 	statusFilter: string;
 };
 
+export type AdminDialogTab = "details" | "permissions" | "history";
+
 type AdminsStore = {
 	admins: Admin[];
 	adminOptions: Admin[];
@@ -34,6 +36,7 @@ type AdminsStore = {
 	filters: AdminFilters;
 	isAdminDialogOpen: boolean;
 	adminInDialog: Admin | null;
+	adminDialogInitialTab: AdminDialogTab;
 	fetchAdmins: (
 		overrides?: Partial<AdminFilters>,
 		options?: { force?: boolean },
@@ -57,7 +60,7 @@ type AdminsStore = {
 	bulkUpdateStandardPermissions: (
 		payload: StandardAdminPermissionsBulkPayload,
 	) => Promise<StandardAdminPermissionsBulkResponse>;
-	openAdminDialog: (admin?: Admin) => void;
+	openAdminDialog: (admin?: Admin, tab?: AdminDialogTab) => void;
 	closeAdminDialog: () => void;
 };
 
@@ -163,6 +166,7 @@ export const clearAdminsCache = () => {
 		filters: createDefaultFilters(),
 		isAdminDialogOpen: false,
 		adminInDialog: null,
+		adminDialogInitialTab: "details",
 	});
 };
 
@@ -179,6 +183,7 @@ export const useAdminsStore = create<AdminsStore>((set, get) => ({
 	filters: createDefaultFilters(),
 	isAdminDialogOpen: false,
 	adminInDialog: null,
+	adminDialogInitialTab: "details",
 	async fetchAdmins(overrides, options) {
 		const {
 			filters: stateFilters,
@@ -431,8 +436,8 @@ export const useAdminsStore = create<AdminsStore>((set, get) => ({
 		await get().fetchAdminOptions(undefined, { force: true });
 		return response;
 	},
-	openAdminDialog(admin) {
-		set({ isAdminDialogOpen: true, adminInDialog: admin || null });
+	openAdminDialog(admin, tab) {
+		set({ isAdminDialogOpen: true, adminInDialog: admin || null, adminDialogInitialTab: tab ?? "details" });
 	},
 	closeAdminDialog() {
 		set({ isAdminDialogOpen: false, adminInDialog: null });

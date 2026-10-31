@@ -168,11 +168,17 @@ const NodesUsageAnalytics: FC = () => {
 		(raw: any): NodeUsageSlice[] => {
 			if (!raw) return [];
 			const values = Array.isArray(raw) ? raw : Object.values(raw);
-			return values.map((entry: any) => ({
-				nodeId: Number(entry?.node_id ?? 0),
-				nodeName: entry?.node_name ?? t("nodes.unknownNode"),
-				total: Number(entry?.uplink ?? 0) + Number(entry?.downlink ?? 0),
-			}));
+			return values.map((entry: any) => {
+				const traffic =
+					entry?.used_traffic != null
+						? Number(entry.used_traffic)
+						: Number(entry?.uplink ?? 0) + Number(entry?.downlink ?? 0);
+				return {
+					nodeId: Number(entry?.node_id ?? 0),
+					nodeName: entry?.node_name ?? t("nodes.unknownNode"),
+					total: traffic,
+				};
+			});
 		},
 		[t],
 	);
@@ -202,8 +208,9 @@ const NodesUsageAnalytics: FC = () => {
 	);
 
 	const nodeUsageChart = useMemo(() => {
-		const series = nodeUsageSlices.map((slice) => slice.total);
-		const labels = nodeUsageSlices.map((slice) => slice.nodeName);
+		const activeSlices = nodeUsageSlices.filter((slice) => slice.total > 0);
+		const series = activeSlices.map((slice) => slice.total);
+		const labels = activeSlices.map((slice) => slice.nodeName);
 		return createUsageConfig(
 			colorMode,
 			`${t("userDialog.total")} ${formatBytes(totalNodeUsage || 0, 2)}`,
@@ -246,8 +253,9 @@ const NodesUsageAnalytics: FC = () => {
 	);
 
 	const adminDonutChart = useMemo(() => {
-		const series = adminTotalsSlices.map((slice) => slice.total);
-		const labels = adminTotalsSlices.map((slice) => slice.nodeName);
+		const activeSlices = adminTotalsSlices.filter((slice) => slice.total > 0);
+		const series = activeSlices.map((slice) => slice.total);
+		const labels = activeSlices.map((slice) => slice.nodeName);
 		return createUsageConfig(
 			colorMode,
 			`${t("userDialog.total")} ${formatBytes(totalAdminUsage || 0, 2)}`,
@@ -289,23 +297,14 @@ const NodesUsageAnalytics: FC = () => {
 		const seen = new Set<number>();
 
 		nodeUsageSlices.forEach((slice) => {
-			if (slice.nodeId > 0 && !seen.has(slice.nodeId)) {
+			if (slice.nodeId > 0 && slice.total > 0 && !seen.has(slice.nodeId)) {
 				seen.add(slice.nodeId);
 				options.push({ value: slice.nodeId, label: slice.nodeName });
 			}
 		});
 
-		if (Array.isArray(nodes)) {
-			nodes.forEach((node) => {
-				if (node?.id && !seen.has(node.id)) {
-					seen.add(node.id);
-					options.push({ value: node.id, label: node.name });
-				}
-			});
-		}
-
 		return options.sort((a, b) => a.label.localeCompare(b.label));
-	}, [nodeUsageSlices, nodes]);
+	}, [nodeUsageSlices]);
 
 	const adminNodeOptions = useMemo(() => {
 		const options: { value: number; label: string }[] = [];
@@ -452,21 +451,22 @@ const NodesUsageAnalytics: FC = () => {
 	]);
 
 	useEffect(() => {
-		if (nodeDailySelectedNodeId !== null) return;
-		const topNode = nodeUsageSlices
-			.filter((slice) => slice.nodeId > 0)
-			.sort((a, b) => b.total - a.total)[0]?.nodeId;
-		if (topNode && topNode > 0) {
-			setNodeDailySelectedNodeId(topNode);
+		const validNodes = nodeUsageSlices.filter(
+			(slice) => slice.nodeId > 0 && slice.total > 0,
+		);
+		if (!validNodes.length) {
+			setNodeDailySelectedNodeId(null);
 			return;
 		}
-		if (Array.isArray(nodes) && nodes.length) {
-			const firstNode = nodes[0]?.id;
-			if (firstNode) {
-				setNodeDailySelectedNodeId(firstNode);
-			}
+		if (
+			nodeDailySelectedNodeId !== null &&
+			validNodes.some((slice) => slice.nodeId === nodeDailySelectedNodeId)
+		) {
+			return;
 		}
-	}, [nodeDailySelectedNodeId, nodeUsageSlices, nodes]);
+		const topNode = [...validNodes].sort((a, b) => b.total - a.total)[0]?.nodeId;
+		setNodeDailySelectedNodeId(topNode ?? validNodes[0]?.nodeId ?? null);
+	}, [nodeDailySelectedNodeId, nodeUsageSlices]);
 
 	useEffect(() => {
 		setSelectedAdminNodeId(null);
@@ -733,7 +733,7 @@ const NodesUsageAnalytics: FC = () => {
 						</p>
 					</div>
 				) : nodeUsageChart.series.length ? (
-					<ReactApexChart options={nodeUsageChart.options} series={nodeUsageChart.series} type="donut" className="h-360" />
+					<ReactApexChart options={nodeUsageChart.options} series={nodeUsageChart.series} type="donut" height={360} />
 				) : (
 					<p className="text-center text-gray-500 dark:text-gray-400">
 						{t("noData")}
@@ -765,7 +765,7 @@ const NodesUsageAnalytics: FC = () => {
 								setNodeDailySelectedNodeId(
 									Number.isFinite(parsed) && parsed > 0 ? parsed : null,
 								);
-							}} placeholder={t("nodes.selectNode")} className="md:min-w-[180px]! w-full md:w-auto">
+							}} placeholder={t("nodes.selectNode")} disabled={nodeDailyOptions.length === 0} className="md:min-w-[180px]! w-full md:w-auto">
 							{nodeDailyOptions.map((option) => (
 								<option key={option.value} value={option.value}>
 									{option.label}
@@ -801,7 +801,7 @@ const NodesUsageAnalytics: FC = () => {
 						</p>
 					</div>
 				) : nodeDailySeries[0]?.data?.length ? (
-					<ReactApexChart options={nodeDailyChartConfig.options} series={nodeDailyChartConfig.series} type="area" className="h-360" />
+					<ReactApexChart options={nodeDailyChartConfig.options} series={nodeDailyChartConfig.series} type="area" height={360} />
 				) : (
 					<p className="text-center text-gray-500 dark:text-gray-400">
 						{t("noData")}
@@ -880,7 +880,7 @@ const NodesUsageAnalytics: FC = () => {
 						</p>
 					</div>
 				) : adminDailySeries[0]?.data?.length ? (
-					<ReactApexChart options={adminDailyChartConfig.options} series={adminDailyChartConfig.series} type="area" className="h-360" />
+					<ReactApexChart options={adminDailyChartConfig.options} series={adminDailyChartConfig.series} type="area" height={360} />
 				) : (
 					<p className="text-center text-gray-500 dark:text-gray-400">
 						{t("noData")}
@@ -940,7 +940,7 @@ const NodesUsageAnalytics: FC = () => {
 						</p>
 					</div>
 				) : adminDonutChart.series.length ? (
-					<ReactApexChart options={adminDonutChart.options} series={adminDonutChart.series} type="donut" className="h-360" />
+					<ReactApexChart options={adminDonutChart.options} series={adminDonutChart.series} type="donut" height={360} />
 				) : (
 					<p className="text-center text-gray-500 dark:text-gray-400">
 						{t("noData")}

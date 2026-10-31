@@ -4,6 +4,7 @@ import { Spinner } from "components/ui/spinner";
 import { Alert } from "components/ui/alert";
 import { Field, FieldDescription, FieldLabel } from "components/ui/field";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "components/ui/dialog";
+import { AppDialog } from "components/dialogs/AppDialog";
 import { Progress } from "components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { toast } from "components/ui/sonner";
@@ -11,7 +12,6 @@ import { CircleAlert, CircleCheck, TriangleAlert } from "lucide-react";
 import { RefreshCw, ArrowLeftRight, Upload, Check, Clipboard, Terminal } from "lucide-react";
 
 import { cn } from "lib/cn";
-import { motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,7 +22,6 @@ import {
 	generateErrorMessage,
 	generateSuccessMessage,
 } from "utils/toastHandler";
-import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardBackupControls } from "./RebeccaBackupPanel";
 import {
 	BuildVersionSelect,
@@ -101,8 +100,6 @@ export const DashboardMaintenanceControls = ({
 		(userData.role === AdminRole.FullAccess ||
 			(userData.role === AdminRole.Sudo &&
 				Boolean(userData.permissions?.sudo.backups)));
-	const outputBg = "bg-gray-50 dark:bg-blackAlpha-400";
-	const outputBorder = "border-gray-200! dark:border-whiteAlpha-200!";
 	const [selectedChannel, setSelectedChannel] =
 		useState<UpdateChannel>("current");
 	const [selectedVersion, setSelectedVersion] = useState("");
@@ -201,28 +198,26 @@ export const DashboardMaintenanceControls = ({
 	);
 
 	useEffect(() => {
-		if (!operation?.id || waitingForAPI) return;
-		const url = getAPIWebSocketURL("/maintenance/status", { id: operation.id });
-		if (!url) return;
-		const socket = new WebSocket(url);
-		socket.onmessage = (event) => {
+		if (!operation?.id || waitingForAPI || operation.error || operation.phase === "completed") return;
+		let failures = 0;
+		const timer = window.setInterval(async () => {
 			try {
-				const status = JSON.parse(event.data) as MaintenanceOperation;
-				if (status.id !== operation.id) return;
+				const status = await fetch<MaintenanceOperation>("/maintenance/status", { timeout: 2500 });
+				failures = 0;
+				if (status.id && status.id !== operation.id) return;
+				if (!status.id) {
+					startPanelReturnPolling();
+					return;
+				}
 				setOperation(status);
 				if (shouldWaitForPanelReturn(status)) startPanelReturnPolling();
-				if (
-					status.action === "update" &&
-					!status.running &&
-					!status.error &&
-					!shouldWaitForPanelReturn(status)
-				) {
-					window.location.reload();
-				}
-			} catch {}
-		};
-		return () => socket.close();
-	}, [operation?.id, startPanelReturnPolling, waitingForAPI]);
+			} catch {
+				failures += 1;
+				if (failures >= 3) startPanelReturnPolling();
+			}
+		}, 1000);
+		return () => window.clearInterval(timer);
+	}, [operation?.id, operation?.error, operation?.phase, waitingForAPI, startPanelReturnPolling]);
 
 	useEffect(() => {
 		if (operation?.logs && logsContainerRef.current) {
@@ -322,7 +317,7 @@ export const DashboardMaintenanceControls = ({
 					</div>
 				</Button>
 			</PopoverTrigger>
-			<PopoverContent onClick={(e) => e.stopPropagation()} className="w-[min(480px,_calc(100vw_-_24px))] max-w-[480px] rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.5)] bg-panel-surface border-panel-border! border p-1">
+			<PopoverContent onClick={(e) => e.stopPropagation()} collisionPadding={12} className="w-[min(480px,_calc(100vw_-_24px))] max-w-[480px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.5)] bg-panel-surface border-panel-border! border p-1">
 				<div className={cn("p-3 font-semibold", "font-bold text-[13px] py-3 px-4 border-panel-border!")}>
 					<div className="flex justify-between items-center gap-3">
 						<p className="text-[13px] font-bold text-panel-text">{t("dashboard.maintenance.title")}</p>
@@ -524,13 +519,7 @@ export const DashboardMaintenanceControls = ({
 									) : operation?.phase === "completed" ? (
 										<Check className="w-[18px]" />
 									) : (
-										<motion.div
-											animate={{ rotate: 360 }}
-											transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-											style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
-										>
-											<RefreshCw className="w-[18px]" />
-										</motion.div>
+										<RefreshCw className="w-[18px] animate-spin" />
 									)}
 								</div>
 								<div>
@@ -594,8 +583,8 @@ export const DashboardMaintenanceControls = ({
 								</p>
 							)}
 
-							<div className={cn("rounded-[16px] border overflow-hidden", outputBg, outputBorder)}>
-								<div className={cn("flex items-center justify-between px-3.5 py-2 border-b bg-panel-elevated", outputBorder)}>
+							<div className="rounded-[16px] border border-panel-border! overflow-hidden bg-panel-elevated/40">
+								<div className="flex items-center justify-between px-3.5 py-2 border-b border-panel-border! bg-panel-elevated">
 									<div className="flex items-center gap-2">
 										<Terminal className="w-[14px] h-[14px] text-[var(--rb-panel-accent)]" />
 										<p className="text-[11px] font-semibold text-panel-text-secondary leading-[1]">

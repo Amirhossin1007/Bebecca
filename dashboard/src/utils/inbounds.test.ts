@@ -4,6 +4,8 @@ import {
 	buildInboundPayload,
 	createDefaultInboundForm,
 	getInboundTraffic,
+	inboundTagAllowsEmoji,
+	parseHeaderPairs,
 	rawInboundToFormValues,
 	type RawInbound,
 	validateInboundFormFields,
@@ -495,5 +497,103 @@ describe("XHTTP inbound settings", () => {
 		const corrected = validateInboundFormFields(values);
 		expect(corrected.xhttpXmuxMaxConnections).toBeUndefined();
 		expect(corrected.xhttpXmuxHKeepAlivePeriod).toBeUndefined();
+	});
+});
+
+describe("inbound port lists", () => {
+	it("accepts several ports for Xray proxy inbounds and writes them as one value", () => {
+		const vless = createDefaultInboundForm("vless");
+		Object.assign(vless, { tag: "multi", port: "443, 8443" });
+		expect(validateInboundFormFields(vless)).toEqual({});
+		expect(buildInboundPayload(vless).port).toBe("443,8443");
+
+		const single = createDefaultInboundForm("vless");
+		Object.assign(single, { tag: "single", port: "443" });
+		expect(buildInboundPayload(single).port).toBe(443);
+	});
+
+	it("rejects repeated, out-of-range or malformed lists", () => {
+		const vless = createDefaultInboundForm("vless");
+		Object.assign(vless, { tag: "bad" });
+		for (const port of ["443,443", "443,70000", "443,", "443,abc"]) {
+			vless.port = port;
+			expect(validateInboundFormFields(vless).port).toBeTruthy();
+		}
+	});
+
+	it("keeps single-port protocols to one port", () => {
+		const openvpn = createDefaultInboundForm("openvpn");
+		Object.assign(openvpn, { tag: "ov", port: "1194,1195" });
+		expect(validateInboundFormFields(openvpn).port).toBeTruthy();
+	});
+});
+
+describe("inbound tags", () => {
+	it("allows emoji on Xray inbounds and keeps native VPN names ASCII", () => {
+		expect(inboundTagAllowsEmoji("vless")).toBe(true);
+		expect(inboundTagAllowsEmoji("socks")).toBe(true);
+		expect(inboundTagAllowsEmoji("wireguard")).toBe(false);
+		expect(inboundTagAllowsEmoji("openvpn")).toBe(false);
+	});
+});
+
+describe("TCP header inbound settings", () => {
+	it("opens and saves an HTTP header that was created with an empty path", () => {
+		const raw: RawInbound = {
+			tag: "tcp-empty-header",
+			port: 443,
+			protocol: "vless",
+			settings: { decryption: "none" },
+			streamSettings: {
+				network: "tcp",
+				security: "none",
+				tcpSettings: {
+					header: {
+						type: "http",
+						request: { version: "1.1", method: "GET", path: [], headers: {} },
+					},
+				},
+			},
+		};
+
+		const values = rawInboundToFormValues(raw);
+		expect(values.tcpHttpPath).toBe("");
+		expect(
+			buildInboundPayload(values, { initial: raw }).streamSettings?.tcpSettings,
+		).toMatchObject({
+			header: { type: "http", request: { path: [] } },
+		});
+	});
+});
+
+describe("xhttp custom headers", () => {
+	it("keeps a comma-separated value as one header", () => {
+		const values = createDefaultInboundForm();
+		values.streamNetwork = "xhttp";
+		values.xhttpHeaders = [
+			{ name: "Accept-Language", value: "en-US,en;q=0.9,fa;q=0.8" },
+		];
+		expect(buildInboundPayload(values).streamSettings).toMatchObject({
+			xhttpSettings: {
+				headers: { "Accept-Language": "en-US,en;q=0.9,fa;q=0.8" },
+			},
+		});
+	});
+
+	it("parses pasted name=value pairs with quoted values", () => {
+		expect(
+			parseHeaderPairs(
+				'Accept-Language="en-US,en;q=0.9,fa;q=0.8" Origin="https://offline.example.org" Sec-Fetch-Site="same-origin"',
+			),
+		).toEqual([
+			{ name: "Accept-Language", value: "en-US,en;q=0.9,fa;q=0.8" },
+			{ name: "Origin", value: "https://offline.example.org" },
+			{ name: "Sec-Fetch-Site", value: "same-origin" },
+		]);
+		expect(parseHeaderPairs("X-Token=abc")).toEqual([
+			{ name: "X-Token", value: "abc" },
+		]);
+		expect(parseHeaderPairs("Accept-Language")).toBeUndefined();
+		expect(parseHeaderPairs("   ")).toBeUndefined();
 	});
 });

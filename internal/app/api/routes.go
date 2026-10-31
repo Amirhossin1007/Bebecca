@@ -110,6 +110,7 @@ func (s *Server) registerAdminRoutes(r chi.Router) {
 	r.HandleFunc("/auth/sessions", s.requireSameOrigin(s.handleAuthSessions))
 	r.HandleFunc("/admin/token", s.handleAdminToken)
 	r.HandleFunc("/admin/permissions/standard/bulk", s.requireAdmin(s.handleBulkStandardPermissions))
+	r.HandleFunc("/admin/history/*", s.requireAdmin(s.handleAdminHistoryPath))
 	r.HandleFunc("/admin/usage/reset/*", s.requireAdmin(s.handleAdminUsageResetPath))
 	r.HandleFunc("/admin/usage/*", s.requireAdmin(s.handleAdminUsageValuePath))
 	r.HandleFunc("/admin/*", s.requireAdmin(s.handleAdminMutationPath))

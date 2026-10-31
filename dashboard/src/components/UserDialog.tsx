@@ -15,6 +15,7 @@ import { Badge } from "components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "components/ui/collapsible";
 import { DateTimeField } from "components/ui/date-time-field";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "components/ui/dialog";
+import { userEntityPage } from "components/entityPage/EntityOverviews";
 import { FormField } from "components/ui/form-field";
 import { Input } from "components/ui/input";
 import { DataSizeField } from "components/ui/data-size-field";
@@ -569,7 +570,11 @@ export const UserDialog: FC<UserDialogProps> = () => {
 					const series: number[] = [];
 					const labels: string[] = [];
 					for (const key in usages) {
-						series.push(usages[key].used_traffic);
+						const usedTraffic = Number(usages[key]?.used_traffic ?? 0);
+						if (!usedTraffic || usedTraffic <= 0) {
+							continue;
+						}
+						series.push(usedTraffic);
 						labels.push(usages[key].node_name);
 					}
 					setUsage(createUsageConfig(colorMode, usageTitle, series, labels));
@@ -1667,6 +1672,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 	return (
 		<Dialog
+			section="users"
+			page={editingUser && !isCreatingNewUser ? userEntityPage(editingUser) : undefined}
 			open={isOpen}
 			onOpenChange={(open) => {
 				if (!open && !loading) onClose();

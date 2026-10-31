@@ -3381,6 +3381,7 @@ get_binary_dev_artifact_metadata() {
 
     if [ -z "$artifact_name" ]; then
         colorized_echo red "No usable binary dev artifact was found for workflow run ${run_id}." >&2
+        colorized_echo yellow "Dev builds publish linux-amd64 and linux-arm64. For other architectures, install the latest release instead." >&2
         exit 1
     fi
 

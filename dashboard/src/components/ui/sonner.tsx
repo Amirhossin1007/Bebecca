@@ -8,6 +8,7 @@ const Toaster = (props: ToasterProps) => {
       theme={colorMode}
       className="toaster group"
       position="top-center"
+      duration={5000}
       closeButton
       richColors
       {...props}

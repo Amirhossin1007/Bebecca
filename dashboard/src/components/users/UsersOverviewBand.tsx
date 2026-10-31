@@ -1,5 +1,8 @@
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { cn } from "lib/cn";
 import { formatBytes } from "utils/formatByte";
+import type { UsersOverviewSelection, UsersOverviewTarget } from "utils/usersOverview";
 
 const count = (value: number | null | undefined, locale: string) =>
 	value === null || value === undefined
@@ -27,6 +30,8 @@ export type UsersOverviewBandProps = {
 	locale: string;
 	/** Rendered inside a parent card: drops its own border and surface. */
 	bare?: boolean;
+	selection: UsersOverviewSelection;
+	onSelect: (target: UsersOverviewTarget) => void;
 };
 
 const STATUS_ORDER: OverviewStatusKey[] = [
@@ -54,6 +59,31 @@ const STATUS_TONE: Record<OverviewStatusKey, string> = {
  * matches the rest of the dashboard exactly, and logical utilities keep RTL
  * identical to LTR.
  */
+type OverviewLinkProps = {
+	label: string;
+	active?: boolean;
+	onSelect: () => void;
+	className?: string;
+	children: ReactNode;
+};
+
+const OverviewLink = ({ label, active = false, onSelect, className, children }: OverviewLinkProps) => (
+	<button
+		type="button"
+		aria-label={label}
+		aria-pressed={active}
+		title={label}
+		onClick={onSelect}
+		className={cn(
+			"cursor-pointer text-start underline decoration-panel-text-muted/60 underline-offset-4 transition-colors hover:text-panel-accent hover:decoration-panel-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-panel-accent rounded-sm",
+			active && "text-panel-accent decoration-panel-accent",
+			className,
+		)}
+	>
+		{children}
+	</button>
+);
+
 export function UsersOverviewBand({
 	total,
 	usersLimit,
@@ -64,6 +94,8 @@ export function UsersOverviewBand({
 	breakdown,
 	locale,
 	bare = false,
+	selection,
+	onSelect,
 }: UsersOverviewBandProps) {
 	const { t } = useTranslation();
 	const totals = STATUS_ORDER.reduce((sum, key) => sum + (breakdown[key] ?? 0), 0);
@@ -87,9 +119,13 @@ export function UsersOverviewBand({
 				</span>
 				<div>
 					<div className="flex items-baseline gap-2">
-						<span className="rb-tabular text-[1.75rem] font-semibold leading-none tracking-tight text-panel-text">
+						<OverviewLink
+							label={t("usersTable.total")}
+							onSelect={() => onSelect({ kind: "all" })}
+							className="rb-tabular text-[1.75rem] font-semibold leading-none tracking-tight text-panel-text"
+						>
 							{count(total, locale)}
-						</span>
+						</OverviewLink>
 						{usersLimit ? (
 							<span className="rb-tabular text-xs text-panel-text-muted">
 								/ {count(usersLimit, locale)}
@@ -124,7 +160,15 @@ export function UsersOverviewBand({
 					{ key: "online", label: t("onlineStatus.online"), value: online, tone: "bg-panel-accent" },
 					{ key: "active", label: t("status.active"), value: active, tone: "bg-panel-success" },
 				].map((row) => (
-					<div key={row.key}>
+					<OverviewLink
+						key={row.key}
+						label={row.label}
+						active={row.key === "online" ? selection.online : selection.status === "active"}
+						onSelect={() =>
+							onSelect(row.key === "online" ? { kind: "online" } : { kind: "status", status: "active" })
+						}
+						className="block w-full"
+					>
 						<div className="flex items-center gap-1.5">
 							<span className={`size-1.5 rounded-full ${row.tone}`} />
 							<span className="text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-panel-text-muted">
@@ -140,7 +184,7 @@ export function UsersOverviewBand({
 								<span>{t("users")}</span>
 							</span>
 						</div>
-					</div>
+					</OverviewLink>
 				))}
 			</div>
 
@@ -170,8 +214,11 @@ export function UsersOverviewBand({
 				</div>
 				<div className="grid grid-cols-2 gap-x-4 gap-y-1">
 					{STATUS_ORDER.map((key) => (
-						<span
+						<OverviewLink
 							key={key}
+							label={t(`status.${key}`)}
+							active={selection.status === key}
+							onSelect={() => onSelect({ kind: "status", status: key })}
 							className="flex items-center gap-1.5 text-[0.6875rem] text-panel-text-secondary"
 						>
 							<span className={`size-1.5 rounded-full ${STATUS_TONE[key]}`} />
@@ -179,7 +226,7 @@ export function UsersOverviewBand({
 							<span className="rb-tabular ms-auto font-medium text-panel-text">
 								{count(breakdown[key] ?? 0, locale)}
 							</span>
-						</span>
+						</OverviewLink>
 					))}
 				</div>
 			</div>
@@ -190,13 +237,16 @@ export function UsersOverviewBand({
 					{usageLabel ?? t("usersTable.listUsage")}
 				</span>
 				<div>
-					<span
-						dir="ltr"
-						className="rb-tabular block text-[1.75rem] font-semibold leading-none tracking-tight text-panel-text"
-						style={{ unicodeBidi: "isolate" }}
+					<OverviewLink
+						label={usageLabel ?? t("usersTable.listUsage")}
+						active={selection.usage}
+						onSelect={() => onSelect({ kind: "usage" })}
+						className="rb-tabular block w-full text-[1.75rem] font-semibold leading-none tracking-tight text-panel-text"
 					>
-						{usage === null ? "—" : formatBytes(usage)}
-					</span>
+						<span dir="ltr" style={{ unicodeBidi: "isolate" }}>
+							{usage === null ? "—" : formatBytes(usage)}
+						</span>
+					</OverviewLink>
 					<p className="mt-2 flex items-baseline gap-1 text-[0.625rem] text-panel-text-muted">
 						{usage === null || total === 0 ? (
 							<span>&nbsp;</span>

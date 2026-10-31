@@ -38,7 +38,7 @@ export const NodeModalStatusBadge: FC<UserStatusProps> = ({
 				)}
 			</Badge>
 			{showDetail && expiryDate && (
-				<p className="inline-block text-[0.75rem] font-medium ml-2 text-gray-600 dark:text-gray-400">
+				<p className="inline-block text-[0.75rem] font-medium ms-2 text-gray-600 dark:text-gray-400">
 					{t(dateInfo.status, { time: dateInfo.time })}
 				</p>
 			)}

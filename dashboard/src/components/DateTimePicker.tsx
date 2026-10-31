@@ -179,7 +179,7 @@ export const DateTimePicker: FC<DateTimePickerProps> = ({
 	const pickerContent = (
 		<div className="flex-col md:flex-row flex">
 			{/* Quick Select Sidebar */}
-			<div className={cn("flex gap-1 items-stretch px-2 py-2 min-w-0! md:min-w-[100px]! max-w-[100%] md:max-w-[110px] border-r-0 md:border-r border-b md:border-b-0 shrink-0 flex-row md:flex-col flex-wrap md:flex-nowrap", quickSelectBg, quickSelectBorderColor)}>
+			<div className={cn("flex gap-1 items-stretch px-2 py-2 min-w-0! md:min-w-[100px]! max-w-[100%] md:max-w-[110px] border-e-0 md:border-e border-b md:border-b-0 shrink-0 flex-row md:flex-col flex-wrap md:flex-nowrap", quickSelectBg, quickSelectBorderColor)}>
 				{effectiveQuickSelects.map((option) => (
 					<Button key={option.label} onClick={option.onClick} variant="ghost" size="sm" className={cn("justify-center md:justify-start text-[0.75rem] whitespace-nowrap flex-[1_1_calc(33.333%_-_4px)] md:flex-[0_0_auto] min-w-[82px]! md:min-w-[auto]!", quickSelectHoverBg)}>
 						{option.label}

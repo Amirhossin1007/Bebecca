@@ -74,7 +74,7 @@ export const NodeServiceUpdateDialog = ({
 			title={title}
 			footer={
 				<>
-					<Button onClick={onClose} disabled={isSubmitting} variant="ghost" className="mr-3">
+					<Button onClick={onClose} disabled={isSubmitting} variant="ghost" className="me-3">
 						{t("cancel")}
 					</Button>
 					<Button onClick={() => onSubmit(channel, version || undefined)} loading={isSubmitting}>

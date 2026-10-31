@@ -219,7 +219,7 @@
   --color-muted-foreground: var(--rb-panel-text-muted);
   --color-accent: var(--rb-panel-elevated);
   --color-accent-foreground: var(--rb-panel-text);
-  --color-destructive: var(--rb-panel-danger);
+  --color-destructive: var(--color-panel-danger);
   --color-destructive-foreground: #ffffff;
   --color-border: var(--rb-panel-border);
   --color-input: var(--rb-panel-border);

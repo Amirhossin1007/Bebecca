@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { cn } from "lib/cn";
 import { formatBytes } from "utils/formatByte";
+import type { AdminsOverviewSelection, AdminsOverviewTarget } from "utils/adminsOverview";
 
 type Count = number | null;
 
@@ -21,10 +22,15 @@ export type AdminsOverviewBandProps = {
 	reseller: Count;
 	standard: Count;
 	locale: string;
+	selection: AdminsOverviewSelection;
+	onSelect: (target: AdminsOverviewTarget) => void;
 };
 
 const formatCount = (value: Count, locale: string) =>
 	value === null ? "-" : new Intl.NumberFormat(locale || "en").format(value);
+
+const LINK_CLASS =
+	"cursor-pointer text-start underline decoration-panel-text-muted/60 underline-offset-4 transition-colors hover:text-panel-accent hover:decoration-panel-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-panel-accent rounded-sm";
 
 /**
  * What an admin list needs to show at a glance: how many admins there are, which admin carries the most
@@ -44,6 +50,8 @@ export const AdminsOverviewBand = ({
 	reseller,
 	standard,
 	locale,
+	selection,
+	onSelect,
 }: AdminsOverviewBandProps) => {
 	const { t } = useTranslation();
 
@@ -69,18 +77,18 @@ export const AdminsOverviewBand = ({
 	];
 
 	const statuses = [
-		{ label: t("status.active"), value: active, className: "bg-green-500" },
-		{ label: t("status.expired"), value: expired, className: "bg-orange-500" },
-		{ label: t("status.limited"), value: limited, className: "bg-red-500" },
-		{ label: t("status.disabled"), value: disabled, className: "bg-gray-500" },
+		{ key: "active" as const, label: t("status.active"), value: active, className: "bg-green-500" },
+		{ key: "expired" as const, label: t("status.expired"), value: expired, className: "bg-orange-500" },
+		{ key: "limited" as const, label: t("status.limited"), value: limited, className: "bg-red-500" },
+		{ key: "disabled" as const, label: t("status.disabled"), value: disabled, className: "bg-gray-500" },
 	];
 	const statusSum = statuses.reduce((sum, item) => sum + (item.value ?? 0), 0);
 
 	const roles = [
-		{ label: t("admins.roles.fullAccess"), value: fullAccess },
-		{ label: t("admins.roles.sudo"), value: sudo },
-		{ label: t("admins.roles.reseller"), value: reseller },
-		{ label: t("admins.roles.standard"), value: standard },
+		{ key: "full_access" as const, label: t("admins.roles.fullAccess"), value: fullAccess },
+		{ key: "sudo" as const, label: t("admins.roles.sudo"), value: sudo },
+		{ key: "reseller" as const, label: t("admins.roles.reseller"), value: reseller },
+		{ key: "standard" as const, label: t("admins.roles.standard"), value: standard },
 	];
 
 	return (
@@ -88,7 +96,14 @@ export const AdminsOverviewBand = ({
 			<div className="grid grid-cols-2 sm:grid-cols-4">
 				<div className="flex flex-col gap-1 px-4 py-3">
 					<span className="text-[0.7rem] font-medium uppercase tracking-wider text-panel-text-muted">{t("total")}</span>
-					<span className="text-xl font-semibold tabular-nums text-panel-text">{formatCount(total, locale)}</span>
+					<button
+						type="button"
+						aria-label={t("total")}
+						onClick={() => onSelect({ kind: "all" })}
+						className={cn(LINK_CLASS, "text-xl font-semibold tabular-nums text-panel-text")}
+					>
+						{formatCount(total, locale)}
+					</button>
 					<span className="text-xs text-panel-text-muted">{t("admins")}</span>
 				</div>
 				{leaderTiles.map((tile) => (
@@ -124,21 +139,43 @@ export const AdminsOverviewBand = ({
 				</div>
 				<div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-panel-text-muted">
 					{statuses.map((item) => (
-						<span key={item.label} className="inline-flex items-center gap-1.5">
+						<button
+							key={item.key}
+							type="button"
+							aria-label={item.label}
+							aria-pressed={selection.status === item.key}
+							onClick={() => onSelect({ kind: "status", status: item.key })}
+							className={cn(
+								"inline-flex items-center gap-1.5",
+								LINK_CLASS,
+								selection.status === item.key && "text-panel-accent decoration-panel-accent",
+							)}
+						>
 							<span className={cn("size-2 rounded-full", item.className)} />
 							{item.label}
 							<span className="font-semibold tabular-nums text-panel-text">{formatCount(item.value, locale)}</span>
-						</span>
+						</button>
 					))}
 				</div>
 			</div>
 
 			<div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-panel-border px-4 py-2 text-xs text-panel-text-muted">
 				{roles.map((role) => (
-					<span key={role.label} className="inline-flex items-center gap-1.5">
+					<button
+						key={role.key}
+						type="button"
+						aria-label={role.label}
+						aria-pressed={selection.role === role.key}
+						onClick={() => onSelect({ kind: "role", role: role.key })}
+						className={cn(
+							"inline-flex items-center gap-1.5",
+							LINK_CLASS,
+							selection.role === role.key && "text-panel-accent decoration-panel-accent",
+						)}
+					>
 						{role.label}
 						<span className="font-semibold tabular-nums text-panel-text">{formatCount(role.value, locale)}</span>
-					</span>
+					</button>
 				))}
 			</div>
 		</div>

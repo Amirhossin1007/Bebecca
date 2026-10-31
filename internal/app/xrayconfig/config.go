@@ -1602,12 +1602,8 @@ func validateExecutableInbound(inbound map[string]any) error {
 	if _, ok := inbound["port"]; !ok {
 		return fmt.Errorf("invalid inbound %q: port is required", tag)
 	}
-	port, err := parseConfigPort(inbound["port"])
-	if err != nil {
+	if _, err := parseConfigPortList(inbound["port"]); err != nil {
 		return fmt.Errorf("invalid inbound %q: %w", tag, err)
-	}
-	if port < 1 || port > 65535 {
-		return fmt.Errorf("invalid inbound %q: port must be between 1 and 65535", tag)
 	}
 	if protocol == "vless" {
 		settings := mapValue(inbound["settings"])
@@ -2139,6 +2135,38 @@ func parseConfigPort(value any) (int, error) {
 	default:
 		return 0, fmt.Errorf("port must be a number")
 	}
+}
+
+func parseConfigPortList(value any) ([]int, error) {
+	text, isText := value.(string)
+	if !isText {
+		port, err := parseConfigPort(value)
+		if err != nil {
+			return nil, err
+		}
+		if port < 1 || port > 65535 {
+			return nil, fmt.Errorf("port must be between 1 and 65535")
+		}
+		return []int{port}, nil
+	}
+	parts := strings.Split(text, ",")
+	ports := make([]int, 0, len(parts))
+	seen := make(map[int]struct{}, len(parts))
+	for _, part := range parts {
+		port, err := parseConfigPort(strings.TrimSpace(part))
+		if err != nil {
+			return nil, err
+		}
+		if port < 1 || port > 65535 {
+			return nil, fmt.Errorf("port must be between 1 and 65535")
+		}
+		if _, duplicate := seen[port]; duplicate {
+			return nil, fmt.Errorf("port %d is listed more than once", port)
+		}
+		seen[port] = struct{}{}
+		ports = append(ports, port)
+	}
+	return ports, nil
 }
 
 func (c *Config) migrateDeprecated() {

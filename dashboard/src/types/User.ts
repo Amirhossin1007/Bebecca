@@ -211,12 +211,17 @@ export type AdvancedUserActionType =
 	| "activate_users"
 	| "disable_users"
 	| "change_service"
-	| "delete_users";
+	| "delete_users"
+	| "multiply_expire"
+	| "divide_expire"
+	| "multiply_traffic"
+	| "divide_traffic";
 
 export type AdvancedUserActionPayload = {
 	action: AdvancedUserActionType;
 	days?: number;
 	gigabytes?: number;
+	factor?: number;
 	statuses?: AdvancedUserActionStatus[];
 	scope?: AdvancedUserActionScopeStatus[];
 	admin_username?: string | null;

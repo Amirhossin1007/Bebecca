@@ -702,8 +702,9 @@ body {
 
   .rb-resource-expanded {
     margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--rb-panel-border);
+    padding: 0.5rem 0.75rem 0.25rem;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--rb-panel-elevated) 55%, transparent);
   }
 
   .rb-resource-details {
@@ -738,10 +739,11 @@ body {
     align-items: center;
     gap: 0.6rem;
     width: 100%;
+    min-height: 2.25rem;
     background: transparent;
     border-radius: 0;
     border-bottom: 1px solid var(--rb-panel-border);
-    padding: 0.42rem 0;
+    padding: 0.4rem 0;
     font-size: 0.78rem;
   }
 
@@ -776,6 +778,23 @@ body {
   .rb-resource-details[data-density="compact"] .rb-resource-meta-value {
     justify-self: start;
     text-align: start;
+  }
+  .rb-resource-details .rb-resource-meta:has(.rb-stat-pair),
+  .rb-resource-details .rb-resource-meta:has(.rb-chip-list) {
+    grid-column: 1 / -1;
+  }
+
+  .rb-resource-meta-value .rb-stat-pair {
+    flex-wrap: wrap;
+    white-space: normal;
+    justify-content: flex-end;
+    row-gap: 0.2rem;
+    column-gap: 0.75rem;
+  }
+
+  .rb-resource-meta-value .rb-chip-list {
+    justify-content: flex-end;
+    row-gap: 0.3rem;
   }
 
   .rb-resource-expanded-actions {
@@ -2800,4 +2819,13 @@ input[type="number"] {
 .inbound-form-modal [data-form-section]:first-child,
 .inbound-form-modal [data-form-section] [data-form-section]:first-child {
   border-top: 0;
+}
+
+.toaster ol,
+.toaster [data-sonner-toast] {
+  pointer-events: none;
+}
+
+.toaster [data-sonner-toast] [data-close-button] {
+  pointer-events: auto;
 }

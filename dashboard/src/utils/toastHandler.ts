@@ -81,5 +81,5 @@ export const generateSuccessMessage = (
 	message: string,
 	toast: ToastFunction,
 ) => {
-	return toast.success(message, { duration: 3000 });
+	return toast.success(message, { duration: 5000 });
 };

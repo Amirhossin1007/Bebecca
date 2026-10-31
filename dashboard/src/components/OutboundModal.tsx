@@ -25,6 +25,7 @@ import {
 	useState,
 } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { EmojiShortcodeInput } from "components/common/EmojiShortcodeInput";
 import { useTranslation } from "react-i18next";
 import {
 	ALPN_OPTION,
@@ -1292,6 +1293,29 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 			<UiInput placeholder={placeholder} {...register(name, rules as never)} />
 		</FormField>
 	);
+	const shortcodeTextField = (
+		name: keyof OutboundFormValues,
+		label: ReactNode,
+		placeholder?: string,
+		rules?: Parameters<typeof register>[1],
+	) => (
+		<FormField label={label} error={fieldError(name)}>
+			<Controller
+				control={control}
+				name={name}
+				rules={rules as never}
+				render={({ field }) => (
+					<EmojiShortcodeInput
+						ref={field.ref}
+						value={String(field.value ?? "")}
+						onChange={field.onChange}
+						onBlur={field.onBlur}
+						placeholder={placeholder}
+					/>
+				)}
+			/>
+		</FormField>
+	);
 	const numberField = (
 		name: keyof OutboundFormValues,
 		label: ReactNode,
@@ -1390,7 +1414,7 @@ export const OutboundModal: FC<OutboundModalProps> = ({
 								<div className="flex flex-col gap-5">
 									<FormSection title={t("pages.outbound.basicSettings")}>
 										<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-											{textField("tag", t("pages.xray.outbound.tag"), "outbound-tag", {
+											{shortcodeTextField("tag", t("pages.xray.outbound.tag"), "outbound-tag", {
 												validate: (value: string) => {
 													const tag = value.trim();
 													if (!tag) return requiredMessage;

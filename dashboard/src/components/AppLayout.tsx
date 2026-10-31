@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
 	type CSSProperties,
 	type ElementType,
+	Fragment,
 	type MouseEvent as ReactMouseEvent,
 	type PointerEvent as ReactPointerEvent,
 	useCallback,
@@ -1240,7 +1241,7 @@ export function AppLayout() {
 											breadcrumbItems.map((item, index) => {
 												const isLast = index === breadcrumbItems.length - 1;
 												return (
-													<React.Fragment key={`${item.label}-${index}`}>
+													<Fragment key={`${item.label}-${index}`}>
 														{index > 0 && (
 															<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
 														)}
@@ -1266,7 +1267,7 @@ export function AppLayout() {
 																</BreadcrumbLink>
 															)}
 														</BreadcrumbItem>
-													</React.Fragment>
+													</Fragment>
 												);
 											})
 										)}

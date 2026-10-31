@@ -5,7 +5,7 @@ import { Input } from "components/ui/input";
 import { Textarea } from "components/ui/textarea";
 import { toast } from "components/ui/sonner";
 import { withClass } from "lib/withClass";
-import { SlidersHorizontal, RefreshCw, Key, Pencil, Play, CirclePlus, ShieldCheck, Trash2, Ban } from "lucide-react";
+import { SlidersHorizontal, RefreshCw, Key, Pencil, Play, CirclePlus, ShieldCheck, Trash2, Ban, History } from "lucide-react";
 
 import { useDisclosure } from "hooks/useDisclosure";
 import { useIntervalRefresh } from "hooks/useIntervalRefresh";
@@ -18,6 +18,7 @@ import type { SortingState } from "@tanstack/react-table";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { AddTrafficDialog } from "components/AddTrafficDialog";
 import { AdminsOverviewBand } from "components/admins/AdminsOverviewBand";
+import { adminsOverviewSelection, nextAdminsFiltersForOverview } from "utils/adminsOverview";
 import { DataTableColumnMenu } from "components/ui/DataTableColumnMenu";
 import { RefreshSplitButton } from "components/users/RefreshSplitButton";
 import { useContainerMinWidths } from "hooks/useContainerMinWidths";
@@ -170,6 +171,7 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 	const loading = useAdminsStore((state) => state.loading);
 	const total = useAdminsStore((state) => state.total);
 	const filters = useAdminsStore((state) => state.filters);
+	const onFilterChange = useAdminsStore((state) => state.onFilterChange);
 	const fetchAdmins = useAdminsStore((state) => state.fetchAdmins);
 	const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
 	const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(5_000);
@@ -841,6 +843,12 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 					onClick: () => openAdminDialog(admin),
 				},
 				{
+					id: "history",
+					label: t("adminHistory.tab"),
+					icon: <History className="w-[16px]" />,
+					onClick: () => openAdminDialog(admin, "history"),
+				},
+				{
 					id: "permissions",
 					pinned: true,
 					label: t("admins.editPermissionsButton"),
@@ -1011,6 +1019,8 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 						reseller={summaryData.resellerCount}
 						standard={summaryData.standardCount}
 						locale={locale}
+					selection={adminsOverviewSelection(filters)}
+					onSelect={(target) => onFilterChange(nextAdminsFiltersForOverview(filters, target))}
 					/>
 					<div className="border-t border-panel-border! p-3">
 						<div className="flex flex-wrap items-center gap-2">

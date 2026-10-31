@@ -13,6 +13,7 @@ import { Check, Copy, Link2, Pencil, QrCode, Trash2, RefreshCw, CalendarDays, Ch
 import type { SortingState } from "@tanstack/react-table";
 import AddFileIcon from "assets/add_file.svg?react";
 import { useDashboard } from "contexts/DashboardContext";
+import { nextUsersFiltersForOverview, usersOverviewSelection } from "utils/usersOverview";
 import dayjs from "dayjs";
 import useGetUser from "hooks/useGetUser";
 import {
@@ -84,7 +85,7 @@ const UserSpeed: FC<{ user: UserListItem }> = ({ user }) => {
 		return <p className="text-panel-text-muted">—</p>;
 	}
 	return (
-		<div dir="ltr" className="flex flex-col gap-0 text-[0.75rem] leading-[1.375]">
+		<div dir="ltr" className="rb-stat-pair flex flex-col gap-0 text-[0.75rem] leading-[1.375]">
 			<p><span aria-hidden="true">↑</span> <span className="sr-only">{t("usersTable.uploadSpeed")}: </span>{formatBytes(upload)}/s</p>
 			<p><span aria-hidden="true">↓</span> <span className="sr-only">{t("usersTable.downloadSpeed")}: </span>{formatBytes(download)}/s</p>
 		</div>
@@ -288,8 +289,10 @@ export const UsersTable: FC<UsersTableProps> = ({
 		setQRCode,
 		setSubLink,
 		linkTemplates,
+		onFilterChange,
 	} = {
 		filters: useDashboard((state) => state.filters),
+		onFilterChange: useDashboard((state) => state.onFilterChange),
 		users: useDashboard((state) => state.users),
 		onEditingUser: useDashboard((state) => state.onEditingUser),
 		loading: useDashboard((state) => state.loading),
@@ -1227,6 +1230,8 @@ export const UsersTable: FC<UsersTableProps> = ({
 			<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden rb-users-header-card">
 				<UsersOverviewBand
 					bare
+					selection={usersOverviewSelection(filters)}
+					onSelect={(target) => onFilterChange(nextUsersFiltersForOverview(filters, target))}
 					total={usersResponse.total}
 					usersLimit={usersResponse.users_limit ?? null}
 					active={activeUsersCount}

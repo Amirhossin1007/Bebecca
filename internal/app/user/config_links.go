@@ -62,6 +62,20 @@ type queryParam struct {
 	value any
 }
 
+func inboundLinkPorts(inbound ResolvedInbound) []any {
+	text, isText := inbound["port"].(string)
+	if !isText || !strings.Contains(text, ",") {
+		return []any{inbound["port"]}
+	}
+	ports := make([]any, 0, strings.Count(text, ",")+1)
+	for _, part := range strings.Split(text, ",") {
+		if port, err := strconv.Atoi(strings.TrimSpace(part)); err == nil {
+			ports = append(ports, port)
+		}
+	}
+	return ports
+}
+
 func BuildConfigLinks(
 	item ConfigLinkUser,
 	inbounds map[string]ResolvedInbound,
@@ -200,13 +214,17 @@ func BuildConfigLinks(
 		if !ok {
 			continue
 		}
-		link, err := buildShareLink(remark, address, effective, binding.settings)
-		if err != nil {
-			return ConfigLinksResponse{}, err
-		}
-		if link != "" {
-			links = append(links, link)
-			metadata = append(metadata, configLinkMetadata(effective))
+		for _, port := range inboundLinkPorts(effective) {
+			variant := copyInbound(effective)
+			variant["port"] = port
+			link, err := buildShareLink(remark, address, variant, binding.settings)
+			if err != nil {
+				return ConfigLinksResponse{}, err
+			}
+			if link != "" {
+				links = append(links, link)
+				metadata = append(metadata, configLinkMetadata(variant))
+			}
 		}
 	}
 

@@ -8,7 +8,6 @@ import { Button } from "components/ui/button";
 import { Switch } from "components/ui/switch";
 import { Input } from "components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
-import { RadioGroup, RadioGroupItem } from "components/ui/radio-group";
 import { toast } from "components/ui/sonner";
 import { CircleAlert, Info, TriangleAlert } from "lucide-react";
 import { withClass } from "lib/withClass";
@@ -68,6 +67,8 @@ import { fetch as apiFetch, getAPIErrorMessage } from "service/http";
 import psiphonIconUrl from "../assets/brands/psiphon.png";
 import windscribeIconUrl from "../assets/brands/windscribe.png";
 import type { BalancerFormValues } from "../components/BalancerModal";
+import { ObservatorySettings } from "../components/xray/ObservatorySettings";
+import { cleanLeastLoadSettings, type LeastLoadSettings } from "utils/xrayBalancer";
 import { splitMultiValueText } from "../components/common/MultiValueAutocomplete";
 import type { PsiphonProxyFormValues } from "../components/PsiphonProxyModal";
 import type {
@@ -246,18 +247,19 @@ const createDefaultDnsConfig = () => ({
 });
 const DEFAULT_OBSERVATORY = {
 	subjectSelector: [] as string[],
-	probeURL: "http://www.google.com/gen_204",
+	probeUrl: "https://www.google.com/generate_204",
 	probeInterval: "10m",
 	enableConcurrency: true,
 };
 const DEFAULT_BURST_OBSERVATORY = {
 	subjectSelector: [] as string[],
 	pingConfig: {
-		destination: "http://www.google.com/gen_204",
-		interval: "30m",
-		connectivity: "http://connectivitycheck.platform.hicloud.com/generate_204",
-		timeout: "10s",
-		sampling: 2,
+		destination: "https://connectivitycheck.gstatic.com/generate_204",
+		connectivity: "",
+		interval: "1m",
+		sampling: 10,
+		timeout: "5s",
+		httpMethod: "HEAD",
 	},
 };
 
@@ -325,7 +327,7 @@ type BalancerConfig = {
 	tag: string;
 	selector: string[];
 	fallbackTag?: string;
-	strategy?: { type: string };
+	strategy?: { type: string; settings?: LeastLoadSettings };
 };
 type BalancerRow = {
 	key: number;
@@ -830,7 +832,6 @@ export const CoreSettingsPage: FC = () => {
 	);
 	const [isFullScreen, setIsFullScreen] = useState(false);
 	const [advSettings, setAdvSettings] = useState<string>("xraySetting");
-	const [obsSettings, setObsSettings] = useState<string>("");
 	const isMobile = useBreakpointValue({ base: true, md: false });
 	const [jsonKey, setJsonKey] = useState(0); // force re-render of JsonEditor
 	const [advancedJsonValid, setAdvancedJsonValid] = useState(true);
@@ -1069,14 +1070,6 @@ export const CoreSettingsPage: FC = () => {
 			setDnsServers(config?.dns?.servers || []);
 			setFakeDns(config?.fakedns || []);
 			setDnsEnabledState(isDnsConfigEnabled(config?.dns, config?.fakedns));
-			// initialize observatory editor selection if present
-			setObsSettings(
-				config?.observatory
-					? "observatory"
-					: config?.burstObservatory
-						? "burstObservatory"
-						: "",
-			);
 			setJsonKey((prev) => prev + 1); // force JsonEditor re-mount
 		}
 	}, [
@@ -1087,29 +1080,6 @@ export const CoreSettingsPage: FC = () => {
 		syncRoutingRuleDisplay,
 	]);
 
-	useEffect(() => {
-		const hasObservatory = Boolean(watchedConfig?.observatory);
-		const hasBurstObservatory = Boolean(watchedConfig?.burstObservatory);
-		if (obsSettings === "observatory" && !hasObservatory) {
-			setObsSettings(hasBurstObservatory ? "burstObservatory" : "");
-			return;
-		}
-		if (obsSettings === "burstObservatory" && !hasBurstObservatory) {
-			setObsSettings(hasObservatory ? "observatory" : "");
-			return;
-		}
-		if (!obsSettings) {
-			if (hasObservatory) {
-				setObsSettings("observatory");
-			} else if (hasBurstObservatory) {
-				setObsSettings("burstObservatory");
-			}
-		}
-	}, [
-		obsSettings,
-		watchedConfig?.observatory,
-		watchedConfig?.burstObservatory,
-	]);
 
 	const { mutate: handleRestartCore, isPending: isRestarting } = useMutation({ mutationFn: restartCore, onSuccess: () => {
 				toast.success(t("core.restartSuccess"), { duration: 3000 });
@@ -1882,7 +1852,9 @@ export const CoreSettingsPage: FC = () => {
 				const observatory = nextConfig.observatory
 					? { ...nextConfig.observatory }
 					: { ...DEFAULT_OBSERVATORY };
-				observatory.subjectSelector = collectSelectors(leastPings);
+				observatory.subjectSelector = Array.from(
+					new Set([...(observatory.subjectSelector ?? []), ...collectSelectors(leastPings)]),
+				);
 				nextConfig.observatory = observatory;
 			} else {
 				delete nextConfig.observatory;
@@ -1892,7 +1864,9 @@ export const CoreSettingsPage: FC = () => {
 				const burstObservatory = nextConfig.burstObservatory
 					? { ...nextConfig.burstObservatory }
 					: { ...DEFAULT_BURST_OBSERVATORY };
-				burstObservatory.subjectSelector = collectSelectors(leastLoads);
+				burstObservatory.subjectSelector = Array.from(
+					new Set([...(burstObservatory.subjectSelector ?? []), ...collectSelectors(leastLoads)]),
+				);
 				nextConfig.burstObservatory = burstObservatory;
 			} else {
 				delete nextConfig.burstObservatory;
@@ -1913,8 +1887,13 @@ export const CoreSettingsPage: FC = () => {
 			selector: balancer.selector ?? [],
 			fallbackTag: balancer.fallbackTag ?? "",
 		};
+		const settings =
+			typeof balancer.strategy === "object" ? balancer.strategy?.settings : undefined;
 		if (strategyType && strategyType !== "random") {
-			normalized.strategy = { type: strategyType };
+			normalized.strategy =
+				settings && Object.keys(settings).length
+					? { type: strategyType, settings }
+					: { type: strategyType };
 		}
 		return normalized;
 	}, []);
@@ -1963,6 +1942,15 @@ export const CoreSettingsPage: FC = () => {
 		],
 	);
 
+	const strategySettingsAt = useCallback(
+		(index: number | null): LeastLoadSettings | undefined => {
+			if (index === null) return undefined;
+			const strategy = getBalancers()[index]?.strategy;
+			return typeof strategy === "object" ? strategy.settings : undefined;
+		},
+		[getBalancers],
+	);
+
 	const toBalancerConfig = useCallback(
 		(values: BalancerFormValues): BalancerConfig => {
 			const base: BalancerConfig = {
@@ -1971,7 +1959,13 @@ export const CoreSettingsPage: FC = () => {
 				fallbackTag: values.fallbackTag ?? "",
 			};
 			if (values.strategy && values.strategy !== "random") {
-				base.strategy = { type: values.strategy };
+				const settings =
+					values.strategy === "leastLoad"
+						? cleanLeastLoadSettings(values.strategySettings)
+						: undefined;
+				base.strategy = settings
+					? { type: values.strategy, settings }
+					: { type: values.strategy };
 			}
 			return base;
 		},
@@ -3066,6 +3060,10 @@ export const CoreSettingsPage: FC = () => {
 		handleNordSave(outbound, replaceIndex);
 	};
 
+	const handleMullvadSaveMany = (outbounds: OutboundJson[]) => {
+		commitOutbounds([...getOutbounds(), ...outbounds]);
+	};
+
 	const handleOutboundSave = (outboundJson: unknown, targetIds: string[]) => {
 		const outbound = outboundJson as OutboundJson;
 		const outbounds = getOutbounds();
@@ -3197,27 +3195,6 @@ export const CoreSettingsPage: FC = () => {
 			);
 		} catch (_e) {
 			// ignore invalid JSON until it becomes valid
-		}
-	};
-
-	const getObsJson = () => {
-		const cfg = form.getValues("config") || {};
-		if (obsSettings === "observatory")
-			return JSON.stringify(cfg.observatory ?? {}, null, 2);
-		if (obsSettings === "burstObservatory")
-			return JSON.stringify(cfg.burstObservatory ?? {}, null, 2);
-		return "";
-	};
-
-	const setObsJson = (value: string) => {
-		try {
-			const parsed = JSON.parse(value);
-			const cfg = { ...(form.getValues("config") || {}) };
-			if (obsSettings === "observatory") cfg.observatory = parsed;
-			if (obsSettings === "burstObservatory") cfg.burstObservatory = parsed;
-			form.setValue("config", cfg, { shouldDirty: true });
-		} catch (_e) {
-			// ignore until valid
 		}
 	};
 
@@ -4058,7 +4035,6 @@ export const CoreSettingsPage: FC = () => {
 		);
 	}
 
-	const observatoryJsonValue = activeTab === 4 ? getObsJson() : "";
 	const advancedJsonValue = activeTab === 6 ? getAdvancedJson() : "";
 	const advancedJsonModes = [
 		{
@@ -4309,6 +4285,27 @@ export const CoreSettingsPage: FC = () => {
 															</option>
 														))}
 													</Select>
+												)}
+											/>
+										)}
+									</SettingRow>
+									<SettingRow
+										label={t("pages.xray.routingScript")}
+										description={t("pages.xray.routingScriptDesc")}
+										controlId="routing-script"
+									>
+										{(id) => (
+											<Controller
+												name="config.routing.script"
+												control={form.control}
+												render={({ field }) => (
+													<Input
+														id={id}
+														value={field.value ?? ""}
+														onChange={(event) => field.onChange(event.target.value)}
+														placeholder="/path/to/routing.lua"
+														className="max-w-[320px]"
+													/>
 												)}
 											/>
 										)}
@@ -4839,34 +4836,19 @@ export const CoreSettingsPage: FC = () => {
 								emptyState={t("emptyBalancersDesc")}
 								ariaLabel={t("pages.xray.Balancers")}
 							/>
-							{/* Observatory / Burst Observatory editor (if present in config) */}
-							{(form.getValues("config")?.observatory ||
-								form.getValues("config")?.burstObservatory) && (
-								<div className="flex flex-col gap-3 items-stretch">
-									<RadioGroup onValueChange={(v) => {
-											setObsSettings(v);
-											setJsonKey((prev) => prev + 1);
-										}} value={obsSettings}>
-										<div className="flex flex-row items-center gap-3">
-											{form.getValues("config")?.observatory && (
-												<label className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem value="observatory" /><span>Observatory</span></label>
-											)}
-											{form.getValues("config")?.burstObservatory && (
-												<label className="flex cursor-pointer items-center gap-2 text-sm"><RadioGroupItem value="burstObservatory" /><span>Burst Observatory</span></label>
-											)}
-										</div>
-									</RadioGroup>
-									<div className="h-[300px]">
-										<Suspense fallback={<Spinner />}>
-											<JsonEditor
-												key={`obs-${obsSettings}-${jsonKey}`}
-												json={observatoryJsonValue}
-												onChange={(value) => setObsJson(value)}
-											/>
-										</Suspense>
-									</div>
-								</div>
-							)}
+							<ObservatorySettings
+								observatory={watchedConfig?.observatory}
+								burstObservatory={watchedConfig?.burstObservatory}
+								leastPingTags={balancersData.filter((row) => row.strategy === "leastPing").map((row) => row.tag)}
+								leastLoadTags={balancersData.filter((row) => row.strategy === "leastLoad").map((row) => row.tag)}
+								outboundOptions={availableOutboundTags}
+								onChange={(next) => {
+									const cfg = { ...(form.getValues("config") || {}) };
+									if (next.observatory) cfg.observatory = next.observatory;
+									if (next.burstObservatory) cfg.burstObservatory = next.burstObservatory;
+									form.setValue("config", cfg, { shouldDirty: true });
+								}}
+							/>
 						</div>
 					</div>
 				)}
@@ -5296,6 +5278,7 @@ export const CoreSettingsPage: FC = () => {
 						canPing={!isMasterTarget}
 						initialOutbounds={getOutbounds()}
 						onSave={handleMullvadSave}
+						onSaveMany={handleMullvadSaveMany}
 						onDelete={handleNordDelete}
 					/>
 				)}
@@ -5356,6 +5339,7 @@ export const CoreSettingsPage: FC = () => {
 											balancersData[editingBalancerIndex]?.selector ?? [],
 										fallbackTag:
 											balancersData[editingBalancerIndex]?.fallbackTag ?? "",
+										strategySettings: strategySettingsAt(editingBalancerIndex),
 									}
 								: null
 						}

@@ -23,6 +23,8 @@ import { Switch as UiSwitch } from "components/ui/switch";
 import { buttonVariants } from "components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "components/ui/collapsible";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "components/ui/dialog";
+import { hostEntityPage } from "components/entityPage/EntityOverviews";
+import type { EntityPageInfo } from "components/entityPage/EntityPageParts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
 import { ChevronDown, Network, RefreshCw, CircleCheck, Info, Pencil, Plus, Trash2, CircleX } from "lucide-react";
 
@@ -67,6 +69,7 @@ import {
 } from "utils/searchMatch";
 import { generateErrorMessage } from "utils/toastHandler";
 import { AppleEmojiText } from "./common/AppleEmojiText";
+import { EmojiShortcodeInput } from "./common/EmojiShortcodeInput";
 import { DeleteIcon } from "./common/DeleteIcon";
 import {
 	MultiValueAutocomplete,
@@ -420,11 +423,11 @@ const DynamicTokensPopover: FC = () => {
 					
 					
 					<div className="p-3">
-						<div className="pr-5 leading-[1.4]">
+						<div className="pe-5 leading-[1.4]">
 							<p className="mb-2">{t("hostsDialog.desc")}</p>
 							{DYNAMIC_TOKENS.map(({ token, labelKey }) => (
 								<p key={token} className="mt-1">
-									<Badge className="mr-2">{token}</Badge>
+									<Badge className="me-2">{token}</Badge>
 									<AppleEmojiText>{t(labelKey)}</AppleEmojiText>
 								</p>
 							))}
@@ -889,6 +892,7 @@ type HostDialogShellProps = {
 	form: ReactNode;
 	json: ReactNode;
 	footer: ReactNode;
+	page?: EntityPageInfo;
 };
 
 const HostDialogShell: FC<HostDialogShellProps> = ({
@@ -900,11 +904,14 @@ const HostDialogShell: FC<HostDialogShellProps> = ({
 	form,
 	json,
 	footer,
+	page,
 }) => {
 	const { t } = useTranslation();
 	const [tab, setTab] = useState("form");
 	return (
 		<Dialog
+			section="hosts"
+			page={page}
 			open={isOpen}
 			onOpenChange={(next) => {
 				if (!next) onClose();
@@ -1066,14 +1073,15 @@ const HostForm: FC<HostFormProps> = ({
 						error={remarkError ? t(remarkError) : undefined}
 					>
 						<div className="relative">
-							<UiInput
+							<EmojiShortcodeInput
 								ref={initialFocusRef}
 								value={data.remark}
 								maxLength={isWireGuardInbound ? 15 : undefined}
 								placeholder={t("hostsPage.remarkPlaceholder")}
 								aria-invalid={Boolean(remarkError) || undefined}
 								className={cn(!isProfileHostInbound && "pe-10")}
-								onChange={(event) => onChange("remark", event.target.value)}
+								enabled={!isProfileHostInbound}
+								onChange={(value) => onChange("remark", value)}
 							/>
 							{!isProfileHostInbound ? (
 								<div className="absolute inset-y-0 end-1.5 flex items-center">
@@ -1463,6 +1471,7 @@ const HostDetailModal: FC<HostDetailModalProps> = ({
 		<HostDialogShell
 			open={isOpen}
 			onClose={onClose}
+			page={!isCloneMode && host.data.id ? hostEntityPage(host.data, host.inboundTag) : undefined}
 			title={<AppleEmojiText>{isCloneMode ? t("hostsPage.clone.title") : host.data.remark || t("hostsPage.untitledHost")}</AppleEmojiText>}
 			subtitle={isCloneMode ? t("hostsPage.clone.description") : undefined}
 			form={

@@ -36,6 +36,13 @@ import { isUserManagementLocked } from "utils/adminTraffic";
 // toolbar icon in this codebase is sized, via Chakra's style props.
 const AdvancedActionsIcon = withClass(Sparkles, "w-4 h-4");
 
+type FactorAction = "multiply_expire" | "divide_expire" | "multiply_traffic" | "divide_traffic";
+const factorLabelKeys = {
+	multiply_expire: "filters.advancedActions.expireSection.multiplyButton",
+	divide_expire: "filters.advancedActions.expireSection.divideButton",
+	multiply_traffic: "filters.advancedActions.trafficSection.multiplyButton",
+	divide_traffic: "filters.advancedActions.trafficSection.divideButton",
+} as const;
 const cleanupOptions: AdvancedUserActionStatus[] = ["expired", "limited"];
 const scopeStatusOptions: AdvancedUserActionScopeStatus[] = ["active", "on_hold", "limited", "expired", "disabled"];
 const MAX_RECENT_RUNS = 8;
@@ -83,6 +90,8 @@ const AdvancedUserActions = ({ compact = false, embedded = false }: AdvancedUser
 	const { isOpen, onOpen, onClose } = useDisclosure();
 	const [expireDays, setExpireDays] = useState("");
 	const [trafficGb, setTrafficGb] = useState("");
+	const [expireFactor, setExpireFactor] = useState("");
+	const [trafficFactor, setTrafficFactor] = useState("");
 	const [cleanupDays, setCleanupDays] = useState("");
 	const [selectedStatuses, setSelectedStatuses] = useState<AdvancedUserActionStatus[]>(["expired", "limited"]);
 	const [selectedScopeStatuses, setSelectedScopeStatuses] = useState<AdvancedUserActionScopeStatus[]>(["active"]);
@@ -323,6 +332,38 @@ const AdvancedUserActions = ({ compact = false, embedded = false }: AdvancedUser
 		});
 	};
 
+	const askFactor = (action: FactorAction, factorText: string, clear: () => void) => {
+		const factor = Number(factorText);
+		if (!Number.isFinite(factor) || factor <= 0) {
+			showToast(t("filters.advancedActions.error.invalidFactor"), "warning");
+			return;
+		}
+		if (!selectedScopeStatuses.length) {
+			showToast(t("filters.advancedActions.error.noScope"), "warning");
+			return;
+		}
+		const targeting = buildTargetingPayload();
+		if (!targeting) return;
+		const label = t(factorLabelKeys[action]);
+		askToRun({
+			key: action,
+			label,
+			detail: `${label}: ${factor}`,
+			danger: action.startsWith("divide"),
+			payload: {
+				action,
+				factor,
+				scope: selectedScopeStatuses,
+				admin_username: resolveTargetAdminUsername(),
+				...buildServiceScopePayload(),
+				...targeting,
+			},
+			success: (count) =>
+				t(action.endsWith("expire") ? "filters.advancedActions.success.expire" : "filters.advancedActions.success.trafficFactor", { count }),
+			onSuccess: clear,
+		});
+	};
+
 	const askCleanup = () => {
 		const days = Math.floor(Number(cleanupDays));
 		if (!Number.isFinite(days) || days <= 0) {
@@ -473,6 +514,17 @@ const AdvancedUserActions = ({ compact = false, embedded = false }: AdvancedUser
 						{t("filters.advancedActions.expireSection.removeButton")}
 					</Button>
 				</div>
+				<FormField label={t("filters.advancedActions.expireSection.factorLabel")}>
+					<NumberField min={0.01} step={0.1} value={expireFactor} doneLabel={t("common.done")} onChange={setExpireFactor} />
+				</FormField>
+				<div className="flex flex-row flex-wrap gap-2">
+					<Button disabled={busy !== null} onClick={() => askFactor("multiply_expire", expireFactor, () => setExpireFactor(""))} size="sm" loading={busy === "multiply_expire"}>
+						{t("filters.advancedActions.expireSection.multiplyButton")}
+					</Button>
+					<Button disabled={busy !== null} onClick={() => askFactor("divide_expire", expireFactor, () => setExpireFactor(""))} variant="outline" size="sm" loading={busy === "divide_expire"}>
+						{t("filters.advancedActions.expireSection.divideButton")}
+					</Button>
+				</div>
 			</SettingsCard>
 
 			<SettingsCard title={t("filters.advancedActions.trafficSection.title")} description={t("filters.advancedActions.trafficSection.description")}>
@@ -485,6 +537,17 @@ const AdvancedUserActions = ({ compact = false, embedded = false }: AdvancedUser
 					</Button>
 					<Button disabled={busy !== null} onClick={() => askTraffic("decrease_traffic")} variant="outline" size="sm" loading={busy === "decrease_traffic"}>
 						{t("filters.advancedActions.trafficSection.removeButton")}
+					</Button>
+				</div>
+				<FormField label={t("filters.advancedActions.trafficSection.factorLabel")}>
+					<NumberField min={0.01} step={0.1} value={trafficFactor} doneLabel={t("common.done")} onChange={setTrafficFactor} />
+				</FormField>
+				<div className="flex flex-row flex-wrap gap-2">
+					<Button disabled={busy !== null} onClick={() => askFactor("multiply_traffic", trafficFactor, () => setTrafficFactor(""))} size="sm" loading={busy === "multiply_traffic"}>
+						{t("filters.advancedActions.trafficSection.multiplyButton")}
+					</Button>
+					<Button disabled={busy !== null} onClick={() => askFactor("divide_traffic", trafficFactor, () => setTrafficFactor(""))} variant="outline" size="sm" loading={busy === "divide_traffic"}>
+						{t("filters.advancedActions.trafficSection.divideButton")}
 					</Button>
 				</div>
 			</SettingsCard>

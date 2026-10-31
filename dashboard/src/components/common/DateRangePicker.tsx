@@ -127,16 +127,20 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
 		if (!preset) return;
 
 		const alignUnit: ManipulateType = preset.unit === "hour" ? "hour" : "day";
-		const end = dayjs().utc().endOf(alignUnit).toDate();
-		const span = Math.max(preset.amount - 1, 0);
-		const start = dayjs()
-			.utc()
-			.subtract(span, preset.unit as ManipulateType)
-			.startOf(alignUnit)
-			.toDate();
+		const end = dayjs().utc().endOf(alignUnit);
+		const start = end
+			.subtract(preset.amount, preset.unit as ManipulateType)
+			.add(1, alignUnit)
+			.startOf(alignUnit);
 
 		setSelectedPreset(presetKey);
-		onChange({ start, end, presetKey, key: presetKey, unit: preset.unit });
+		onChange({
+			start: start.toDate(),
+			end: end.toDate(),
+			presetKey,
+			key: presetKey,
+			unit: preset.unit,
+		});
 		onClose();
 	};
 
@@ -147,17 +151,15 @@ export const DateRangePicker: FC<DateRangePickerProps> = ({
 				value[value.length - 1] as keyof typeof filterOptionTypes
 			];
 		const alignUnit: ManipulateType = unit === "hour" ? "hour" : "day";
-		const end = dayjs().utc().endOf(alignUnit).toDate();
-		const span = Math.max(num - 1, 0);
-		const start = dayjs()
-			.utc()
-			.subtract(span, unit as ManipulateType)
-			.startOf(alignUnit)
-			.toDate();
+		const end = dayjs().utc().endOf(alignUnit);
+		const start = end
+			.subtract(num, unit as ManipulateType)
+			.add(1, alignUnit)
+			.startOf(alignUnit);
 
 		onChange({
-			start,
-			end,
+			start: start.toDate(),
+			end: end.toDate(),
 			presetKey: "custom",
 			key: "custom",
 			unit: unit as "hour" | "day",

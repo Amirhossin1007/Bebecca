@@ -428,7 +428,7 @@ const AdminsUsage: FC = () => {
 								</p>
 							</div>
 						) : serviceAdminUsage.length && serviceUsageTotal > 0 ? (
-							<ReactApexChart type="donut" options={serviceDonutOptions} series={serviceDonutSeries} className="h-320" />
+							<ReactApexChart type="donut" height={320} options={serviceDonutOptions} series={serviceDonutSeries} />
 						) : (
 							<p className="text-center text-gray-500 dark:text-gray-400">
 								{t("noData")}
@@ -528,7 +528,7 @@ const AdminsUsage: FC = () => {
 						</p>
 					</div>
 				) : chartConfig.series[0]?.data?.length ? (
-					<ReactApexChart options={chartConfig.options} series={chartConfig.series} type="area" className="h-360" />
+					<ReactApexChart options={chartConfig.options} series={chartConfig.series} type="area" height={360} />
 				) : (
 					<p className="text-center text-gray-500 dark:text-gray-400">
 						{t("noData")}
