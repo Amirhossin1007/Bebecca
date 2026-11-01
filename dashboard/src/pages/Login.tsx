@@ -27,7 +27,7 @@ import {
 	type TOTPSetup,
 	verify2FA,
 } from "service/auth";
-import { clearClientSession } from "utils/session";
+import { clearClientSession, setRememberedSession } from "utils/session";
 import { updateThemeColor } from "utils/themeColor";
 import { z } from "zod";
 
@@ -237,6 +237,7 @@ export const Login = () => {
 
 	const completeLogin = () => {
 		clearClientSession();
+		setRememberedSession(true);
 		navigate("/");
 	};
 
@@ -256,6 +257,7 @@ export const Login = () => {
 				await openRequiredSetup();
 			} else if (session.state === "disabled") {
 				clearClientSession();
+				setRememberedSession(true);
 				navigate("/users");
 			} else {
 				completeLogin();

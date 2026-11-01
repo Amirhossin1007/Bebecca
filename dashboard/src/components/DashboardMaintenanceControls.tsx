@@ -4,7 +4,6 @@ import { Spinner } from "components/ui/spinner";
 import { Alert } from "components/ui/alert";
 import { Field, FieldDescription, FieldLabel } from "components/ui/field";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "components/ui/dialog";
-import { AppDialog } from "components/dialogs/AppDialog";
 import { Progress } from "components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { toast } from "components/ui/sonner";
@@ -70,14 +69,15 @@ const shouldWaitForPanelReturn = (operation?: MaintenanceOperation | null) =>
 			operation?.phase === "restarting",
 	);
 
-const ansiEscapePattern =
-	new RegExp("[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-nq-uy=><~]))", "g");
+const createRegex = (pattern: string) => new RegExp(pattern, "g");
+const ansiEscapePattern = createRegex(
+	"(?:\\u001b|\\x1b)\\[[0-9;]*[a-zA-Z]|\\[(?:\\d{1,3}(?:;\\d{1,3})*)?m|\\x08|\\x0d",
+);
 
 const cleanTerminalOutput = (logs?: string[]) =>
 	(logs || [])
 		.join("\n")
 		.replace(ansiEscapePattern, "")
-		.replace(new RegExp("\\x08", "g"), "")
 		.trimEnd();
 
 export const DashboardMaintenanceControls = ({
