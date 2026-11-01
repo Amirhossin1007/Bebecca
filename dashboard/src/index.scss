@@ -1,4 +1,4 @@
-@import url("https:
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
 @font-face {
   font-family: 'Arad';
@@ -84,7 +84,6 @@
   --surface-light: #ffffff;
   --surface-dark: #ffffff;
 }
-
 
 .rb-seasonal-christmas {
   --primary-50: #ffe6e6;
@@ -219,7 +218,6 @@ body {
   text-align: inherit;
 }
 
-
 .rb-data-table td {
   font-size: 0.8125rem !important;
   background: var(--rb-panel-surface) !important;
@@ -227,7 +225,7 @@ body {
   border-bottom: 1px solid var(--rb-panel-border) !important;
   border-left: 0 !important;
   border-right: 0 !important;
-  
+
   height: auto;
   min-height: 48px;
   min-width: 0;
@@ -1137,7 +1135,6 @@ body {
   }
 }
 
-
 [dir="rtl"] {
   direction: rtl;
   text-align: start;
@@ -1164,7 +1161,6 @@ body {
   direction: rtl;
   text-align: start;
 }
-
 
 [dir="rtl"] .chakra-modal__close-btn,
 [dir="rtl"] .chakra-drawer__close-btn,
@@ -1233,7 +1229,6 @@ table thead {
     border-bottom-right-radius: 8px;
   }
 }
-
 
 .chakra-popover__popper {
   z-index: 17020 !important;
@@ -1442,7 +1437,6 @@ table thead {
   gap: 8px;
 }
 
-
 .datepicker-with-quickselect .react-datepicker {
   border: none;
   box-shadow: none;
@@ -1459,7 +1453,6 @@ table thead {
   align-items: center;
 }
 
-
 .datepicker-with-quickselect .react-datepicker__current-month {
   font-size: 1rem;
   font-weight: 600;
@@ -1474,7 +1467,6 @@ table thead {
   gap: 12px;
   width: 100%;
 }
-
 
 .datepicker-with-quickselect .react-datepicker__navigation {
   top: 8px;
@@ -1578,7 +1570,6 @@ table thead {
   background-color: transparent !important;
 }
 
-
 .datepicker-quickselect-panel button {
   font-size: 0.875rem;
   height: 40px;
@@ -1613,7 +1604,6 @@ table thead {
   border-color: var(--color-primary-600);
   color: var(--color-primary-200);
 }
-
 
 .datepicker-footer {
   display: flex;
@@ -1854,7 +1844,6 @@ img.apple-emoji {
   }
 }
 
-
 .rb-usage-pair {
   direction: ltr;
   unicode-bidi: isolate;
@@ -1862,7 +1851,6 @@ img.apple-emoji {
   align-items: center;
   gap: 4px;
 }
-
 
 .rb-snow-layer {
   position: fixed;
@@ -1900,19 +1888,14 @@ img.apple-emoji {
   }
 }
 
-
 .rb-seasonal-christmas body,
 .rb-seasonal-christmas button,
 .rb-seasonal-christmas a,
 .rb-seasonal-christmas input,
 .rb-seasonal-christmas select,
 .rb-seasonal-christmas textarea {
-  cursor: url("data:image/svg+xml,%3Csvg xmlns='http:
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg transform='rotate(-18 20 20)'%3E%3Cpath d='M20 4l-4 6h8l-4-6z' fill='%23fff' stroke='%23c62828' stroke-width='1.6'/%3E%3Cpath d='M20 8l-5 7h10l-5-7z' fill='%23e8f5e9' stroke='%232e7d32' stroke-width='1.6'/%3E%3Cpath d='M20 12l-6 8h12l-6-8z' fill='%23c8e6c9' stroke='%232e7d32' stroke-width='1.6'/%3E%3Cpath d='M20 17l-7 9h14l-7-9z' fill='%23a5d6a7' stroke='%232e7d32' stroke-width='1.6'/%3E%3Crect x='17' y='26' width='6' height='7' rx='1.2' fill='%238d6e63'/%3E%3Ccircle cx='20' cy='10' r='1.4' fill='%23c62828'/%3E%3Ccircle cx='18' cy='15' r='1.4' fill='%23fbc02d'/%3E%3Ccircle cx='22' cy='17' r='1.4' fill='%2300acc1'/%3E%3Ccircle cx='16.5' cy='20' r='1.4' fill='%23ef6c00'/%3E%3Ccircle cx='23.5' cy='22' r='1.4' fill='%238e24aa'/%3E%3C/g%3E%3C/svg%3E") 10 4, auto;
 }
-
-
-
-
 
 .rb-user-online-tag {
   display: inline-flex;
@@ -1960,9 +1943,6 @@ img.apple-emoji {
   display: inline-block;
 }
 
-
-
-
 .rb-user-admin-chip {
   display: inline-block;
   vertical-align: middle;
@@ -1978,12 +1958,9 @@ img.apple-emoji {
   color: var(--rb-panel-text-secondary);
 }
 
-
 .rb-users-section .rb-resource-card-main .rb-user-admin-chip {
   display: none;
 }
-
-
 
 .rb-user-usage-track {
   width: 100%;
@@ -2030,8 +2007,6 @@ img.apple-emoji {
 .rb-user-usage[data-tone="critical"] .rb-user-usage-percent {
   color: #ef4444;
 }
-
-
 
 .rb-users-section {
   container: rb-users / inline-size;
@@ -2142,19 +2117,16 @@ img.apple-emoji {
   }
 }
 
-
 .rb-users-section .chakra-tag {
   border-radius: 999px;
   font-weight: 700;
 }
-
 
 :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-resource-mobile-head-summary,
 :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-resource-summary {
   flex-grow: 0;
   flex-basis: min(30vw, 8rem);
 }
-
 
 :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-data-table-row > td:first-child {
   border-start-start-radius: 10px;
@@ -2217,7 +2189,6 @@ img.apple-emoji {
   padding-inline-start: 12px !important;
 }
 
-
 .rb-users-section .rb-resource-card {
   border-radius: 14px;
   padding: 0.85rem;
@@ -2232,7 +2203,6 @@ img.apple-emoji {
 .chakra-ui-light .rb-users-section .rb-resource-card[data-expanded="true"] {
   box-shadow: 0 12px 26px rgb(15 23 42 / 12%);
 }
-
 
 @media (prefers-reduced-motion: no-preference) {
   :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-resource-expanded {
@@ -2253,13 +2223,11 @@ img.apple-emoji {
   }
 }
 
-
 :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-resource-details .rb-resource-meta {
   border-bottom: 0;
   padding-top: 0.35rem;
   padding-bottom: 0.35rem;
 }
-
 
 :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-resource-expanded-actions .rb-inline-actions {
   gap: 0.25rem;
@@ -2275,7 +2243,6 @@ img.apple-emoji {
 :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-resource-expanded-actions .rb-inline-actions .chakra-button:active {
   transform: scale(0.92);
 }
-
 
 .rb-users-section .rb-bulk-action-bar {
   border-radius: 14px;
@@ -2364,7 +2331,6 @@ img.apple-emoji {
 	100% { transform: scale(1); }
 }
 
-
 @keyframes shimmer {
   0% { opacity: 0.35; }
   50% { opacity: 0.75; }
@@ -2379,7 +2345,6 @@ img.apple-emoji {
 .shimmer-box {
   animation: shimmer 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-
 
 .master-settings-card {
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -2486,7 +2451,6 @@ img.apple-emoji {
   padding-inline: 0.75rem;
 }
 
-
 .service-dialog-list {
   border-color: rgba(0, 0, 0, 0.08);
   background-color: #f7fafc;
@@ -2496,7 +2460,6 @@ img.apple-emoji {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-
 .service-dialog-list {
   border-color: rgba(0, 0, 0, 0.08);
   background-color: #f7fafc;
@@ -2505,7 +2468,6 @@ img.apple-emoji {
   border-color: rgba(255, 255, 255, 0.08);
   background-color: rgba(255, 255, 255, 0.05);
 }
-
 
 .rb-xray-dialog {
   --xray-field-bg: #fff;
@@ -2646,7 +2608,6 @@ img.apple-emoji {
   background-color: var(--xray-section-bg);
 }
 
-
 @keyframes pageSkeletonPulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 0.8; }
@@ -2654,7 +2615,6 @@ img.apple-emoji {
 .page-skeleton {
   animation: pageSkeletonPulse 1.8s ease-in-out infinite;
 }
-
 
 select.rb-select option {
   background-color: var(--rb-panel-elevated);
@@ -2665,7 +2625,6 @@ select.rb-select optgroup {
   background-color: var(--rb-panel-surface);
   color: var(--rb-panel-text-secondary);
 }
-
 
 .rb-checkbox {
   transition: background-color 140ms ease, border-color 140ms ease;
@@ -2699,7 +2658,6 @@ input:focus-visible + .rb-checkbox {
 input:disabled + .rb-checkbox {
   cursor: not-allowed;
 }
-
 
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
@@ -2807,26 +2765,4 @@ input[type="number"] {
 
 .toaster [data-sonner-toast] [data-close-button] {
   pointer-events: auto;
-}
-* {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--scrollbar-thumb, 0 0% 50%) / 0.4) transparent;
-}
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--scrollbar-thumb, 0 0% 50%) / 0.35);
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--scrollbar-thumb, 0 0% 50%) / 0.55);
-}
-
-[data-rbd-draggable-id],
-[data-dnd-kit-drag-overlay] {
-  left: 0 !important;
-  right: auto !important;
-  max-width: calc(100vw - 20px) !important;
 }
