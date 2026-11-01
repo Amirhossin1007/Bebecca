@@ -77,7 +77,7 @@ export interface BreadcrumbLinkProps extends HTMLAttributes<HTMLElement> {
 	children?: ReactNode;
 	href?: string;
 	onClick?: (event: ReactMouseEvent<HTMLElement>) => void;
-	render?: ReactElement;
+	render?: ReactElement<any>;
 	asChild?: boolean;
 	isClickable?: boolean;
 }
@@ -96,18 +96,23 @@ export const BreadcrumbLink = forwardRef<HTMLElement, BreadcrumbLinkProps>(
 		ref,
 	) => {
 		if (render) {
+			const renderProps = render.props as {
+				className?: string;
+				onClick?: (e: ReactMouseEvent<HTMLElement>) => void;
+				children?: ReactNode;
+			};
 			return cloneElement(render, {
 				ref,
-				className: cn(render.props.className, className),
+				className: cn(renderProps?.className, className),
 				onClick: isClickable
 					? (e: ReactMouseEvent<HTMLElement>) => {
-							render.props.onClick?.(e);
+							renderProps?.onClick?.(e);
 							onClick?.(e);
 						}
 					: undefined,
-				children: render.props.children ?? children,
+				children: renderProps?.children ?? children,
 				...props,
-			});
+			} as any);
 		}
 
 		if (!isClickable || (!href && !onClick)) {
