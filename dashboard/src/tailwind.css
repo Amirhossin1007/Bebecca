@@ -224,6 +224,14 @@
   --color-border: var(--rb-panel-border);
   --color-input: var(--rb-panel-border);
   --color-ring: var(--rb-panel-accent);
+  --color-sidebar: var(--rb-panel-sidebar, var(--rb-panel-surface));
+  --color-sidebar-foreground: var(--rb-panel-text);
+  --color-sidebar-primary: var(--rb-panel-accent);
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: var(--rb-panel-elevated);
+  --color-sidebar-accent-foreground: var(--rb-panel-text);
+  --color-sidebar-border: var(--rb-panel-border);
+  --color-sidebar-ring: var(--rb-panel-accent);
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 10px;
