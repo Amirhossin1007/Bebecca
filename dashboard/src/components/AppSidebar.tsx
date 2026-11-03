@@ -30,7 +30,6 @@ import {
 } from "components/ui/sidebar";
 import { AppTitle } from "./layout/AppTitle";
 import { NavGroup, type NavItemData } from "./layout/NavGroup";
-import { NavUser } from "./layout/NavUser";
 import { SponsorCarousel, type SponsorCarouselItem } from "./SponsorCarousel";
 import useGetUser from "hooks/useGetUser";
 import { useQuery } from "@tanstack/react-query";
@@ -383,14 +382,13 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 				/>
 			</SidebarContent>
 
-			<SidebarFooter className="p-2 border-t border-panel-border/60 flex flex-col gap-2">
-				{sidebarSponsors.length > 0 ? (
+			{sidebarSponsors.length > 0 ? (
+				<SidebarFooter className="p-2 border-t border-panel-border/60 flex flex-col gap-2">
 					<div className="group-data-[collapsible=icon]:hidden w-full overflow-hidden rounded-xl">
 						<SponsorCarousel items={sidebarSponsors} variant="sidebar" />
 					</div>
-				) : null}
-				<NavUser />
-			</SidebarFooter>
+				</SidebarFooter>
+			) : null}
 
 			<SidebarRail />
 		</Sidebar>

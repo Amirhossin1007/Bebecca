@@ -41,10 +41,20 @@ type SidebarContextProps = {
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null);
 
+const defaultSidebarContext: SidebarContextProps = {
+	state: "expanded",
+	open: true,
+	setOpen: () => {},
+	openMobile: false,
+	setOpenMobile: () => {},
+	isMobile: false,
+	toggleSidebar: () => {},
+};
+
 function useSidebar() {
 	const context = React.useContext(SidebarContext);
 	if (!context) {
-		throw new Error("useSidebar must be used within a SidebarProvider.");
+		return defaultSidebarContext;
 	}
 	return context;
 }

@@ -36,6 +36,7 @@ import { clearClientSession } from "utils/session";
 import { getSponsors, type SponsorAsset } from "service/sponsors";
 import ImperialIranFlag from "../assets/imperial-iran-flag.svg?react";
 import { AppSidebar } from "./AppSidebar";
+import { SidebarProvider } from "./ui/sidebar";
 import { useSheetSwipeToClose } from "hooks/useSheetSwipeToClose";
 import { useDisclosure } from "hooks/useDisclosure";
 import { useMediaQuery } from "hooks/useMediaQuery";
@@ -1126,7 +1127,11 @@ export function AppLayout() {
 	};
 
 	return (
-		<>
+		<SidebarProvider
+			defaultOpen={!sidebarCollapsed}
+			open={!sidebarCollapsed}
+			onOpenChange={(open) => setSidebarCollapsed(!open)}
+		>
 			<div aria-hidden="true" className="hidden">
 				<ThemeSelector minimal trigger="icon" />
 			</div>
@@ -1701,6 +1706,6 @@ export function AppLayout() {
 					</>
 				)}
 			</div>
-		</>
+		</SidebarProvider>
 	);
 }
