@@ -1023,7 +1023,7 @@ func (c *cli) adminResetUsage(args []string) error {
 	if _, err := tx.ExecContext(ctx, `UPDATE admins SET users_usage = 0, created_traffic = 0 WHERE id = ?`, admin.ID); err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE admins_services SET used_traffic = 0, created_traffic = 0, updated_at = ? WHERE admin_id = ?`, time.Now().UTC(), admin.ID); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE service_admins SET used_traffic = 0, created_traffic = 0, updated_at = ? WHERE admin_id = ?`, time.Now().UTC(), admin.ID); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
@@ -1132,7 +1132,7 @@ LEFT JOIN (
            SUM(COALESCE(lifetime_used_traffic, 0)) AS lifetime_used_traffic,
            SUM(COALESCE(created_traffic, 0)) AS created_traffic,
            SUM(COALESCE(deleted_users_usage, 0)) AS deleted_users_usage
-    FROM admins_services
+    FROM service_admins
     GROUP BY admin_id
 ) s ON s.admin_id = a.id`
 }
@@ -1463,7 +1463,7 @@ func (c *cli) subscriptionGetLink(args []string) error {
 		username = c.mustPrompt("Username", "")
 	}
 	var credentialKey, subadress sql.NullString
-	err := c.db.QueryRow("SELECT credential_key, subadress FROM users WHERE LOWER(username) = LOWER(?)", username).Scan(&credentialKey, &subadress)
+	err := c.db.QueryRow("SELECT credential_key, subscription_token FROM users WHERE LOWER(username) = LOWER(?)", username).Scan(&credentialKey, &subadress)
 	if errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("user %q not found", username)
 	}
@@ -1576,7 +1576,7 @@ func (c *cli) subscriptionGetConfig(args []string) error {
 func (c *cli) getSubscriptionUser(username string) (subscriptionUser, error) {
 	var user subscriptionUser
 	err := c.db.QueryRow(`
-SELECT id, username, credential_key, subadress, flow, status, COALESCE(used_traffic, 0), data_limit, expire, service_id
+SELECT id, username, credential_key, subscription_token, flow, status, COALESCE(used_traffic, 0), data_limit, expire, service_id
 FROM users
 WHERE LOWER(username) = LOWER(?)
 LIMIT 1`, username).Scan(
@@ -1598,7 +1598,7 @@ LIMIT 1`, username).Scan(
 }
 
 func (c *cli) getUserProxies(userID int64) ([]proxyRecord, error) {
-	rows, err := c.db.Query("SELECT type, settings FROM proxies WHERE user_id = ? ORDER BY id", userID)
+	rows, err := c.db.Query("SELECT type, settings FROM user_credentials WHERE user_id = ? ORDER BY id", userID)
 	if err != nil {
 		return nil, err
 	}
@@ -2010,26 +2010,7 @@ func legacyNoiseFinalMask(value string) []any {
 }
 
 func (c *cli) getUUIDMasks() (map[string][]byte, error) {
-	masks := map[string][]byte{}
-	var vmessMask, vlessMask sql.NullString
-	err := c.db.QueryRow("SELECT vmess_mask, vless_mask FROM jwt ORDER BY id LIMIT 1").Scan(&vmessMask, &vlessMask)
-	if errors.Is(err, sql.ErrNoRows) {
-		return masks, nil
-	}
-	if err != nil {
-		return masks, err
-	}
-	if vmessMask.Valid {
-		if decoded, err := hexToBytes(vmessMask.String); err == nil {
-			masks["vmess"] = decoded
-		}
-	}
-	if vlessMask.Valid {
-		if decoded, err := hexToBytes(vlessMask.String); err == nil {
-			masks["vless"] = decoded
-		}
-	}
-	return masks, nil
+	return map[string][]byte{}, nil
 }
 
 func runtimeSettings(proxy proxyRecord, user subscriptionUser, masks map[string][]byte) (map[string]any, error) {

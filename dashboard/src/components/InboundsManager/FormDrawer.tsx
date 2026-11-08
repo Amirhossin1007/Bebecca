@@ -27,6 +27,7 @@ import {
 	ModalOverlay,
 	Radio,
 	RadioGroup,
+	Select,
 	SimpleGrid,
 	Stack,
 	Switch,
@@ -63,6 +64,7 @@ import {
 } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { EntityNotePanel } from "components/EntityNotePanel";
 import {
 	generateAnyConnectSelfSigned,
 	generateEchCert,
@@ -74,6 +76,11 @@ import {
 	getVlessEncAuthBlocks,
 	type VlessEncAuthBlock,
 } from "service/xray";
+import { useQuery } from "react-query";
+import {
+	getSubscriptionSettings,
+	type SubscriptionSettingsBundle,
+} from "service/settings";
 import {
 	buildInboundPayload,
 	createDefaultHysteriaUdpMask,
@@ -96,6 +103,10 @@ import {
 	validateInboundFormFields,
 	validateInboundFormValues,
 } from "utils/inbounds";
+import {
+	getCustomNodeTargetIds,
+	sortInboundTargets,
+} from "utils/inboundTargets";
 import { NumericInput } from "../common/NumericInput";
 import { DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
 import {
@@ -449,6 +460,11 @@ export const InboundFormModal: FC<Props> = ({
 		useWatch({ control, name: "streamSecurity" }) || watch("streamSecurity");
 	const sniffingEnabled =
 		useWatch({ control, name: "sniffingEnabled" }) ?? watch("sniffingEnabled");
+	const { data: subscriptionBundle } = useQuery<SubscriptionSettingsBundle>(
+		"subscription-settings",
+		getSubscriptionSettings,
+		{ refetchOnWindowFocus: false },
+	);
 	const tlsCertificates =
 		useWatch({ control, name: "tlsCertificates" }) ||
 		watch("tlsCertificates") ||
@@ -625,7 +641,7 @@ export const InboundFormModal: FC<Props> = ({
 	const availableTargets = useMemo<CoreConfigTarget[]>(
 		() =>
 			configTargets.length
-				? configTargets
+				? sortInboundTargets(configTargets)
 				: [
 						{
 							id: "master",
@@ -636,6 +652,10 @@ export const InboundFormModal: FC<Props> = ({
 						},
 					],
 		[configTargets, t],
+	);
+	const customTargetIds = useMemo(
+		() => getCustomNodeTargetIds(availableTargets),
+		[availableTargets],
 	);
 
 	useEffect(() => {
@@ -6760,6 +6780,46 @@ export const InboundFormModal: FC<Props> = ({
 																/>
 															</FormControl>
 															{certConfig.useFile ? (
+																<FormControl>
+																	<FormLabel>{t("inbounds.tls.existingCertificate")}</FormLabel>
+																	<Select
+																		placeholder={t("inbounds.tls.chooseCertificate")}
+																		onChange={(event) => {
+																			const certificate = subscriptionBundle?.certificates.find(
+																				(item) => item.path === event.target.value,
+																			);
+																			if (!certificate) {
+																				return;
+																			}
+																			form.setValue(
+																				`tlsCertificates.${index}.certFile` as const,
+																				`${certificate.path}fullchain.pem`,
+																				{ shouldDirty: true },
+																			);
+																			form.setValue(
+																				`tlsCertificates.${index}.keyFile` as const,
+																				`${certificate.path}privkey.pem`,
+																				{ shouldDirty: true },
+																			);
+																		}}
+																	>
+																		{(subscriptionBundle?.certificates ?? [])
+																			.filter(
+																				(item) =>
+																					Boolean(item.path) &&
+																					item.status !== "missing" &&
+																					item.status !== "invalid" &&
+																					item.status !== "revoked",
+																			)
+																			.map((item) => (
+																				<option key={item.domain} value={item.path}>
+																					{item.domain}
+																				</option>
+																			))}
+																	</Select>
+																</FormControl>
+															) : null}
+															{certConfig.useFile ? (
 																<SimpleGrid
 																	columns={{ base: 1, md: 2 }}
 																	spacing={3}
@@ -7415,48 +7475,84 @@ export const InboundFormModal: FC<Props> = ({
 											Boolean(value?.length) ||
 											t("inbounds.error.targetsRequired"),
 									}}
-									render={({ field }) => (
-										<CheckboxGroup
-											value={field.value || []}
-											onChange={(value) => field.onChange(value)}
-										>
-											<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
-												{availableTargets.map((target) => (
-													<Box
-														key={target.id}
-														borderWidth="1px"
-														borderColor={sectionBorder}
-														borderRadius="md"
-														p={3}
+									render={({ field }) => {
+										const selectedIds: string[] = field.value || [];
+										const allCustomSelected =
+											customTargetIds.length > 0 &&
+											customTargetIds.every((id) => selectedIds.includes(id));
+										const someCustomSelected =
+											!allCustomSelected &&
+											customTargetIds.some((id) => selectedIds.includes(id));
+										return (
+											<VStack align="stretch" spacing={3}>
+												{customTargetIds.length > 0 && (
+													<Checkbox
+														isChecked={allCustomSelected}
+														isIndeterminate={someCustomSelected}
+														onChange={() =>
+															field.onChange(
+																allCustomSelected
+																	? selectedIds.filter(
+																			(id) => !customTargetIds.includes(id),
+																		)
+																	: [
+																			...selectedIds,
+																			...customTargetIds.filter(
+																				(id) => !selectedIds.includes(id),
+																			),
+																		],
+															)
+														}
 													>
-														<Checkbox value={target.id}>
-															<HStack spacing={2}>
-																<Text>
-																	{target.type === "master"
-																		? t("default")
-																		: target.name}
-																</Text>
-																<Tag size="sm" colorScheme="gray">
-																	{target.type === "master"
-																		? t("default")
-																		: target.mode}
-																</Tag>
-															</HStack>
-														</Checkbox>
-													</Box>
-												))}
-											</SimpleGrid>
-											{errors.targetIds && (
-												<Text fontSize="xs" color="red.500" mt={2}>
-													{String(errors.targetIds.message)}
-												</Text>
-											)}
-										</CheckboxGroup>
-									)}
+														{t("inbounds.selectAllCustomNodes")}
+													</Checkbox>
+												)}
+												<CheckboxGroup
+													value={selectedIds}
+													onChange={(value) => field.onChange(value)}
+												>
+													<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+														{availableTargets.map((target) => (
+															<Box
+																key={target.id}
+																borderWidth="1px"
+																borderColor={sectionBorder}
+																borderRadius="md"
+																p={3}
+															>
+																<Checkbox value={target.id}>
+																	<HStack spacing={2}>
+																		<Text>
+																			{target.type === "master"
+																				? t("default")
+																				: target.name}
+																		</Text>
+																		<Tag size="sm" colorScheme="gray">
+																			{target.type === "master"
+																				? t("default")
+																				: target.mode}
+																		</Tag>
+																	</HStack>
+																</Checkbox>
+															</Box>
+														))}
+													</SimpleGrid>
+													{errors.targetIds && (
+														<Text fontSize="xs" color="red.500" mt={2}>
+															{String(errors.targetIds.message)}
+														</Text>
+													)}
+												</CheckboxGroup>
+											</VStack>
+										);
+									}}
 								/>
 							</TabPanel>
 						</TabPanels>
 					</Tabs>
+					{isEditMode && initialValue?.tag ? (
+						<EntityNotePanel entityType="inbound" entityKey={initialValue.tag} />
+					) : null}
 				</XrayModalBody>
 				<XrayModalFooter
 					justifyContent={isEditMode && onDelete ? "space-between" : "flex-end"}

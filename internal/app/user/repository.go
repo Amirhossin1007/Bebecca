@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,18 +22,13 @@ func NewRepository(db *sql.DB, dialect string) Repository {
 	return Repository{db: db, dialect: dialect, cache: &repositoryCache{}}
 }
 
-func serviceFlowColumnMissing(err error) bool {
-	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "no such column") ||
-		strings.Contains(message, "unknown column") ||
-		strings.Contains(message, "no such table") ||
-		strings.Contains(message, "doesn't exist")
-}
-
+// Legacy values remain read-only for backups with conflicting service flows.
+// An explicit inbound flow, including an empty one, always overrides them.
 func (r Repository) serviceFlows(ctx context.Context) (map[int64]string, error) {
 	rows, err := r.db.QueryContext(ctx, `SELECT id, COALESCE(flow, '') FROM services`)
 	if err != nil {
-		if serviceFlowColumnMissing(err) {
+		message := strings.ToLower(err.Error())
+		if strings.Contains(message, "no such column") || strings.Contains(message, "unknown column") || strings.Contains(message, "no such table") || strings.Contains(message, "doesn't exist") {
 			return nil, nil
 		}
 		return nil, err
@@ -155,26 +151,26 @@ func (r Repository) subscriptionSettings(ctx context.Context) (SubscriptionSetti
 		return result, nil
 	}
 
-	if value := stringValue(row["subscription_url_prefix"]); value != "" {
+	if value := jsonvalue.String(row["subscription_url_prefix"]); value != "" {
 		result.SubscriptionURLPrefix = normalizePrefix(value)
 	}
-	if value := stringValue(row["subscription_path"]); value != "" {
+	if value := jsonvalue.String(row["subscription_path"]); value != "" {
 		result.SubscriptionPath = normalizePath(value)
 	}
-	if value := stringValue(row["subscription_profile_title"]); value != "" {
+	if value := jsonvalue.String(row["subscription_profile_title"]); value != "" {
 		result.SubscriptionProfileTitle = value
 	}
-	if value := stringValue(row["subscription_support_url"]); value != "" {
+	if value := jsonvalue.String(row["subscription_support_url"]); value != "" {
 		result.SubscriptionSupportURL = ensureScheme(value)
 	}
-	if value := stringValue(row["subscription_update_interval"]); value != "" {
+	if value := jsonvalue.String(row["subscription_update_interval"]); value != "" {
 		result.SubscriptionUpdateInterval = value
 	}
 	result.SubscriptionPorts = normalizePorts(row["subscription_ports"])
 	result.SubscriptionAliases = normalizeAliases(row["subscription_aliases"])
-	result.ClientRoutingRules = normalizeClientRoutingRules(row["client_routing_rules"])	
+	result.ClientRoutingRules = normalizeClientRoutingRules(row["client_routing_rules"])
 	result.SubscriptionPlaceholderEnabled = truthy(row["subscription_placeholder_enabled"])
-	result.SubscriptionPlaceholderRemark = firstNonEmptyString(stringValue(row["subscription_placeholder_remark"]), "disabled")
+	result.SubscriptionPlaceholderRemark = jsonvalue.FirstNonEmpty(jsonvalue.String(row["subscription_placeholder_remark"]), "disabled")
 	result.RawSubscriptionSettings = json.RawMessage(mustJSON(row))
 	return result, nil
 }
@@ -236,7 +232,7 @@ func (r Repository) singleMapRow(ctx context.Context, query string, args ...any)
 
 func (r Repository) subscriptionSecretKey(ctx context.Context) (string, error) {
 	var secret sql.NullString
-	err := r.db.QueryRowContext(ctx, `SELECT subscription_secret_key FROM jwt ORDER BY id LIMIT 1`).Scan(&secret)
+	err := r.db.QueryRowContext(ctx, `SELECT subscription_secret_key FROM auth_secrets ORDER BY id LIMIT 1`).Scan(&secret)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return "", fmt.Errorf("subscription secret key was not found")
@@ -323,8 +319,8 @@ func (r Repository) ResolvedInboundsByTag(ctx context.Context) (map[string]Resol
 	for _, raw := range rawConfigs {
 		inbounds := listOfMaps(raw["inbounds"])
 		for _, inbound := range inbounds {
-			tag := stringValue(inbound["tag"])
-			protocol := stringValue(inbound["protocol"])
+			tag := jsonvalue.String(inbound["tag"])
+			protocol := jsonvalue.String(inbound["protocol"])
 			if tag == "" || protocol == "" {
 				continue
 			}
@@ -494,7 +490,7 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 		port, path, sni, sni_options, COALESCE(sni_selection_mode, ''), sni_ttl_seconds,
 		host, host_options, COALESCE(host_selection_mode, ''), host_ttl_seconds,
 		security, alpn, fingerprint, COALESCE(verify_peer_cert_by_name, ''), COALESCE(pinned_peer_cert_sha256, ''), allowinsecure, is_disabled, mux_enable,
-		fragment_setting, noise_setting, finalmask, random_user_agent, use_sni_as_host
+		fragment_setting, noise_setting, finalmask, random_user_agent, use_sni_as_host, client_settings
 		FROM hosts ORDER BY inbound_tag, id`)
 	if err != nil {
 		return nil, err
@@ -510,6 +506,7 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 		var allowInsecure sql.NullBool
 		var disabled, mux, randomUA, useSNI sql.NullBool
 		var fragment, noise, finalMask sql.NullString
+		var clientSettings sql.NullString
 		if err := rows.Scan(
 			&item.ID,
 			&item.InboundTag,
@@ -543,10 +540,14 @@ func (r Repository) hosts(ctx context.Context) ([]Host, error) {
 			&finalMask,
 			&randomUA,
 			&useSNI,
+			&clientSettings,
 		); err != nil {
 			return nil, err
 		}
 		item.Port = int64Ptr(port)
+		if clientSettings.Valid {
+			item.ClientSettings = jsonMap(clientSettings.String)
+		}
 		item.AddressOptions = parseHostOptionJSON(addressOptions)
 		item.AddressMode = normalizeHostSelectionMode(item.AddressMode)
 		item.AddressTTL = int64Ptr(addressTTL)
@@ -658,7 +659,7 @@ func (r Repository) proxiesByUser(ctx context.Context, userIDs []int64) (map[int
 	}
 
 	query := fmt.Sprintf(
-		`SELECT id, user_id, type, settings FROM proxies WHERE user_id IN (%s) ORDER BY user_id, id`,
+		`SELECT id, user_id, type, settings FROM user_credentials WHERE user_id IN (%s) ORDER BY user_id, id`,
 		placeholders(len(userIDs)),
 	)
 	rows, err := r.db.QueryContext(ctx, query, int64Args(userIDs)...)
@@ -912,7 +913,7 @@ func normalizeAliases(raw any) []string {
 	result := make([]string, 0, len(values))
 	seen := map[string]struct{}{}
 	for _, value := range values {
-		alias := strings.TrimSpace(stringValue(value))
+		alias := strings.TrimSpace(jsonvalue.String(value))
 		if alias == "" {
 			continue
 		}

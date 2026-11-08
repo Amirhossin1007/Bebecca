@@ -505,20 +505,6 @@ VALUES
 	}
 }
 
-func TestBulkRuntimeUserOperationNodesUsesFullSyncAboveThreshold(t *testing.T) {
-	operations := make([]OperationRow, bulkRuntimeUserOperationThreshold+2)
-	for index := range operations {
-		operations[index] = OperationRow{
-			OperationType: "update_user",
-			NodeID:        sql.NullInt64{Int64: 7, Valid: true},
-		}
-	}
-	operations[0].NodeID.Int64 = 8
-	if folded := bulkRuntimeUserOperationNodes(operations); !folded[7] || folded[8] {
-		t.Fatalf("folded nodes = %#v, want only node 7", folded)
-	}
-}
-
 func TestControllerProcessQueueRetriesUnavailableUserDeltaWithoutFullSync(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "queue-starvation.db")+"?_pragma=busy_timeout(30000)")
@@ -544,10 +530,10 @@ CREATE TABLE nodes (
 	last_status_change DATETIME,
 	usage_coefficient REAL DEFAULT 1
 );
-CREATE TABLE tls (
+CREATE TABLE default_certificates (
 	id INTEGER PRIMARY KEY,
 	certificate TEXT,
-	"key" TEXT
+	private_key TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -562,7 +548,7 @@ CREATE TABLE node_operations (
 	created_at DATETIME NOT NULL,
 	updated_at DATETIME NOT NULL
 );
-INSERT INTO tls (id, certificate, "key") VALUES (1, 'bad cert', 'bad key');
+INSERT INTO default_certificates (id, certificate, "private_key") VALUES (1, 'bad cert', 'bad key');
 INSERT INTO nodes (id, name, address, port, api_port, status, usage_coefficient)
 VALUES
 	(24, 'bad-node', '127.0.0.1', 62024, 62025, 'error', 1),
@@ -597,6 +583,88 @@ VALUES ('add_user', 50, ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMEST
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND attempts = 1`, 1)
 	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 50`, "connected")
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND operation_type = 'sync_config'`, 0)
+}
+
+func TestControllerProcessQueueKeepsUserDeltasWhenNodeSyncIsFailing(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "queue-failing-sync.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	_, err = db.ExecContext(ctx, `
+CREATE TABLE nodes (
+	id INTEGER PRIMARY KEY,
+	name TEXT,
+	address TEXT,
+	port INTEGER,
+	api_port INTEGER,
+	status TEXT,
+	xray_version TEXT,
+	message TEXT,
+	certificate TEXT,
+	certificate_key TEXT,
+	xray_config_mode TEXT,
+	xray_config TEXT,
+	last_status_change DATETIME,
+	usage_coefficient REAL DEFAULT 1
+);
+CREATE TABLE default_certificates (
+	id INTEGER PRIMARY KEY,
+	certificate TEXT,
+	private_key TEXT
+);
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+);
+INSERT INTO default_certificates (id, certificate, "private_key") VALUES (1, 'bad cert', 'bad key');
+INSERT INTO nodes (id, name, address, port, api_port, status, usage_coefficient)
+VALUES
+	(24, 'bad-node', '127.0.0.1', 62024, 62025, 'error', 1),
+	(50, 'good-node', '127.0.0.1', 62050, 62051, 'connected', 1);
+INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES
+	('add_user', 24, 100, '{}', 'pending', 'bad-node-op', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+	('add_user', 50, 200, '{}', 'pending', 'good-node-op', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, attempts, idempotency_key, created_at, updated_at)
+VALUES ('sync_config', 50, NULL, '{}', 'retrying', 3, 'good-node-sync', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+	for userID := 201; userID <= 240; userID++ {
+		if _, err := db.ExecContext(ctx, `
+INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('add_user', 50, ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, userID, fmt.Sprintf("good-node-op-%d", userID)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	controller := NewController(NewRepository(db, "sqlite"))
+	result, err := controller.ProcessQueue(ctx, ProcessOperationsRequest{Limit: 1000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Retrying < 41 {
+		t.Fatalf("expected every user delta to be attempted while the node sync fails, got %#v", result)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND operation_type = 'add_user' AND attempts = 0`, 0)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND operation_type = 'add_user' AND status = 'retrying'`, 41)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND operation_type = 'sync_config'`, 1)
 }
 
 func TestControllerProcessQueuePausesDisabledNodeOperation(t *testing.T) {
@@ -785,7 +853,7 @@ CREATE TABLE users (
 	service_id INTEGER,
 	status TEXT
 );
-CREATE TABLE proxies (
+CREATE TABLE user_credentials (
 	id INTEGER PRIMARY KEY,
 	user_id INTEGER,
 	type TEXT,
@@ -858,10 +926,10 @@ CREATE TABLE nodes (
 	xray_config TEXT,
 	usage_coefficient REAL DEFAULT 1
 );
-CREATE TABLE tls (
+CREATE TABLE default_certificates (
 	id INTEGER PRIMARY KEY,
 	certificate TEXT,
-	"key" TEXT
+	private_key TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -876,7 +944,7 @@ CREATE TABLE node_operations (
 	created_at DATETIME NOT NULL,
 	updated_at DATETIME NOT NULL
 );
-INSERT INTO tls (id, certificate, "key") VALUES (1, 'bad cert', 'bad key');
+INSERT INTO default_certificates (id, certificate, "private_key") VALUES (1, 'bad cert', 'bad key');
 INSERT INTO nodes (id, name, address, port, api_port, status, xray_config_mode, usage_coefficient)
 VALUES
 	(1, 'unreachable-a', '127.0.0.1', 62050, 62051, 'connected', 'default', 1),
@@ -1442,6 +1510,15 @@ VALUES ('reboot_host', '{}', 'failed', 'failed-retained', CURRENT_TIMESTAMP, CUR
 	}
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'done'`, 6)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'failed'`, 1)
+
+	pruned, err = repo.PruneFinishedOperations(ctx, 0, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pruned != 6 {
+		t.Fatalf("pruned all finished operations = %d, want 6", pruned)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'done'`, 0)
 }
 
 func TestRepositoryQueueCommandPersistsBeforeExecution(t *testing.T) {
@@ -1563,7 +1640,7 @@ CREATE TABLE users (
 	status TEXT NOT NULL,
 	ip_limit INTEGER NOT NULL DEFAULT 0
 );
-CREATE TABLE proxies (
+CREATE TABLE user_credentials (
 	id INTEGER PRIMARY KEY,
 	user_id INTEGER NOT NULL,
 	type TEXT NOT NULL,
@@ -1585,7 +1662,7 @@ CREATE TABLE vpn_user_sessions (
 INSERT INTO users (id, username, credential_key, service_id, status, ip_limit) VALUES
 	(1, 'at-limit', 'key-1', 10, 'active', 1),
 	(2, 'under-limit', 'key-2', 10, 'active', 2);
-INSERT INTO proxies (id, user_id, type, settings) VALUES
+INSERT INTO user_credentials (id, user_id, type, settings) VALUES
 	(1, 1, 'vless', '{}'),
 	(2, 2, 'vless', '{}');
 INSERT INTO vpn_user_sessions (node_id, user_id, protocol, session_id, assigned_ip, client_ip, started_at, last_seen_at, ended_at) VALUES
@@ -1687,14 +1764,14 @@ CREATE TABLE nodes (
 	xray_config TEXT,
 	usage_coefficient REAL DEFAULT 1
 );
-CREATE TABLE tls (
+CREATE TABLE default_certificates (
 	id INTEGER PRIMARY KEY,
 	certificate TEXT,
-	"key" TEXT
+	private_key TEXT
 );
 INSERT INTO nodes (id, name, address, port, api_port, status, message, usage_coefficient)
 VALUES (1, 'node', '127.0.0.1', 62050, 62051, 'connected', 'stable', 1);
-INSERT INTO tls (id, certificate, "key") VALUES (1, 'bad cert', 'bad key');
+INSERT INTO default_certificates (id, certificate, "private_key") VALUES (1, 'bad cert', 'bad key');
 `)
 	if err != nil {
 		t.Fatal(err)
@@ -1735,12 +1812,12 @@ CREATE TABLE nodes (
 	xray_config TEXT,
 	usage_coefficient REAL DEFAULT 1
 );
-CREATE TABLE tls (id INTEGER PRIMARY KEY, certificate TEXT, "key" TEXT);
+CREATE TABLE default_certificates (id INTEGER PRIMARY KEY, certificate TEXT, private_key TEXT);
 INSERT INTO nodes (id, name, address, port, api_port, status, message, usage_coefficient) VALUES
 	(1, 'connected', '127.0.0.1', 62050, 62051, 'connected', 'stable', 1),
 	(2, 'disabled', '127.0.0.1', 62050, 62051, 'disabled', 'disabled', 1),
 	(3, 'deleted', '127.0.0.1', 62050, 62051, 'deleted', 'deleted', 1);
-INSERT INTO tls (id, certificate, "key") VALUES (1, 'bad cert', 'bad key');
+INSERT INTO default_certificates (id, certificate, "private_key") VALUES (1, 'bad cert', 'bad key');
 `)
 	if err != nil {
 		t.Fatal(err)

@@ -22,6 +22,7 @@ export type ServiceAdmin = {
 	users_limit?: number | null;
 	delete_user_usage_limit_enabled: boolean;
 	delete_user_usage_limit?: number | null;
+	usage_coefficient?: number | null;
 	deleted_users_usage: number;
 };
 
@@ -29,9 +30,9 @@ export type ServiceSummary = {
 	id: number;
 	name: string;
 	description: string | null;
-	flow?: string | null;
 	used_traffic: number;
 	lifetime_used_traffic: number;
+	usage_coefficient: number;
 	host_count: number;
 	user_count: number;
 	has_hosts: boolean;
@@ -58,9 +59,9 @@ export type ServiceHostAssignment = {
 export type ServiceCreatePayload = {
 	name: string;
 	description?: string | null;
-	flow?: string | null;
 	admin_ids: number[];
 	hosts: ServiceHostAssignment[];
+	usage_coefficient?: number;
 };
 
 export type ServiceModifyPayload = Partial<

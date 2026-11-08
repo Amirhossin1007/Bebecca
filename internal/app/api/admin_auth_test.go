@@ -40,7 +40,7 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	statements := []string{
-		`CREATE TABLE jwt (id INTEGER PRIMARY KEY, admin_secret_key TEXT, secret_key TEXT)`,
+		`CREATE TABLE auth_secrets (id INTEGER PRIMARY KEY, admin_secret_key TEXT, secret_key TEXT)`,
 		`CREATE TABLE admins (
 			id INTEGER PRIMARY KEY,
 			username TEXT NOT NULL,
@@ -93,7 +93,7 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			expires_at DATETIME NULL,
 			last_used_at DATETIME NULL
 		)`,
-		`CREATE TABLE admins_services (
+		`CREATE TABLE service_admins (
 			admin_id INTEGER NOT NULL,
 			service_id INTEGER NOT NULL,
 			used_traffic BIGINT DEFAULT 0,
@@ -106,6 +106,7 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			users_limit INTEGER NULL,
 			delete_user_usage_limit_enabled INTEGER DEFAULT 0,
 			delete_user_usage_limit BIGINT NULL,
+			usage_coefficient REAL NULL,
 			created_at DATETIME NULL,
 			updated_at DATETIME NULL
 		)`,
@@ -134,8 +135,7 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			on_hold_expire_duration BIGINT NULL,
 			last_status_change DATETIME NULL,
 			admin_disabled_at DATETIME NULL,
-			service_limit_disabled_at DATETIME NULL,
-			online_at DATETIME NULL
+			service_limit_disabled_at DATETIME NULL
 		)`,
 		`CREATE TABLE user_presence (user_id INTEGER PRIMARY KEY, online_at DATETIME NOT NULL)`,
 		`CREATE TABLE services (
@@ -175,9 +175,9 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			host_id INTEGER NOT NULL,
 			sort INTEGER DEFAULT 0
 		)`,
-		`CREATE TABLE tls (
+		`CREATE TABLE default_certificates (
 			id INTEGER PRIMARY KEY,
-			key TEXT NOT NULL,
+			private_key TEXT NOT NULL,
 			certificate TEXT NOT NULL
 		)`,
 		`CREATE TABLE exclude_inbounds_association (
@@ -277,8 +277,8 @@ func testAdminServer(t *testing.T) (*Server, *sql.DB) {
 			created_at DATETIME NULL,
 			updated_at DATETIME NULL
 		)`,
-		`INSERT INTO jwt (id, admin_secret_key, secret_key) VALUES (1, 'admin-secret', 'legacy-secret')`,
-		`INSERT INTO tls (id, key, certificate) VALUES (1, 'legacy-key', 'legacy-cert')`,
+		`INSERT INTO auth_secrets (id, admin_secret_key, secret_key) VALUES (1, 'admin-secret', 'legacy-secret')`,
+		`INSERT INTO default_certificates (id, private_key, certificate) VALUES (1, 'legacy-key', 'legacy-cert')`,
 	}
 	for _, statement := range statements {
 		if _, err := db.Exec(statement); err != nil {
@@ -812,7 +812,7 @@ func TestAdminManagementCreateUpdateAndBulkPermissions(t *testing.T) {
 	if err := db.QueryRow(`
 SELECT used_traffic, lifetime_used_traffic, created_traffic, deleted_users_usage,
        show_user_traffic, delete_user_usage_limit_enabled, created_at, updated_at, traffic_limit_mode
-FROM admins_services WHERE admin_id = (SELECT id FROM admins WHERE username = 'seller') AND service_id = 7`).Scan(
+FROM service_admins WHERE admin_id = (SELECT id FROM admins WHERE username = 'seller') AND service_id = 7`).Scan(
 		&serviceCounters.used,
 		&serviceCounters.lifetime,
 		&serviceCounters.created,
@@ -902,10 +902,14 @@ func TestAdminListAndUsageRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(`INSERT INTO users (id, username, admin_id, status, online_at) VALUES
-		(31, 'active-one', 2, 'active', ?),
-		(32, 'disabled-one', 2, 'disabled', NULL),
-		(33, 'deleted-one', 2, 'deleted', NULL)`, dbTimestamp(time.Now().UTC()))
+	_, err = db.Exec(`INSERT INTO users (id, username, admin_id, status) VALUES
+		(31, 'active-one', 2, 'active'),
+		(32, 'disabled-one', 2, 'disabled'),
+		(33, 'deleted-one', 2, 'deleted')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec(`INSERT INTO user_presence (user_id, online_at) VALUES (31, ?)`, dbTimestamp(time.Now().UTC()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1107,7 +1111,7 @@ func TestAdminManagementUsageResets(t *testing.T) {
 	if _, err := db.Exec(`UPDATE admins SET users_usage = 100, created_traffic = 200, deleted_users_usage = 300 WHERE id = 2`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO admins_services (admin_id, service_id, used_traffic, created_traffic, deleted_users_usage) VALUES (2, 7, 50, 60, 70)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO service_admins (admin_id, service_id, used_traffic, created_traffic, deleted_users_usage) VALUES (2, 7, 50, 60, 70)`); err != nil {
 		t.Fatal(err)
 	}
 	token := adminBearerToken(t, server, "pouria", "pass123")
@@ -1120,7 +1124,7 @@ func TestAdminManagementUsageResets(t *testing.T) {
 	if err := db.QueryRow(`SELECT users_usage, created_traffic FROM admins WHERE id = 2`).Scan(&usage, &created); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.QueryRow(`SELECT used_traffic, created_traffic FROM admins_services WHERE admin_id = 2 AND service_id = 7`).Scan(&serviceUsage, &serviceCreated); err != nil {
+	if err := db.QueryRow(`SELECT used_traffic, created_traffic FROM service_admins WHERE admin_id = 2 AND service_id = 7`).Scan(&serviceUsage, &serviceCreated); err != nil {
 		t.Fatal(err)
 	}
 	if usage != 0 || created != 0 || serviceUsage != 0 || serviceCreated != 0 {
@@ -1139,7 +1143,7 @@ func TestAdminManagementUsageResets(t *testing.T) {
 		t.Fatalf("service deleted usage reset status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	var serviceDeleted int64
-	if err := db.QueryRow(`SELECT deleted_users_usage FROM admins_services WHERE admin_id = 2 AND service_id = 7`).Scan(&serviceDeleted); err != nil {
+	if err := db.QueryRow(`SELECT deleted_users_usage FROM service_admins WHERE admin_id = 2 AND service_id = 7`).Scan(&serviceDeleted); err != nil {
 		t.Fatal(err)
 	}
 	if serviceDeleted != 0 {

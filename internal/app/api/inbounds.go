@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -172,4 +173,16 @@ func writeInboundError(w http.ResponseWriter, err error) {
 	default:
 		writeError(w, http.StatusInternalServerError, detail)
 	}
+}
+
+func (s *Server) handleInboundsSpeeds(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/inbounds/speeds" && r.URL.Path != "/inbounds/speeds" {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	writeJSON(w, http.StatusOK, s.nodeController.InboundSpeeds(time.Now()))
 }

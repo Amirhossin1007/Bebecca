@@ -108,7 +108,6 @@ import { DateTimePicker } from "./DateTimePicker";
 import { addQuickExpiry } from "utils/expiry";
 import { DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
 import { Icon } from "./Icon";
-import { Input } from "./Input";
 import { createUsageConfig, UsageFilter } from "./UsageFilter";
 import {
 	XrayModalBody,
@@ -220,6 +219,8 @@ export type FormType = BaseFormFields & {
 	next_plan_add_remaining_traffic: boolean;
 
 	next_plan_fire_on_either: boolean;
+
+	speed_limit: number | null;
 };
 
 const formatUser = (user: User): FormType => {
@@ -234,6 +235,11 @@ const formatUser = (user: User): FormType => {
 			: user.data_limit,
 
 		ip_limit: user.ip_limit && user.ip_limit > 0 ? user.ip_limit : null,
+
+		speed_limit:
+			user.speed_limit_kbps && user.speed_limit_kbps > 0
+				? Number((user.speed_limit_kbps / 1000).toFixed(2))
+				: null,
 
 		on_hold_expire_duration: user.on_hold_expire_duration
 			? Number(user.on_hold_expire_duration / (24 * 60 * 60))
@@ -267,6 +273,8 @@ const getDefaultValues = (): FormType => {
 		data_limit: null,
 
 		ip_limit: null,
+
+		speed_limit: null,
 
 		expire: null,
 
@@ -312,6 +320,9 @@ const usernameRegex = /^[A-Za-z0-9._@-]{3,32}$/;
 const BYTES_PER_GB = 1073741824;
 const PERSIAN_DIGITS = "۰۱۲۳۴۵۶۷۸۹";
 const ARABIC_DIGITS = "٠١٢٣٤٥٦٧٨٩";
+const alwaysVisibleStepper = {
+	".rb-number-stepper": { opacity: 1, pointerEvents: "auto" },
+};
 
 const normalizeDecimalText = (value: string) =>
 	value
@@ -458,6 +469,19 @@ const buildSchema = (isEditing: boolean) => {
 
 		next_plan_fire_on_either: z.boolean().default(true),
 
+		speed_limit: z
+			.union([z.number().min(0), z.null()])
+			.optional()
+			.transform((value) => {
+				if (
+					typeof value !== "number" ||
+					!Number.isFinite(value) ||
+					value <= 0
+				) {
+					return null;
+				}
+				return Math.round(value * 100) / 100;
+			}),
 		ip_limit: z
 			.union([z.number().min(0), z.null()])
 			.optional()
@@ -595,6 +619,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const isMobileDialog = useBreakpointValue({ base: true, md: false }) ?? false;
 	const DATA_UNIT = "GB";
+	const SPEED_UNIT = "Mbps";
 	const DAYS_UNIT = t("userDialog.days");
 	const basePad = "0.75rem";
 	const endPadding = isRTL
@@ -637,6 +662,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			<InputGroup size="sm" dir="ltr" w="full" minW={0}>
 				<Box flex="1" minW={0}>
 					<NumericInput
+						sx={alwaysVisibleStepper}
 						value={args.value}
 						isDisabled={args.disabled}
 						min={0}
@@ -1508,6 +1534,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 			ip_limit,
 
+			speed_limit,
+
 			credential_key,
 
 			manual_key_entry,
@@ -1640,6 +1668,13 @@ export const UserDialog: FC<UserDialogProps> = () => {
 				}
 			: null;
 
+		const normalizedSpeedLimitKbps =
+			typeof speed_limit === "number" &&
+			Number.isFinite(speed_limit) &&
+			speed_limit > 0
+				? Math.round(speed_limit * 1000)
+				: 0;
+
 		const normalizedIpLimit =
 			typeof ip_limit === "number" && Number.isFinite(ip_limit) && ip_limit > 0
 				? Math.floor(ip_limit)
@@ -1681,6 +1716,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 				data_limit: values.data_limit,
 
 				ip_limit: normalizedIpLimit,
+
+				speed_limit_kbps: normalizedSpeedLimitKbps,
 
 				data_limit_reset_strategy:
 					data_limit && data_limit > 0 ? data_limit_reset_strategy : "no_reset",
@@ -1758,6 +1795,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			data_limit: data_limit,
 
 			ip_limit: normalizedIpLimit,
+
+			speed_limit_kbps: normalizedSpeedLimitKbps,
 
 			status:
 				status === "active" || status === "disabled" || status === "on_hold"
@@ -1970,11 +2009,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 					dir={isRTL ? "rtl" : "ltr"}
 				>
 					<ModalCloseButton
-						mt={3}
 						disabled={loading}
 						insetInlineEnd={4}
 						insetInlineStart="auto"
-						top={4}
+						top={3}
 						position="absolute"
 						zIndex={2}
 						_rtl={{
@@ -2173,7 +2211,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 											"&::-webkit-scrollbar": { display: "none" },
 										}}
 									>
-										<Tab flexShrink={0}>{t("edit")}</Tab>
+										<Tab flexShrink={0}>{t("form")}</Tab>
 										{isEditing && canViewTraffic && (
 											<Tab flexShrink={0}>{t("userDialog.tabs.usage")}</Tab>
 										)}
@@ -2248,13 +2286,14 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																				<ChakraInput
 																					type="text"
 																					borderRadius="6px"
-																					placeholder={t("username")}
+																					
 																					isDisabled={disabled || isEditing}
 																					{...(!isEditing ? endPadding : {})}
 																					{...form.register("username")}
 																				/>
 																				{!isEditing && (
 																					<InputRightElement
+														h="full"
 																						width="auto"
 																						insetInlineEnd={
 																							endAdornmentProps.insetInlineEnd
@@ -2271,7 +2310,10 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																							)}
 																							size="sm"
 																							variant="ghost"
-																							icon={<SparklesIcon width={18} />}
+																							h="32px"
+																																																																																																						minW="32px"
+																																																																																																																																			w="32px"
+																																																																																																																										icon={<SparklesIcon width={18} />}
 																							onClick={() => {
 																								const randomUsername =
 																									createRandomUsername();
@@ -2342,7 +2384,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	<FormHelperText
 																		fontSize="xs"
 																		color="gray.500"
-																		textAlign={isRTL ? "end" : "start"}
+																		textAlign={isRTL ? "start" : "end"}
 																	>
 																		{`${usernameValue?.length ?? 0}/32`}
 																	</FormHelperText>
@@ -2367,8 +2409,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 															</Flex>
 
 															<Stack
-																direction={{ base: "column", md: "row" }}
-																spacing={4}
+																direction="row"
+																spacing={3}
 																mb={"10px"}
 															>
 																<FormControl
@@ -2418,7 +2460,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		}}
 																	/>
 																</FormControl>
-																<FormControl flex="1">
+																<FormControl flex="1" minW={0} isInvalid={Boolean(form.formState.errors.ip_limit)}>
 																	<FormLabel
 																		display="flex"
 																		alignItems="center"
@@ -2474,43 +2516,44 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																			},
 																		}}
 																		render={({ field }) => (
-																			<Input
-																				size="sm"
-																				borderRadius="6px"
-																				placeholder={t(
-																					"userDialog.ipLimitPlaceholder",
-																				)}
-																				value={
-																					typeof field.value === "number" &&
-																					field.value > 0
-																						? String(field.value)
-																						: ""
-																				}
-																				onChange={(event) => {
-																					const raw = event.target.value;
-																					if (
-																						!raw.trim() ||
-																						raw.trim() === "-"
-																					) {
-																						field.onChange(null);
-																						return;
+																			<>
+																				<NumericInput
+																					sx={alwaysVisibleStepper}
+																					variant="outline"
+																					value={
+																						typeof field.value === "number" && field.value > 0
+																							? String(field.value)
+																							: ""
 																					}
-																					const parsed = Number(raw);
-																					if (Number.isNaN(parsed)) {
-																						return;
-																					}
-																					field.onChange(
-																						parsed < 0 ? 0 : Math.floor(parsed),
-																					);
-																				}}
-																				disabled={disabled}
-																				error={
-																					form.formState.errors.ip_limit
-																						?.message
-																				}
-																				dir="ltr"
-																				textAlign={isRTL ? "right" : "left"}
-																			/>
+																					min={0}
+																					step={1}
+																					isDisabled={disabled}
+																					isInvalid={Boolean(form.formState.errors.ip_limit)}
+																					onChange={(valueAsString) => {
+																						const raw = valueAsString.trim();
+																						if (!raw || raw === "-") {
+																							field.onChange(null);
+																							return;
+																						}
+																						const parsed = Number(raw);
+																						if (Number.isNaN(parsed)) {
+																							return;
+																						}
+																						field.onChange(parsed < 0 ? 0 : Math.floor(parsed));
+																					}}
+																					fieldProps={{
+																						placeholder: t("userDialog.remainingDataUnlimited"),
+																						borderRadius: "6px",
+																						h: "32px",
+																						minH: "32px",
+																						dir: "ltr",
+																						textAlign: isRTL ? "right" : "left",
+																					}}
+																				/>
+																				<FormErrorMessage>
+																					{form.formState.errors.ip_limit?.message}
+																				</FormErrorMessage>
+																			</>
 																		)}
 																	/>
 																</FormControl>
@@ -2581,6 +2624,104 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																	/>
 																</FormControl>
 															</Collapse>
+															<Stack direction="row" spacing={3} mb={"10px"}>
+																<FormControl
+																	flex="1"
+																	minW={0}
+																	isInvalid={Boolean(
+																		form.formState.errors.speed_limit,
+																	)}
+																>
+																	<FormLabel
+																		display="flex"
+																		alignItems="center"
+																		gap={2}
+																		justifyContent={
+																			isRTL ? "flex-end" : "flex-start"
+																		}
+																		flexDirection={
+																			isRTL ? "row-reverse" : "row"
+																		}
+																		textAlign={isRTL ? "right" : "left"}
+																	>
+																		{t("userDialog.speedLimitLabel")}
+																		<Tooltip
+																			hasArrow
+																			placement="top"
+																			label={t("userDialog.speedLimitHint")}
+																		>
+																			<chakra.span
+																				display="inline-flex"
+																				color="gray.400"
+																				cursor="help"
+																			>
+																				<QuestionMarkCircleIcon
+																					width={16}
+																					height={16}
+																				/>
+																			</chakra.span>
+																		</Tooltip>
+																	</FormLabel>
+																	<Controller
+																		control={form.control}
+																		name="speed_limit"
+																		rules={{
+																			validate: (value) => {
+																				if (
+																					value === null ||
+																					value === undefined
+																				) {
+																					return true;
+																				}
+																				if (
+																					typeof value !== "number" ||
+																					Number.isNaN(value)
+																				) {
+																					return t(
+																						"userDialog.speedLimitValidation",
+																					);
+																				}
+																				return value >= 0
+																					? true
+																					: t(
+																							"userDialog.speedLimitValidation",
+																						);
+																			},
+																		}}
+																		render={({ field }) => (
+																			<>
+																				{renderUnitInput({
+																					unit: SPEED_UNIT,
+																					value:
+																						typeof field.value === "number" &&
+																						field.value > 0
+																							? String(field.value)
+																							: "",
+																					onChange: (event) => {
+																						const parsed = Number(
+																							event.target.value.trim(),
+																						);
+																						field.onChange(
+																							Number.isFinite(parsed) &&
+																								parsed > 0
+																								? Math.round(parsed * 100) / 100
+																								: null,
+																						);
+																					},
+																					disabled,
+																				})}
+																				<FormErrorMessage>
+																					{
+																						form.formState.errors.speed_limit
+																							?.message
+																					}
+																				</FormErrorMessage>
+																			</>
+																		)}
+																	/>
+																</FormControl>
+																<Flex flex="1" />
+															</Stack>
 
 															<FormControl
 																mb="10px"
@@ -2599,13 +2740,8 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		md: "minmax(0, 1fr) auto",
 																	}}
 																	templateAreas={{
-																		base: isOnHold
-																			? `"label" "field" "button"`
-																			: `"label" "field" "helper" "button"`,
-																		md: isOnHold
-																			? `"label ."
-																			   "field button"`
-																			: `"label ."
+																		base: `"label" "field" "helper" "button"`,
+																		md: `"label ."
 																			   "field button"
 																			   "helper ."`,
 																	}}
@@ -2732,6 +2868,31 @@ export const UserDialog: FC<UserDialogProps> = () => {
 																		<FormHelperText gridArea="helper" mt={0}>
 																			{expireHelperText}
 																		</FormHelperText>
+																	) : null}
+																	{isOnHold ? (
+																		<HStack gridArea="helper" spacing={2} flexWrap="wrap">
+																			{[7, 30, 60, 90, 180, 365].map((days) => (
+																				<Button
+																					key={days}
+																					size="xs"
+																					variant="outline"
+																					isDisabled={disabled}
+																					onClick={() => {
+																						form.setValue("expire", null);
+																						form.setValue(
+																							"on_hold_expire_duration",
+																							days,
+																							{
+																								shouldDirty: true,
+																								shouldValidate: true,
+																							},
+																						);
+																					}}
+																				>
+																					{days}D
+																				</Button>
+																			))}
+																		</HStack>
 																	) : null}
 																	<Button
 																		gridArea="button"

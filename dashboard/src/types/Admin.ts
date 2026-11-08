@@ -117,6 +117,7 @@ export type AdminServiceTrafficLimitPayload = {
 	users_limit?: number | null;
 	delete_user_usage_limit_enabled?: boolean;
 	delete_user_usage_limit?: number | null;
+	usage_coefficient?: number | null;
 };
 
 export type Admin = {

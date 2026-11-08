@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"strings"
 )
 
@@ -91,7 +92,7 @@ func (s Service) remoteAccessInfos(ctx context.Context, user UserDetail, protoco
 	for _, selectedHost := range selected {
 		host := selectedHost.host
 		inbound, ok := inbounds[host.InboundTag]
-		if !ok || normalizeProxyProtocol(stringValue(inbound["protocol"])) != protocol {
+		if !ok || normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) != protocol {
 			continue
 		}
 		vars := cloneFormatVariables(variables)
@@ -101,19 +102,19 @@ func (s Service) remoteAccessInfos(ctx context.Context, user UserDetail, protoco
 			continue
 		}
 		settings := mapValue(inbound["settings"])
-		authMode := firstNonEmptyString(stringValue(settings["auth_mode"]), "password")
+		authMode := jsonvalue.FirstNonEmpty(jsonvalue.String(settings["auth_mode"]), "password")
 		if protocol == "gre" {
 			authMode = "none"
 		}
-		info := RemoteAccessInfo{HostTag: l2tpHostTag(host, remark, address), HostName: firstNonEmptyString(host.Remark, remark, address), InboundTag: host.InboundTag, Remark: remark, Server: address, Address: address, Port: intValue(effective["port"]), Protocol: protocol, AuthMode: authMode, DNS: stringList(settings["dns_servers"]), MTU: intValue(settings["mtu"]), TTL: intValue(settings["ttl"])}
+		info := RemoteAccessInfo{HostTag: l2tpHostTag(host, remark, address), HostName: jsonvalue.FirstNonEmpty(host.Remark, remark, address), InboundTag: host.InboundTag, Remark: remark, Server: address, Address: address, Port: jsonvalue.Int(effective["port"]), Protocol: protocol, AuthMode: authMode, DNS: stringList(settings["dns_servers"]), MTU: jsonvalue.Int(settings["mtu"]), TTL: jsonvalue.Int(settings["ttl"])}
 		if protocol == "gre" {
 			allocationID := item.ID*65 + 1
-			addresses, addressErr := s.repo.WGIPv4Addresses(ctx, "gre:"+host.InboundTag, []int64{allocationID}, stringValue(settings["ipv4_pool_cidr"]), "")
+			addresses, addressErr := s.repo.WGIPv4Addresses(ctx, "gre:"+host.InboundTag, []int64{allocationID}, jsonvalue.String(settings["ipv4_pool_cidr"]), "")
 			if addressErr != nil {
 				return nil, addressErr
 			}
 			info.ClientAddress = addresses[allocationID]
-			if server, serverErr := newWGAddressPool(stringValue(settings["ipv4_pool_cidr"]), ""); serverErr == nil {
+			if server, serverErr := newWGAddressPool(jsonvalue.String(settings["ipv4_pool_cidr"]), ""); serverErr == nil {
 				info.ServerAddress = server.serverAddress()
 			}
 		}

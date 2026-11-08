@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
@@ -65,15 +66,15 @@ func (r Repository) remoteAccessRuntimeFromInbounds(ctx context.Context, nodeID 
 	result.SessionCallback = callback
 	usedPorts := map[int]struct{}{}
 	for _, inbound := range inbounds {
-		if port := OVIntValue(inbound["port"]); port > 0 {
+		if port := jsonvalue.Int(inbound["port"]); port > 0 {
 			usedPorts[port] = struct{}{}
 		}
 	}
 	for _, inbound := range inbounds {
-		if strings.ToLower(OVStringValue(inbound["protocol"])) != protocol || !OVInboundMatchesTarget(inbound, target) {
+		if strings.ToLower(jsonvalue.String(inbound["protocol"])) != protocol || !OVInboundMatchesTarget(inbound, target) {
 			continue
 		}
-		tag := OVStringValue(inbound["tag"])
+		tag := jsonvalue.String(inbound["tag"])
 		if tag == "" {
 			continue
 		}
@@ -82,7 +83,7 @@ func (r Repository) remoteAccessRuntimeFromInbounds(ctx context.Context, nodeID 
 		if err != nil {
 			return RemoteAccessRuntime{}, err
 		}
-		users, err := r.remoteAccessUsers(ctx, tag, serviceIDs, OVStringValue(settings["ipv4_pool_cidr"]), protocol)
+		users, err := r.remoteAccessUsers(ctx, tag, serviceIDs, jsonvalue.String(settings["ipv4_pool_cidr"]), protocol)
 		if err != nil {
 			return RemoteAccessRuntime{}, err
 		}
@@ -90,7 +91,7 @@ func (r Repository) remoteAccessRuntimeFromInbounds(ctx context.Context, nodeID 
 		if tunnelPort > 0 {
 			usedPorts[tunnelPort] = struct{}{}
 		}
-		result.Inbounds = append(result.Inbounds, RemoteAccessRuntimeInbound{Tag: tag, TunnelTag: xrayconfig.RuntimeTunnelTagForProtocol(protocol, tag), Port: OVIntValue(inbound["port"]), TunnelPort: tunnelPort, Settings: settings, Users: users})
+		result.Inbounds = append(result.Inbounds, RemoteAccessRuntimeInbound{Tag: tag, TunnelTag: xrayconfig.RuntimeTunnelTagForProtocol(protocol, tag), Port: jsonvalue.Int(inbound["port"]), TunnelPort: tunnelPort, Settings: settings, Users: users})
 	}
 	return result, nil
 }

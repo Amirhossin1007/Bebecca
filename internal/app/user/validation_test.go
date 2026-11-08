@@ -169,7 +169,7 @@ func TestLegacyProxiesCredentialKeyCompatibility(t *testing.T) {
 	}
 	applyCredentialKeyFromLegacyProxies(&payload)
 	if payload.CredentialKey == nil || *payload.CredentialKey != "11111111111141118111111111111111" {
-		t.Fatalf("credential_key from proxies = %v", payload.CredentialKey)
+		t.Fatalf("credential_key from user_credentials = %v", payload.CredentialKey)
 	}
 
 	explicit := "22222222222242228222222222222222"

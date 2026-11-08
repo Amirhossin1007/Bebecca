@@ -7,7 +7,6 @@ import {
 	ButtonGroup,
 	Divider,
 	HStack,
-	Spinner,
 	Progress,
 	SimpleGrid,
 	Stack,
@@ -22,6 +21,7 @@ import { SearchInput } from "components/common/SearchInput";
 import { AppDialog } from "components/dialogs/AppDialog";
 import {
 	DataTable,
+	PageLoadingSkeleton,
 	type DataTableColumn,
 	ResourceListCard,
 	ResourceRefreshButton,
@@ -348,11 +348,7 @@ const AccessInsightsPage: FC = () => {
 	);
 
 	if (!getUserIsSuccess) {
-		return (
-			<VStack spacing={4} align="center" py={10}>
-				<Spinner size="lg" />
-			</VStack>
-		);
+		return <PageLoadingSkeleton />;
 	}
 
 	if (!canView) {

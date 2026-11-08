@@ -14,7 +14,7 @@ languages:
     weight: 1
     title: Rebecca Tutorials
     params:
-      tutorialVersion: "2026-08-26 11:21"
+      tutorialVersion: "2026-10-11 23:59"
   fa:
     languageName: فارسی
     languageCode: fa
@@ -22,7 +22,7 @@ languages:
     weight: 2
     title: راهنمای ربکا
     params:
-      tutorialVersion: "04-06-1405 11:21"
+      tutorialVersion: "19-07-1405 23:59"
 
 module:
   hugoVersion:

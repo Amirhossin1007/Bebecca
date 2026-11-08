@@ -19,6 +19,7 @@ import (
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
 	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
 	webhookapp "github.com/rebeccapanel/rebecca/internal/app/webhook"
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
 const (
@@ -459,7 +460,7 @@ func (s *Server) handleUpdateAdmin(w http.ResponseWriter, r *http.Request, usern
 			if _, err := tx.ExecContext(r.Context(), `UPDATE admins SET delete_user_usage_limit_enabled = 0 WHERE id = ?`, target.ID); err != nil {
 				return err
 			}
-			if _, err := tx.ExecContext(r.Context(), `UPDATE admins_services SET delete_user_usage_limit_enabled = 0 WHERE admin_id = ?`, target.ID); err != nil {
+			if _, err := tx.ExecContext(r.Context(), `UPDATE service_admins SET delete_user_usage_limit_enabled = 0 WHERE admin_id = ?`, target.ID); err != nil {
 				return err
 			}
 		}
@@ -535,7 +536,7 @@ func (s *Server) handleDeleteAdmin(w http.ResponseWriter, r *http.Request, usern
 		if _, err := tx.ExecContext(r.Context(), `DELETE FROM admin_usage_logs WHERE admin_id = ?`, target.ID); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(r.Context(), `DELETE FROM admins_services WHERE admin_id = ?`, target.ID); err != nil {
+		if _, err := tx.ExecContext(r.Context(), `DELETE FROM service_admins WHERE admin_id = ?`, target.ID); err != nil {
 			return err
 		}
 		now := dbTimestamp(time.Now().UTC())
@@ -816,7 +817,7 @@ func (s *Server) handleAdminUsageResetPath(w http.ResponseWriter, r *http.Reques
 		if _, err := tx.ExecContext(r.Context(), `UPDATE admins SET users_usage = 0, created_traffic = 0 WHERE id = ?`, target.ID); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(r.Context(), `UPDATE admins_services SET used_traffic = 0, created_traffic = 0 WHERE admin_id = ?`, target.ID); err != nil {
+		if _, err := tx.ExecContext(r.Context(), `UPDATE service_admins SET used_traffic = 0, created_traffic = 0 WHERE admin_id = ?`, target.ID); err != nil {
 			return err
 		}
 		updated, err = adminByUsernameTx(r.Context(), tx, target.Username)
@@ -861,7 +862,7 @@ func (s *Server) handleDeletedUsersUsageReset(w http.ResponseWriter, r *http.Req
 			}
 		}
 		if payload.ServiceID != nil {
-			_, err = tx.ExecContext(r.Context(), `UPDATE admins_services SET deleted_users_usage = 0 WHERE admin_id = ? AND service_id = ?`, target.ID, *payload.ServiceID)
+			_, err = tx.ExecContext(r.Context(), `UPDATE service_admins SET deleted_users_usage = 0 WHERE admin_id = ? AND service_id = ?`, target.ID, *payload.ServiceID)
 		} else {
 			_, err = tx.ExecContext(r.Context(), `UPDATE admins SET deleted_users_usage = 0 WHERE id = ?`, target.ID)
 		}
@@ -926,7 +927,7 @@ func (s *Server) handleBulkStandardPermissions(w http.ResponseWriter, r *http.Re
 			if err := rows.Scan(&id, &raw); err != nil {
 				return err
 			}
-			perms, err := adminapp.BuildPermissions(adminapp.RoleStandard, jsonTextFromDB(raw))
+			perms, err := adminapp.BuildPermissions(adminapp.RoleStandard, adminapp.JSONText(raw))
 			if err != nil {
 				return err
 			}
@@ -1160,7 +1161,7 @@ func scanAdminFromRow(ctx context.Context, tx *sql.Tx, row scanner) (adminapp.Ad
 	dbadmin.Role = role
 	dbadmin.Status = adminapp.AdminStatus(statusText)
 	dbadmin.PasswordResetAt = parseDBTime(resetRaw)
-	dbadmin.Permissions, err = adminapp.BuildPermissions(role, jsonTextFromDB(rawPermissions))
+	dbadmin.Permissions, err = adminapp.BuildPermissions(role, adminapp.JSONText(rawPermissions))
 	if err != nil {
 		return adminapp.Admin{}, err
 	}
@@ -1168,7 +1169,7 @@ func scanAdminFromRow(ctx context.Context, tx *sql.Tx, row scanner) (adminapp.Ad
 	dbadmin.TelegramID = nullInt64PtrLocal(telegramID)
 	dbadmin.SubscriptionDomain = nullStringPtrLocal(subscriptionDomain)
 	dbadmin.SubscriptionSettings = map[string]any{}
-	_ = json.Unmarshal([]byte(jsonTextFromDB(rawSubscriptionSettings)), &dbadmin.SubscriptionSettings)
+	_ = json.Unmarshal([]byte(adminapp.JSONText(rawSubscriptionSettings)), &dbadmin.SubscriptionSettings)
 	dbadmin.DataLimit = nullInt64PtrLocal(dataLimit)
 	dbadmin.TrafficLimitMode = adminapp.AdminTrafficLimitMode(trafficLimitMode)
 	if dbadmin.TrafficLimitMode == "" {
@@ -1206,7 +1207,7 @@ func adminServiceLimitsTx(ctx context.Context, tx *sql.Tx, adminID int64, canDel
 	COALESCE(delete_user_usage_limit_enabled, 0),
 	delete_user_usage_limit,
 	COALESCE(deleted_users_usage, 0)
-FROM admins_services WHERE admin_id = ? ORDER BY service_id`, adminID)
+FROM service_admins WHERE admin_id = ? ORDER BY service_id`, adminID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1240,7 +1241,7 @@ func syncAdminServicesTx(ctx context.Context, tx *sql.Tx, adminID int64, service
 			desired[id] = true
 		}
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT service_id FROM admins_services WHERE admin_id = ?`, adminID)
+	rows, err := tx.QueryContext(ctx, `SELECT service_id FROM service_admins WHERE admin_id = ?`, adminID)
 	if err != nil {
 		return err
 	}
@@ -1258,7 +1259,7 @@ func syncAdminServicesTx(ctx context.Context, tx *sql.Tx, adminID int64, service
 	}
 	for id := range existing {
 		if !desired[id] {
-			if _, err := tx.ExecContext(ctx, `DELETE FROM admins_services WHERE admin_id = ? AND service_id = ?`, adminID, id); err != nil {
+			if _, err := tx.ExecContext(ctx, `DELETE FROM service_admins WHERE admin_id = ? AND service_id = ?`, adminID, id); err != nil {
 				return err
 			}
 		}
@@ -1272,7 +1273,7 @@ func syncAdminServicesTx(ctx context.Context, tx *sql.Tx, adminID int64, service
 	for _, id := range ids {
 		if !existing[id] {
 			if _, err := tx.ExecContext(ctx, `
-INSERT INTO admins_services (
+INSERT INTO service_admins (
 	admin_id,
 	service_id,
 	used_traffic,
@@ -1328,7 +1329,7 @@ func syncAdminServiceLimitsTx(ctx context.Context, tx *sql.Tx, adminID int64, li
 			continue
 		}
 		args = append(args, adminID, item.ServiceID)
-		if _, err := tx.ExecContext(ctx, `UPDATE admins_services SET `+strings.Join(assignments, ", ")+` WHERE admin_id = ? AND service_id = ?`, args...); err != nil {
+		if _, err := tx.ExecContext(ctx, `UPDATE service_admins SET `+strings.Join(assignments, ", ")+` WHERE admin_id = ? AND service_id = ?`, args...); err != nil {
 			return err
 		}
 	}
@@ -1417,7 +1418,7 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 			return nil
 		}
 	}
-	payload = operationPayloadWithQueuedAt(payload, now)
+	payload = xrayconfig.OperationPayloadWithQueuedAt(payload, now)
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -1433,7 +1434,7 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 	if err != sql.ErrNoRows {
 		return err
 	}
-	if nodeID != nil && userID != nil && isRuntimeUserNodeOperationType(operationType) {
+	if nodeID != nil && userID != nil && xrayconfig.IsRuntimeUserNodeOperationType(operationType) {
 		if err := compactPendingRuntimeUserOperationsTx(ctx, tx, *nodeID, *userID, now); err != nil {
 			return err
 		}
@@ -1452,15 +1453,6 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 	return err
 }
 
-func isRuntimeUserNodeOperationType(operationType string) bool {
-	switch operationType {
-	case "add_user", "update_user", "remove_user", "disable_user", "enable_user":
-		return true
-	default:
-		return false
-	}
-}
-
 func compactPendingRuntimeUserOperationsTx(ctx context.Context, tx *sql.Tx, nodeID int64, userID int64, now time.Time) error {
 	if nodeID <= 0 || userID <= 0 {
 		return nil
@@ -1477,25 +1469,6 @@ WHERE node_id = ?
 		userID,
 	)
 	return err
-}
-
-func operationPayloadWithQueuedAt(payload any, now time.Time) any {
-	queuedAt := now.Format(time.RFC3339Nano)
-	if payload == nil {
-		return map[string]any{"queued_at": queuedAt}
-	}
-	mapped, ok := payload.(map[string]any)
-	if !ok {
-		return payload
-	}
-	cloned := make(map[string]any, len(mapped)+1)
-	for key, value := range mapped {
-		cloned[key] = value
-	}
-	if _, exists := cloned["queued_at"]; !exists {
-		cloned["queued_at"] = queuedAt
-	}
-	return cloned
 }
 
 func setUserPermission(perms *adminapp.AdminPermissions, key string, mode string, defaults adminapp.AdminPermissions) {
@@ -1571,29 +1544,6 @@ func normalizeJSONPayload(raw json.RawMessage, fallback string) string {
 		return fallback
 	}
 	return text
-}
-
-func jsonTextFromDB(value any) string {
-	switch typed := value.(type) {
-	case nil:
-		return "{}"
-	case []byte:
-		if strings.TrimSpace(string(typed)) == "" {
-			return "{}"
-		}
-		return string(typed)
-	case string:
-		if strings.TrimSpace(typed) == "" {
-			return "{}"
-		}
-		return typed
-	default:
-		encoded, err := json.Marshal(typed)
-		if err != nil {
-			return "{}"
-		}
-		return string(encoded)
-	}
 }
 
 func parseDBTime(value any) *time.Time {

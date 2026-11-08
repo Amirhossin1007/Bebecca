@@ -18,7 +18,6 @@ import {
 	Radio,
 	RadioGroup,
 	SimpleGrid,
-	Spinner,
 	Stack,
 	Text,
 	Tooltip,
@@ -31,6 +30,7 @@ import {
 	ArrowDownIcon,
 	ArrowPathIcon,
 	ArrowUpIcon,
+	ChevronDoubleUpIcon,
 	EyeIcon,
 	PencilSquareIcon,
 	PlusIcon,
@@ -45,6 +45,7 @@ import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import {
 	DataTable,
 	PageHeader,
+	PageLoadingSkeleton,
 	ResourceListCard,
 	TabSystem,
 	type DataTableColumn,
@@ -64,7 +65,11 @@ import {
 	useDashboard,
 } from "contexts/DashboardContext";
 import { useHosts } from "contexts/HostsContext";
-import { useServicesStore } from "contexts/ServicesContext";
+import {
+	type ServiceListParams,
+	useServicesStore,
+} from "contexts/ServicesContext";
+import { Pagination } from "components/Pagination";
 import { motion } from "framer-motion";
 import useGetUser from "hooks/useGetUser";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
@@ -152,6 +157,14 @@ const parseDecimalInput = (value: string) => {
 	return sanitized && sanitized !== "0." ? Number(sanitized) : null;
 };
 
+const parseCoefficientInput = (value: string) => {
+	const normalized = value.replace(",", ".").replace(/[^\d.]/g, "");
+	const parsed = Number(normalized);
+	return normalized && normalized !== "." && Number.isFinite(parsed)
+		? Math.round(parsed * 100) / 100
+		: null;
+};
+
 const parseIntegerInput = (value: string) => {
 	const sanitized = sanitizeIntegerInput(value);
 	return sanitized ? Number.parseInt(sanitized, 10) : null;
@@ -189,7 +202,9 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 	const [description, setDescription] = useState(
 		initialService?.description ?? "",
 	);
-	const [flow, setFlow] = useState(initialService?.flow ?? "");
+	const [usageCoefficient, setUsageCoefficient] = useState(
+		String(initialService?.usage_coefficient ?? 1),
+	);
 	const [selectedAdmins, setSelectedAdmins] = useState<number[]>(
 		initialService?.admin_ids ?? [],
 	);
@@ -228,7 +243,7 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 		if (isOpen) {
 			setName(initialService?.name ?? "");
 			setDescription(initialService?.description ?? "");
-			setFlow(initialService?.flow ?? "");
+			setUsageCoefficient(String(initialService?.usage_coefficient ?? 1));
 			setSelectedAdmins(initialService?.admin_ids ?? []);
 			setSelectedHosts(initialService?.hosts.map((host) => host.id) ?? []);
 			setAdminSearch("");
@@ -296,10 +311,15 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 		);
 	};
 
-	const moveHost = (hostId: number, direction: "up" | "down") => {
+	const moveHost = (hostId: number, direction: "up" | "down" | "top") => {
 		setSelectedHosts((prev) => {
 			const index = prev.indexOf(hostId);
 			if (index === -1) return prev;
+			if (direction === "top") {
+				return index === 0
+					? prev
+					: [hostId, ...prev.filter((id) => id !== hostId)];
+			}
 			const swapWith = direction === "up" ? index - 1 : index + 1;
 			if (swapWith < 0 || swapWith >= prev.length) {
 				return prev;
@@ -326,6 +346,17 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 			return;
 		}
 
+		const coefficient =
+			usageCoefficient.trim() === ""
+				? 1
+				: parseCoefficientInput(usageCoefficient);
+		if (coefficient === null || coefficient < 0.01 || coefficient > 100) {
+			toast({
+				status: "warning",
+				title: t("services.validation.usageCoefficientInvalid"),
+			});
+			return;
+		}
 		const assignments: ServiceHostAssignment[] = selectedHosts.map(
 			(hostId, index) => ({
 				host_id: hostId,
@@ -337,8 +368,8 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 			{
 				name: name.trim(),
 				description: description?.trim() || null,
-				flow: flow || null,
 				admin_ids: selectedAdmins,
+				usage_coefficient: coefficient,
 				hosts: assignments,
 			},
 			initialService?.id,
@@ -435,24 +466,18 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 									onChange={(event) => setDescription(event.target.value)}
 									maxLength={256}
 								/>
+								<Input
+									label={t("services.fields.usageCoefficient")}
+									type="number"
+									inputMode="decimal"
+									min={0.01}
+									max={100}
+									step={0.01}
+									precision={2}
+									value={usageCoefficient}
+									onChange={(event) => setUsageCoefficient(event.target.value)}
+								/>
 							</SimpleGrid>
-							<FormControl mt={3}>
-								<FormLabel>{t("services.fields.flow")}</FormLabel>
-								<Select
-									size="sm"
-									value={flow}
-									onChange={(event) => setFlow(event.target.value)}
-								>
-									<option value="">{t("userDialog.flow.none")}</option>
-									<option value="xtls-rprx-vision">
-										{t("userDialog.flow.xtls_rprx_vision")}
-									</option>
-									<option value="xtls-rprx-vision-udp443">
-										{t("userDialog.flow.xtls_rprx_vision_udp443")}
-									</option>
-								</Select>
-								<FormHelperText>{t("services.flowHint")}</FormHelperText>
-							</FormControl>
 						</Box>
 
 						<Box className="xray-dialog-section service-dialog-section">
@@ -729,6 +754,16 @@ const ServiceDialog: FC<ServiceDialogProps> = ({
 														</Text>
 													</Box>
 													<HStack spacing={1} flexShrink={0}>
+														<Tooltip label={t("services.moveToTop")}>
+															<IconButton
+																aria-label="Move to top"
+																size="sm"
+																variant="ghost"
+																icon={<ChevronDoubleUpIcon width={16} />}
+																onClick={() => moveHost(hostId, "top")}
+																isDisabled={index === 0}
+															/>
+														</Tooltip>
 														<Tooltip label={t("services.moveUp")}>
 															<IconButton
 																aria-label="Move up"
@@ -789,6 +824,15 @@ const ServicesPage: FC = () => {
 	const canManageServices =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.services);
 	const services = useServicesStore((state) => state.services);
+	const summaryServices = useServicesStore((state) => state.summaryServices);
+	const servicesTotal = useServicesStore((state) => state.total);
+	const fetchServiceSummary = useServicesStore(
+		(state) => state.fetchServiceSummary,
+	);
+	const [listFilters, setListFilters] = useState<
+		ServiceListParams & { limit: number; offset: number; name: string }
+	>({ limit: 20, offset: 0, name: "" });
+	const [serviceSearch, setServiceSearch] = useState("");
 	const serviceDetail = useServicesStore((state) => state.serviceDetail);
 	const isServicesLoading = useServicesStore((state) => state.isLoading);
 	const isServiceSaving = useServicesStore((state) => state.isSaving);
@@ -835,24 +879,50 @@ const ServicesPage: FC = () => {
 		show_user_traffic: true,
 		delete_user_usage_limit_enabled: false,
 		delete_user_usage_limit_mb: "",
+		usage_coefficient: "",
 	});
 
 	useEffect(() => {
 		if (!getUserIsSuccess || !canManageServices) {
 			return;
 		}
-		fetchServices();
-		fetchAdminOptions({ limit: 1000, offset: 0, sort: "username" });
-		fetchInbounds();
-		fetchHosts();
+		void fetchServices(listFilters);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [
 		getUserIsSuccess,
 		canManageServices,
-		fetchAdminOptions,
-		fetchHosts,
 		fetchServices,
+		listFilters,
 	]);
+
+	useEffect(() => {
+		if (!getUserIsSuccess || !canManageServices) {
+			return;
+		}
+		void fetchServiceSummary();
+	}, [getUserIsSuccess, canManageServices, fetchServiceSummary]);
+
+	useEffect(() => {
+		const timer = window.setTimeout(() => {
+			const name = serviceSearch.trim();
+			setListFilters((current) =>
+				current.name === name ? current : { ...current, name, offset: 0 },
+			);
+		}, 300);
+		return () => window.clearTimeout(timer);
+	}, [serviceSearch]);
+
+	const ensureServiceDialogResources = useCallback(() => {
+		if (useAdminsStore.getState().adminOptions.length === 0) {
+			void fetchAdminOptions({ limit: 1000, offset: 0, sort: "username" });
+		}
+		if (useDashboard.getState().inbounds.size === 0) {
+			void fetchInbounds();
+		}
+		if (Object.keys(useHosts.getState().hosts).length === 0) {
+			void fetchHosts();
+		}
+	}, [fetchAdminOptions, fetchHosts]);
 
 	const adminOptions = useMemo(() => {
 		return rawAdminOptions
@@ -895,11 +965,13 @@ const ServicesPage: FC = () => {
 	}, [hosts, inboundProtocols]);
 
 	const openCreateDialog = () => {
+		ensureServiceDialogResources();
 		setEditingService(null);
 		dialogDisclosure.onOpen();
 	};
 
 	const openEditDialog = async (serviceId: number) => {
+		ensureServiceDialogResources();
 		try {
 			const detail = await fetchServiceDetail(serviceId);
 			if (!detail) return;
@@ -1006,7 +1078,7 @@ const ServicesPage: FC = () => {
 
 	const resetTargetName =
 		resetServiceId != null
-			? services.find((service) => service.id === resetServiceId)
+			? summaryServices.find((service) => service.id === resetServiceId)
 					?.name
 			: undefined;
 
@@ -1069,15 +1141,15 @@ const ServicesPage: FC = () => {
 
 	const otherServices = useMemo(() => {
 		if (!servicePendingDelete) {
-				return services;
+				return summaryServices;
 		}
-		return services.filter(
+		return summaryServices.filter(
 			(service) => service.id !== servicePendingDelete.id,
 		);
-	}, [servicePendingDelete, services]);
+	}, [servicePendingDelete, summaryServices]);
 	const servicesSummary = useMemo(
 		() =>
-			services.reduce(
+			summaryServices.reduce(
 				(summary, service) => ({
 					totalHosts: summary.totalHosts + Number(service.host_count || 0),
 					totalUsers: summary.totalUsers + Number(service.user_count || 0),
@@ -1094,14 +1166,14 @@ const ServicesPage: FC = () => {
 					brokenServices: 0,
 				},
 			),
-			[services],
+			[summaryServices],
 	);
 
 	const serviceSummaryItems = useMemo<ResourceSummaryItem[]>(
 		() => [
 			{
 				label: t("services.title"),
-					value: services.length,
+					value: summaryServices.length,
 				colorScheme: "gray",
 			},
 			{
@@ -1131,7 +1203,7 @@ const ServicesPage: FC = () => {
 						: undefined,
 			},
 		],
-			[services.length, servicesSummary, t],
+			[summaryServices.length, servicesSummary, t],
 	);
 
 	useEffect(() => {
@@ -1306,6 +1378,7 @@ const ServicesPage: FC = () => {
 	};
 
 	const selectedService = serviceDetail;
+	const serviceDefaultCoefficient = selectedService?.usage_coefficient ?? 1;
 
 	const saveServiceAdminLimit = useCallback(
 		async (
@@ -1317,6 +1390,7 @@ const ServicesPage: FC = () => {
 				users_limit?: number | null;
 				delete_user_usage_limit_enabled?: boolean;
 				delete_user_usage_limit?: number | null;
+				usage_coefficient?: number | null;
 			},
 		) => {
 			if (!selectedService) return false;
@@ -1379,6 +1453,7 @@ const ServicesPage: FC = () => {
 				link.delete_user_usage_limit,
 				MB_IN_BYTES,
 			),
+			usage_coefficient: link.usage_coefficient != null ? String(link.usage_coefficient) : "",
 		});
 	};
 
@@ -1393,7 +1468,18 @@ const ServicesPage: FC = () => {
 		const deleteUserUsageLimitMb = parseDecimalInput(
 			serviceAdminLimitForm.delete_user_usage_limit_mb,
 		);
+		const usageCoefficient = parseCoefficientInput(
+			serviceAdminLimitForm.usage_coefficient,
+		);
+		if (usageCoefficient !== null && (usageCoefficient < 0.01 || usageCoefficient > 100)) {
+			toast({
+				status: "warning",
+				title: t("services.validation.usageCoefficientInvalid"),
+			});
+			return;
+		}
 		const saved = await saveServiceAdminLimit(editingServiceAdminLimit.id, {
+			usage_coefficient: usageCoefficient,
 			traffic_limit_mode: serviceAdminLimitForm.traffic_limit_mode,
 			data_limit: dataLimitGb !== null ? dataLimitGb * GB_IN_BYTES : null,
 			users_limit: usersLimit,
@@ -1619,6 +1705,73 @@ const ServicesPage: FC = () => {
 				),
 			},
 			{
+				id: "usage_coefficient",
+				header: t("services.usageCoefficientColumn"),
+				priority: "low",
+				hideBelow: "xl",
+				width: "230px",
+				maxWidth: "260px",
+				mobilePriority: 7,
+				mobileMetaLabel: t("services.usageCoefficientColumn"),
+				cell: (link) => {
+					const coefficient = link.usage_coefficient ?? null;
+					return (
+						<HStack spacing={2}>
+							<Select
+								size="sm"
+								value={coefficient === null ? "default" : "custom"}
+								disabled={savingAdminLimitId === link.id}
+								onClick={(event) => event.stopPropagation()}
+								onChange={(event) =>
+									saveServiceAdminLimit(link.id, {
+										usage_coefficient:
+											event.target.value === "custom" ? serviceDefaultCoefficient : null,
+									})
+								}
+							>
+								<option value="default">
+									{t("services.usageCoefficientDefault", { value: serviceDefaultCoefficient })}
+								</option>
+								<option value="custom">{t("services.usageCoefficientCustom")}</option>
+							</Select>
+							{coefficient !== null ? (
+								<Input
+									key={`${link.id}-${coefficient}`}
+									size="sm"
+									type="number"
+									inputMode="decimal"
+									min={0.01}
+									max={100}
+									step={0.01}
+									w="90px"
+									precision={2}
+									defaultValue={coefficient}
+									disabled={savingAdminLimitId === link.id}
+									onClick={(event) => event.stopPropagation()}
+									onInput={(event) => {
+										event.currentTarget.value = sanitizeDecimalInput(event.currentTarget.value);
+									}}
+									onBlur={(event) => {
+										const value = parseCoefficientInput(event.target.value);
+										if (value === null || value < 0.01 || value > 100) {
+											toast({
+												status: "warning",
+												title: t("services.validation.usageCoefficientInvalid"),
+											});
+											event.target.value = String(coefficient);
+											return;
+										}
+										if (value !== coefficient) {
+											saveServiceAdminLimit(link.id, { usage_coefficient: value });
+										}
+									}}
+								/>
+							) : null}
+						</HStack>
+					);
+				},
+			},
+			{
 				id: "flags",
 				header: t("admins.permissionsTabLabel"),
 				priority: "low",
@@ -1659,7 +1812,7 @@ const ServicesPage: FC = () => {
 				),
 			},
 		],
-		[saveServiceAdminLimit, savingAdminLimitId, t],
+		[saveServiceAdminLimit, savingAdminLimitId, serviceDefaultCoefficient, t, toast],
 	);
 
 	const serviceAdminRowActions = (
@@ -1764,11 +1917,7 @@ const ServicesPage: FC = () => {
 	);
 
 	if (!getUserIsSuccess) {
-		return (
-			<Flex justify="center" align="center" h="full" py={10}>
-				<Spinner />
-			</Flex>
-		);
+		return <PageLoadingSkeleton />;
 	}
 
 	if (!canManageServices) {
@@ -1800,6 +1949,13 @@ const ServicesPage: FC = () => {
 						{t("services.addService")}
 					</Button>
 				}
+			/>
+
+			<Input
+				value={serviceSearch}
+				onChange={(event) => setServiceSearch(event.target.value)}
+				placeholder={t("services.searchServices")}
+				maxW="320px"
 			/>
 
 			<DataTable
@@ -1839,6 +1995,25 @@ const ServicesPage: FC = () => {
 						},
 					},
 				}}
+			/>
+			<Pagination
+				for="services"
+				total={servicesTotal}
+				limit={listFilters.limit}
+				offset={listFilters.offset}
+				onPageChange={(page) =>
+					setListFilters((current) => ({
+						...current,
+						offset: page * current.limit,
+					}))
+				}
+				onPageSizeChange={(size) =>
+					setListFilters((current) => ({
+						...current,
+						limit: size,
+						offset: 0,
+					}))
+				}
 			/>
 
 			{selectedService && (
@@ -1991,6 +2166,28 @@ const ServicesPage: FC = () => {
 								{t("myaccount.createdTraffic")}
 							</option>
 						</Select>
+					</FormControl>
+					<FormControl>
+						<FormLabel>{t("services.usageCoefficientColumn")}</FormLabel>
+						<Input
+							type="number"
+							inputMode="decimal"
+							min={0.01}
+							max={100}
+							step={0.01}
+							precision={2}
+							placeholder={String(selectedService?.usage_coefficient ?? 1)}
+							value={serviceAdminLimitForm.usage_coefficient}
+							onChange={(event) =>
+								setServiceAdminLimitForm((current) => ({
+									...current,
+									usage_coefficient: event.target.value,
+								}))
+							}
+						/>
+						<FormHelperText>
+							{t("services.adminUsageCoefficientHint", { value: selectedService?.usage_coefficient ?? 1 })}
+						</FormHelperText>
 					</FormControl>
 					<SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
 						<FormControl>

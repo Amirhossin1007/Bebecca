@@ -39,13 +39,13 @@ func testRepository(t *testing.T) Repository {
 			node_id INTEGER,
 			used_traffic BIGINT DEFAULT 0
 		)`,
-		`CREATE TABLE admins_services (
+		`CREATE TABLE service_admins (
 			admin_id INTEGER NOT NULL,
 			service_id INTEGER NOT NULL
 		)`,
 		`INSERT INTO nodes (id, name) VALUES (10, 'edge-a'), (11, 'edge-b')`,
 		`INSERT INTO admins (id, username) VALUES (1, 'alpha'), (2, 'beta')`,
-		`INSERT INTO admins_services (admin_id, service_id) VALUES (1, 7), (2, 7)`,
+		`INSERT INTO service_admins (admin_id, service_id) VALUES (1, 7), (2, 7)`,
 		`INSERT INTO users (id, username, status, admin_id, service_id) VALUES
 			(1, 'u1', 'active', 1, 7),
 			(2, 'u2', 'active', 1, 7),

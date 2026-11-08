@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"math"
 	"net/url"
 	"strconv"
@@ -87,15 +88,15 @@ func effectiveSubscriptionSettings(base SubscriptionSettings, admin AdminLinkSet
 	effective := SubscriptionSettings{
 		DefaultSubscriptionType:        preferredType("", base.DefaultSubscriptionType),
 		SubscriptionURLPrefix:          normalizePrefix(base.SubscriptionURLPrefix),
-		SubscriptionProfileTitle:       firstNonEmptyString(base.SubscriptionProfileTitle, "Subscription"),
-		SubscriptionSupportURL:         firstNonEmptyString(base.SubscriptionSupportURL, "https://t.me/"),
-		SubscriptionUpdateInterval:     firstNonEmptyString(base.SubscriptionUpdateInterval, "12"),
+		SubscriptionProfileTitle:       jsonvalue.FirstNonEmpty(base.SubscriptionProfileTitle, "Subscription"),
+		SubscriptionSupportURL:         jsonvalue.FirstNonEmpty(base.SubscriptionSupportURL, "https://t.me/"),
+		SubscriptionUpdateInterval:     jsonvalue.FirstNonEmpty(base.SubscriptionUpdateInterval, "12"),
 		SubscriptionPath:               normalizePath(base.SubscriptionPath),
 		SubscriptionPorts:              normalizePorts(base.SubscriptionPorts),
 		SubscriptionAliases:            append([]string{}, base.SubscriptionAliases...),
-		ClientRoutingRules:         	append([]ClientRoutingRule{}, base.ClientRoutingRules...), // <--- این خط حتماً باید اضافه شود
+		ClientRoutingRules:             append([]ClientRoutingRule{}, base.ClientRoutingRules...), // <--- این خط حتماً باید اضافه شود
 		SubscriptionPlaceholderEnabled: base.SubscriptionPlaceholderEnabled,
-		SubscriptionPlaceholderRemark:  firstNonEmptyString(base.SubscriptionPlaceholderRemark, "disabled"),
+		SubscriptionPlaceholderRemark:  jsonvalue.FirstNonEmpty(base.SubscriptionPlaceholderRemark, "disabled"),
 		RawPanelSettings:               base.RawPanelSettings,
 		RawSubscriptionSettings:        base.RawSubscriptionSettings,
 	}

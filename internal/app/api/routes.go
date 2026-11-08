@@ -23,7 +23,7 @@ func apiRequestBodyLimit(path string) int64 {
 	if strings.HasPrefix(path, phpMyAdminEmbedPath) {
 		return maxPHPMyAdminRequestBodyBytes
 	}
-	if path == "/api/settings/external-apps/archive" || path == "/api/settings/external-apps/mirzabot" ||
+	if path == "/api/settings/external-apps/archive" || path == "/api/settings/external-apps/mirzabot" || path == "/api/settings/external-apps/faoxima" ||
 		(strings.HasPrefix(path, "/api/settings/external-apps/") && strings.HasSuffix(path, "/files/upload")) {
 		return externalapps.MaxRequestBodyBytes
 	}
@@ -69,6 +69,7 @@ func (s *Server) Handler() http.Handler {
 	r.HandleFunc("/internal/node/haproxy-template/*", s.handleNodeHAProxyTemplate)
 	r.HandleFunc("/xray/*", s.requireSudo(s.handleXrayHelperPath))
 	r.HandleFunc("/inbounds/full", s.requireSudo(s.handleInboundsFull))
+	r.HandleFunc("/inbounds/speeds", s.requireSudo(s.handleInboundsSpeeds))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
 	r.HandleFunc("/inbounds", s.handleInboundsRootEntry)
 	r.HandleFunc("/hosts/certificate-fingerprint", s.requireAdmin(s.handleHostCertificateFingerprint))
@@ -89,6 +90,8 @@ func (s *Server) Handler() http.Handler {
 		s.registerPanelXrayRoutes(r)
 		s.registerSubscriptionRoutes(r)
 		s.registerNodeRoutes(r)
+		s.registerNotificationRoutes(r)
+		s.registerNoteRoutes(r)
 	})
 
 	r.NotFound(s.handleHomeOrSubscriptionPath)
@@ -112,6 +115,7 @@ func (s *Server) registerAdminRoutes(r chi.Router) {
 	r.HandleFunc("/admin/*", s.requireAdmin(s.handleAdminMutationPath))
 	r.HandleFunc("/admin", s.requireAdmin(s.handleAdminRoot))
 	r.HandleFunc("/admins", s.requireAdmin(s.handleAdminsList))
+	r.HandleFunc("/admins/speeds", s.requireAdmin(s.handleAdminsSpeeds))
 }
 
 func (s *Server) registerMyAccountRoutes(r chi.Router) {
@@ -144,11 +148,14 @@ func (s *Server) registerCoreRoutes(r chi.Router) {
 func (s *Server) registerConfigRoutes(r chi.Router) {
 	r.HandleFunc("/core/config/targets/*", s.requireSudo(s.handleCoreConfigTargetPath))
 	r.HandleFunc("/core/config/targets", s.requireSudo(s.handleCoreConfigTargets))
+	r.HandleFunc("/core/config/propagate/preview", s.requireSudo(s.handleCoreConfigPropagatePreview))
+	r.HandleFunc("/core/config/propagate", s.requireSudo(s.handleCoreConfigPropagate))
 	r.HandleFunc("/core/config", s.requireSudo(s.handleCoreConfig))
 }
 
 func (s *Server) registerInboundHostRoutes(r chi.Router) {
 	r.HandleFunc("/inbounds/full", s.requireSudo(s.handleInboundsFull))
+	r.HandleFunc("/inbounds/speeds", s.requireSudo(s.handleInboundsSpeeds))
 	r.HandleFunc("/inbounds/openvpn/runtime", s.requireSudo(s.handleOVRuntime))
 	r.HandleFunc("/inbounds/*", s.requireSudo(s.handleInboundPath))
 	r.HandleFunc("/inbounds", s.handleInboundsRootEntry)
@@ -158,9 +165,13 @@ func (s *Server) registerInboundHostRoutes(r chi.Router) {
 }
 
 func (s *Server) registerSystemRoutes(r chi.Router) {
+	r.HandleFunc("/sponsor/assets/*", s.requireAdmin(s.handleSponsorAsset))
+	r.HandleFunc("/sponsor", s.requireAdmin(s.handleSponsor))
 	r.HandleFunc("/system/metrics", s.requireAdmin(s.handleSystemMetricsWebSocket))
+	r.HandleFunc("/system/diagnostics", s.requireSudo(s.handleSystemDiagnostics))
 	r.HandleFunc("/system", s.requireAdmin(s.handleSystemStats))
 	r.HandleFunc("/maintenance/info", s.requireSudo(s.handleMaintenanceInfo))
+	r.HandleFunc("/maintenance/builds", s.requireSudo(s.handleMaintenanceBuilds))
 	r.HandleFunc("/maintenance/status", s.requireSudo(s.handleMaintenanceStatus))
 	r.HandleFunc("/maintenance/update", s.requireSudo(s.handleMaintenanceUpdate))
 	r.HandleFunc("/maintenance/restart", s.requireSudo(s.handleMaintenanceRestart))
@@ -183,6 +194,7 @@ func (s *Server) registerSettingsRoutes(r chi.Router) {
 	r.HandleFunc("/settings/telegram", s.requireSudo(s.handleTelegramSettings))
 	r.HandleFunc("/settings/placeholders", s.requireAdmin(s.handleSubscriptionPlaceholders))
 	r.HandleFunc("/settings/subscriptions/certificates/issue", s.requireSudo(s.handleCertificateIssue))
+	r.HandleFunc("/settings/subscriptions/certificates/issue-node", s.requireSudo(s.handleCertificateIssueNode))
 	r.HandleFunc("/settings/subscriptions/certificates/import", s.requireSudo(s.handleCertificateImport))
 	r.HandleFunc("/settings/subscriptions/certificates/renew", s.requireSudo(s.handleCertificateRenew))
 	r.HandleFunc("/settings/subscriptions/certificates/*", s.requireSudo(s.handleCertificatePath))
@@ -216,6 +228,7 @@ func (s *Server) registerPanelXrayRoutes(r chi.Router) {
 	r.HandleFunc("/panel/xray/psiphon/locations", s.requireSudo(s.handlePsiphonLocations))
 	r.HandleFunc("/panel/xray/psiphon/setup", s.requireSudo(s.handlePsiphonSetup))
 	r.HandleFunc("/panel/xray/testOutbound", s.requireSudo(s.handleOutboundTest))
+	r.HandleFunc("/panel/xray/outboundHealth", s.requireSudo(s.handleOutboundHealth))
 	r.HandleFunc("/panel/xray/testOutbounds", s.requireSudo(s.handleOutboundTests))
 	r.HandleFunc("/panel/xray/routeTest", s.requireSudo(s.handleRouteTest))
 	r.HandleFunc("/panel/xray/getOutboundsTraffic", s.requireSudo(s.handleOutboundsTraffic))

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -39,6 +40,9 @@ func TestRuntimeConfigRequestUsesProvidedInbounds(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, status TEXT NOT NULL, speed_limit_kbps INTEGER NOT NULL DEFAULT 0)`); err != nil {
+		t.Fatal(err)
+	}
 	controller := NewController(NewRepository(db, "sqlite"))
 	req, err := controller.runtimeConfigRequestFromInbounds(context.Background(), NodeRow{}, "test", `{}`, []map[string]any{})
 	if err != nil {
@@ -51,6 +55,60 @@ func TestRuntimeConfigRequestUsesProvidedInbounds(t *testing.T) {
 	for _, key := range []string{"inbounds", "l2tp_inbounds", "pptp_inbounds", "wg_inbounds", "ikev2_inbounds", "anyconnect_inbounds"} {
 		if got := interfaceSlice(runtime[key]); len(got) != 0 {
 			t.Fatalf("%s = %#v, want empty", key, got)
+		}
+	}
+}
+
+func TestRuntimeUserSpeedLimitsListsLimitedUsersExceptDeleted(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, status TEXT NOT NULL, speed_limit_kbps INTEGER NOT NULL DEFAULT 0)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO users (id, status, speed_limit_kbps) VALUES (1, 'active', 10000), (2, 'active', 0), (3, 'deleted', 5000), (4, 'disabled', 2000)`); err != nil {
+		t.Fatal(err)
+	}
+	limits, err := NewController(NewRepository(db, "sqlite")).runtimeUserSpeedLimits(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(limits) != 2 || limits[0].GetUserId() != 1 || limits[0].GetSpeedLimitKbps() != 10000 || limits[1].GetUserId() != 4 || limits[1].GetSpeedLimitKbps() != 2000 {
+		t.Fatalf("speed limits = %v, want users 1 and 4 only", limits)
+	}
+}
+
+func TestLimitedUserOperationRequiresConfigSync(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, service_id INTEGER NULL, status TEXT NOT NULL, speed_limit_kbps INTEGER NOT NULL DEFAULT 0)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO users (id, status, speed_limit_kbps) VALUES (1, 'active', 5000), (2, 'active', 0)`); err != nil {
+		t.Fatal(err)
+	}
+	controller := NewController(NewRepository(db, "sqlite"))
+	node := NodeRow{ID: 7}
+	for _, tc := range []struct {
+		operation string
+		userID    int64
+		want      bool
+	}{
+		{"add_user", 1, true},
+		{"remove_user", 1, false},
+		{"add_user", 2, false},
+	} {
+		got, err := controller.userOperationRequiresConfigSync(context.Background(), node, OperationRow{OperationType: tc.operation, UserID: sql.NullInt64{Int64: tc.userID, Valid: true}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != tc.want {
+			t.Fatalf("%s for user %d requires config sync = %v, want %v", tc.operation, tc.userID, got, tc.want)
 		}
 	}
 }
@@ -78,17 +136,16 @@ func TestIncludeDBUsersPreservesReverseClient(t *testing.T) {
 
 func TestIncludeDBUsersKeepsPerInboundEmailsIndependent(t *testing.T) {
 	raw := map[string]any{"inbounds": []any{
-		map[string]any{"tag": "vless-a", "protocol": "vless", "settings": map[string]any{"clients": []any{}}, "streamSettings": map[string]any{"network": "tcp", "security": "tls"}},
-		map[string]any{"tag": "vless-b", "protocol": "vless", "settings": map[string]any{"clients": []any{}}, "streamSettings": map[string]any{"network": "tcp", "security": "tls"}},
+		map[string]any{"tag": "vless-a", "protocol": "vless", "settings": map[string]any{"clients": []any{}, "flow": "xtls-rprx-vision"}, "streamSettings": map[string]any{"network": "tcp", "security": "tls"}},
+		map[string]any{"tag": "vless-b", "protocol": "vless", "settings": map[string]any{"clients": []any{}, "flow": ""}, "streamSettings": map[string]any{"network": "tcp", "security": "tls"}},
 	}}
 	data := &runtimeConfigData{
 		users: []runtimeUserRow{{
 			ID: 1, Username: "alice", CredentialKey: "05bfddf81eb418fa1edbce7cd286eee1", Flow: "legacy-flow", Protocol: "vless",
 			ServiceID: sql.NullInt64{Int64: 7, Valid: true}, Settings: map[string]any{},
 		}},
-		serviceTags:  map[int64]map[string]bool{7: {"vless-a": true, "vless-b": true}},
-		serviceFlows: map[int64]string{7: "xtls-rprx-vision"},
-		masks:        map[string][]byte{},
+		serviceTags: map[int64]map[string]bool{7: {"vless-a": true, "vless-b": true}},
+		masks:       map[string][]byte{},
 	}
 	if err := (Controller{}).includeDBUsers(context.Background(), raw, data); err != nil {
 		t.Fatal(err)
@@ -98,8 +155,9 @@ func TestIncludeDBUsersKeepsPerInboundEmailsIndependent(t *testing.T) {
 		if len(clients) != 1 || stringValue(mapValue(clients[0])["email"]) != inboundRuntimeUserEmail(1, "alice", tag) {
 			t.Fatalf("%s clients = %#v", tag, clients)
 		}
-		if stringValue(mapValue(clients[0])["flow"]) != "xtls-rprx-vision" {
-			t.Fatalf("%s flow = %#v, want service flow", tag, clients[0])
+		wantFlow := []string{"xtls-rprx-vision", ""}[i]
+		if stringValue(mapValue(clients[0])["flow"]) != wantFlow {
+			t.Fatalf("%s flow = %#v, want inbound flow %q", tag, clients[0], wantFlow)
 		}
 	}
 }
@@ -141,6 +199,27 @@ func TestIncludeDBUsersBuildsShadowsocks2022Client(t *testing.T) {
 	}
 }
 
+func TestHundredNewUsersKeepInboundFlowInFullSyncAndRPC(t *testing.T) {
+	inbound := map[string]any{"tag": "encrypted-xhttp", "protocol": "vless", "settings": map[string]any{"decryption": "mlkem768x25519plus.native.600s.test", "flow": "xtls-rprx-vision", "clients": []any{}}, "streamSettings": map[string]any{"network": "xhttp", "security": "none"}}
+	raw := map[string]any{"inbounds": []any{inbound}}
+	data := &runtimeConfigData{serviceTags: map[int64]map[string]bool{1: {"encrypted-xhttp": true}}}
+	for i := 1; i <= 100; i++ {
+		data.users = append(data.users, runtimeUserRow{ID: int64(i), Username: fmt.Sprintf("pouria-test-%04d", i), CredentialKey: fmt.Sprintf("%032x", i), Protocol: "vless", ServiceID: sql.NullInt64{Int64: 1, Valid: true}, Settings: map[string]any{}})
+	}
+	if err := (Controller{}).includeDBUsers(context.Background(), raw, data); err != nil {
+		t.Fatal(err)
+	}
+	clients := listOfMaps(mapValue(inbound["settings"])["clients"])
+	if len(clients) != 100 {
+		t.Fatalf("clients=%d, want 100", len(clients))
+	}
+	for _, client := range clients {
+		if got := grpcInboundUserPayload(client).GetFields()["flow"]; got != "xtls-rprx-vision" {
+			t.Fatalf("RPC account flow=%q", got)
+		}
+	}
+}
+
 func TestApplyRuntimeAPIEnablesOnlineUserStats(t *testing.T) {
 	raw := map[string]any{
 		"inbounds":  []any{},
@@ -156,10 +235,14 @@ func TestApplyRuntimeAPIEnablesOnlineUserStats(t *testing.T) {
 		encoded, _ := json.Marshal(level0)
 		t.Fatalf("runtime user stats policy is incomplete: %s", encoded)
 	}
+	system := mapValue(policy["system"])
+	if system["statsInboundUplink"] != true || system["statsInboundDownlink"] != true {
+		t.Fatalf("runtime inbound stats policy is incomplete: %#v", system)
+	}
 }
 
 func TestRemoteAccessProtocolsRequireFullUserSync(t *testing.T) {
-	for _, protocol := range []string{"openvpn", "l2tp", "pptp", "wireguard", "ikev2", "anyconnect"} {
+	for _, protocol := range []string{"openvpn", "l2tp", "pptp", "wireguard", "amneziawg", "ikev2", "anyconnect"} {
 		if !protocolRequiresFullUserSync(protocol) {
 			t.Fatalf("%s user changes must trigger a full runtime sync", protocol)
 		}

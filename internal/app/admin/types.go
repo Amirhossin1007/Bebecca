@@ -53,6 +53,19 @@ var (
 	ErrSessionRestricted  = errors.New("admin session requires additional authentication")
 )
 
+func IsAuthRejection(err error) bool {
+	for _, rejection := range []error{
+		ErrInvalidToken, ErrAdminNotFound, ErrAdminDeleted, ErrAdminDisabled, ErrAdminNotActive,
+		ErrAdminExpired, ErrAdminDataExhausted, ErrPasswordResetAfter, ErrPermissionDenied,
+		ErrSessionExpired, ErrSessionRestricted,
+	} {
+		if errors.Is(err, rejection) {
+			return true
+		}
+	}
+	return false
+}
+
 type UserPermissionSettings struct {
 	Create               bool   `json:"create"`
 	Delete               bool   `json:"delete"`

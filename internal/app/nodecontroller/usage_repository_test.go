@@ -91,10 +91,10 @@ func TestRepositoryPersistsCollectedUsageAccounting(t *testing.T) {
 	_, err = db.ExecContext(ctx, `
 INSERT INTO admins (id, users_usage, lifetime_usage) VALUES (1, 0, 0);
 INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, updated_at) VALUES (2, 0, 0, 0, CURRENT_TIMESTAMP);
-INSERT INTO admins_services (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
+INSERT INTO service_admins (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
 INSERT INTO users (id, status, used_traffic, data_limit, admin_id, service_id) VALUES (10, 'active', 0, 100, 1, 2);
 INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 1.5);
-INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
+INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 0, 0);`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,13 +117,13 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 	assertInt64(t, db, `SELECT used_traffic FROM services WHERE id = 2`, 300)
 	assertInt64(t, db, `SELECT lifetime_used_traffic FROM services WHERE id = 2`, 300)
 	assertInt64(t, db, `SELECT users_usage FROM services WHERE id = 2`, 300)
-	assertInt64(t, db, `SELECT used_traffic FROM admins_services WHERE admin_id = 1 AND service_id = 2`, 300)
-	assertInt64(t, db, `SELECT lifetime_used_traffic FROM admins_services WHERE admin_id = 1 AND service_id = 2`, 300)
+	assertInt64(t, db, `SELECT used_traffic FROM service_admins WHERE admin_id = 1 AND service_id = 2`, 300)
+	assertInt64(t, db, `SELECT lifetime_used_traffic FROM service_admins WHERE admin_id = 1 AND service_id = 2`, 300)
 	assertInt64(t, db, `SELECT used_traffic FROM node_user_usages WHERE user_id = 10 AND node_id = 7`, 300)
 	assertInt64(t, db, `SELECT uplink FROM node_usages WHERE node_id = 7`, 11)
 	assertInt64(t, db, `SELECT downlink FROM node_usages WHERE node_id = 7`, 22)
-	assertInt64(t, db, `SELECT uplink FROM system WHERE id = 1`, 11)
-	assertInt64(t, db, `SELECT downlink FROM system WHERE id = 1`, 22)
+	assertInt64(t, db, `SELECT uplink FROM master_usage WHERE id = 1`, 11)
+	assertInt64(t, db, `SELECT downlink FROM master_usage WHERE id = 1`, 22)
 	assertInt64(t, db, `SELECT uplink FROM outbound_traffic WHERE target_id = 'node:7' AND outbound_id = 'tag_direct'`, 11)
 	assertInt64(t, db, `SELECT downlink FROM outbound_traffic WHERE target_id = 'node:7' AND outbound_id = 'tag_direct'`, 22)
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'disable_user' AND user_id = 10`, 1)
@@ -141,9 +141,9 @@ func TestRepositoryUsageLifecycleBatchQueuesUserDeltas(t *testing.T) {
 	if _, err := db.ExecContext(ctx, `
 INSERT INTO admins (id, users_usage, lifetime_usage) VALUES (1, 0, 0);
 INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, updated_at) VALUES (2, 0, 0, 0, CURRENT_TIMESTAMP);
-INSERT INTO admins_services (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
+INSERT INTO service_admins (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
 INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 1);
-INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`); err != nil {
+INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 0, 0);`); err != nil {
 		t.Fatal(err)
 	}
 	const users = 25
@@ -230,10 +230,10 @@ func TestRepositoryPersistsOnlineOnlyUserUsage(t *testing.T) {
 	_, err = db.ExecContext(ctx, `
 INSERT INTO admins (id, users_usage, lifetime_usage) VALUES (1, 0, 0);
 INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, updated_at) VALUES (2, 0, 0, 0, CURRENT_TIMESTAMP);
-INSERT INTO admins_services (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
+INSERT INTO service_admins (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
 INSERT INTO users (id, status, used_traffic, data_limit, admin_id, service_id) VALUES (10, 'active', 0, 100000, 1, 2);
 INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 1);
-INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
+INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 0, 0);`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,10 +293,10 @@ func TestRepositoryDoesNotFullSyncWhenNodeReportsDeletedRuntimeUser(t *testing.T
 	_, err = db.ExecContext(ctx, `
 INSERT INTO admins (id, users_usage, lifetime_usage) VALUES (1, 0, 0);
 INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, updated_at) VALUES (2, 0, 0, 0, CURRENT_TIMESTAMP);
-INSERT INTO admins_services (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
+INSERT INTO service_admins (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
 INSERT INTO users (id, status, used_traffic, data_limit, admin_id, service_id) VALUES (10, 'deleted', 0, 100000, 1, 2);
 INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 1);
-INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
+INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 0, 0);`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +327,7 @@ func TestRepositoryDoesNotStageFullSyncWhenNodeReportsHardDeletedRuntimeUser(t *
 
 	_, err = db.ExecContext(ctx, `
 INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 1);
-INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
+INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 0, 0);`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -353,11 +353,11 @@ func TestRepositorySkipsUsageHistoryTables(t *testing.T) {
 	_, err = db.ExecContext(ctx, `
 INSERT INTO admins (id, users_usage, lifetime_usage) VALUES (1, 0, 0);
 INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, updated_at) VALUES (2, 0, 0, 0, CURRENT_TIMESTAMP);
-INSERT INTO admins_services (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
+INSERT INTO service_admins (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
 INSERT INTO users (id, status, used_traffic, data_limit, admin_id, service_id) VALUES (10, 'active', 0, 100000, 1, 2);
 INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 2);
 INSERT INTO inbounds (tag) VALUES ('direct');
-INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
+INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 0, 0);`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -384,8 +384,8 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_usages WHERE node_id = 7`, 0)
 	assertInt64(t, db, `SELECT uplink FROM nodes WHERE id = 7`, 11)
 	assertInt64(t, db, `SELECT downlink FROM nodes WHERE id = 7`, 22)
-	assertInt64(t, db, `SELECT uplink FROM system WHERE id = 1`, 11)
-	assertInt64(t, db, `SELECT downlink FROM system WHERE id = 1`, 22)
+	assertInt64(t, db, `SELECT uplink FROM master_usage WHERE id = 1`, 11)
+	assertInt64(t, db, `SELECT downlink FROM master_usage WHERE id = 1`, 22)
 	assertInt64(t, db, `SELECT uplink FROM outbound_traffic WHERE target_id = 'node:7' AND outbound_id = 'tag_direct'`, 11)
 	assertInt64(t, db, `SELECT downlink FROM outbound_traffic WHERE target_id = 'node:7' AND outbound_id = 'tag_direct'`, 22)
 }
@@ -402,9 +402,9 @@ func TestRepositoryPersistsCollectedUsageInChunks(t *testing.T) {
 	_, err = db.ExecContext(ctx, `
 INSERT INTO admins (id, users_usage, lifetime_usage) VALUES (1, 0, 0);
 INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, updated_at) VALUES (2, 0, 0, 0, CURRENT_TIMESTAMP);
-INSERT INTO admins_services (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
+INSERT INTO service_admins (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
 INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 1);
-INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
+INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 0, 0);`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -432,7 +432,7 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 	assertInt64(t, db, `SELECT used_traffic FROM services WHERE id = 2`, expected)
 	assertInt64(t, db, `SELECT lifetime_used_traffic FROM services WHERE id = 2`, expected)
 	assertInt64(t, db, `SELECT users_usage FROM services WHERE id = 2`, expected)
-	assertInt64(t, db, `SELECT used_traffic FROM admins_services WHERE admin_id = 1 AND service_id = 2`, expected)
+	assertInt64(t, db, `SELECT used_traffic FROM service_admins WHERE admin_id = 1 AND service_id = 2`, expected)
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_user_usages WHERE node_id = 7`, int64(count))
 	assertInt64(t, db, `SELECT COALESCE(SUM(used_traffic), 0) FROM node_user_usages WHERE node_id = 7`, expected)
 }
@@ -449,11 +449,11 @@ func TestRepositoryStagesAndFlushesCollectedUsageIdempotently(t *testing.T) {
 	_, err = db.ExecContext(ctx, `
 INSERT INTO admins (id, users_usage, lifetime_usage) VALUES (1, 0, 0);
 INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, updated_at) VALUES (2, 0, 0, 0, CURRENT_TIMESTAMP);
-INSERT INTO admins_services (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
+INSERT INTO service_admins (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
 INSERT INTO users (id, status, used_traffic, data_limit, admin_id, service_id) VALUES (10, 'active', 0, 100000, 1, 2);
 INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 2);
 INSERT INTO inbounds (tag) VALUES ('direct');
-INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
+INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 0, 0);`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -528,6 +528,32 @@ INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
 	assertInt64(t, db, `SELECT used_traffic FROM users WHERE id = 10`, 200)
 	assertInt64(t, db, `SELECT uplink FROM inbounds WHERE tag = 'direct'`, 5)
 	assertInt64(t, db, `SELECT downlink FROM inbounds WHERE tag = 'direct'`, 6)
+}
+
+func TestRepositoryDropsOrphanedUsageHistoryRows(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-orphan.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createUsageTables(t, ctx, db)
+
+	if _, err := db.ExecContext(ctx, `
+INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 1);
+INSERT INTO node_usage_user_queue (node_id, batch_id, user_id, used_traffic, online, created_at, processed_at)
+VALUES (7, 'orphan-batch', 404, 123, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := NewRepository(db, "sqlite").FlushStagedUsageHistory(ctx, 100, UsagePersistOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.OrphanUserRows != 1 {
+		t.Fatalf("expected one orphan row to be discarded, got %#v", result)
+	}
+	assertInt64(t, db, `SELECT COUNT(*) FROM node_usage_user_queue`, 0)
 }
 
 func TestRepositoryAggregatesInboundUsageAcrossNodesAndBatches(t *testing.T) {
@@ -621,12 +647,12 @@ func TestRepositoryFlushesOnHoldUsageWithLongExpireDuration(t *testing.T) {
 	_, err = db.ExecContext(ctx, `
 INSERT INTO admins (id, users_usage, lifetime_usage) VALUES (1, 0, 0);
 INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, updated_at) VALUES (2, 0, 0, 0, CURRENT_TIMESTAMP);
-INSERT INTO admins_services (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
+INSERT INTO service_admins (admin_id, service_id, used_traffic, lifetime_used_traffic, updated_at) VALUES (1, 2, 0, 0, CURRENT_TIMESTAMP);
 INSERT INTO users (id, status, used_traffic, data_limit, expire, on_hold_expire_duration, admin_id, service_id)
 VALUES (10, 'on_hold', 0, 100000, NULL, 864000000, 1, 2);
 INSERT INTO user_presence (user_id, online_at) VALUES (10, CURRENT_TIMESTAMP);
 INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 1);
-INSERT INTO system (id, uplink, downlink) VALUES (1, 0, 0);`)
+INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 0, 0);`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -715,12 +741,103 @@ func TestScaleUserUsageCombinesFactorsAndSaturates(t *testing.T) {
 	}
 }
 
+func TestCompactOldNodeUserUsageDayPreservesTraffic(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-compaction.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createUsageTables(t, ctx, db)
+
+	repo := NewRepository(db, "sqlite")
+	oldDay := time.Date(2026, time.January, 2, 0, 0, 0, 0, time.UTC)
+	recent := time.Date(2026, time.January, 12, 4, 0, 0, 0, time.UTC)
+	rows := []struct {
+		created time.Time
+		userID  int64
+		nodeID  int64
+		traffic int64
+	}{
+		{oldDay, 10, 7, 5},
+		{oldDay.Add(time.Hour), 10, 7, 7},
+		{oldDay.Add(23 * time.Hour), 10, 7, 8},
+		{oldDay.Add(2 * time.Hour), 11, 7, 11},
+		{oldDay.Add(3 * time.Hour), 10, 8, 13},
+		{recent, 10, 7, 17},
+	}
+	for _, row := range rows {
+		if _, err := db.ExecContext(ctx, `INSERT INTO node_user_usages (created_at, user_id, node_id, used_traffic) VALUES (?, ?, ?, ?)`, repo.timeArg(row.created), row.userID, row.nodeID, row.traffic); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	compacted, err := repo.CompactOldNodeUserUsageDay(ctx, time.Date(2026, time.January, 10, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if compacted != 5 {
+		t.Fatalf("compacted source rows=%d want=5", compacted)
+	}
+	assertInt64(t, db, `SELECT COUNT(*) FROM node_user_usages`, 4)
+	assertInt64(t, db, `SELECT COALESCE(SUM(used_traffic), 0) FROM node_user_usages`, 61)
+	assertInt64(t, db, `SELECT used_traffic FROM node_user_usages WHERE created_at = '2026-01-02 00:00:00.000000' AND user_id = 10 AND node_id = 7`, 20)
+	assertInt64(t, db, `SELECT used_traffic FROM node_user_usages WHERE created_at = '2026-01-02 00:00:00.000000' AND user_id = 11 AND node_id = 7`, 11)
+	assertInt64(t, db, `SELECT used_traffic FROM node_user_usages WHERE created_at = '2026-01-02 00:00:00.000000' AND user_id = 10 AND node_id = 8`, 13)
+	assertInt64(t, db, `SELECT used_traffic FROM node_user_usages WHERE created_at = '2026-01-12 04:00:00.000000'`, 17)
+
+	compacted, err = repo.CompactOldNodeUserUsageDay(ctx, time.Date(2026, time.January, 10, 0, 0, 0, 0, time.UTC))
+	if err != nil || compacted != 0 {
+		t.Fatalf("second compaction rows=%d error=%v", compacted, err)
+	}
+}
+
+func TestRepositoryChargesAdminUsageWithServiceCoefficient(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-admin-coefficient.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createUsageTables(t, ctx, db)
+
+	_, err = db.ExecContext(ctx, `
+INSERT INTO admins (id, users_usage, lifetime_usage) VALUES (1, 0, 0), (2, 0, 0);
+INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, usage_coefficient, updated_at) VALUES (5, 0, 0, 0, 2, CURRENT_TIMESTAMP);
+INSERT INTO service_admins (admin_id, service_id, used_traffic, lifetime_used_traffic, usage_coefficient, updated_at) VALUES (1, 5, 0, 0, NULL, CURRENT_TIMESTAMP), (2, 5, 0, 0, 3, CURRENT_TIMESTAMP);
+INSERT INTO users (id, status, used_traffic, data_limit, admin_id, service_id) VALUES (10, 'active', 0, NULL, 1, 5), (11, 'active', 0, NULL, 2, 5);
+INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 1);
+INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 0, 0);`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewRepository(db, "sqlite")
+	err = repo.PersistCollectedUsage(
+		ctx,
+		NodeRow{ID: 7, UsageCoefficient: 1},
+		[]UserUsageDelta{{UserID: 10, Value: 1000}, {UserID: 11, Value: 1000}},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertInt64(t, db, `SELECT used_traffic FROM users WHERE id = 10`, 1000)
+	assertInt64(t, db, `SELECT used_traffic FROM users WHERE id = 11`, 1000)
+	assertInt64(t, db, `SELECT used_traffic FROM services WHERE id = 5`, 2000)
+	assertInt64(t, db, `SELECT used_traffic FROM service_admins WHERE admin_id = 1 AND service_id = 5`, 2000)
+	assertInt64(t, db, `SELECT used_traffic FROM service_admins WHERE admin_id = 2 AND service_id = 5`, 3000)
+	assertInt64(t, db, `SELECT users_usage FROM admins WHERE id = 1`, 2000)
+	assertInt64(t, db, `SELECT users_usage FROM admins WHERE id = 2`, 3000)
+}
+
 func createUsageTables(t *testing.T, ctx context.Context, db *sql.DB) {
 	t.Helper()
 	statements := []string{
 		`CREATE TABLE admins (id INTEGER PRIMARY KEY, users_usage INTEGER NOT NULL DEFAULT 0, lifetime_usage INTEGER NOT NULL DEFAULT 0)`,
-		`CREATE TABLE services (id INTEGER PRIMARY KEY, used_traffic INTEGER NOT NULL DEFAULT 0, lifetime_used_traffic INTEGER NOT NULL DEFAULT 0, users_usage INTEGER NOT NULL DEFAULT 0, updated_at DATETIME NULL)`,
-		`CREATE TABLE admins_services (admin_id INTEGER NOT NULL, service_id INTEGER NOT NULL, used_traffic INTEGER NOT NULL DEFAULT 0, lifetime_used_traffic INTEGER NOT NULL DEFAULT 0, updated_at DATETIME NULL, PRIMARY KEY (admin_id, service_id))`,
+		`CREATE TABLE services (id INTEGER PRIMARY KEY, used_traffic INTEGER NOT NULL DEFAULT 0, lifetime_used_traffic INTEGER NOT NULL DEFAULT 0, users_usage INTEGER NOT NULL DEFAULT 0, usage_coefficient REAL NOT NULL DEFAULT 1, updated_at DATETIME NULL)`,
+		`CREATE TABLE service_admins (admin_id INTEGER NOT NULL, service_id INTEGER NOT NULL, used_traffic INTEGER NOT NULL DEFAULT 0, lifetime_used_traffic INTEGER NOT NULL DEFAULT 0, usage_coefficient REAL NULL, updated_at DATETIME NULL, PRIMARY KEY (admin_id, service_id))`,
 		`CREATE TABLE users (id INTEGER PRIMARY KEY, status TEXT NOT NULL, used_traffic INTEGER NOT NULL DEFAULT 0, data_limit INTEGER NULL, expire INTEGER NULL, online_at DATETIME NULL, on_hold_expire_duration INTEGER NULL, on_hold_timeout DATETIME NULL, edit_at DATETIME NULL, created_at DATETIME NULL, last_status_change DATETIME NULL, admin_id INTEGER NULL, service_id INTEGER NULL)`,
 		`CREATE TABLE user_presence (user_id INTEGER PRIMARY KEY, online_at DATETIME NOT NULL)`,
 		`CREATE TABLE nodes (id INTEGER PRIMARY KEY, status TEXT NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, data_limit INTEGER NULL, message TEXT NULL, last_status_change DATETIME NULL, usage_coefficient REAL NOT NULL DEFAULT 1)`,
@@ -728,7 +845,7 @@ func createUsageTables(t *testing.T, ctx context.Context, db *sql.DB) {
 		`CREATE TABLE node_usages (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at DATETIME NOT NULL, node_id INTEGER NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, UNIQUE(created_at, node_id))`,
 		`CREATE TABLE outbound_traffic (id INTEGER PRIMARY KEY AUTOINCREMENT, target_id TEXT NOT NULL, node_id INTEGER NULL, outbound_id TEXT NOT NULL, tag TEXT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, created_at DATETIME NULL, updated_at DATETIME NULL, UNIQUE(target_id, outbound_id))`,
 		`CREATE TABLE inbounds (id INTEGER PRIMARY KEY AUTOINCREMENT, tag TEXT NOT NULL UNIQUE, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0)`,
-		`CREATE TABLE system (id INTEGER PRIMARY KEY, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0)`,
+		`CREATE TABLE master_usage (id INTEGER PRIMARY KEY, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0)`,
 		`CREATE TABLE node_operations (id INTEGER PRIMARY KEY AUTOINCREMENT, operation_type TEXT NOT NULL, node_id INTEGER NULL, user_id INTEGER NULL, payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT NULL, idempotency_key TEXT NOT NULL UNIQUE, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)`,
 		`CREATE TABLE node_usage_user_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, batch_id TEXT NOT NULL, user_id INTEGER NOT NULL, used_traffic INTEGER NOT NULL DEFAULT 0, online INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, processed_at DATETIME NULL, history_processed_at DATETIME NULL, UNIQUE(node_id, batch_id, user_id))`,
 		`CREATE TABLE node_usage_outbound_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, batch_id TEXT NOT NULL, tag TEXT NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0, inbound_uplink INTEGER NOT NULL DEFAULT 0, inbound_downlink INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, processed_at DATETIME NULL, history_processed_at DATETIME NULL, UNIQUE(node_id, batch_id, tag))`,
@@ -760,4 +877,50 @@ func assertString(t *testing.T, db *sql.DB, query string, expected string) {
 	if actual != expected {
 		t.Fatalf("%s: expected %q, got %q", query, expected, actual)
 	}
+}
+
+func TestRepositoryAdminUsageFollowsNodeInboundAndServiceCoefficients(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-admin-chain.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	createUsageTables(t, ctx, db)
+
+	_, err = db.ExecContext(ctx, `
+INSERT INTO admins (id, users_usage, lifetime_usage) VALUES (1, 0, 0), (2, 0, 0), (3, 0, 0);
+INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, usage_coefficient, updated_at) VALUES (5, 0, 0, 0, 5, CURRENT_TIMESTAMP);
+INSERT INTO services (id, used_traffic, lifetime_used_traffic, users_usage, updated_at) VALUES (6, 0, 0, 0, CURRENT_TIMESTAMP);
+INSERT INTO service_admins (admin_id, service_id, used_traffic, lifetime_used_traffic, usage_coefficient, updated_at) VALUES (1, 5, 0, 0, NULL, CURRENT_TIMESTAMP), (2, 5, 0, 0, 7, CURRENT_TIMESTAMP), (3, 6, 0, 0, NULL, CURRENT_TIMESTAMP);
+INSERT INTO users (id, status, used_traffic, data_limit, admin_id, service_id) VALUES (10, 'active', 0, NULL, 1, 5), (11, 'active', 0, NULL, 2, 5), (12, 'active', 0, NULL, 3, 6);
+INSERT INTO nodes (id, status, uplink, downlink, data_limit, usage_coefficient) VALUES (7, 'connected', 0, 0, NULL, 2);
+INSERT INTO master_usage (id, uplink, downlink) VALUES (1, 0, 0);`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	repo := NewRepository(db, "sqlite")
+	err = repo.PersistCollectedUsage(
+		ctx,
+		NodeRow{ID: 7, UsageCoefficient: 2},
+		[]UserUsageDelta{
+			{UserID: 10, Value: 100, InboundCoefficient: 3},
+			{UserID: 11, Value: 100, InboundCoefficient: 3},
+			{UserID: 12, Value: 100, InboundCoefficient: 3},
+		},
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertInt64(t, db, `SELECT used_traffic FROM users WHERE id = 10`, 600)
+	assertInt64(t, db, `SELECT used_traffic FROM services WHERE id = 5`, 1200)
+	assertInt64(t, db, `SELECT used_traffic FROM service_admins WHERE admin_id = 1 AND service_id = 5`, 3000)
+	assertInt64(t, db, `SELECT used_traffic FROM service_admins WHERE admin_id = 2 AND service_id = 5`, 4200)
+	assertInt64(t, db, `SELECT users_usage FROM admins WHERE id = 1`, 3000)
+	assertInt64(t, db, `SELECT users_usage FROM admins WHERE id = 2`, 4200)
+	assertInt64(t, db, `SELECT used_traffic FROM service_admins WHERE admin_id = 3 AND service_id = 6`, 600)
+	assertInt64(t, db, `SELECT users_usage FROM admins WHERE id = 3`, 600)
 }

@@ -155,7 +155,7 @@ func (s Service) CreateUser(ctx context.Context, admin adminapp.Admin, raw []byt
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return MutationResult{}, clientError(400, "invalid request body")
 	}
-	// Flow is retained in the public payload for compatibility; service flow is authoritative.
+	// Flow is retained in the public payload for compatibility; inbound flow is authoritative.
 	payload.Flow = nil
 	if rawFieldPresent(fields, "next_plan") {
 		return MutationResult{}, clientError(400, NextPlanRemovedMessage)
@@ -341,6 +341,7 @@ func normalizeUserNumericStringFields(raw []byte, fields map[string]json.RawMess
 		"data_limit",
 		"on_hold_expire_duration",
 		"ip_limit",
+		"speed_limit_kbps",
 		"auto_delete_in_days",
 	} {
 		value, ok := fields[key]

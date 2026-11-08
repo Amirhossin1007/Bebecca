@@ -60,7 +60,7 @@ func TestUserMutationCreateUpdateDeleteQueuesOperations(t *testing.T) {
 		t.Fatalf("proxies create status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	assertDBString(t, db, `SELECT credential_key FROM users WHERE username = 'proxy_payload'`, "11111111111141118111111111111111")
-	assertDBInt64(t, db, `SELECT COUNT(*) FROM proxies WHERE user_id = (SELECT id FROM users WHERE username = 'proxy_payload')`, 0)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM user_credentials WHERE user_id = (SELECT id FROM users WHERE username = 'proxy_payload')`, 0)
 
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/user", token, `{"username":"string_numbers","service_id":"1","data_limit":"3000","ip_limit":"0"}`)
 	if rec.Code != http.StatusCreated {
@@ -108,7 +108,7 @@ func TestUserMutationCreateUpdateDeleteQueuesOperations(t *testing.T) {
 		t.Fatalf("proxies update status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	assertDBString(t, db, `SELECT credential_key FROM users WHERE username = 'go_user'`, "11111111111141118111111111111111")
-	assertDBInt64(t, db, `SELECT COUNT(*) FROM proxies WHERE user_id = (SELECT id FROM users WHERE username = 'go_user')`, 0)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM user_credentials WHERE user_id = (SELECT id FROM users WHERE username = 'go_user')`, 0)
 
 	rec = adminJSONRequest(t, server, http.MethodDelete, "/api/user/go_user", token, `{}`)
 	if rec.Code != http.StatusOK {
@@ -407,7 +407,7 @@ func TestServiceScopedBulkActivateHonorsPerServiceLimits(t *testing.T) {
 	}
 	assertDBString(t, db, `SELECT status FROM users WHERE username = 'disabled_service_user'`, "disabled")
 
-	if _, err := db.Exec(`UPDATE admins_services SET users_limit = NULL, used_traffic = 1000 WHERE admin_id = 2 AND service_id = 1`); err != nil {
+	if _, err := db.Exec(`UPDATE service_admins SET users_limit = NULL, used_traffic = 1000 WHERE admin_id = 2 AND service_id = 1`); err != nil {
 		t.Fatal(err)
 	}
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/services/1/users/actions", ownerToken, `{"action":"activate_users"}`)
@@ -460,7 +460,7 @@ func TestServiceAdminLimitsEnforcedForUserCreate(t *testing.T) {
 	if _, err := db.Exec(`UPDATE users SET status = 'disabled' WHERE id = 40`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`UPDATE admins_services SET used_traffic = 100, users_limit = NULL WHERE admin_id = 2 AND service_id = 1`); err != nil {
+	if _, err := db.Exec(`UPDATE service_admins SET used_traffic = 100, users_limit = NULL WHERE admin_id = 2 AND service_id = 1`); err != nil {
 		t.Fatal(err)
 	}
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/users", sellerToken, `{"username":"used_cap","service_id":1,"data_limit":50}`)
@@ -468,7 +468,7 @@ func TestServiceAdminLimitsEnforcedForUserCreate(t *testing.T) {
 		t.Fatalf("used traffic cap status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
-	if _, err := db.Exec(`UPDATE admins_services SET traffic_limit_mode = 'created_traffic', data_limit = 1000, used_traffic = 0, created_traffic = 900 WHERE admin_id = 2 AND service_id = 1`); err != nil {
+	if _, err := db.Exec(`UPDATE service_admins SET traffic_limit_mode = 'created_traffic', data_limit = 1000, used_traffic = 0, created_traffic = 900 WHERE admin_id = 2 AND service_id = 1`); err != nil {
 		t.Fatal(err)
 	}
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/users", sellerToken, `{"username":"created_cap","service_id":1,"data_limit":200}`)
@@ -479,7 +479,7 @@ func TestServiceAdminLimitsEnforcedForUserCreate(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("created ok status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	assertDBInt64(t, db, `SELECT created_traffic FROM admins_services WHERE admin_id = 2 AND service_id = 1`, 950)
+	assertDBInt64(t, db, `SELECT created_traffic FROM service_admins WHERE admin_id = 2 AND service_id = 1`, 950)
 	assertUserOperationCount(t, db, "add_user", "created_ok", 1)
 }
 
@@ -511,7 +511,7 @@ func TestServiceAdminTrafficCapsBlockUserManagement(t *testing.T) {
 		}
 	}
 
-	if _, err := db.Exec(`UPDATE admins_services SET traffic_limit_mode = 'created_traffic', used_traffic = 0, created_traffic = 100 WHERE admin_id = 2 AND service_id = 1`); err != nil {
+	if _, err := db.Exec(`UPDATE service_admins SET traffic_limit_mode = 'created_traffic', used_traffic = 0, created_traffic = 100 WHERE admin_id = 2 AND service_id = 1`); err != nil {
 		t.Fatal(err)
 	}
 	server.reviewAdminLifecycle(t.Context())
@@ -529,7 +529,7 @@ func TestServiceAdminTrafficCapsBlockUserManagement(t *testing.T) {
 		}
 	}
 
-	if _, err := db.Exec(`UPDATE admins_services SET data_limit = 200 WHERE admin_id = 2 AND service_id = 1`); err != nil {
+	if _, err := db.Exec(`UPDATE service_admins SET data_limit = 200 WHERE admin_id = 2 AND service_id = 1`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`UPDATE nodes SET status = 'disconnected'`); err != nil {
@@ -602,9 +602,9 @@ func TestServiceAdminLimitsEnforcedForUserServiceTransfer(t *testing.T) {
 		t.Fatalf("service transfer created cap status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	assertDBInt64(t, db, `SELECT service_id FROM users WHERE username = 'move_me'`, 1)
-	assertDBInt64(t, db, `SELECT created_traffic FROM admins_services WHERE admin_id = 2 AND service_id = 2`, 900)
+	assertDBInt64(t, db, `SELECT created_traffic FROM service_admins WHERE admin_id = 2 AND service_id = 2`, 900)
 
-	if _, err := db.Exec(`UPDATE admins_services SET created_traffic = 100 WHERE admin_id = 2 AND service_id = 2`); err != nil {
+	if _, err := db.Exec(`UPDATE service_admins SET created_traffic = 100 WHERE admin_id = 2 AND service_id = 2`); err != nil {
 		t.Fatal(err)
 	}
 	rec = adminJSONRequest(t, server, http.MethodPut, "/api/user/move_me", sellerToken, `{"service_id":2}`)
@@ -612,8 +612,8 @@ func TestServiceAdminLimitsEnforcedForUserServiceTransfer(t *testing.T) {
 		t.Fatalf("service transfer ok status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	assertDBInt64(t, db, `SELECT service_id FROM users WHERE username = 'move_me'`, 2)
-	assertDBInt64(t, db, `SELECT created_traffic FROM admins_services WHERE admin_id = 2 AND service_id = 1`, 300)
-	assertDBInt64(t, db, `SELECT created_traffic FROM admins_services WHERE admin_id = 2 AND service_id = 2`, 300)
+	assertDBInt64(t, db, `SELECT created_traffic FROM service_admins WHERE admin_id = 2 AND service_id = 1`, 300)
+	assertDBInt64(t, db, `SELECT created_traffic FROM service_admins WHERE admin_id = 2 AND service_id = 2`, 300)
 }
 
 func TestServiceAdminUsersLimitEnforcedForActiveServiceTransfer(t *testing.T) {
@@ -687,8 +687,8 @@ func TestServiceAdminDeleteUsageLimitAndCredit(t *testing.T) {
 		t.Fatalf("delete cap ok status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	assertDBString(t, db, `SELECT status FROM users WHERE username = 'delete_ok'`, "deleted")
-	assertDBInt64(t, db, `SELECT deleted_users_usage FROM admins_services WHERE admin_id = 2 AND service_id = 1`, 80)
-	assertDBInt64(t, db, `SELECT created_traffic FROM admins_services WHERE admin_id = 2 AND service_id = 1`, 820)
+	assertDBInt64(t, db, `SELECT deleted_users_usage FROM service_admins WHERE admin_id = 2 AND service_id = 1`, 80)
+	assertDBInt64(t, db, `SELECT created_traffic FROM service_admins WHERE admin_id = 2 AND service_id = 1`, 820)
 	assertDBInt64(t, db, `SELECT amount FROM admin_created_traffic_logs WHERE admin_id = 2 AND service_id = 1 AND action = 'user_delete_credit'`, -80)
 }
 
@@ -814,7 +814,7 @@ func seedServiceForAdmin(t *testing.T, db *sql.DB, serviceID int64, name string,
 		columns += `, ` + limitColumns
 		values += `, ` + limitValues
 	}
-	if _, err := db.Exec(`INSERT INTO admins_services (`+columns+`) VALUES (`+values+`)`, args...); err != nil {
+	if _, err := db.Exec(`INSERT INTO service_admins (`+columns+`) VALUES (`+values+`)`, args...); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -14,6 +14,14 @@ for SCRIPT in "$ROOT/rebecca-node.sh" "$ROOT/rebecca-node-binary.sh"; do
     select_node_version latest
     [ "$SELECTED_NODE_VERSION" = "latest" ]
 
+    if [[ "$SCRIPT" == *rebecca-node-binary.sh ]]; then
+        eval "$(sed -n '/^select_xray_core_version() {$/,/^}$/p' "$SCRIPT")"
+        DEFAULT_XRAY_CORE_VERSION=v26.5.9
+        XRAY_CORE_VERSION=""
+        select_xray_core_version
+        [ "$XRAY_CORE_VERSION" = "v26.5.9" ]
+    fi
+
     eval "$(sed -n '/^read_node_certificate_bundle() {$/,/^}$/p' "$SCRIPT")"
     CERT_FILE="$TMP/cert.pem"
     CERT_KEY_FILE="$TMP/cert.key"

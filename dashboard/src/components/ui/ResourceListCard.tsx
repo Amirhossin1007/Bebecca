@@ -27,6 +27,55 @@ type ResourceListCardProps = Omit<StackProps, "title"> & {
 	children?: ReactNode;
 };
 
+export const ResourceSummaryPills: FC<{ items: ResourceSummaryItem[] }> = ({
+	items,
+}) => {
+	if (items.length === 0) {
+		return null;
+	}
+	return (
+		<HStack spacing={2} flexWrap="wrap">
+			{items.map((item) => {
+				const tag = (
+					<Tag
+						key={item.label}
+						size="md"
+						borderRadius="full"
+						px={3}
+						py={1}
+						colorScheme={item.colorScheme ?? "gray"}
+						variant="subtle"
+						fontWeight="medium"
+					>
+						{item.label}:{" "}
+						<Text
+							as="span"
+							fontWeight="bold"
+							ms={1}
+							dir="ltr"
+							sx={{ unicodeBidi: "isolate" }}
+						>
+							{item.value}
+						</Text>
+					</Tag>
+				);
+				return item.helper ? (
+					<Tooltip
+						key={item.label}
+						label={item.helper}
+						hasArrow
+						placement="top"
+					>
+						{tag}
+					</Tooltip>
+				) : (
+					tag
+				);
+			})}
+		</HStack>
+	);
+};
+
 export const ResourceListCard: FC<ResourceListCardProps> = ({
 	title,
 	summaryItems = [],
@@ -75,41 +124,7 @@ export const ResourceListCard: FC<ResourceListCardProps> = ({
 					minW={{ base: "0", xl: "210px" }}
 				>
 					{titleContent}
-					{summaryItems.length > 0 && (
-						<HStack spacing={2} flexWrap="wrap">
-							{summaryItems.map((item) => {
-								const tag = (
-									<Tag
-										key={item.label}
-										size="md"
-										borderRadius="full"
-										px={3}
-										py={1}
-										colorScheme={item.colorScheme ?? "gray"}
-										variant="subtle"
-										fontWeight="medium"
-									>
-										{item.label}:{" "}
-										<Text as="span" fontWeight="bold" ms={1}>
-											{item.value}
-										</Text>
-									</Tag>
-								);
-								return item.helper ? (
-									<Tooltip
-										key={item.label}
-										label={item.helper}
-										hasArrow
-										placement="top"
-									>
-										{tag}
-									</Tooltip>
-								) : (
-									tag
-								);
-							})}
-						</HStack>
-					)}
+					<ResourceSummaryPills items={summaryItems} />
 				</VStack>
 				{actions && <Box>{actions}</Box>}
 			</Stack>

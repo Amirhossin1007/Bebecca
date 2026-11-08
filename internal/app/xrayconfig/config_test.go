@@ -3,6 +3,11 @@ package xrayconfig
 import (
 	"encoding/base64"
 	"encoding/json"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -135,7 +140,7 @@ func TestNormalizePayloadRemovesLegacyReverseAndRemovedTLSFields(t *testing.T) {
 		t.Fatal("legacy reverse config was not removed")
 	}
 	rules := listOfMaps(mapValue(normalized["routing"])["rules"])
-	if len(rules) != 1 || stringValue(rules[0]["outboundTag"]) != "direct" {
+	if len(rules) != 1 || jsonvalue.String(rules[0]["outboundTag"]) != "direct" {
 		t.Fatalf("legacy reverse routing rules were not removed: %#v", rules)
 	}
 	inboundTLS := mapValue(mapValue(listOfMaps(normalized["inbounds"])[0]["streamSettings"])["tlsSettings"])
@@ -430,7 +435,7 @@ func TestNormalizePayloadForXrayVersionGatesVLESSInboundDefaultFlow(t *testing.T
 	payload := map[string]any{
 		"inbounds": []any{map[string]any{
 			"tag": "default-flow", "protocol": "vless",
-			"settings": map[string]any{"flow": "xtls-rprx-vision"},
+			"settings": map[string]any{"flow": "xtls-rprx-vision", "clients": []any{map[string]any{"id": "user-id"}}},
 		}},
 		"outbounds": []any{map[string]any{
 			"tag": "client-flow", "protocol": "vless",
@@ -444,12 +449,18 @@ func TestNormalizePayloadForXrayVersionGatesVLESSInboundDefaultFlow(t *testing.T
 	}{
 		{version: "Xray 25.8.28", wantWarning: "before 25.8.29"},
 		{version: "Xray 25.8.29"},
+		{version: "Xray 26.5.9"},
+		{version: "Xray 26.7.28"},
 		{version: "custom build", wantWarning: "support starts at 25.8.29"},
 	} {
 		normalized, warning := NormalizePayloadForXrayVersion(payload, tc.version)
 		settings := mapValue(listOfMaps(normalized["inbounds"])[0]["settings"])
-		if settings["flow"] != "xtls-rprx-vision" {
-			t.Fatalf("default flow was mutated for %s: %#v", tc.version, settings)
+		wantDefault := tc.version != "Xray 25.8.28"
+		if (settings["flow"] == "xtls-rprx-vision") != wantDefault {
+			t.Fatalf("default flow compatibility mismatch for %s: %#v", tc.version, settings)
+		}
+		if got := listOfMaps(settings["clients"])[0]["flow"]; got != "xtls-rprx-vision" {
+			t.Fatalf("account flow for %s = %v", tc.version, got)
 		}
 		if tc.wantWarning == "" {
 			if strings.Contains(warning, "default flow") {
@@ -461,6 +472,9 @@ func TestNormalizePayloadForXrayVersionGatesVLESSInboundDefaultFlow(t *testing.T
 		if strings.Contains(warning, "client-flow") {
 			t.Fatalf("outbound flow was incorrectly version-gated: %s", warning)
 		}
+	}
+	if got := listOfMaps(mapValue(listOfMaps(payload["inbounds"])[0]["settings"])["clients"])[0]["flow"]; got != nil {
+		t.Fatal("normalization changed persisted config")
 	}
 }
 
@@ -602,15 +616,15 @@ func TestNormalizePayloadForXrayVersionGatesHysteria2WithoutGuessingLegacySemant
 			normalized, warning := NormalizePayloadForXrayVersion(payload, tc.version)
 			inbound := listOfMaps(normalized["inbounds"])[0]
 			settings := mapValue(inbound["settings"])
-			streamVersion := intValue(mapValue(mapValue(inbound["streamSettings"])["hysteriaSettings"])["version"])
-			if got := intValue(settings["version"]); got != tc.wantVersion || streamVersion != tc.wantVersion {
+			streamVersion := jsonvalue.Int(mapValue(mapValue(inbound["streamSettings"])["hysteriaSettings"])["version"])
+			if got := jsonvalue.Int(settings["version"]); got != tc.wantVersion || streamVersion != tc.wantVersion {
 				t.Fatalf("versions settings=%d stream=%d want=%d normalized=%#v", got, streamVersion, tc.wantVersion, normalized)
 			}
 			if !strings.Contains(warning, tc.warning) {
 				t.Fatalf("warning %q does not contain %q", warning, tc.warning)
 			}
 			original := tc.shape
-			if got := intValue(mapValue(original["settings"])["version"]); got != 0 && tc.wantVersion == 2 {
+			if got := jsonvalue.Int(mapValue(original["settings"])["version"]); got != 0 && tc.wantVersion == 2 {
 				t.Fatalf("original settings were mutated: %#v", original)
 			}
 		})
@@ -627,7 +641,7 @@ func TestNormalizePayloadForXrayVersionUsesEarlierHysteriaOutboundBoundary(t *te
 	}
 	normalized, warning := NormalizePayloadForXrayVersion(map[string]any{"outbounds": []any{outbound}}, "Xray 26.1.23")
 	got := listOfMaps(normalized["outbounds"])[0]
-	if intValue(mapValue(got["settings"])["version"]) != 2 || intValue(mapValue(mapValue(got["streamSettings"])["hysteriaSettings"])["version"]) != 2 {
+	if jsonvalue.Int(mapValue(got["settings"])["version"]) != 2 || jsonvalue.Int(mapValue(mapValue(got["streamSettings"])["hysteriaSettings"])["version"]) != 2 {
 		t.Fatalf("pre-26.3.27 Hysteria outbound was not normalized to required version 2: %#v", got)
 	}
 	if !strings.Contains(warning, "Hysteria outbound") {
@@ -637,7 +651,7 @@ func TestNormalizePayloadForXrayVersionUsesEarlierHysteriaOutboundBoundary(t *te
 	inbound["settings"] = map[string]any{"clients": []any{}}
 	normalized, warning = NormalizePayloadForXrayVersion(map[string]any{"inbounds": []any{inbound}}, "Xray 26.1.23")
 	got = listOfMaps(normalized["inbounds"])[0]
-	if intValue(mapValue(got["settings"])["version"]) != 0 || !strings.Contains(warning, "before 26.3.27") {
+	if jsonvalue.Int(mapValue(got["settings"])["version"]) != 0 || !strings.Contains(warning, "before 26.3.27") {
 		t.Fatalf("pre-26.3.27 Hysteria inbound should remain untouched with warning: %#v warning=%s", got, warning)
 	}
 }
@@ -775,7 +789,7 @@ func TestNormalizePayloadForXrayVersionKeepsRequiredUDPOuterMaskFirst(t *testing
 				t.Fatalf("UDP masks = %#v, want %#v", udp, want)
 			}
 			for index, maskType := range want {
-				if stringValue(udp[index]["type"]) != maskType {
+				if jsonvalue.String(udp[index]["type"]) != maskType {
 					t.Fatalf("UDP order = %#v, want %#v", udp, want)
 				}
 			}
@@ -866,7 +880,7 @@ func TestNormalizePayloadForXrayVersionWarnsForLegacyMKCPMTUWithoutClamping(t *t
 				},
 			}}}
 			normalized, warning := NormalizePayloadForXrayVersion(payload, tc.version)
-			got := intValue(mapValue(mapValue(listOfMaps(normalized["outbounds"])[0]["streamSettings"])["kcpSettings"])["mtu"])
+			got := jsonvalue.Int(mapValue(mapValue(listOfMaps(normalized["outbounds"])[0]["streamSettings"])["kcpSettings"])["mtu"])
 			if got != tc.mtu {
 				t.Fatalf("mtu was mutated: got=%d want=%d", got, tc.mtu)
 			}
@@ -901,7 +915,7 @@ func TestNormalizePayloadForXrayVersionUsesVersionedMKCPTTIMaximum(t *testing.T)
 				},
 			}}}
 			normalized, warning := NormalizePayloadForXrayVersion(payload, tc.version)
-			got := intValue(mapValue(mapValue(listOfMaps(normalized["outbounds"])[0]["streamSettings"])["kcpSettings"])["tti"])
+			got := jsonvalue.Int(mapValue(mapValue(listOfMaps(normalized["outbounds"])[0]["streamSettings"])["kcpSettings"])["tti"])
 			if got != tc.tti {
 				t.Fatalf("tti was mutated: got=%d want=%d", got, tc.tti)
 			}
@@ -1074,13 +1088,13 @@ func assertXHTTPSessionAliases(t *testing.T, settings map[string]any, wantPlacem
 	if got, exists := settings["sessionIDTable"]; exists != wantCurrent || (exists && got != wantTable) {
 		t.Fatalf("current table = %#v, exists=%t, settings=%#v", got, exists, settings)
 	}
-	if got, exists := settings["sessionIDLength"]; exists != wantCurrent || (exists && intValue(got) != wantLength) {
+	if got, exists := settings["sessionIDLength"]; exists != wantCurrent || (exists && jsonvalue.Int(got) != wantLength) {
 		t.Fatalf("current length = %#v, exists=%t, settings=%#v", got, exists, settings)
 	}
 	if got, exists := settings["sessionTable"]; exists != wantLegacy || (exists && got != wantTable) {
 		t.Fatalf("legacy table = %#v, exists=%t, settings=%#v", got, exists, settings)
 	}
-	if got, exists := settings["sessionLength"]; exists != wantLegacy || (exists && intValue(got) != wantLength) {
+	if got, exists := settings["sessionLength"]; exists != wantLegacy || (exists && jsonvalue.Int(got) != wantLength) {
 		t.Fatalf("legacy length = %#v, exists=%t, settings=%#v", got, exists, settings)
 	}
 }
@@ -1091,7 +1105,7 @@ func TestReverseClientsKeepsOnlyStaticReverseAccounts(t *testing.T) {
 		map[string]any{"id": "reverse", "reverse": map[string]any{"tag": "reverse-in"}},
 	}
 	kept := ReverseClients(clients)
-	if len(kept) != 1 || stringValue(kept[0].(map[string]any)["id"]) != "reverse" {
+	if len(kept) != 1 || jsonvalue.String(kept[0].(map[string]any)["id"]) != "reverse" {
 		t.Fatalf("unexpected reverse clients: %#v", kept)
 	}
 	kept[0].(map[string]any)["id"] = "changed"
@@ -1259,7 +1273,7 @@ func TestRealityInboundAcceptsSettingsShortID(t *testing.T) {
 	if got := firstStringList(inbound["sni"]); got != "example.com" {
 		t.Fatalf("expected settings serverName compatibility, got %#v", inbound)
 	}
-	if got := stringValue(inbound["spx"]); got != "/spider" {
+	if got := jsonvalue.String(inbound["spx"]); got != "/spider" {
 		t.Fatalf("expected spiderX compatibility, got %#v", inbound)
 	}
 }
@@ -1401,10 +1415,10 @@ func TestParseNormalizesXHTTPSessionAliases(t *testing.T) {
 				t.Fatalf("Parse() error = %v", err)
 			}
 			resolved := parsed.InboundsByTag()["vless-tcp"]
-			if got := stringValue(resolved["sessionIDPlacement"]); got != "header" {
+			if got := jsonvalue.String(resolved["sessionIDPlacement"]); got != "header" {
 				t.Fatalf("sessionIDPlacement = %q, want header: %#v", got, resolved)
 			}
-			if got := stringValue(resolved["sessionIDKey"]); got != "X-Session" {
+			if got := jsonvalue.String(resolved["sessionIDKey"]); got != "X-Session" {
 				t.Fatalf("sessionIDKey = %q, want X-Session: %#v", got, resolved)
 			}
 			rawSettings := mapValue(mapValue(listOfMaps(parsed.Raw()["inbounds"])[0]["streamSettings"])["xhttpSettings"])
@@ -1628,6 +1642,23 @@ func TestParseRejectsInvalidMultiUserShadowsocks2022(t *testing.T) {
 	}
 }
 
+func TestParseRejectsShadowsocks2022ChachaWithUsers(t *testing.T) {
+	password := base64.StdEncoding.EncodeToString(make([]byte, 32))
+	_, err := Parse(map[string]any{
+		"inbounds": []any{map[string]any{
+			"tag": "ss", "port": 8388, "protocol": "shadowsocks",
+			"settings": map[string]any{
+				"method": "2022-blake3-chacha20-poly1305", "password": password,
+				"clients": []any{map[string]any{"email": "u", "password": password}},
+			},
+		}},
+		"outbounds": []any{map[string]any{"tag": "direct", "protocol": "freedom"}},
+	}, Options{})
+	if err == nil || !strings.Contains(err.Error(), "chacha20") {
+		t.Fatalf("chacha20 2022 with users must be rejected, got %v", err)
+	}
+}
+
 func TestParseAcceptsShadowsocks2022Chacha20(t *testing.T) {
 	password := base64.StdEncoding.EncodeToString(make([]byte, 32))
 	_, err := Parse(map[string]any{
@@ -1718,7 +1749,7 @@ func TestExtraVPNInboundValidation(t *testing.T) {
 		{"tag": "awg", "port": 51820, "protocol": AWGProtocol, "settings": map[string]any{"address_pool": "10.73.0.0/24", "server_address": "10.73.0.1/24", "private_key": privateKey, "tproxy_enabled": false, "jc": 4, "jmin": 8, "jmax": 80}},
 		{"tag": "gre", "port": 47, "protocol": GREProtocol, "settings": map[string]any{"ipv4_pool_cidr": "10.74.0.0/24", "tproxy_enabled": false, "mtu": 1476, "ttl": 64}},
 	} {
-		if err := validateVirtualTunnelInbound(stringValue(inbound["tag"]), inbound); err != nil {
+		if err := validateVirtualTunnelInbound(jsonvalue.String(inbound["tag"]), inbound); err != nil {
 			t.Fatalf("%s validation failed: %v", inbound["protocol"], err)
 		}
 	}
@@ -1730,7 +1761,7 @@ func TestRemoteAccessInboundRejectsUnsafeSettings(t *testing.T) {
 		{"tag": "anyconnect", "port": 443, "protocol": AnyConnectProtocol, "settings": map[string]any{"auth_mode": "password", "ipv4_pool_cidr": "10.71.0.0/24", "tproxy_enabled": false, "server_certificate": "cert", "server_key": "key", "routes": []any{"not-a-cidr"}}},
 	}
 	for _, inbound := range tests {
-		if err := validateVirtualTunnelInbound(stringValue(inbound["tag"]), inbound); err == nil {
+		if err := validateVirtualTunnelInbound(jsonvalue.String(inbound["tag"]), inbound); err == nil {
 			t.Fatalf("expected invalid settings to be rejected: %#v", inbound)
 		}
 	}
@@ -1821,11 +1852,133 @@ func TestMergePolicyPreservesIndependentInboundStatsToggles(t *testing.T) {
 	runtime := map[string]any{}
 	mergePolicy(runtime)
 	system := mapValue(mapValue(runtime["policy"])["system"])
-	if _, exists := system["statsInboundUplink"]; exists {
-		t.Fatalf("missing inbound toggle should retain Xray's false default: %#v", system)
+	if system["statsInboundUplink"] != true {
+		t.Fatalf("missing inbound uplink toggle should enable inbound statistics: %#v", system)
 	}
-	if _, exists := system["statsInboundDownlink"]; exists {
-		t.Fatalf("missing inbound toggle should retain Xray's false default: %#v", system)
+	if system["statsInboundDownlink"] != true {
+		t.Fatalf("missing inbound downlink toggle should enable inbound statistics: %#v", system)
+	}
+}
+
+func TestNormalizePayloadForXrayVersionMigrates2698OutboundsOnly(t *testing.T) {
+	payload := map[string]any{"outbounds": []any{
+		map[string]any{"tag": "chain", "protocol": "vless", "proxySettings": map[string]any{"tag": "hop"}},
+		map[string]any{"tag": "direct", "protocol": "freedom", "targetStrategy": "UseIPv4", "settings": map[string]any{"domainStrategy": "UseIPv6"}, "streamSettings": map[string]any{"sockopt": map[string]any{"addressPortStrategy": "SrvPortOnly"}}},
+		map[string]any{"tag": "dns", "protocol": "dns", "settings": map[string]any{"nonIPQuery": "reject", "blockTypes": []any{65, 28}}},
+	}}
+	old, _ := NormalizePayloadForXrayVersion(payload, "Xray 26.7.28")
+	if listOfMaps(old["outbounds"])[0]["proxySettings"] == nil {
+		t.Fatal("legacy outbound keys were lost on an older core")
+	}
+	modern, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.9.8")
+	if !strings.Contains(warning, "26.9.8+") {
+		t.Fatalf("missing migration warning: %s", warning)
+	}
+	outbounds := listOfMaps(modern["outbounds"])
+	if outbounds[0]["proxySettings"] != nil || mapValue(mapValue(outbounds[0]["streamSettings"])["sockopt"])["dialerProxy"] != "hop" {
+		t.Fatalf("legacy proxy was not migrated: %#v", outbounds[0])
+	}
+	freedom := outbounds[1]
+	sockopt := mapValue(mapValue(freedom["streamSettings"])["sockopt"])
+	if freedom["targetStrategy"] != nil || mapValue(freedom["settings"])["domainStrategy"] != nil || sockopt["domainStrategy"] != "UseIPv4" || sockopt["addressPortStrategy"] != nil {
+		t.Fatalf("freedom settings were not migrated: %#v", freedom)
+	}
+	dns := mapValue(outbounds[2]["settings"])
+	if dns["nonIPQuery"] != nil || dns["blockTypes"] != nil || len(dns["rules"].([]any)) != 3 {
+		t.Fatalf("DNS rules were not migrated: %#v", dns)
+	}
+	if listOfMaps(payload["outbounds"])[0]["proxySettings"] == nil {
+		t.Fatal("normalization modified the persisted config")
+	}
+}
+
+func TestNormalizePayloadForXrayVersionMigratesUDPHopAt2699(t *testing.T) {
+	payload := map[string]any{"outbounds": []any{map[string]any{
+		"tag": "hy", "protocol": "hysteria", "streamSettings": map[string]any{"network": "hysteria", "finalmask": map[string]any{
+			"quicParams": map[string]any{"congestion": "bbr", "udpHop": map[string]any{"ports": "20000-30000"}},
+			"udp":        []any{map[string]any{"type": "salamander", "settings": map[string]any{"password": "secret"}}},
+		}},
+	}}}
+	old, _ := NormalizePayloadForXrayVersion(payload, "Xray 26.9.8")
+	oldMask := mapValue(mapValue(listOfMaps(old["outbounds"])[0]["streamSettings"])["finalmask"])
+	if mapValue(oldMask["quicParams"])["udpHop"] == nil {
+		t.Fatal("older Xray lost its legacy UDP hop")
+	}
+	modern, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.9.9")
+	mask := mapValue(mapValue(listOfMaps(modern["outbounds"])[0]["streamSettings"])["finalmask"])
+	if mapValue(mask["quicParams"])["udpHop"] != nil {
+		t.Fatalf("removed UDP hop key remains: %#v", mask)
+	}
+	first := mapValue(mask["udp"].([]any)[0])
+	settings := mapValue(first["settings"])
+	if first["type"] != "udphop" || settings["mode"] != "intervalRemote" || settings["interval"] != "30" || settings["remotePorts"] != "20000-30000" || !strings.Contains(warning, "26.9.9+") {
+		t.Fatalf("new mask mismatch: %#v; warning=%s", mask, warning)
+	}
+}
+
+func TestNormalizePayloadForXrayVersionGatesWireGuardRemoteDNS(t *testing.T) {
+	payload := map[string]any{"outbounds": []any{map[string]any{"tag": "wg", "protocol": "wireguard", "settings": map[string]any{"remoteDNS": []any{"1.1.1.1"}}}}}
+	legacy, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.7.28")
+	if mapValue(listOfMaps(legacy["outbounds"])[0]["settings"])["remoteDNS"] != nil || !strings.Contains(warning, "remoteDNS requires Xray 26.9.8+") {
+		t.Fatalf("old core received remoteDNS: %#v; warning=%s", legacy, warning)
+	}
+	modern, _ := NormalizePayloadForXrayVersion(payload, "Xray 26.9.8")
+	if mapValue(listOfMaps(modern["outbounds"])[0]["settings"])["remoteDNS"] == nil {
+		t.Fatal("new core lost remoteDNS")
+	}
+}
+
+func TestNormalizePayloadForXrayVersionGatesCustomBlackholeResponse(t *testing.T) {
+	payload := map[string]any{"outbounds": []any{map[string]any{"tag": "block", "protocol": "blackhole", "settings": map[string]any{"response": map[string]any{"type": "custom", "customResponseData": "SGVsbG8="}}}}}
+	legacy, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.7.28")
+	response := mapValue(mapValue(listOfMaps(legacy["outbounds"])[0]["settings"])["response"])
+	if response["type"] != "none" || response["customResponseData"] != nil || !strings.Contains(warning, "Custom blackhole responses require Xray 26.9.8+") {
+		t.Fatalf("old core received custom response: %#v; warning=%s", response, warning)
+	}
+	modern, _ := NormalizePayloadForXrayVersion(payload, "Xray 26.9.8")
+	response = mapValue(mapValue(listOfMaps(modern["outbounds"])[0]["settings"])["response"])
+	if response["type"] != "custom" || response["customResponseData"] != "SGVsbG8=" {
+		t.Fatalf("new core lost custom response: %#v", response)
+	}
+}
+
+func TestNormalizePayloadForXrayVersionGatesLocalOSRouting(t *testing.T) {
+	payload := map[string]any{"routing": map[string]any{"rules": []any{
+		map[string]any{"type": "field", "localOS": []any{"linux"}, "outboundTag": "linux-only"},
+		map[string]any{"type": "field", "domain": []any{"example.com"}, "outboundTag": "other"},
+	}}}
+	legacy, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.7.28")
+	if len(mapValue(legacy["routing"])["rules"].([]any)) != 1 || !strings.Contains(warning, "skipped 1 incompatible rule") {
+		t.Fatalf("old core received localOS rule: %#v; warning=%s", legacy, warning)
+	}
+	modern, _ := NormalizePayloadForXrayVersion(payload, "Xray 26.9.8")
+	if len(mapValue(modern["routing"])["rules"].([]any)) != 2 || len(mapValue(payload["routing"])["rules"].([]any)) != 2 {
+		t.Fatal("routing rules were lost or persisted config was modified")
+	}
+}
+
+func TestNormalizePayloadForXrayVersionAgainstOfficialCore(t *testing.T) {
+	core := os.Getenv("XRAY_2699_BIN")
+	if core == "" {
+		t.Skip("set XRAY_2699_BIN to an official Xray 26.9.9 binary")
+	}
+	payload := map[string]any{"routing": map[string]any{"rules": []any{map[string]any{"type": "field", "localOS": []any{"linux"}, "outboundTag": "direct"}}}, "outbounds": []any{
+		map[string]any{"tag": "direct", "protocol": "freedom", "targetStrategy": "UseIPv4", "settings": map[string]any{}, "streamSettings": map[string]any{"sockopt": map[string]any{"addressPortStrategy": "SrvPortOnly"}}},
+		map[string]any{"tag": "dns", "protocol": "dns", "settings": map[string]any{"nonIPQuery": "reject", "blockTypes": []any{65}}},
+		map[string]any{"tag": "block", "protocol": "blackhole", "settings": map[string]any{"response": map[string]any{"type": "custom", "customResponseData": "SGVsbG8="}}},
+		map[string]any{"tag": "hop", "protocol": "socks", "settings": map[string]any{"servers": []any{map[string]any{"address": "127.0.0.1", "port": 1080}}}, "streamSettings": map[string]any{"network": "hysteria", "hysteriaSettings": map[string]any{"version": 2}, "finalmask": map[string]any{"quicParams": map[string]any{"udpHop": map[string]any{"ports": "20000-30000"}}}}},
+	}}
+	normalized, _ := NormalizePayloadForXrayVersion(payload, "Xray 26.9.9")
+	data, err := json.Marshal(normalized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if output, err := exec.Command(core, "run", "-test", "-config", path).CombinedOutput(); err != nil {
+		t.Fatalf("official Xray rejected normalized config: %v\n%s", err, output)
 	}
 }
 
@@ -1836,4 +1989,105 @@ func hasAPIInbound(payload map[string]any) bool {
 		}
 	}
 	return false
+}
+
+func TestNormalizePayloadForXrayVersionAdaptsXDNSSchema(t *testing.T) {
+	payload := map[string]any{
+		"inbounds": []any{map[string]any{"tag": "server", "streamSettings": map[string]any{
+			"finalmask": map[string]any{"udp": []any{map[string]any{"type": "xdns", "settings": map[string]any{
+				"domains": []any{"t.example.com", "a.example.com:a"},
+			}}}},
+		}}},
+		"outbounds": []any{map[string]any{"tag": "client", "streamSettings": map[string]any{
+			"finalmask": map[string]any{"udp": []any{map[string]any{"type": "xdns", "settings": map[string]any{
+				"domains":   []any{"ignored.example.com"},
+				"resolvers": []any{"t.example.com:aaaa+udp://1.1.1.1:53", "t.example.com+udp://8.8.8.8:53"},
+			}}}},
+		}}},
+	}
+	xdnsSettings := func(t *testing.T, config map[string]any, direction string) map[string]any {
+		t.Helper()
+		var stream map[string]any
+		if direction == "inbound" {
+			stream = mapValue(listOfMaps(config["inbounds"])[0]["streamSettings"])
+		} else {
+			stream = mapValue(listOfMaps(config["outbounds"])[0]["streamSettings"])
+		}
+		return mapValue(listOfMaps(mapValue(stream["finalmask"])["udp"])[0]["settings"])
+	}
+
+	legacy, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.9.9")
+	if warning != "" {
+		t.Fatalf("legacy XDNS warning = %q", warning)
+	}
+	if got := xdnsSettings(t, legacy, "inbound")["domains"]; !reflect.DeepEqual(got, []any{"t.example.com", "a.example.com:a"}) {
+		t.Fatalf("legacy XDNS server domains changed: %#v", got)
+	}
+
+	v2, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.9.30")
+	if !strings.Contains(warning, "26.9.30+ schema") {
+		t.Fatalf("26.9.30 XDNS warning = %q", warning)
+	}
+	serverV2 := xdnsSettings(t, v2, "inbound")["domains"]
+	if !reflect.DeepEqual(serverV2, []any{
+		map[string]any{"name": "t.example.com", "types": []any{1, 5, 16, 28}},
+		map[string]any{"name": "a.example.com", "types": []any{1}},
+	}) {
+		t.Fatalf("26.9.30 XDNS server domains = %#v", serverV2)
+	}
+	clientV2 := xdnsSettings(t, v2, "outbound")
+	if !reflect.DeepEqual(clientV2["domains"], []any{
+		map[string]any{"name": "t.example.com", "types": []any{28}},
+		map[string]any{"name": "t.example.com", "types": []any{16}},
+	}) || !reflect.DeepEqual(clientV2["resolvers"], []any{
+		map[string]any{"type": "udp", "settings": map[string]any{"addr": "1.1.1.1:53"}},
+		map[string]any{"type": "udp", "settings": map[string]any{"addr": "8.8.8.8:53"}},
+	}) {
+		t.Fatalf("26.9.30 XDNS client settings = %#v", clientV2)
+	}
+
+	v3, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.10.10")
+	if !strings.Contains(warning, "26.10.10+ schema") {
+		t.Fatalf("26.10.10 XDNS warning = %q", warning)
+	}
+	serverV3 := xdnsSettings(t, v3, "inbound")["domains"]
+	if !reflect.DeepEqual(serverV3, []any{
+		map[string]any{"names": []any{"t.example.com"}, "types": []any{1, 5, 16, 28}},
+		map[string]any{"names": []any{"a.example.com"}, "types": []any{1}},
+	}) {
+		t.Fatalf("26.10.10 XDNS server domains = %#v", serverV3)
+	}
+	clientV3 := xdnsSettings(t, v3, "outbound")
+	if !reflect.DeepEqual(clientV3["resolvers"], []any{
+		map[string]any{"addrs": []any{"udp://1.1.1.1:53"}},
+		map[string]any{"addrs": []any{"udp://8.8.8.8:53"}},
+	}) {
+		t.Fatalf("26.10.10 XDNS client resolvers = %#v", clientV3)
+	}
+}
+
+func TestNormalizePayloadForXrayVersionDropsNonIPWireGuardRemoteDNS(t *testing.T) {
+	outbound := func(remoteDNS ...any) map[string]any {
+		return map[string]any{"tag": "wg", "protocol": "wireguard", "settings": map[string]any{"remoteDNS": remoteDNS}}
+	}
+	payload := map[string]any{"outbounds": []any{outbound("1.1.1.1", "local"), outbound("local")}}
+
+	kept, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.9.30")
+	if !strings.Contains(warning, "remoteDNS") {
+		t.Fatalf("WireGuard remoteDNS warning = %q", warning)
+	}
+	if got := mapValue(listOfMaps(kept["outbounds"])[0]["settings"])["remoteDNS"]; !reflect.DeepEqual(got, []string{"1.1.1.1"}) {
+		t.Fatalf("WireGuard remoteDNS after 26.9.30 = %#v", got)
+	}
+	if _, exists := mapValue(listOfMaps(kept["outbounds"])[1]["settings"])["remoteDNS"]; exists {
+		t.Fatalf("WireGuard non-IP-only remoteDNS was kept: %#v", kept)
+	}
+
+	legacy, warning := NormalizePayloadForXrayVersion(payload, "Xray 26.9.9")
+	if warning != "" {
+		t.Fatalf("legacy WireGuard warning = %q", warning)
+	}
+	if got := mapValue(listOfMaps(legacy["outbounds"])[0]["settings"])["remoteDNS"]; !reflect.DeepEqual(got, []any{"1.1.1.1", "local"}) {
+		t.Fatalf("legacy WireGuard remoteDNS changed: %#v", got)
+	}
 }

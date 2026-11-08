@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"strconv"
 	"strings"
 	"time"
@@ -30,12 +31,13 @@ type Repository struct {
 }
 
 type Target struct {
-	ID     string `json:"id"`
-	Type   string `json:"type"`
-	Name   string `json:"name"`
-	NodeID *int64 `json:"node_id"`
-	Mode   string `json:"mode"`
-	Status string `json:"status,omitempty"`
+	ID      string `json:"id"`
+	Type    string `json:"type"`
+	Name    string `json:"name"`
+	Address string `json:"address,omitempty"`
+	NodeID  *int64 `json:"node_id"`
+	Mode    string `json:"mode"`
+	Status  string `json:"status,omitempty"`
 }
 
 type StoredConfig struct {
@@ -238,25 +240,26 @@ func (r Repository) ListConfigTargets(ctx context.Context) ([]Target, error) {
 		Name: "Master",
 		Mode: ConfigModeCustom,
 	}}
-	rows, err := r.db.QueryContext(ctx, `SELECT id, COALESCE(name, ''), COALESCE(xray_config_mode, 'default'), COALESCE(status, '') FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'deleted' ORDER BY id`)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, COALESCE(name, ''), COALESCE(address, ''), COALESCE(xray_config_mode, 'default'), COALESCE(status, '') FROM nodes WHERE LOWER(COALESCE(status, '')) <> 'deleted' ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var nodeID int64
-		var name, mode, status string
-		if err := rows.Scan(&nodeID, &name, &mode, &status); err != nil {
+		var name, address, mode, status string
+		if err := rows.Scan(&nodeID, &name, &address, &mode, &status); err != nil {
 			return nil, err
 		}
 		id := nodeID
 		targets = append(targets, Target{
-			ID:     NodeTargetID(nodeID),
-			Type:   "node",
-			Name:   name,
-			NodeID: &id,
-			Mode:   normalizeConfigMode(mode),
-			Status: status,
+			ID:      NodeTargetID(nodeID),
+			Type:    "node",
+			Name:    name,
+			Address: address,
+			NodeID:  &id,
+			Mode:    normalizeConfigMode(mode),
+			Status:  status,
 		})
 	}
 	return targets, rows.Err()
@@ -295,7 +298,7 @@ func (r Repository) CollectInboundTags(ctx context.Context) (map[string]struct{}
 	result := map[string]struct{}{}
 	for _, config := range configs {
 		for _, inbound := range listOfMaps(config.Config["inbounds"]) {
-			if tag := stringValue(inbound["tag"]); tag != "" {
+			if tag := jsonvalue.String(inbound["tag"]); tag != "" {
 				result[tag] = struct{}{}
 			}
 		}
@@ -435,7 +438,7 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 			return nil
 		}
 	}
-	payload = operationPayloadWithQueuedAt(payload, nowTime)
+	payload = OperationPayloadWithQueuedAt(payload, nowTime)
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -451,7 +454,7 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 	if err != sql.ErrNoRows {
 		return err
 	}
-	if nodeID != nil && userID != nil && isRuntimeUserNodeOperationType(operationType) {
+	if nodeID != nil && userID != nil && IsRuntimeUserNodeOperationType(operationType) {
 		if err := compactPendingRuntimeUserOperationsTx(ctx, tx, *nodeID, *userID, nowTime); err != nil {
 			return err
 		}
@@ -471,7 +474,7 @@ func enqueueNodeOperationTx(ctx context.Context, tx *sql.Tx, operationType strin
 	return err
 }
 
-func isRuntimeUserNodeOperationType(operationType string) bool {
+func IsRuntimeUserNodeOperationType(operationType string) bool {
 	switch operationType {
 	case "add_user", "update_user", "remove_user", "disable_user", "enable_user":
 		return true
@@ -498,7 +501,7 @@ WHERE node_id = ?
 	return err
 }
 
-func operationPayloadWithQueuedAt(payload any, now time.Time) any {
+func OperationPayloadWithQueuedAt(payload any, now time.Time) any {
 	queuedAt := now.Format(time.RFC3339Nano)
 	if payload == nil {
 		return map[string]any{"queued_at": queuedAt}

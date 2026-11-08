@@ -28,6 +28,7 @@ import {
 	DocumentDuplicateIcon,
 } from "@heroicons/react/24/outline";
 import {
+	type CellContext,
 	type ColumnDef,
 	flexRender,
 	functionalUpdate,
@@ -52,6 +53,7 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import { copyTextToClipboard } from "utils/clipboard";
+import { createStableCellRegistry } from "utils/stableCell";
 import { BulkActionBar } from "./BulkActionBar";
 import {
 	orderRowActions,
@@ -515,6 +517,9 @@ export function DataTable<TData>({
 	rowActionsRef.current = rowActions;
 	const renderRowActionsRef = useRef(renderRowActions);
 	renderRowActionsRef.current = renderRowActions;
+	const [stableCell] = useState(() =>
+		createStableCellRegistry<CellContext<TData, unknown>>(),
+	);
 	const [contextMenu, setContextMenu] = useState<{
 		row: TData | null;
 		x: number;
@@ -654,10 +659,11 @@ export function DataTable<TData>({
 			id: column.id,
 			header: () => column.header,
 			accessorFn: (row) => getColumnValue(row, column),
-			cell: ({ row, getValue }) =>
+			cell: stableCell(`column:${column.id}`, ({ row, getValue }) =>
 				column.cell
 					? column.cell(row.original)
 					: renderFallbackValue(getValue()),
+			),
 			enableSorting: Boolean(column.sortable),
 			meta: column,
 		}));
@@ -666,7 +672,7 @@ export function DataTable<TData>({
 			dataColumns.push({
 				id: "__actions",
 				header: () => <ActionsHeaderIcon />,
-				cell: ({ row }) => renderConfiguredActions(row.original),
+				cell: stableCell("__actions", ({ row }) => renderConfiguredActions(row.original)),
 				enableSorting: false,
 			});
 		}
@@ -705,6 +711,7 @@ export function DataTable<TData>({
 		selectAllLabel,
 		selectRowLabel,
 		visibleDesktopColumns,
+		stableCell,
 	]);
 
 	const table = useReactTable({

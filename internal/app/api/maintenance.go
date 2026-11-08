@@ -2,10 +2,13 @@ package api
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/nodecontroller"
 	systemapp "github.com/rebeccapanel/rebecca/internal/app/system"
 	"golang.org/x/net/websocket"
 )
@@ -27,6 +30,29 @@ func (s *Server) handleMaintenanceInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, info)
+}
+
+func (s *Server) handleMaintenanceBuilds(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/maintenance/builds" {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	repo := "rebeccapanel/Rebecca"
+	if strings.EqualFold(strings.TrimSpace(r.URL.Query().Get("target")), "node") {
+		repo = "rebeccapanel/Rebecca-node"
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	catalog, err := s.maintenanceService().Builds(ctx, repo)
+	if err != nil {
+		writeMaintenanceError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, catalog)
 }
 
 func (s *Server) handleMaintenanceUpdate(w http.ResponseWriter, r *http.Request) {
@@ -140,4 +166,24 @@ func (s *Server) maintenanceService() *systemapp.MaintenanceService {
 func writeMaintenanceError(w http.ResponseWriter, err error) {
 	status, detail := systemapp.HTTPStatus(err)
 	writeError(w, status, detail)
+}
+
+// resolveNodeUpdateVersion refuses a node update to any build the panel does not list.
+// A request that names no build or channel follows the node's live channel.
+func (s *Server) resolveNodeUpdateVersion(ctx context.Context, nodeID int64, channel string, version string) (string, error) {
+	currentChannel := ""
+	if systemapp.UpdateFollowsCurrentChannel(channel, version) {
+		item, err := s.nodeController.Get(ctx, nodecontroller.Request{NodeID: nodeID})
+		if err != nil {
+			status := http.StatusBadGateway
+			if errors.Is(err, sql.ErrNoRows) {
+				status = http.StatusNotFound
+			}
+			return "", systemapp.MaintenanceError{Status: status, Detail: err.Error()}
+		}
+		if item.NodeUpdateChannel != nil {
+			currentChannel = *item.NodeUpdateChannel
+		}
+	}
+	return systemapp.ResolveUpdateVersion(ctx, s.maintenanceService().Updates, systemapp.NodeUpdateRepo, channel, version, currentChannel)
 }

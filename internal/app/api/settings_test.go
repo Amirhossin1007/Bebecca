@@ -381,7 +381,7 @@ func TestSubscriptionPlaceholderSettingsRouteScopesAdminsAndServices(t *testing.
 	if _, err := db.Exec(`INSERT INTO services (id, name) VALUES (10, 'Main'), (11, 'Other')`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO admins_services (admin_id, service_id) VALUES (1, 10), (2, 10)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO service_admins (admin_id, service_id) VALUES (1, 10), (2, 10)`); err != nil {
 		t.Fatal(err)
 	}
 

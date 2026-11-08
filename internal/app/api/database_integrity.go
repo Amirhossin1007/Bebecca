@@ -60,8 +60,8 @@ func checkDatabaseIntegrity(ctx context.Context, db *sql.DB) error {
 		{"service_hosts.host_id", `SELECT COUNT(*) FROM service_hosts sh LEFT JOIN hosts h ON h.id = sh.host_id WHERE h.id IS NULL`},
 		{"service_hosts.service_id", `SELECT COUNT(*) FROM service_hosts sh LEFT JOIN services s ON s.id = sh.service_id WHERE s.id IS NULL`},
 		{"hosts.inbound_tag", `SELECT COUNT(*) FROM hosts h LEFT JOIN inbounds i ON i.tag = h.inbound_tag WHERE i.id IS NULL`},
-		{"admins_services.admin_id", `SELECT COUNT(*) FROM admins_services l LEFT JOIN admins a ON a.id = l.admin_id WHERE a.id IS NULL`},
-		{"admins_services.service_id", `SELECT COUNT(*) FROM admins_services l LEFT JOIN services s ON s.id = l.service_id WHERE s.id IS NULL`},
+		{"service_admins.admin_id", `SELECT COUNT(*) FROM service_admins l LEFT JOIN admins a ON a.id = l.admin_id WHERE a.id IS NULL`},
+		{"service_admins.service_id", `SELECT COUNT(*) FROM service_admins l LEFT JOIN services s ON s.id = l.service_id WHERE s.id IS NULL`},
 	}
 	for _, check := range checks {
 		count, err := countRows(ctx, db, check.sql)

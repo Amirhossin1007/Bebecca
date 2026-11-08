@@ -11,7 +11,7 @@ import (
 
 const defaultNodeOperationsPollInterval = 15 * time.Second
 const defaultNodeOperationsBatchSize = 5000
-const retainedFinishedNodeOperations = 100000
+const retainedFinishedNodeOperations = 0
 const nodeOperationsPruneBatchSize = 1000
 
 func (s *Server) runNodeOperationsWorker(ctx context.Context) {
@@ -33,6 +33,29 @@ func (s *Server) runNodeOperationsWorker(ctx context.Context) {
 		}
 		s.processNodeOperations(ctx)
 		timer.Reset(interval)
+	}
+}
+
+const runtimeUserOperationsInterval = 5 * time.Second
+
+func (s *Server) runRuntimeUserOperationsWorker(ctx context.Context) {
+	timer := time.NewTimer(runtimeUserOperationsInterval)
+	defer timer.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
+		workerCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		result, err := s.nodeController.ProcessRuntimeUserQueue(workerCtx, defaultNodeOperationsBatchSize)
+		cancel()
+		if err != nil && ctx.Err() == nil {
+			logging.Warnf(logging.ComponentNode, "user operation queue failed: %v", err)
+		} else if result.Processed > 0 {
+			logging.Debugf(logging.ComponentNode, "user operation queue processed=%d done=%d retrying=%d failed=%d", result.Processed, result.Done, result.Retrying, result.Failed)
+		}
+		timer.Reset(runtimeUserOperationsInterval)
 	}
 }
 
@@ -130,12 +153,7 @@ func (s *Server) kickUserNodeOperationsSoon(userIDs ...int64) {
 				continue
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-			for _, userID := range userIDs {
-				if ctx.Err() != nil {
-					break
-				}
-				s.processUserNodeOperationsWithContext(ctx, userID, defaultNodeOperationsBatchSize)
-			}
+			s.processUserNodeOperationsBatch(ctx, userIDs)
 			cancel()
 		}
 	}()
@@ -155,24 +173,21 @@ func (s *Server) drainUserNodeOperationKickIDs() []int64 {
 	return userIDs
 }
 
-func (s *Server) processUserNodeOperationsWithContext(ctx context.Context, userID int64, limit int) {
-	result, err := s.nodeController.ProcessRuntimeUserOperations(ctx, nodecontroller.ProcessUserOperationsRequest{
-		UserID: userID,
-		Limit:  limit,
-	})
+func (s *Server) processUserNodeOperationsBatch(ctx context.Context, userIDs []int64) {
+	result, err := s.nodeController.ProcessRuntimeUserOperationsForUsers(ctx, userIDs, defaultNodeOperationsBatchSize)
 	if err != nil {
 		if ctx.Err() != nil {
-			logging.Debugf(logging.ComponentNode, "user operation hot apply stopped user_id=%d: %v", userID, err)
+			logging.Debugf(logging.ComponentNode, "user operation hot apply stopped users=%d: %v", len(userIDs), err)
 			return
 		}
-		logging.Warnf(logging.ComponentNode, "user operation hot apply failed user_id=%d: %v", userID, err)
+		logging.Warnf(logging.ComponentNode, "user operation hot apply failed users=%d: %v", len(userIDs), err)
 		return
 	}
 	if result.Processed > 0 {
 		logging.Debugf(
 			logging.ComponentNode,
-			"user operation hot applied user_id=%d processed=%d done=%d retrying=%d failed=%d",
-			userID,
+			"user operation hot applied users=%d processed=%d done=%d retrying=%d failed=%d",
+			len(userIDs),
 			result.Processed,
 			result.Done,
 			result.Retrying,

@@ -60,6 +60,7 @@ type Server struct {
 	backupService        *backupapp.Service
 	certificateManager   *certificateapp.Manager
 	externalApps         *externalapps.Manager
+	sponsors             *sponsorManager
 	backgroundOnce       sync.Once
 	nodeOperationsKick   chan struct{}
 	userOpsKickMu        sync.Mutex
@@ -153,6 +154,7 @@ func New(cfg Config) (*Server, error) {
 			DatabaseDialect:   pool.Dialect,
 			MySQLRootPassword: cfg.MySQLRootPassword,
 		}, certificateManager),
+		sponsors:             newSponsorManager(cfg.SponsorManifestURL, cfg.SponsorCacheDir, nil),
 		nodeOperationsKick:   make(chan struct{}, 1),
 		recentActionsEnabled: true,
 	}
@@ -161,6 +163,7 @@ func New(cfg Config) (*Server, error) {
 		RollbackMarker:   server.markRecentActionUndoneTx,
 	})
 	server.nodeMutations = nodeMutationRepo.WithRecentActionRecorder(server.recordRecentActionEventTx)
+	certificateManager.SetNodeIssuer(server.issueNodeCertificate)
 	return server, nil
 }
 
@@ -192,10 +195,13 @@ func (s *Server) StartBackground(ctx context.Context) {
 			logging.Infof(logging.ComponentNode, "startup operation queue replaced with full sync cleared=%d", cleared)
 		}
 		go s.runNodeOperationsWorker(ctx)
+		go s.runRuntimeUserOperationsWorker(ctx)
 		go s.runNodeRecoveryWorker(ctx)
 		go s.runNodeUsageCollector(ctx)
 		go s.runNodeUsageFlushWorker(ctx)
+		go s.runNodeUserUsageCompactionWorker(ctx)
 		go s.runAdminLifecycleWorker(ctx)
+		go s.runNotificationWorker(ctx)
 		s.runUserLifecycleWorkers(ctx)
 		go s.runTelegramBackupScheduler(ctx)
 		go s.runCertificateRenewalWorker(ctx)
@@ -279,6 +285,12 @@ func (s *Server) handleNodesServiceUpdate(w http.ResponseWriter, r *http.Request
 			writeControllerError(w, err)
 			return
 		}
+		version, err := s.resolveNodeUpdateVersion(r.Context(), target.ID, target.Channel, target.Version)
+		if err != nil {
+			writeMaintenanceError(w, err)
+			return
+		}
+		target.Version = version
 		targets = append(targets, target)
 		names = append(names, name)
 	}
@@ -666,12 +678,17 @@ func (s *Server) handleNodeServiceUpdate(w http.ResponseWriter, r *http.Request,
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	version, err := s.resolveNodeUpdateVersion(r.Context(), nodeID, payload.Channel, payload.Version)
+	if err != nil {
+		writeMaintenanceError(w, err)
+		return
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
 	defer cancel()
 	result, err := s.nodeController.UpdateService(ctx, nodecontroller.Request{
 		NodeID:  nodeID,
 		Channel: payload.Channel,
-		Version: payload.Version,
+		Version: version,
 	})
 	if err != nil {
 		writeControllerError(w, err)

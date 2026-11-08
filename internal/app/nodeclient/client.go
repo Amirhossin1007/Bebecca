@@ -5,29 +5,41 @@ import (
 	"crypto/tls"
 	"fmt"
 	"sync"
+	"time"
 
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/protobuf/proto"
 )
 
 const MaxMessageSize = 64 << 20
 
+const (
+	CapabilityGzipRequests = "grpc_gzip"
+	CapabilityUsageBundle  = "usage_bundle"
+)
+
+const compressRequestsAboveBytes = 1024
+
 type Client struct {
-	conn    *grpc.ClientConn
-	control nodev1.NodeControlServiceClient
-	runtime nodev1.NodeRuntimeServiceClient
-	usage   nodev1.NodeUsageServiceClient
-	logs    nodev1.NodeLogsServiceClient
-	mu      sync.RWMutex
-	caps    map[string]struct{}
-	version string
+	conn        *grpc.ClientConn
+	control     nodev1.NodeControlServiceClient
+	runtime     nodev1.NodeRuntimeServiceClient
+	usage       nodev1.NodeUsageServiceClient
+	logs        nodev1.NodeLogsServiceClient
+	mu          sync.RWMutex
+	caps        map[string]struct{}
+	version     string
+	handshakeAt time.Time
 }
 
 func (c *Client) SetHandshake(version string, capabilities []string) {
 	c.mu.Lock()
 	c.version = version
+	c.handshakeAt = time.Now()
 	c.caps = make(map[string]struct{}, len(capabilities))
 	for _, capability := range capabilities {
 		c.caps[capability] = struct{}{}
@@ -35,10 +47,29 @@ func (c *Client) SetHandshake(version string, capabilities []string) {
 	c.mu.Unlock()
 }
 
+func (c *Client) HandshakeDue(interval time.Duration) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return time.Since(c.handshakeAt) >= interval
+}
+
+func (c *Client) DeferHandshake() {
+	c.mu.Lock()
+	c.handshakeAt = time.Now()
+	c.mu.Unlock()
+}
+
 func (c *Client) NodeVersion() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.version
+}
+
+func (c *Client) RequestOptions(request proto.Message) []grpc.CallOption {
+	if !c.Supports(CapabilityGzipRequests) || proto.Size(request) < compressRequestsAboveBytes {
+		return nil
+	}
+	return []grpc.CallOption{grpc.UseCompressor(gzip.Name)}
 }
 
 func (c *Client) Supports(capability string) bool {

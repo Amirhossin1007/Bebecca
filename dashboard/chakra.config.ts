@@ -1,6 +1,30 @@
 import { extendTheme } from "@chakra-ui/react";
 import { mode, type StyleFunctionProps } from "@chakra-ui/theme-tools";
 
+const mobileSheetQuery = "@media screen and (max-width: 47.99em)";
+const mobileSheet = {
+	margin: "0 !important",
+	width: "100%",
+	maxWidth: "100% !important",
+	maxHeight: "92dvh",
+	minHeight: "0",
+	borderBottomWidth: "0",
+	borderRadius: "16px 16px 0 0",
+	paddingBottom: "env(safe-area-inset-bottom)",
+	animation: "rb-sheet-up 0.28s cubic-bezier(0.32, 0.72, 0, 1)",
+	"&::before": {
+		content: '""',
+		display: "block",
+		width: "36px",
+		height: "4px",
+		borderRadius: "full",
+		bg: "panel.borderStrong",
+		mx: "auto",
+		mt: "8px",
+		flexShrink: 0,
+	},
+};
+
 const sharedThemeConfig = {
 	config: {
 		initialColorMode: "dark",
@@ -158,12 +182,14 @@ const sharedThemeConfig = {
 		},
 		Modal: {
 			baseStyle: (props: StyleFunctionProps) => ({
+				dialogContainer: { [mobileSheetQuery]: { alignItems: "flex-end !important" } },
 				dialog: {
 					bg: mode("panel.surface", "panel.surface")(props),
 					borderWidth: "1px",
 					borderColor: mode("panel.border", "panel.border")(props),
 					borderRadius: "6px",
 					boxShadow: "0 20px 60px rgba(0, 0, 0, 0.42)",
+					[mobileSheetQuery]: mobileSheet,
 				},
 				header: {
 					borderBottomWidth: "1px",

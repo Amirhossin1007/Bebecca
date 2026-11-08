@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"sort"
 	"strconv"
 	"strings"
@@ -320,7 +321,7 @@ func rollbackKeyedArrayOrder(root map[string]any, change ConfigPatchChange) erro
 	valueIndex := 0
 	for index, item := range array {
 		mapped, _ := item.(map[string]any)
-		if !known[stringValue(mapped["tag"])] {
+		if !known[jsonvalue.String(mapped["tag"])] {
 			continue
 		}
 		if valueIndex >= len(values) {
@@ -426,7 +427,7 @@ func setConfigPathValue(root map[string]any, path string, value any, exists bool
 			index := taggedArrayIndex(typed, tag)
 			if exists {
 				mapped, ok := cloned.(map[string]any)
-				if !ok || stringValue(mapped["tag"]) != tag {
+				if !ok || jsonvalue.String(mapped["tag"]) != tag {
 					return fmt.Errorf("invalid tagged Xray config patch value for %q", last)
 				}
 				if index < 0 {
@@ -497,7 +498,7 @@ func taggedConfigArray(values []any) ([]string, map[string]any, bool) {
 		if !ok {
 			return nil, nil, false
 		}
-		tag := stringValue(mapped["tag"])
+		tag := jsonvalue.String(mapped["tag"])
 		if tag == "" || byTag[tag] != nil {
 			return nil, nil, false
 		}
@@ -510,7 +511,7 @@ func taggedConfigArray(values []any) ([]string, map[string]any, bool) {
 func taggedArrayIndex(values []any, tag string) int {
 	for index, item := range values {
 		mapped, ok := item.(map[string]any)
-		if ok && stringValue(mapped["tag"]) == tag {
+		if ok && jsonvalue.String(mapped["tag"]) == tag {
 			return index
 		}
 	}
@@ -521,7 +522,7 @@ func tagsFromConfigArray(values []any) []string {
 	tags := make([]string, 0, len(values))
 	for _, item := range values {
 		mapped, _ := item.(map[string]any)
-		tags = append(tags, stringValue(mapped["tag"]))
+		tags = append(tags, jsonvalue.String(mapped["tag"]))
 	}
 	return tags
 }

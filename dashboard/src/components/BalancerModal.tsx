@@ -8,9 +8,14 @@ import {
 	Modal,
 	ModalCloseButton,
 	ModalOverlay,
+	Tab,
+	TabList,
+	TabPanel,
+	TabPanels,
+	Tabs,
 	VStack,
 } from "@chakra-ui/react";
-import { type FC, useCallback, useEffect, useMemo } from "react";
+import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import {
@@ -20,6 +25,7 @@ import {
 import type { SearchableTagSelectOption } from "./common/SearchableTagSelect";
 import { SearchableTagSelect } from "./common/SearchableTagSelect";
 import { OutboundTestButton } from "./xray/OutboundTestButton";
+import { PropagationTargets } from "./xray/PropagationTargets";
 import {
 	XrayDialogSection,
 	XrayModalBody,
@@ -46,7 +52,9 @@ interface BalancerModalProps {
 	existingTags: string[];
 	onTestOutbound?: (tag: string) => void;
 	outboundTestingByTag?: Record<string, boolean>;
-	onSubmit: (values: BalancerFormValues) => void;
+	sourceTarget: string;
+	propagationBase: Record<string, unknown> | null;
+	onSubmit: (values: BalancerFormValues, targetIds: string[]) => void;
 }
 
 const DEFAULT_BALANCER: BalancerFormValues = {
@@ -70,9 +78,12 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 	existingTags,
 	onTestOutbound,
 	outboundTestingByTag = {},
+	sourceTarget,
+	propagationBase,
 	onSubmit,
 }) => {
 	const { t } = useTranslation();
+	const [targetIds, setTargetIds] = useState<string[]>([]);
 
 	const modalForm = useForm<BalancerFormValues>({
 		defaultValues: DEFAULT_BALANCER,
@@ -127,6 +138,7 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 
 	useEffect(() => {
 		if (!isOpen) return;
+		setTargetIds([]);
 		modalForm.reset(
 			initialBalancer
 				? {
@@ -160,7 +172,7 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 				? ""
 				: (data.fallbackTag ?? ""),
 		};
-		onSubmit(payload);
+		onSubmit(payload, targetIds);
 	});
 
 	const isValid = useMemo(
@@ -180,120 +192,140 @@ export const BalancerModal: FC<BalancerModalProps> = ({
 				<ModalCloseButton />
 				<form onSubmit={onSubmitInternal}>
 					<XrayModalBody>
-						<VStack spacing={3} align="stretch">
-							<XrayDialogSection title={t("pages.xray.balancer.addBalancer")}>
-								<VStack spacing={4} align="stretch">
-									<FormControl isInvalid={duplicateTag}>
-										<FormLabel>{t("pages.xray.balancer.tag")}</FormLabel>
-										<Input
-											{...modalForm.register("tag")}
-											size="sm"
-											placeholder={t("pages.xray.balancer.tagDesc")}
-										/>
-										{duplicateTag ? (
-											<FormErrorMessage>
-												{t("pages.xray.balancer.tagError")}
-											</FormErrorMessage>
-										) : (
-											<FormHelperText>
-												{t("pages.xray.balancer.tagDesc")}
-											</FormHelperText>
-										)}
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("pages.xray.balancer.balancerStrategy")}
-										</FormLabel>
-										<SearchableTagSelect
-											mode="single"
-											options={[
-												"random",
-												"roundRobin",
-												"leastLoad",
-												"leastPing",
-											]}
-											value={modalForm.watch("strategy") ?? ""}
-											onChange={(value) =>
-												modalForm.setValue("strategy", value as string, {
-													shouldDirty: true,
-												})
-											}
-											placeholder={t("pages.xray.balancer.balancerStrategy")}
-											searchPlaceholder={t("search")}
-										/>
-									</FormControl>
-									<FormControl isInvalid={emptySelector}>
-										<FormLabel>
-											{t("pages.xray.balancer.balancerSelectors")}
-										</FormLabel>
-										<MultiValueAutocomplete
-											options={selectableOutboundOptions}
-											value={selectorValue.join(", ")}
-											onChange={(value) =>
-												modalForm.setValue(
-													"selector",
-													uniq(
-														splitMultiValueText(value).filter(
-															(tag) => !isExcludedBalancerOutbound(tag),
-														),
-													),
-													{ shouldDirty: true },
-												)
-											}
-											placeholder={t("pages.xray.balancer.selectorPlaceholder")}
-											emptyText={t("pages.xray.outbound.empty")}
-											rightElement={
-												selectorValue.length > 0 ? (
-													<OutboundTestButton
-														label={t("pages.xray.routeTester.test")}
-														tag={selectorValue[0]}
-														isTesting={selectorValue.some(
-															(tag) => outboundTestingByTag[tag],
-														)}
-														onTest={() => {
-															selectorValue.forEach((tag) => {
-																onTestOutbound?.(tag);
-															});
-														}}
+						<Tabs isLazy lazyBehavior="keepMounted" variant="unstyled">
+							<TabList>
+								<Tab>{t("form")}</Tab>
+								<Tab>{t("pages.xray.propagate.tab")}</Tab>
+							</TabList>
+							<TabPanels>
+								<TabPanel px={0}>
+									<VStack spacing={3} align="stretch">
+										<XrayDialogSection title={t("pages.xray.balancer.addBalancer")}>
+											<VStack spacing={4} align="stretch">
+												<FormControl isInvalid={duplicateTag}>
+													<FormLabel>{t("pages.xray.balancer.tag")}</FormLabel>
+													<Input
+														{...modalForm.register("tag")}
+														size="sm"
+														placeholder={t("pages.xray.balancer.tagDesc")}
 													/>
-												) : undefined
-											}
-										/>
-										{emptySelector && (
-											<FormErrorMessage>
-												{t("pages.xray.balancer.selectorError")}
-											</FormErrorMessage>
-										)}
-									</FormControl>
-									<FormControl>
-										<FormLabel>
-											{t("pages.xray.balancer.fallbackTag")}
-										</FormLabel>
-										<SearchableTagSelect
-											mode="single"
-											options={selectableOutboundOptions}
-											value={fallbackTagValue}
-											onChange={(value) =>
-												modalForm.setValue("fallbackTag", value as string, {
-													shouldDirty: true,
-												})
-											}
-											placeholder={t("userDialog.flow.none")}
-											searchPlaceholder={t("search")}
-											emptyText={t("pages.xray.outbound.empty")}
-											rightElement={
-												<OutboundTestButton
-													label={t("pages.xray.routeTester.test")}
-													tag={fallbackTagValue}
-													isTesting={outboundTestingByTag[fallbackTagValue]}
-													onTest={onTestOutbound}
-												/>
-											}
-										/>
-									</FormControl>
-								</VStack>
-							</XrayDialogSection>
-						</VStack>
+													{duplicateTag ? (
+														<FormErrorMessage>
+															{t("pages.xray.balancer.tagError")}
+														</FormErrorMessage>
+													) : (
+														<FormHelperText>
+															{t("pages.xray.balancer.tagDesc")}
+														</FormHelperText>
+													)}
+												</FormControl>
+												<FormControl>
+													<FormLabel>
+														{t("pages.xray.balancer.balancerStrategy")}
+													</FormLabel>
+													<SearchableTagSelect
+														mode="single"
+														options={[
+															"random",
+															"roundRobin",
+															"leastLoad",
+															"leastPing",
+														]}
+														value={modalForm.watch("strategy") ?? ""}
+														onChange={(value) =>
+															modalForm.setValue("strategy", value as string, {
+																shouldDirty: true,
+															})
+														}
+														placeholder={t("pages.xray.balancer.balancerStrategy")}
+														searchPlaceholder={t("search")}
+													/>
+												</FormControl>
+												<FormControl isInvalid={emptySelector}>
+													<FormLabel>
+														{t("pages.xray.balancer.balancerSelectors")}
+													</FormLabel>
+													<MultiValueAutocomplete
+														options={selectableOutboundOptions}
+														value={selectorValue.join(", ")}
+														onChange={(value) =>
+															modalForm.setValue(
+																"selector",
+																uniq(
+																	splitMultiValueText(value).filter(
+																		(tag) => !isExcludedBalancerOutbound(tag),
+																	),
+																),
+																{ shouldDirty: true },
+															)
+														}
+														placeholder={t("pages.xray.balancer.selectorPlaceholder")}
+														emptyText={t("pages.xray.outbound.empty")}
+														rightElement={
+															selectorValue.length > 0 ? (
+																<OutboundTestButton
+																	label={t("pages.xray.routeTester.test")}
+																	tag={selectorValue[0]}
+																	isTesting={selectorValue.some(
+																		(tag) => outboundTestingByTag[tag],
+																	)}
+																	onTest={() => {
+																		selectorValue.forEach((tag) => {
+																			onTestOutbound?.(tag);
+																		});
+																	}}
+																/>
+															) : undefined
+														}
+													/>
+													{emptySelector && (
+														<FormErrorMessage>
+															{t("pages.xray.balancer.selectorError")}
+														</FormErrorMessage>
+													)}
+												</FormControl>
+												<FormControl>
+													<FormLabel>
+														{t("pages.xray.balancer.fallbackTag")}
+													</FormLabel>
+													<SearchableTagSelect
+														mode="single"
+														options={selectableOutboundOptions}
+														value={fallbackTagValue}
+														onChange={(value) =>
+															modalForm.setValue("fallbackTag", value as string, {
+																shouldDirty: true,
+															})
+														}
+														placeholder={t("userDialog.flow.none")}
+														searchPlaceholder={t("search")}
+														emptyText={t("pages.xray.outbound.empty")}
+														rightElement={
+															<OutboundTestButton
+																label={t("pages.xray.routeTester.test")}
+																tag={fallbackTagValue}
+																isTesting={outboundTestingByTag[fallbackTagValue]}
+																onTest={onTestOutbound}
+															/>
+														}
+													/>
+												</FormControl>
+											</VStack>
+										</XrayDialogSection>
+									</VStack>
+								</TabPanel>
+								<TabPanel px={0}>
+									<PropagationTargets
+										source={sourceTarget}
+										section="balancers"
+										before={propagationBase}
+										after={{ tag: tagValue }}
+										selectedIds={targetIds}
+										onChange={setTargetIds}
+									/>
+								</TabPanel>
+							</TabPanels>
+						</Tabs>
 					</XrayModalBody>
 					<XrayModalFooter justifyContent="flex-end">
 						<Button variant="outline" onClick={onClose}>

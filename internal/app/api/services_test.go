@@ -27,8 +27,6 @@ func testServiceServer(t *testing.T) (*Server, *sql.DB, string) {
 	server.usageService = usage.NewService(usage.NewRepository(db, "sqlite"))
 	server.userService = userapp.NewService(userapp.NewRepository(db, "sqlite"))
 	statements := []string{
-		`ALTER TABLE admins_services ADD COLUMN created_at DATETIME NULL`,
-		`ALTER TABLE admins_services ADD COLUMN updated_at DATETIME NULL`,
 		`DROP TABLE services`,
 		`DROP TABLE hosts`,
 		`DROP TABLE service_hosts`,
@@ -39,6 +37,7 @@ func testServiceServer(t *testing.T) (*Server, *sql.DB, string) {
 			used_traffic BIGINT DEFAULT 0,
 			lifetime_used_traffic BIGINT DEFAULT 0,
 			users_usage BIGINT DEFAULT 0,
+			usage_coefficient REAL NOT NULL DEFAULT 1,
 			created_at DATETIME NULL,
 			updated_at DATETIME NULL
 		)`,
@@ -144,12 +143,12 @@ func TestServiceMutationRoutesGoNative(t *testing.T) {
 	}
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'update_user'`, 0)
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 0)
-	assertDBInt64(t, db, `SELECT data_limit FROM admins_services WHERE service_id = ? AND admin_id = 2`, 1000, created.ID)
+	assertDBInt64(t, db, `SELECT data_limit FROM service_admins WHERE service_id = ? AND admin_id = 2`, 1000, created.ID)
 
 	if _, err := db.Exec(`UPDATE services SET used_traffic = 500, users_usage = 700, lifetime_used_traffic = 900 WHERE id = ?`, created.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`UPDATE admins_services SET used_traffic = 500, lifetime_used_traffic = 900 WHERE service_id = ? AND admin_id = 2`, created.ID); err != nil {
+	if _, err := db.Exec(`UPDATE service_admins SET used_traffic = 500, lifetime_used_traffic = 900 WHERE service_id = ? AND admin_id = 2`, created.ID); err != nil {
 		t.Fatal(err)
 	}
 	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/services/"+itoa(created.ID)+"/reset-usage", token, `{}`)
@@ -159,8 +158,8 @@ func TestServiceMutationRoutesGoNative(t *testing.T) {
 	assertDBInt64(t, db, `SELECT used_traffic FROM services WHERE id = ?`, 0, created.ID)
 	assertDBInt64(t, db, `SELECT users_usage FROM services WHERE id = ?`, 0, created.ID)
 	assertDBInt64(t, db, `SELECT lifetime_used_traffic FROM services WHERE id = ?`, 900, created.ID)
-	assertDBInt64(t, db, `SELECT used_traffic FROM admins_services WHERE service_id = ? AND admin_id = 2`, 0, created.ID)
-	assertDBInt64(t, db, `SELECT lifetime_used_traffic FROM admins_services WHERE service_id = ? AND admin_id = 2`, 900, created.ID)
+	assertDBInt64(t, db, `SELECT used_traffic FROM service_admins WHERE service_id = ? AND admin_id = 2`, 0, created.ID)
+	assertDBInt64(t, db, `SELECT lifetime_used_traffic FROM service_admins WHERE service_id = ? AND admin_id = 2`, 900, created.ID)
 
 	rec = adminJSONRequest(t, server, http.MethodDelete, "/api/v2/services/"+itoa(created.ID), token, `{"mode":"delete_users","unlink_admins":true}`)
 	if rec.Code != http.StatusNoContent {
@@ -210,12 +209,12 @@ func TestServiceAdminLimitUpdatePersistsAllLimitFields(t *testing.T) {
 		body.DeleteUserUsageLimit == nil || *body.DeleteUserUsageLimit != 512 {
 		t.Fatalf("unexpected limit response: %#v", body)
 	}
-	assertDBString(t, db, `SELECT traffic_limit_mode FROM admins_services WHERE admin_id = 2 AND service_id = ?`, "created_traffic", created.ID)
-	assertDBInt64(t, db, `SELECT data_limit FROM admins_services WHERE admin_id = 2 AND service_id = ?`, 2048, created.ID)
-	assertDBInt64(t, db, `SELECT users_limit FROM admins_services WHERE admin_id = 2 AND service_id = ?`, 3, created.ID)
-	assertDBInt64(t, db, `SELECT show_user_traffic FROM admins_services WHERE admin_id = 2 AND service_id = ?`, 0, created.ID)
-	assertDBInt64(t, db, `SELECT delete_user_usage_limit_enabled FROM admins_services WHERE admin_id = 2 AND service_id = ?`, 1, created.ID)
-	assertDBInt64(t, db, `SELECT delete_user_usage_limit FROM admins_services WHERE admin_id = 2 AND service_id = ?`, 512, created.ID)
+	assertDBString(t, db, `SELECT traffic_limit_mode FROM service_admins WHERE admin_id = 2 AND service_id = ?`, "created_traffic", created.ID)
+	assertDBInt64(t, db, `SELECT data_limit FROM service_admins WHERE admin_id = 2 AND service_id = ?`, 2048, created.ID)
+	assertDBInt64(t, db, `SELECT users_limit FROM service_admins WHERE admin_id = 2 AND service_id = ?`, 3, created.ID)
+	assertDBInt64(t, db, `SELECT show_user_traffic FROM service_admins WHERE admin_id = 2 AND service_id = ?`, 0, created.ID)
+	assertDBInt64(t, db, `SELECT delete_user_usage_limit_enabled FROM service_admins WHERE admin_id = 2 AND service_id = ?`, 1, created.ID)
+	assertDBInt64(t, db, `SELECT delete_user_usage_limit FROM service_admins WHERE admin_id = 2 AND service_id = ?`, 512, created.ID)
 }
 
 func TestServiceUsageAnalyticsRoutes(t *testing.T) {
@@ -224,7 +223,7 @@ func TestServiceUsageAnalyticsRoutes(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO services (id, name, used_traffic, lifetime_used_traffic, users_usage) VALUES (77, 'UsageSvc', 0, 0, 0)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO admins_services (admin_id, service_id) VALUES (2, 77), (3, 77)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO service_admins (admin_id, service_id) VALUES (2, 77), (3, 77)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO users (id, username, admin_id, service_id, status) VALUES
@@ -487,7 +486,7 @@ func TestServiceDeleteEmptyService(t *testing.T) {
 		t.Fatalf("delete status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM services WHERE id = ?`, 0, created.ID)
-	assertDBInt64(t, db, `SELECT COUNT(*) FROM admins_services WHERE service_id = ?`, 0, created.ID)
+	assertDBInt64(t, db, `SELECT COUNT(*) FROM service_admins WHERE service_id = ?`, 0, created.ID)
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'remove_user'`, 0)
 	assertDBInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE operation_type = 'sync_config'`, 0)
 }
@@ -591,16 +590,16 @@ func TestServiceHostChangeKeepsSubscriptionLinkAndChangesConfigOutput(t *testing
 	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN auto_delete_in_days INTEGER NULL`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN subadress TEXT NULL`); err != nil {
+	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN subscription_token TEXT NULL`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`ALTER TABLE jwt ADD COLUMN subscription_secret_key TEXT DEFAULT 'sub-secret'`); err != nil {
+	if _, err := db.Exec(`ALTER TABLE auth_secrets ADD COLUMN subscription_secret_key TEXT DEFAULT 'sub-secret'`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`ALTER TABLE jwt ADD COLUMN vmess_mask TEXT NULL`); err != nil {
+	if _, err := db.Exec(`ALTER TABLE auth_secrets ADD COLUMN vmess_mask TEXT NULL`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`ALTER TABLE jwt ADD COLUMN vless_mask TEXT NULL`); err != nil {
+	if _, err := db.Exec(`ALTER TABLE auth_secrets ADD COLUMN vless_mask TEXT NULL`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`CREATE TABLE panel_settings (id INTEGER PRIMARY KEY, default_subscription_type TEXT)`); err != nil {
@@ -612,7 +611,7 @@ func TestServiceHostChangeKeepsSubscriptionLinkAndChangesConfigOutput(t *testing
 	if _, err := db.Exec(`CREATE TABLE user_usage_logs (id INTEGER PRIMARY KEY, user_id INTEGER, used_traffic_at_reset BIGINT DEFAULT 0)`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`CREATE TABLE proxies (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT, settings TEXT)`); err != nil {
+	if _, err := db.Exec(`CREATE TABLE user_credentials (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT, settings TEXT)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`CREATE TABLE next_plans (
@@ -655,7 +654,7 @@ func TestServiceHostChangeKeepsSubscriptionLinkAndChangesConfigOutput(t *testing
 	if _, err := db.Exec(`INSERT INTO users (id, username, admin_id, status, service_id, credential_key, used_traffic, data_limit, created_at) VALUES (30, 'config_user', 2, 'active', ?, '0123456789abcdef0123456789abcdef', 0, 1000, '2026-06-05 00:00:00')`, created.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO proxies (id, user_id, type, settings) VALUES (30, 30, 'vless', '{"id":"11111111-1111-4111-8111-111111111111"}')`); err != nil {
+	if _, err := db.Exec(`INSERT INTO user_credentials (id, user_id, type, settings) VALUES (30, 30, 'vless', '{"id":"11111111-1111-4111-8111-111111111111"}')`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -699,7 +698,7 @@ func TestServiceUsersReadRouteGoNative(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO services (id, name) VALUES (7, 'service-users')`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`INSERT INTO admins_services (admin_id, service_id) VALUES (2, 7)`); err != nil {
+	if _, err := db.Exec(`INSERT INTO service_admins (admin_id, service_id) VALUES (2, 7)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO users (
@@ -831,4 +830,88 @@ func decodeSubscriptionBody(body string) string {
 		return string(decoded)
 	}
 	return body
+}
+
+func TestServiceUsageCoefficientRoundTrip(t *testing.T) {
+	server, db, token := testServiceServer(t)
+
+	rec := adminJSONRequest(t, server, http.MethodPost, "/api/v2/services", token, `{"name":"Coefficient","hosts":[{"host_id":1}],"admin_ids":[2],"usage_coefficient":2.5}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var created struct {
+		ID               int64   `json:"id"`
+		UsageCoefficient float64 `json:"usage_coefficient"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.UsageCoefficient != 2.5 {
+		t.Fatalf("created usage_coefficient = %v, want 2.5", created.UsageCoefficient)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/services", token, `{"name":"Default","hosts":[{"host_id":1}],"admin_ids":[2]}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("default create status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.UsageCoefficient != 1 {
+		t.Fatalf("default usage_coefficient = %v, want 1", created.UsageCoefficient)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPost, "/api/v2/services", token, `{"name":"Invalid","hosts":[{"host_id":1}],"admin_ids":[2],"usage_coefficient":0}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid coefficient status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	serviceID := itoa(created.ID)
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/v2/services/"+serviceID, token, `{"usage_coefficient":3}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.UsageCoefficient != 3 {
+		t.Fatalf("updated usage_coefficient = %v, want 3", created.UsageCoefficient)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/v2/services/"+serviceID+"/admins/2/limits", token, `{"usage_coefficient":1.5}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin override status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var link struct {
+		UsageCoefficient *float64 `json:"usage_coefficient"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &link); err != nil {
+		t.Fatal(err)
+	}
+	if link.UsageCoefficient == nil || *link.UsageCoefficient != 1.5 {
+		t.Fatalf("admin override usage_coefficient = %v, want 1.5", link.UsageCoefficient)
+	}
+	var stored *float64
+	if err := db.QueryRow(`SELECT usage_coefficient FROM service_admins WHERE admin_id = 2 AND service_id = ?`, created.ID).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored == nil || *stored != 1.5 {
+		t.Fatalf("stored admin override = %v, want 1.5", stored)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/v2/services/"+serviceID+"/admins/2/limits", token, `{"usage_coefficient":null}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin reset status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &link); err != nil {
+		t.Fatal(err)
+	}
+	if link.UsageCoefficient != nil {
+		t.Fatalf("reset admin usage_coefficient = %v, want null (inherit service default)", *link.UsageCoefficient)
+	}
+
+	rec = adminJSONRequest(t, server, http.MethodPut, "/api/v2/services/"+serviceID+"/admins/2/limits", token, `{"usage_coefficient":200}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("out-of-range admin coefficient status = %d body=%s", rec.Code, rec.Body.String())
+	}
 }

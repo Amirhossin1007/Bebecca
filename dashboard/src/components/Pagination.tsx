@@ -47,7 +47,7 @@ const ChevronIcon = chakra(ChevronDownIcon, {
 });
 
 export type PaginationProps = {
-	for?: "users" | "admins";
+	for?: "users" | "admins" | "services";
 	total?: number;
 	limit?: number;
 	offset?: number;

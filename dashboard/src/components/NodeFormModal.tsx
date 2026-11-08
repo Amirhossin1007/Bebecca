@@ -15,15 +15,11 @@ import {
 	SimpleGrid,
 	Stack,
 	Switch,
-	Tag,
 	Text,
 	Textarea,
 	Tooltip,
 	useClipboard,
 	useToast,
-	VStack,
-	Wrap,
-	WrapItem,
 } from "@chakra-ui/react";
 import { PanelSelect as Select } from "components/common/PanelSelect";
 import {
@@ -37,21 +33,11 @@ import {
 	getNodeDefaultValues,
 	NodeSchema,
 	type NodeType,
-	useNodes,
 } from "contexts/NodesContext";
-import dayjs from "dayjs";
-import {
-	type FC,
-	type ReactNode,
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { type FC, useCallback, useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { SizeFormatter } from "../utils/outbound";
+import { z } from "zod";
 import {
 	AnimatedSubmitButton,
 	type AnimatedSubmitStatus,
@@ -63,7 +49,6 @@ import {
 	XrayModalFooter,
 	XrayModalHeader,
 } from "./xray/XrayDialog";
-import { NodeModalStatusBadge } from "./NodeModalStatusBadge";
 
 const EyeIconStyled = chakra(EyeIcon, { baseStyle: { w: 4, h: 4 } });
 const EyeSlashIconStyled = chakra(EyeSlashIcon, { baseStyle: { w: 4, h: 4 } });
@@ -83,50 +68,32 @@ const getInputError = (error: unknown): string | undefined => {
 	return undefined;
 };
 
-const uniqueValues = (items: string[]): string[] =>
-	Array.from(new Set(items.filter(Boolean)));
-
-const getConfigInbounds = (config: NodeType["xray_config"]): string[] => {
-	if (!config || typeof config !== "object" || Array.isArray(config)) {
-		return [];
+const getFirstInputError = (value: unknown): string | undefined => {
+	const direct = getInputError(value);
+	if (direct) return direct;
+	if (!value || typeof value !== "object") return undefined;
+	for (const nested of Object.values(value as Record<string, unknown>)) {
+		const message = getFirstInputError(nested);
+		if (message) return message;
 	}
-
-	const inbounds = (config as { inbounds?: unknown }).inbounds;
-	if (!Array.isArray(inbounds)) {
-		return [];
-	}
-
-	return inbounds
-		.map((inbound) => {
-			if (!inbound || typeof inbound !== "object") {
-				return "";
-			}
-			const item = inbound as { tag?: unknown; remark?: unknown };
-			return typeof item.tag === "string" && item.tag
-				? item.tag
-				: typeof item.remark === "string" && item.remark
-					? item.remark
-					: "inbound";
-		})
-		.filter(Boolean);
+	return undefined;
 };
 
-const formatNodeBytes = (value?: number | null) =>
-	value !== null && value !== undefined ? SizeFormatter.sizeFormat(value) : "-";
+const optionalPortSchema = z.preprocess(
+	(value) => (value === "" || value === null ? undefined : value),
+	z.coerce.number().int().min(1).max(65535).optional(),
+);
 
-const formatNodeSpeed = (value?: number | null) =>
-	value !== null && value !== undefined ? `${SizeFormatter.sizeFormat(value)}/s` : "-";
+const optionalNullablePortSchema = z.preprocess(
+	(value) => (value === "" ? null : value),
+	z.coerce.number().int().min(1).max(65535).nullable().optional(),
+);
 
-const formatNodePercent = (value?: number | null) =>
-	value !== null && value !== undefined && Number.isFinite(value)
-		? `${Math.round(value * 10) / 10}%`
-		: "-";
-
-const formatCPUFrequency = (value?: number | null) => {
-	if (value === null || value === undefined || !Number.isFinite(value) || value <= 0) {
-		return "-";
-	}
-	return `${Math.round((value / 1_000_000_000) * 100) / 100} GHz`;
+const toValidPort = (value: unknown): number | null => {
+	const numeric = Number(value);
+	return Number.isInteger(numeric) && numeric >= 1 && numeric <= 65535
+		? numeric
+		: null;
 };
 
 const buildNodeInstallBundle = (
@@ -141,31 +108,50 @@ const buildNodeInstallBundle = (
 	return cert;
 };
 
-const OverviewItem: FC<{
-	detail?: ReactNode;
-	label: ReactNode;
-	value: ReactNode;
-}> = ({ detail, label, value }) => (
-	<Box>
-		<Text fontSize="xs" textTransform="uppercase" color="gray.500">
-			{label}
-		</Text>
-		<Box fontWeight="medium" lineHeight="short" mt={0.5}>
-			{value}
-		</Box>
-		{detail && (
-			<Text fontSize="xs" color="gray.500" mt={1}>
-				{detail}
-			</Text>
-		)}
-	</Box>
-);
-
+const EditableNodeSchema = z
+	.object({
+		name: z.string().trim().min(1).max(120),
+		note: z.string().max(500).nullable().optional(),
+		address: z.string().trim().min(1),
+		port: z.coerce.number().int().min(1).max(65535),
+		api_port: optionalPortSchema,
+		usage_coefficient: z.coerce.number().positive(),
+		data_limit: z.number().finite().nonnegative().nullable().optional(),
+		proxy_enabled: z.boolean().optional(),
+		proxy_type: z.enum(["http", "socks5"]).nullable().optional(),
+		proxy_host: z.string().nullable().optional(),
+		proxy_port: optionalNullablePortSchema,
+		proxy_username: z.string().nullable().optional(),
+		proxy_password: z.string().nullable().optional(),
+	})
+	.superRefine((value, ctx) => {
+		if (!value.proxy_enabled) return;
+		if (!value.proxy_type) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["proxy_type"],
+				message: "Proxy type is required",
+			});
+		}
+		if (!value.proxy_host?.trim()) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["proxy_host"],
+				message: "Proxy host is required",
+			});
+		}
+		if (value.proxy_port === null || value.proxy_port === undefined) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["proxy_port"],
+				message: "Proxy port must be between 1 and 65535",
+			});
+		}
+	});
 interface NodeFormModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	node?: NodeType;
-	defaultInboundTags?: string[];
 	mutate: (
 		data: any,
 		options?: {
@@ -182,7 +168,6 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 	isOpen,
 	onClose,
 	node,
-	defaultInboundTags = [],
 	mutate,
 	isLoading,
 	isAddMode = false,
@@ -191,11 +176,6 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 	const { t } = useTranslation();
 	const toast = useToast();
 	const [showCertificate, setShowCertificate] = useState(false);
-	const fetchNodesUsage = useNodes((state) => state.fetchNodesUsage);
-	const [nodeUsage, setNodeUsage] = useState<{
-		uplink: number;
-		downlink: number;
-	} | null>(null);
 	const [submitStatus, setSubmitStatus] =
 		useState<AnimatedSubmitStatus>("idle");
 	const submitResetTimerRef = useRef<number | null>(null);
@@ -218,25 +198,25 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 			? null
 			: Math.round(value * BYTES_IN_GB);
 
-	const buildMutationPayload = (data: NodeType) => ({
-		...(isAddMode ? {} : { id: node?.id ?? data.id }),
-		name: data.name,
-		note: data.note ?? "",
-		address: data.address,
-		control_port: Number(data.port),
-		api_port: Number(data.api_port),
-		usage_coefficient: Number(data.usage_coefficient),
-		data_limit: convertLimitToBytes(data.data_limit ?? null),
-		proxy_enabled: Boolean(data.proxy_enabled),
-		proxy_type: data.proxy_enabled ? data.proxy_type : null,
-		proxy_host: data.proxy_enabled ? data.proxy_host : null,
-		proxy_port:
-			data.proxy_enabled && data.proxy_port !== null && data.proxy_port !== undefined
-				? Number(data.proxy_port)
-				: null,
-		proxy_username: data.proxy_enabled ? data.proxy_username : null,
-		proxy_password: data.proxy_enabled ? data.proxy_password : null,
-	});
+	const buildMutationPayload = (data: NodeType) => {
+		const apiPort = toValidPort(data.api_port);
+		return {
+			...(isAddMode ? {} : { id: node?.id ?? data.id }),
+			name: data.name,
+			note: data.note ?? "",
+			address: data.address,
+			control_port: Number(data.port),
+			...(apiPort ? { api_port: apiPort } : {}),
+			usage_coefficient: Number(data.usage_coefficient),
+			data_limit: convertLimitToBytes(data.data_limit ?? null),
+			proxy_enabled: Boolean(data.proxy_enabled),
+			proxy_type: data.proxy_enabled ? data.proxy_type : null,
+			proxy_host: data.proxy_enabled ? data.proxy_host : null,
+			proxy_port: data.proxy_enabled ? toValidPort(data.proxy_port) : null,
+			proxy_username: data.proxy_enabled ? data.proxy_username : null,
+			proxy_password: data.proxy_enabled ? data.proxy_password : null,
+		};
+	};
 
 	const baseDefaults = isAddMode
 		? getNodeDefaultValues()
@@ -246,7 +226,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 			};
 
 	const form = useForm({
-		resolver: zodResolver(NodeSchema),
+		resolver: zodResolver(isAddMode ? NodeSchema : EditableNodeSchema),
 		defaultValues: {
 			...baseDefaults,
 			data_limit: formatDataLimitForInput(baseDefaults.data_limit ?? null),
@@ -259,31 +239,6 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 	const { onCopy: copyNodeCertificate, hasCopied: nodeCertificateCopied } =
 		useClipboard(nodeCertificateValue);
 	const proxyEnabled = form.watch("proxy_enabled");
-	const overviewInboundTags = useMemo(() => {
-		const customInbounds = uniqueValues(getConfigInbounds(node?.xray_config));
-		return customInbounds.length ? customInbounds : defaultInboundTags;
-	}, [defaultInboundTags, node?.xray_config]);
-	const nodeStatus = node?.status || "error";
-	const nodeUsageTotal = (node?.uplink ?? 0) + (node?.downlink ?? 0);
-	const nodeUsagePeriodTotal =
-		nodeUsage !== null ? nodeUsage.uplink + nodeUsage.downlink : null;
-	const nodeLimitDisplay =
-		node?.data_limit !== null &&
-		node?.data_limit !== undefined &&
-		node.data_limit > 0
-			? formatNodeBytes(node.data_limit)
-			: t("nodes.unlimited");
-	const nodeRuntimeVersion =
-		node?.node_binary_tag || node?.node_service_version || "";
-	const nodeInstallLabel =
-		[node?.node_install_mode, node?.node_update_channel]
-			.filter(Boolean)
-			.join(" / ") || "-";
-	const certificateState = node?.uses_default_certificate
-		? t("nodes.legacyCertificate")
-		: node?.has_custom_certificate
-			? t("nodes.privateCertificate")
-			: "-";
 
 	const clearSubmitTimers = useCallback(() => {
 		if (submitResetTimerRef.current !== null) {
@@ -337,63 +292,53 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 				...defaults,
 				data_limit: formatDataLimitForInput(defaults.data_limit ?? null),
 			});
-			setShowCertificate(!isAddMode && !!node?.node_certificate);
+			setShowCertificate(false);
 		}
-	}, [isOpen, isAddMode, node, form, formatDataLimitForInput, clearSubmitTimers]);
+	}, [
+		isOpen,
+		isAddMode,
+		node,
+		form,
+		formatDataLimitForInput,
+		clearSubmitTimers,
+	]);
 
-	useEffect(() => {
-		if (!isAddMode && node && isOpen) {
-			if (node.id === null || node.id === undefined) {
-				setNodeUsage(null);
-				return;
-			}
-			const nodeId = String(node.id);
-			fetchNodesUsage({
-				start: dayjs().utc().subtract(30, "day").format("YYYY-MM-DDTHH:00:00"),
-			}).then(
-				(data: {
-					usages?: Record<string, { uplink?: number; downlink?: number }>;
-				}) => {
-					const usage = data.usages?.[nodeId];
-					if (usage) {
-						setNodeUsage({
-							uplink: usage.uplink ?? 0,
-							downlink: usage.downlink ?? 0,
-						});
-					} else {
-						setNodeUsage(null);
-					}
+	const handleSubmit = form.handleSubmit(
+		(data) => {
+			if (submitStatus !== "idle" || isLoading) return;
+			clearSubmitTimers();
+			setSubmitStatus("loading");
+			const payload = buildMutationPayload(data);
+			mutate(payload, {
+				onError: () => {
+					showSubmitError();
 				},
-			);
-		} else {
-			setNodeUsage(null);
-		}
-	}, [node, isAddMode, isOpen, fetchNodesUsage]);
-
-	const handleSubmit = form.handleSubmit((data) => {
-		if (submitStatus !== "idle" || isLoading) return;
-		clearSubmitTimers();
-		setSubmitStatus("loading");
-		const payload = buildMutationPayload(data);
-		mutate(payload, {
-			onError: () => {
-				showSubmitError();
-			},
-			onSuccess: (createdOrUpdatedNode) => {
-				setSubmitStatus("success");
-				successCloseTimerRef.current = window.setTimeout(() => {
-					successCloseTimerRef.current = null;
-					handleClose();
-					window.setTimeout(() => {
-						onSubmitSuccess?.(createdOrUpdatedNode);
-					}, 0);
-				}, 1000);
-			},
-		});
-	}, () => {
-		if (submitStatus !== "idle") return;
-		showSubmitError();
-	});
+				onSuccess: (createdOrUpdatedNode) => {
+					setSubmitStatus("success");
+					successCloseTimerRef.current = window.setTimeout(() => {
+						successCloseTimerRef.current = null;
+						handleClose();
+						window.setTimeout(() => {
+							onSubmitSuccess?.(createdOrUpdatedNode);
+						}, 0);
+					}, 1000);
+				},
+			});
+		},
+		(errors) => {
+			if (submitStatus !== "idle") return;
+			const message =
+				getFirstInputError(errors) || "Please fix the node form fields.";
+			toast({
+				title: message,
+				status: "error",
+				isClosable: true,
+				position: "top",
+				duration: 3500,
+			});
+			showSubmitError();
+		},
+	);
 
 	const handleCopyNodeCertificate = () => {
 		if (!nodeCertificateValue) return;
@@ -422,7 +367,6 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 		clearSubmitTimers();
 		setSubmitStatus("idle");
 		setShowCertificate(false);
-		setNodeUsage(null);
 		onClose();
 	}
 
@@ -474,189 +418,6 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 				<ModalCloseButton />
 				<XrayModalBody>
 					<Stack spacing={4}>
-						{!isAddMode && node && (
-							<Stack className="xray-dialog-section" spacing={4}>
-								<HStack justify="space-between" align="flex-start" gap={3}>
-									<VStack align="flex-start" spacing={1} minW={0}>
-										<Text fontWeight="semibold">
-											{t("nodes.overview")}
-										</Text>
-										<Text
-											fontSize="xs"
-											color="gray.500"
-											noOfLines={2}
-											wordBreak="break-word"
-										>
-											{node.name || t("nodes.unnamedNode")} ·{" "}
-											{t("admins.idLabel")}: {node.id ?? "-"}
-										</Text>
-										{node.note && (
-											<Text
-												fontSize="xs"
-												color="gray.500"
-												noOfLines={3}
-												wordBreak="break-word"
-											>
-												{node.note}
-											</Text>
-										)}
-									</VStack>
-									<HStack spacing={2}>
-										<Tag
-											size="sm"
-											colorScheme={
-												node.agent_status === "connected"
-													? "green"
-													: node.agent_status === "error"
-														? "red"
-														: "gray"
-											}
-										>
-											{t("nodes.agentHealth")}: {node.agent_status ?? "unknown"}
-										</Tag>
-										<Tag
-											size="sm"
-											colorScheme={
-												node.xray_status === "running"
-													? "green"
-													: node.xray_status === "stopped"
-														? "orange"
-														: "gray"
-											}
-										>
-											{t("nodes.xrayHealth")}: {node.xray_status ?? "unknown"}
-										</Tag>
-										<NodeModalStatusBadge status={nodeStatus} compact />
-									</HStack>
-								</HStack>
-								{node.message && (
-									<Box
-										borderWidth="1px"
-										borderColor="red.200"
-										borderRadius="md"
-										bg="red.50"
-										color="red.700"
-										px={3}
-										py={2}
-										_dark={{
-											bg: "red.900",
-											borderColor: "red.700",
-											color: "red.100",
-										}}
-									>
-										<Text fontSize="sm">{node.message}</Text>
-									</Box>
-								)}
-								<SimpleGrid columns={{ base: 1, sm: 2, lg: 3 }} spacing={3}>
-									<OverviewItem
-										label={t("nodes.nodeAddress")}
-										value={
-											<Text as="span" dir="ltr" sx={{ unicodeBidi: "isolate" }}>
-												{node.address || "-"}
-											</Text>
-										}
-										detail={`${t("nodes.controlPort")}: ${node.port ?? "-"}`}
-									/>
-									<OverviewItem
-										label={t("nodes.trafficLimit")}
-										value={`${formatNodeBytes(nodeUsageTotal)} / ${nodeLimitDisplay}`}
-										detail={`${t("nodes.uplink")}: ${formatNodeBytes(
-											node.uplink,
-										)} · ${t("nodes.downlink")}: ${formatNodeBytes(
-											node.downlink,
-										)}`}
-									/>
-									<OverviewItem
-										label={t("nodes.range30d")}
-										value={
-											nodeUsagePeriodTotal !== null
-												? formatNodeBytes(nodeUsagePeriodTotal)
-												: "-"
-										}
-										detail={
-											nodeUsage
-												? `${t("nodes.uplink")}: ${formatNodeBytes(
-														nodeUsage.uplink,
-													)} · ${t("nodes.downlink")}: ${formatNodeBytes(
-														nodeUsage.downlink,
-													)}`
-												: t("nodes.usageUnavailable")
-										}
-									/>
-									<OverviewItem
-										label={t("nodes.bandwidthSpeed")}
-										value={`${formatNodeSpeed(node.upload_speed)} / ${formatNodeSpeed(
-											node.download_speed,
-										)}`}
-									/>
-									<OverviewItem
-										label={t("nodes.cpu")}
-										value={formatNodePercent(node.cpu_usage_percent)}
-										detail={`${node.cpu_cores ?? "-"} ${t("cores")} · ${formatCPUFrequency(node.cpu_frequency_hz)}`}
-									/>
-									<OverviewItem
-										label={t("nodes.ram")}
-										value={formatNodePercent(node.memory_usage_percent)}
-										detail={`${formatNodeBytes(node.memory_used)} / ${formatNodeBytes(
-											node.memory_total,
-										)}`}
-									/>
-									<OverviewItem
-										label={t("nodes.runtime")}
-										value={
-											node.xray_version
-												? `Xray ${node.xray_version}`
-												: t("nodes.versionUnknown")
-										}
-										detail={
-											nodeRuntimeVersion
-												? `${t("nodes.nodeServiceVersionTag", {
-														version: nodeRuntimeVersion,
-													})} · ${nodeInstallLabel}`
-												: nodeInstallLabel
-										}
-									/>
-									<OverviewItem
-										label={t("nodes.certificate")}
-										value={
-											<Tag
-												size="sm"
-												colorScheme={
-													node.uses_default_certificate
-														? "orange"
-														: node.has_custom_certificate
-															? "green"
-															: "gray"
-												}
-											>
-												{certificateState}
-											</Tag>
-										}
-									/>
-								</SimpleGrid>
-								<Box>
-									<Text fontSize="xs" textTransform="uppercase" color="gray.500">
-										{t("pages.xray.Inbounds")}
-									</Text>
-									{overviewInboundTags.length ? (
-										<Wrap spacing={1.5} mt={1}>
-											{overviewInboundTags.map((tag) => (
-												<WrapItem key={tag}>
-													<Tag size="sm" colorScheme="teal" variant="subtle">
-														{tag}
-													</Tag>
-												</WrapItem>
-											))}
-										</Wrap>
-									) : (
-										<Text fontSize="sm" color="gray.500" mt={1}>
-											{t("nodes.noInboundsConfigured")}
-										</Text>
-									)}
-								</Box>
-							</Stack>
-						)}
-
 						{!isAddMode && nodeCertificateValue && (
 							<Stack className="xray-dialog-section" spacing={3}>
 								<Stack
@@ -818,10 +579,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 												if (Number.isNaN(value)) {
 													return t("nodes.dataLimitValidation");
 												}
-												return (
-													value >= 0 ||
-													t("nodes.dataLimitPositive")
-												);
+												return value >= 0 || t("nodes.dataLimitPositive");
 											},
 										})}
 										error={getInputError(form.formState?.errors?.data_limit)}
@@ -832,9 +590,7 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 								</FormControl>
 							</SimpleGrid>
 							<FormControl className="node-switch-control rb-dialog-switch-row">
-								<FormLabel mb={0}>
-									{t("nodes.useProxy")}
-								</FormLabel>
+								<FormLabel mb={0}>{t("nodes.useProxy")}</FormLabel>
 								<Controller
 									control={form.control}
 									name="proxy_enabled"
@@ -861,24 +617,26 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 										}
 									>
 										<FormLabel>{t("nodes.proxyType")}</FormLabel>
-									<Controller
-										control={form.control}
-										name="proxy_type"
-										render={({ field }) => (
-											<Select
-												size="sm"
-												placeholder={t("nodes.proxyTypePlaceholder")}
-												name={field.name}
-												value={field.value ?? ""}
-												onBlur={field.onBlur}
-												onValueChange={(value) => field.onChange(value || null)}
-												options={[
-													{ value: "http", label: "HTTP" },
-													{ value: "socks5", label: "SOCKS5" },
-												]}
-											/>
-										)}
-									/>
+										<Controller
+											control={form.control}
+											name="proxy_type"
+											render={({ field }) => (
+												<Select
+													size="sm"
+													placeholder={t("nodes.proxyTypePlaceholder")}
+													name={field.name}
+													value={field.value ?? ""}
+													onBlur={field.onBlur}
+													onValueChange={(value) =>
+														field.onChange(value || null)
+													}
+													options={[
+														{ value: "http", label: "HTTP" },
+														{ value: "socks5", label: "SOCKS5" },
+													]}
+												/>
+											)}
+										/>
 										<FormErrorMessage>
 											{getInputError(form.formState?.errors?.proxy_type)}
 										</FormErrorMessage>
@@ -941,7 +699,6 @@ export const NodeFormModal: FC<NodeFormModalProps> = ({
 								</Stack>
 							</Collapse>
 						</Stack>
-
 					</Stack>
 				</XrayModalBody>
 				<XrayModalFooter justifyContent="flex-end">

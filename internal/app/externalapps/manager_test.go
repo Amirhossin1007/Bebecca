@@ -314,6 +314,28 @@ exit 0`)
 	}
 }
 
+func TestMirzaBotTableInitializerSupportsCurrentWebhookFormat(t *testing.T) {
+	table := []byte(`<?php
+
+require_once __DIR__ . '/db/bootstrap.php';
+
+global $domainhosts;
+
+$webhookSecret = ensureWebhookSecret();
+
+telegram('setWebhook', [
+    'url' => "https://$domainhosts/index.php?secret={$webhookSecret['secret']}",
+]);
+`)
+	updated, err := mirzaBotTableInitializer(table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(updated, []byte("setWebhook")) || !bytes.Contains(updated, []byte("Webhook is configured by Rebecca")) {
+		t.Fatalf("webhook call was not replaced: %s", updated)
+	}
+}
+
 func TestMirzaRequestSecretsAreIndependent(t *testing.T) {
 	base := t.TempDir()
 	manager := &Manager{baseDir: base, apps: map[string]Record{}}
@@ -397,6 +419,10 @@ func TestMirzaWebhookUsesDedicatedPath(t *testing.T) {
 	}
 	if got := externalAppWebhookURL(Record{Domain: "legacy.example.com"}); got != "https://legacy.example.com/index.php" {
 		t.Fatalf("legacy webhook URL=%q", got)
+	}
+	mirza := Record{Template: "mirzabot", Domain: "bot.example.com", Path: "bot0123456789ab"}
+	if got := telegramWebhookURL(mirza, "secret value"); got != "https://bot.example.com/bot0123456789ab/index.php?secret=secret+value" {
+		t.Fatalf("Mirza webhook URL=%q", got)
 	}
 }
 
@@ -807,4 +833,87 @@ func TestLatestMirzaBotReleaseArchive(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("validated MirzaBot %s at %s", source.Version, source.SHA)
+}
+
+func TestPatchMirzaMiniAppUsesMountedPaths(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "app", "assets"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	indexPath := filepath.Join(root, "app", "index.php")
+	if err := os.WriteFile(indexPath, []byte("<head></head>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	assetPath := filepath.Join(root, "app", "assets", "index.js")
+	asset := `const api=window.location.origin+"/api";if(window.location.pathname!=="/app/")window.location.href="/app/";`
+	if err := os.WriteFile(assetPath, []byte(asset), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := patchMirzaMiniApp(root, "bot0123456789ab"); err != nil {
+		t.Fatal(err)
+	}
+	index, err := os.ReadFile(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(index), `__MIRZA_API_ORIGIN=window.location.origin+"/bot0123456789ab"`) || !strings.Contains(string(index), `__MIRZA_APP_PATH="/bot0123456789ab/app/"`) {
+		t.Fatalf("mounted bootstrap missing: %s", index)
+	}
+	updated, err := os.ReadFile(assetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		`window.__MIRZA_API_ORIGIN||window.location.origin+"/api"`,
+		`window.location.pathname!==window.__MIRZA_APP_PATH`,
+		`window.location.href=window.__MIRZA_APP_PATH`,
+	} {
+		if !strings.Contains(string(updated), expected) {
+			t.Fatalf("asset missing %q: %s", expected, updated)
+		}
+	}
+}
+
+func TestMatchMirzaLegacyPathRequiresSingleMountedApp(t *testing.T) {
+	manager := &Manager{apps: map[string]Record{
+		"one": {ID: "one", Template: "mirzabot", Domain: "bot.example.com", Path: "bot0123456789ab"},
+	}}
+	if record, relative, ok := manager.MatchMirzaLegacyPath("bot.example.com", "/api/keyboard.php"); !ok || record.ID != "one" || relative != "api/keyboard.php" {
+		t.Fatalf("legacy match=%+v %q %v", record, relative, ok)
+	}
+	manager.apps["two"] = Record{ID: "two", Template: "mirzabot", Domain: "bot.example.com", Path: "botabcdef012345"}
+	if _, _, ok := manager.MatchMirzaLegacyPath("bot.example.com", "/api/keyboard.php"); ok {
+		t.Fatal("ambiguous legacy match was accepted")
+	}
+}
+
+func TestConfigureFaoximaBotPreservesUpstreamConfig(t *testing.T) {
+	input := []byte("<?php\n$dbname = '';\n$usernamedb = '';\n$passworddb = '';\n$dbhost = '';\n$APIKEY = '';\n$adminnumber = '';\n$domainhosts = '';\n$usernamebot = '';\n")
+	output, err := configureFaoximaBot(input, "rb_faoxima_abc", "rbm_abc", "safe-pass", "12345:abcdefghijklmnopqrstuvwxyz", "987654", "bot.example.com/botabc", "demo_bot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(output)
+	for _, expected := range []string{
+		"$dbname = 'rb_faoxima_abc';",
+		"$dbhost = '127.0.0.1';",
+		"$APIKEY = '12345:abcdefghijklmnopqrstuvwxyz';",
+		"$domainhosts = 'bot.example.com/botabc';",
+	} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("configured Faoxima value %q missing from %s", expected, text)
+		}
+	}
+}
+
+func TestFaoximaTableInitializerRemovesWebhookSetup(t *testing.T) {
+	input := []byte("before\n$hookParams = [\n    'url' => \"https://$domainhosts/index.php\",\n];\n$rxSetHookResp = telegram('setwebhook', $hookParams);\nif (!is_array($rxSetHookResp) || empty($rxSetHookResp['ok'])) {\n    error_log('setwebhook FAILED: ' . json_encode($rxSetHookResp));\n}\n\nafter\n")
+	output, err := faoximaTableInitializer(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(output)
+	if strings.Contains(text, "setwebhook") || !strings.Contains(text, "Webhook is configured by Rebecca") || !strings.Contains(text, "after") {
+		t.Fatalf("webhook setup was not removed: %s", text)
+	}
 }

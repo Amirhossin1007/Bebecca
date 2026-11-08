@@ -420,7 +420,7 @@ func (r Repository) ServiceAdminUsage(ctx context.Context, serviceID int64, star
 	linkedRows, err := r.db.QueryContext(
 		ctx,
 		`SELECT a.id, a.username
-		  FROM admins_services l
+		  FROM service_admins l
 		  JOIN admins a ON a.id = l.admin_id
 		  WHERE l.service_id = ? AND COALESCE(a.status, '') != 'deleted'
 		  ORDER BY a.username`,

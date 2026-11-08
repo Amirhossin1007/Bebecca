@@ -43,10 +43,10 @@ export const XrayModalContent: FC<ModalContentProps> = ({
 			borderRadius="md"
 			overflow="hidden"
 			maxH={{
-				base: "var(--rb-dialog-viewport-height, 100dvh)",
+				base: "92dvh",
 				md: "calc(var(--rb-dialog-viewport-height, 100dvh) - 7.5rem)",
 			}}
-			h={{ base: "var(--rb-dialog-viewport-height, 100dvh)", md: "auto" }}
+			h="auto"
 			display="flex"
 			flexDirection="column"
 			boxShadow="xl"
@@ -54,10 +54,10 @@ export const XrayModalContent: FC<ModalContentProps> = ({
 				"@media (max-width: 48em)": {
 					width: "100vw !important",
 					maxWidth: "100vw !important",
-					height: "var(--rb-dialog-viewport-height, 100dvh) !important",
-					maxHeight: "var(--rb-dialog-viewport-height, 100dvh) !important",
+					height: "auto !important",
+					maxHeight: "92dvh !important",
 					margin: "0 !important",
-					borderRadius: "0 !important",
+					borderRadius: "16px 16px 0 0 !important",
 				},
 				".chakra-modal__body": {
 					bg: bodyBg,

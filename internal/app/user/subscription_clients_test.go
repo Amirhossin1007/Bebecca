@@ -10,7 +10,40 @@ import (
 	"testing"
 
 	_ "modernc.org/sqlite"
+
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 )
+
+func TestStoredHostClientSettingsReachSubscription(t *testing.T) {
+	service, key := newSubscriptionClientTestService(t)
+	if _, err := service.repo.db.Exec(`UPDATE hosts SET client_settings = ? WHERE id = 1`, `{"tlsSettings":{"echConfigList":"cloudflare-ech.com+udp://1.1.1.1"},"wsSettings":{"heartbeatPeriod":30},"sockopt":{"tcpFastOpen":false}}`); err != nil {
+		t.Fatal(err)
+	}
+	for _, format := range []string{"xray-json", "v2ray-json"} {
+		response, err := service.RenderSubscription(context.Background(), SubscriptionRenderRequest{Identifier: key, ClientType: format, ReadOnly: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var configs []map[string]any
+		if err := json.Unmarshal(response.Body, &configs); err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, config := range configs {
+			if config["remarks"] != "xray-edge" {
+				continue
+			}
+			found = true
+			stream := mapValue(listOfMaps(config["outbounds"])[0]["streamSettings"])
+			if mapValue(stream["tlsSettings"])["echConfigList"] != "cloudflare-ech.com+udp://1.1.1.1" || mapValue(stream["wsSettings"])["heartbeatPeriod"] != float64(30) || mapValue(stream["sockopt"])["tcpFastOpen"] != false {
+				t.Fatalf("stored client settings missing from %s: %#v", format, stream)
+			}
+		}
+		if !found {
+			t.Fatalf("host missing from %s: %s", format, response.Body)
+		}
+	}
+}
 
 func TestSubscriptionClientOutputsCoverExplicitFormatsAndAutoDetect(t *testing.T) {
 	service, key := newSubscriptionClientTestService(t)
@@ -444,11 +477,11 @@ func TestV2rayNGSubscriptionsKeepAddressAndPort(t *testing.T) {
 		outbound := config["outbounds"].([]any)[0].(map[string]any)
 		settings := outbound["settings"].(map[string]any)
 		serverKey := "servers"
-		if protocol := stringValue(outbound["protocol"]); protocol == "vless" || protocol == "vmess" {
+		if protocol := jsonvalue.String(outbound["protocol"]); protocol == "vless" || protocol == "vmess" {
 			serverKey = "vnext"
 		}
 		server := settings[serverKey].([]any)[0].(map[string]any)
-		if stringValue(server["address"]) == "" || intValue(server["port"]) <= 0 {
+		if jsonvalue.String(server["address"]) == "" || jsonvalue.Int(server["port"]) <= 0 {
 			t.Fatalf("v2rayNG JSON subscription lost address or port: %#v", outbound)
 		}
 	}
@@ -480,7 +513,7 @@ func TestAutomaticCustomJSONRefreshesCurrentCustomNodeHostFinalMask(t *testing.T
 		}
 		for _, config := range configs {
 			outbound := config["outbounds"].([]any)[0].(map[string]any)
-			if stringValue(outbound["protocol"]) == "vless" {
+			if jsonvalue.String(outbound["protocol"]) == "vless" {
 				return outbound
 			}
 		}
@@ -502,7 +535,7 @@ func TestAutomaticCustomJSONRefreshesCurrentCustomNodeHostFinalMask(t *testing.T
 	if len(tcp) != 1 {
 		t.Fatalf("updated FinalMask was not rendered: %#v", finalMask)
 	}
-	lengths := listAny(mapValue(tcp[0]["settings"])["lengths"])
+	lengths := jsonvalue.ListAny(mapValue(tcp[0]["settings"])["lengths"])
 	if len(lengths) != 2 || lengths[0] != "3-5" || lengths[1] != "6-8" {
 		t.Fatalf("current fragment ranges were not refreshed: %#v", finalMask)
 	}
@@ -591,7 +624,7 @@ func TestSubscriptionClientsPreserveShadowsocksTLS(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, raw := range listOfMaps(config["inbounds"]) {
-		if stringValue(raw["tag"]) != "ss-http" {
+		if jsonvalue.String(raw["tag"]) != "ss-http" {
 			continue
 		}
 		raw["streamSettings"] = map[string]any{
@@ -709,7 +742,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 	t.Cleanup(func() { _ = db.Close() })
 
 	statements := []string{
-		`CREATE TABLE jwt (id INTEGER PRIMARY KEY, subscription_secret_key TEXT)`,
+		`CREATE TABLE auth_secrets (id INTEGER PRIMARY KEY, subscription_secret_key TEXT)`,
 		`CREATE TABLE panel_settings (id INTEGER PRIMARY KEY, default_subscription_type TEXT)`,
 		`CREATE TABLE subscription_settings (
 			id INTEGER PRIMARY KEY,
@@ -754,8 +787,9 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			on_hold_expire_duration BIGINT NULL,
 			on_hold_timeout DATETIME NULL,
 			ip_limit INTEGER DEFAULT 0,
+			speed_limit_kbps INTEGER NOT NULL DEFAULT 0,
 			auto_delete_in_days INTEGER NULL,
-			subadress TEXT NULL,
+			subscription_token TEXT NULL,
 			service_id INTEGER NULL,
 			admin_id INTEGER NULL,
 			sub_revoked_at DATETIME NULL
@@ -767,7 +801,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			user_id INTEGER,
 			used_traffic_at_reset BIGINT DEFAULT 0
 		)`,
-		`CREATE TABLE proxies (
+		`CREATE TABLE user_credentials (
 			id INTEGER PRIMARY KEY,
 			user_id INTEGER,
 			type TEXT,
@@ -816,6 +850,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			fragment_setting TEXT NULL,
 			noise_setting TEXT NULL,
 			finalmask TEXT NULL,
+			client_settings TEXT NULL,
 			random_user_agent INTEGER NOT NULL DEFAULT 0,
 			use_sni_as_host INTEGER NOT NULL DEFAULT 0
 		)`,
@@ -843,7 +878,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			xray_config_mode TEXT NULL,
 			xray_config TEXT NULL
 		)`,
-		`INSERT INTO jwt (id, subscription_secret_key) VALUES (1, 'sub-secret')`,
+		`INSERT INTO auth_secrets (id, subscription_secret_key) VALUES (1, 'sub-secret')`,
 		`INSERT INTO panel_settings (id, default_subscription_type) VALUES (1, 'key')`,
 		`INSERT INTO subscription_settings (
 			id, subscription_url_prefix, subscription_profile_title, subscription_support_url,
@@ -861,7 +896,7 @@ func newSubscriptionClientTestService(t *testing.T) (Service, string) {
 			1, 'alice', '0123456789abcdef0123456789abcdef', 'active', 1024, '2026-07-01 10:00:00',
 			10485760, 'no_reset', 1, 1
 		)`,
-		`INSERT INTO proxies (id, user_id, type, settings) VALUES
+		`INSERT INTO user_credentials (id, user_id, type, settings) VALUES
 			(1, 1, 'vless', '{"id":"11111111-1111-4111-8111-111111111111"}'),
 			(2, 1, 'shadowsocks', '{"method":"aes-256-gcm","password":"ss-secret"}')`,
 		`INSERT INTO hosts (id, inbound_tag, remark, address, security, alpn, fingerprint, is_disabled, mux_enable, random_user_agent, use_sni_as_host) VALUES

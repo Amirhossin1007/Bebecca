@@ -22,6 +22,7 @@ import (
 	"time"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
@@ -66,6 +67,7 @@ type hostPayload struct {
 	FragmentSetting      *string        `json:"fragment_setting"`
 	NoiseSetting         *string        `json:"noise_setting"`
 	FinalMask            map[string]any `json:"finalmask"`
+	ClientSettings       map[string]any `json:"client_settings"`
 	RandomUserAgent      *bool          `json:"random_user_agent"`
 	UseSNIAsHost         *bool          `json:"use_sni_as_host"`
 	DNSPrimary           string         `json:"dns_primary"`
@@ -100,6 +102,7 @@ type hostResponse struct {
 	FragmentSetting      *string        `json:"fragment_setting"`
 	NoiseSetting         *string        `json:"noise_setting"`
 	FinalMask            map[string]any `json:"finalmask"`
+	ClientSettings       map[string]any `json:"client_settings"`
 	RandomUserAgent      *bool          `json:"random_user_agent"`
 	UseSNIAsHost         *bool          `json:"use_sni_as_host"`
 	DNSPrimary           string         `json:"dns_primary"`
@@ -471,6 +474,9 @@ func (s *Server) replaceHostsForInboundTx(r *http.Request, tx *sql.Tx, inboundTa
 		if err := validateHostPayload(host); err != nil {
 			return err
 		}
+		if err := userapp.ValidateHostClientSettings(host.ClientSettings); err != nil {
+			return statusError{status: http.StatusBadRequest, detail: err.Error()}
+		}
 		if host.ID != nil && *host.ID > 0 {
 			if exists, err := hostExistsTx(r.Context(), tx, *host.ID); err != nil {
 				return err
@@ -559,6 +565,7 @@ func sanitizeHostPayloadForInboundProtocol(payload hostPayload, protocol string)
 	payload.FragmentSetting = nil
 	payload.NoiseSetting = nil
 	payload.FinalMask = nil
+	payload.ClientSettings = nil
 	payload.RandomUserAgent = boolPtr(false)
 	payload.UseSNIAsHost = boolPtr(false)
 	return payload
@@ -722,7 +729,7 @@ func hostSelectSQL() string {
 		COALESCE(verify_peer_cert_by_name, ''), COALESCE(pinned_peer_cert_sha256, ''),
 		CASE WHEN allowinsecure IS NULL THEN NULL WHEN allowinsecure THEN 1 ELSE 0 END,
 		COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting, finalmask,
-		COALESCE(random_user_agent, 0), COALESCE(use_sni_as_host, 0)
+		COALESCE(random_user_agent, 0), COALESCE(use_sni_as_host, 0), client_settings
 		FROM hosts`
 }
 
@@ -736,7 +743,7 @@ func hostSelectSQLWithInbound() string {
 		COALESCE(verify_peer_cert_by_name, ''), COALESCE(pinned_peer_cert_sha256, ''),
 		CASE WHEN allowinsecure IS NULL THEN NULL WHEN allowinsecure THEN 1 ELSE 0 END,
 		COALESCE(is_disabled, 0), COALESCE(mux_enable, 0), fragment_setting, noise_setting, finalmask,
-		COALESCE(random_user_agent, 0), COALESCE(use_sni_as_host, 0)
+		COALESCE(random_user_agent, 0), COALESCE(use_sni_as_host, 0), client_settings
 		FROM hosts`
 }
 
@@ -765,6 +772,7 @@ func scanHostResponseWithInbound(scanner hostScanner, inboundTag *string) (hostR
 	var path, sni, hostValue, fragment, noise, finalMask sql.NullString
 	var addressOptions, sniOptions, hostOptions sql.NullString
 	var allowInsecure sql.NullInt64
+	var clientSettings sql.NullString
 	var disabled, muxEnable, randomUA, useSNI int64
 	if err := scanner.Scan(
 		inboundTag,
@@ -799,8 +807,12 @@ func scanHostResponseWithInbound(scanner hostScanner, inboundTag *string) (hostR
 		&finalMask,
 		&randomUA,
 		&useSNI,
+		&clientSettings,
 	); err != nil {
 		return hostResponse{}, err
+	}
+	if clientSettings.Valid {
+		_ = json.Unmarshal([]byte(clientSettings.String), &item.ClientSettings)
 	}
 	return normalizeScannedHostResponse(item, addressOptions, addressTTL, port, path, sni, sniOptions, sniTTL, hostValue, hostOptions, hostTTL, fragment, noise, finalMask, allowInsecure, disabled, muxEnable, randomUA, useSNI), nil
 }
@@ -811,6 +823,7 @@ func scanHostResponse(scanner hostScanner) (hostResponse, error) {
 	var path, sni, hostValue, fragment, noise, finalMask sql.NullString
 	var addressOptions, sniOptions, hostOptions sql.NullString
 	var allowInsecure sql.NullInt64
+	var clientSettings sql.NullString
 	var disabled, muxEnable, randomUA, useSNI int64
 	if err := scanner.Scan(
 		&item.ID,
@@ -844,8 +857,12 @@ func scanHostResponse(scanner hostScanner) (hostResponse, error) {
 		&finalMask,
 		&randomUA,
 		&useSNI,
+		&clientSettings,
 	); err != nil {
 		return hostResponse{}, err
+	}
+	if clientSettings.Valid {
+		_ = json.Unmarshal([]byte(clientSettings.String), &item.ClientSettings)
 	}
 	return normalizeScannedHostResponse(item, addressOptions, addressTTL, port, path, sni, sniOptions, sniTTL, hostValue, hostOptions, hostTTL, fragment, noise, finalMask, allowInsecure, disabled, muxEnable, randomUA, useSNI), nil
 }
@@ -2411,8 +2428,8 @@ func insertHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 			host, host_options, host_selection_mode, host_ttl_seconds, security, alpn, fingerprint,
 			verify_peer_cert_by_name, pinned_peer_cert_sha256,
 			inbound_tag, allowinsecure, is_disabled, mux_enable, fragment_setting, noise_setting, finalmask,
-			random_user_agent, use_sni_as_host
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			random_user_agent, use_sni_as_host, client_settings
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		payload.Remark,
 		payload.Address,
 		payload.DNSPrimary,
@@ -2444,6 +2461,7 @@ func insertHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 		hostFinalMaskValue(payload.FinalMask),
 		boolToInt(boolPtrValue(payload.RandomUserAgent)),
 		boolToInt(boolPtrValue(payload.UseSNIAsHost)),
+		hostFinalMaskValue(payload.ClientSettings),
 	)
 	if err != nil {
 		return 0, err
@@ -2460,7 +2478,7 @@ func updateHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 			host = ?, host_options = ?, host_selection_mode = ?, host_ttl_seconds = ?,
 			security = ?, alpn = ?, fingerprint = ?, verify_peer_cert_by_name = ?, pinned_peer_cert_sha256 = ?, inbound_tag = ?, allowinsecure = ?,
 			is_disabled = ?, mux_enable = ?, fragment_setting = ?, noise_setting = ?, finalmask = ?,
-			random_user_agent = ?, use_sni_as_host = ?
+			random_user_agent = ?, use_sni_as_host = ?, client_settings = ?
 		WHERE id = ?`,
 		payload.Remark,
 		payload.Address,
@@ -2493,6 +2511,7 @@ func updateHostTx(ctx context.Context, tx *sql.Tx, inboundTag string, payload ho
 		hostFinalMaskValue(payload.FinalMask),
 		boolToInt(boolPtrValue(payload.RandomUserAgent)),
 		boolToInt(boolPtrValue(payload.UseSNIAsHost)),
+		hostFinalMaskValue(payload.ClientSettings),
 		*payload.ID,
 	)
 	return err

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 )
 
@@ -49,12 +50,13 @@ type RuntimeSessionCallback struct {
 }
 
 type OperationRow struct {
-	ID            int64
-	OperationType string
-	NodeID        sql.NullInt64
-	UserID        sql.NullInt64
-	Payload       json.RawMessage
-	Attempts      int
+	ID             int64
+	OperationType  string
+	NodeID         sql.NullInt64
+	UserID         sql.NullInt64
+	Payload        json.RawMessage
+	Attempts       int
+	IdempotencyKey string
 }
 
 const (
@@ -125,7 +127,7 @@ FROM nodes WHERE id = ? AND LOWER(COALESCE(status, '')) <> 'deleted' LIMIT 1`, n
 
 func (r Repository) TLS(ctx context.Context) (TLSRow, error) {
 	var row TLSRow
-	err := r.db.QueryRowContext(ctx, `SELECT certificate, `+"`key`"+` FROM tls ORDER BY id LIMIT 1`).Scan(&row.Certificate, &row.Key)
+	err := r.db.QueryRowContext(ctx, `SELECT certificate, private_key FROM default_certificates ORDER BY id LIMIT 1`).Scan(&row.Certificate, &row.Key)
 	if err != nil {
 		return TLSRow{}, err
 	}
@@ -317,7 +319,7 @@ SELECT
 	COALESCE(p.settings, '{}')
 FROM users u
 JOIN (` + protocolQuery + `) protocols
-LEFT JOIN proxies p ON u.id = p.user_id AND LOWER(p.type) = protocols.type`
+LEFT JOIN user_credentials p ON u.id = p.user_id AND LOWER(p.type) = protocols.type`
 	if excludeVPNSessions {
 		query += `
 LEFT JOIN (
@@ -455,7 +457,7 @@ func (r Repository) callbackSecret(ctx context.Context) (string, error) {
 		return "", nil
 	}
 	var adminSecret, legacySecret sql.NullString
-	err := r.db.QueryRowContext(ctx, `SELECT admin_secret_key, secret_key FROM jwt ORDER BY id LIMIT 1`).Scan(&adminSecret, &legacySecret)
+	err := r.db.QueryRowContext(ctx, `SELECT admin_secret_key, secret_key FROM auth_secrets ORDER BY id LIMIT 1`).Scan(&adminSecret, &legacySecret)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
@@ -661,7 +663,7 @@ func (r Repository) PendingOperations(ctx context.Context, nodeID int64, limit i
 		return r.pendingOperationsFair(ctx, limit)
 	}
 	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
-	query := `SELECT id, operation_type, node_id, user_id, payload, attempts
+	query := `SELECT id, operation_type, node_id, user_id, payload, attempts, idempotency_key
 FROM node_operations no
 WHERE (
 	status = 'pending'
@@ -690,7 +692,100 @@ AND (
 	for rows.Next() {
 		var row OperationRow
 		var payload []byte
-		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
+			return nil, err
+		}
+		row.Payload = append(row.Payload[:0], payload...)
+		result = append(result, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (r Repository) PendingRuntimeUserOperationsAll(ctx context.Context, limit int) ([]OperationRow, error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+	if limit > maxPendingOperationsLimit {
+		limit = maxPendingOperationsLimit
+	}
+	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
+	rows, err := r.db.QueryContext(ctx, `
+SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts, no.idempotency_key
+FROM node_operations no
+JOIN nodes n ON n.id = no.node_id
+WHERE (
+    no.status = 'pending'
+    OR (no.status = 'retrying' AND no.updated_at <= ?)
+  )
+  AND no.user_id IS NOT NULL
+  AND no.node_id IS NOT NULL
+  AND no.operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')
+  AND LOWER(COALESCE(n.status, '')) = 'connected'
+ORDER BY no.id
+LIMIT ?`, retryCutoff, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]OperationRow, 0, limit)
+	for rows.Next() {
+		var row OperationRow
+		var payload []byte
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
+			return nil, err
+		}
+		row.Payload = append(row.Payload[:0], payload...)
+		result = append(result, row)
+	}
+	return result, rows.Err()
+}
+
+func (r Repository) PendingRuntimeUserOperationsForUsers(ctx context.Context, userIDs []int64, limit int) ([]OperationRow, error) {
+	userIDs = uniqueInt64s(userIDs)
+	if len(userIDs) == 0 {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 1000
+	}
+	if limit > maxPendingOperationsLimit {
+		limit = maxPendingOperationsLimit
+	}
+	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
+	args := []any{retryCutoff}
+	for _, userID := range userIDs {
+		args = append(args, userID)
+	}
+	args = append(args, limit)
+	query := `
+SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts, no.idempotency_key
+FROM node_operations no
+JOIN nodes n ON n.id = no.node_id
+WHERE (
+    no.status = 'pending'
+    OR (no.status = 'retrying' AND no.updated_at <= ?)
+  )
+  AND no.user_id IN (` + placeholders(len(userIDs)) + `)
+  AND no.node_id IS NOT NULL
+  AND no.operation_type IN ('add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')
+  AND LOWER(COALESCE(n.status, '')) = 'connected'
+ORDER BY no.id
+LIMIT ?`
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]OperationRow, 0, limit)
+	for rows.Next() {
+		var row OperationRow
+		var payload []byte
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
 			return nil, err
 		}
 		row.Payload = append(row.Payload[:0], payload...)
@@ -714,7 +809,7 @@ func (r Repository) PendingRuntimeUserOperations(ctx context.Context, userID int
 	}
 	retryCutoff := r.timeArg(time.Now().UTC().Add(-operationRetryBackoff))
 	query := `
-SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts
+SELECT no.id, no.operation_type, no.node_id, no.user_id, no.payload, no.attempts, no.idempotency_key
 FROM node_operations no
 JOIN nodes n ON n.id = no.node_id
 WHERE (
@@ -745,7 +840,7 @@ LIMIT ?`
 	for rows.Next() {
 		var row OperationRow
 		var payload []byte
-		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
 			return nil, err
 		}
 		row.Payload = append(row.Payload[:0], payload...)
@@ -771,6 +866,7 @@ func (r Repository) pendingOperationsFair(ctx context.Context, limit int) ([]Ope
 		no.user_id,
 		no.payload,
 		no.attempts,
+		no.idempotency_key,
 		CASE
 			WHEN no.operation_type = 'sync_config' THEN 0
 			WHEN no.operation_type = 'add_user' THEN 1
@@ -799,7 +895,7 @@ func (r Repository) pendingOperationsFair(ctx context.Context, limit int) ([]Ope
 	)
 	AND (no.node_id IS NULL OR LOWER(COALESCE(n.status, '')) = 'connected')
 )
-SELECT id, operation_type, node_id, user_id, payload, attempts
+SELECT id, operation_type, node_id, user_id, payload, attempts, idempotency_key
 FROM ranked_operations
 WHERE node_rank <= ?
 ORDER BY priority, node_rank, operation_priority, COALESCE(node_id, -1), id
@@ -814,7 +910,7 @@ LIMIT ?`
 	for rows.Next() {
 		var row OperationRow
 		var payload []byte
-		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
 			return nil, err
 		}
 		row.Payload = append(row.Payload[:0], payload...)
@@ -884,7 +980,7 @@ func (r Repository) MarkOperationDone(ctx context.Context, id int64) error {
 }
 
 func (r Repository) CoalescibleOperationIDsForTarget(ctx context.Context, representative OperationRow) ([]int64, error) {
-	query := `SELECT id, operation_type, node_id, user_id, payload, attempts
+	query := `SELECT id, operation_type, node_id, user_id, payload, attempts, idempotency_key
 FROM node_operations
 WHERE status IN ('pending', 'retrying', 'running')
   AND operation_type IN ('sync_config', 'add_user', 'update_user', 'remove_user', 'disable_user', 'enable_user')`
@@ -907,7 +1003,7 @@ WHERE status IN ('pending', 'retrying', 'running')
 	for rows.Next() {
 		var row OperationRow
 		var payload []byte
-		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts); err != nil {
+		if err := rows.Scan(&row.ID, &row.OperationType, &row.NodeID, &row.UserID, &payload, &row.Attempts, &row.IdempotencyKey); err != nil {
 			return nil, err
 		}
 		row.Payload = append(row.Payload[:0], payload...)
@@ -915,7 +1011,7 @@ WHERE status IN ('pending', 'retrying', 'running')
 			ids = append(ids, row.ID)
 			continue
 		}
-		if canCoalesceRuntimeSyncOperation(representative) && isRuntimeUserOperation(row.OperationType) && row.ID <= representative.ID {
+		if canCoalesceRuntimeSyncOperation(representative) && xrayconfig.IsRuntimeUserNodeOperationType(row.OperationType) && row.ID <= representative.ID {
 			ids = append(ids, row.ID)
 		}
 	}
@@ -1005,12 +1101,38 @@ func (r Repository) MarkOperationFailed(ctx context.Context, id int64, message s
 }
 
 func (r Repository) PruneFinishedOperations(ctx context.Context, retain, limit int) (int, error) {
-	if retain <= 0 {
+	if retain < 0 {
 		retain = 100000
 	}
 	if limit <= 0 || limit > 5000 {
 		limit = 1000
 	}
+	if retain == 0 {
+		rows, err := r.db.QueryContext(ctx, `SELECT id FROM node_operations
+WHERE status = 'done' ORDER BY id LIMIT ?`, limit)
+		if err != nil {
+			return 0, err
+		}
+		ids := make([]int64, 0, limit)
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return 0, err
+			}
+			ids = append(ids, id)
+		}
+		if err := rows.Close(); err != nil || len(ids) == 0 {
+			return 0, err
+		}
+		args := int64Args(ids)
+		res, err := r.db.ExecContext(ctx, `DELETE FROM node_operations WHERE status = 'done' AND id IN (`+placeholders(len(ids))+`)`, args...)
+		if err != nil {
+			return 0, err
+		}
+		return rowsAffectedOrDefault(res, len(ids)), nil
+	}
+
 	var cutoff int64
 	err := r.db.QueryRowContext(ctx, `SELECT id FROM node_operations
 WHERE status = 'done' ORDER BY id DESC LIMIT 1 OFFSET ?`, retain-1).Scan(&cutoff)
@@ -1175,7 +1297,7 @@ func (r Repository) QueueNodeSpecificRetry(ctx context.Context, nodeID int64, op
 	if err != nil {
 		return err
 	}
-	if status == "deleted" || (isRuntimeUserOperation(operation.OperationType) && status != "connected") {
+	if status == "deleted" || (xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) && status != "connected") {
 		return nil
 	}
 	operationType := strings.TrimSpace(operation.OperationType)

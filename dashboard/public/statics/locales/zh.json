@@ -364,6 +364,7 @@
 	"hostsDialog.title": "使用此设置，您可以为每个入站分配特定的地址。",
 	"hostsDialog.useSniAsHost": "Use sni as host",
 	"hostsDialog.username": "用户的用户名",
+	"hostsDialog.userId": "用户的数字 ID",
 	"hostsPage.active": "Active",
 	"hostsPage.activeToggle": "Active host",
 	"hostsPage.addHost": "Add host",
@@ -795,6 +796,7 @@
 	"usersTable.noUser": "还没有添加任何用户",
 	"usersTable.noUserMatched": "没有找到您搜索的用户",
 	"usersTable.service": "service",
+	"usersTable.userId": "用户 ID",
 	"usersTable.defaultService": "Default",
 	"usersTable.status": "状态",
 	"usersTable.total": "总共",
@@ -909,5 +911,6 @@
 	"nodes.nodeUpdateAvailable": "有可用更新",
 	"settings.telegram.backupScope": "备份范围",
 	"total": "总计",
-	"loadAverage": "平均负载"
+	"loadAverage": "平均负载",
+	"sponsors.sponsoredBy": "赞助商"
 }

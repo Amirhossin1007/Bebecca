@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"os"
 	"strings"
 
 	"github.com/rebeccapanel/rebecca/internal/app/logging"
 	userread "github.com/rebeccapanel/rebecca/internal/app/user"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
+	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 )
 
 var proxyProtocols = map[string]struct{}{
@@ -39,10 +39,9 @@ type runtimeUserIdentity struct {
 }
 
 type runtimeConfigData struct {
-	users        []runtimeUserRow
-	serviceTags  map[int64]map[string]bool
-	serviceFlows map[int64]string
-	masks        map[string][]byte
+	users       []runtimeUserRow
+	serviceTags map[int64]map[string]bool
+	masks       map[string][]byte
 }
 
 type preparedRuntimeConfig struct {
@@ -51,6 +50,7 @@ type preparedRuntimeConfig struct {
 	userSyncRequired bool
 	configJSON       string
 	ovRuntimeJSON    string
+	userSpeedLimits  []*nodev1.UserSpeedLimit
 }
 
 func (p *preparedRuntimeConfig) userSyncDecision(nodeID int64) (bool, bool) {
@@ -62,6 +62,26 @@ func (p *preparedRuntimeConfig) userSyncDecision(nodeID int64) (bool, bool) {
 
 func (c Controller) runtimeInbounds(ctx context.Context) ([]map[string]any, error) {
 	return xrayconfig.NewRepository(c.repo.db, c.repo.dialect, xrayconfig.Options{}).FullInbounds(ctx)
+}
+
+func (c Controller) runtimeUserSpeedLimits(ctx context.Context) ([]*nodev1.UserSpeedLimit, error) {
+	if c.repo.db == nil {
+		return nil, nil
+	}
+	rows, err := c.repo.db.QueryContext(ctx, `SELECT id, speed_limit_kbps FROM users WHERE COALESCE(speed_limit_kbps, 0) > 0 AND status != 'deleted' ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var limits []*nodev1.UserSpeedLimit
+	for rows.Next() {
+		item := &nodev1.UserSpeedLimit{}
+		if err := rows.Scan(&item.UserId, &item.SpeedLimitKbps); err != nil {
+			return nil, err
+		}
+		limits = append(limits, item)
+	}
+	return limits, rows.Err()
 }
 
 func (c Controller) prepareRuntimeConfigOperation(ctx context.Context, operation OperationRow) (*preparedRuntimeConfig, error) {
@@ -93,7 +113,7 @@ func (c Controller) prepareRuntimeConfigOperation(ctx context.Context, operation
 	defer unlock()
 	prepared := &preparedRuntimeConfig{nodeID: node.ID}
 	var inbounds []map[string]any
-	if isRuntimeUserOperation(operation.OperationType) {
+	if xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 		required, loadedInbounds, err := c.userOperationConfigSyncDecision(ctx, node, operation)
 		if err != nil {
 			return nil, err
@@ -128,6 +148,7 @@ func (c Controller) prepareRuntimeConfigOperation(ctx context.Context, operation
 	}
 	prepared.configJSON = configJSON
 	prepared.ovRuntimeJSON = runtimeReq.GetOvRuntimeJson()
+	prepared.userSpeedLimits = runtimeReq.GetUserSpeedLimits()
 	return prepared, nil
 }
 
@@ -146,15 +167,15 @@ func (c Controller) buildRuntimeConfigWithData(ctx context.Context, node NodeRow
 	raw = xrayconfig.NormalizePayload(raw)
 	raw = mergeNodeVirtualTunnelConfig(raw, node.XrayConfig)
 	raw = xrayconfig.TranslateVirtualTunnelInboundsForRuntime(raw)
-	raw, compatibilityWarning := xrayconfig.NormalizePayloadForXrayVersion(raw, node.XrayVersion)
-	if compatibilityWarning != "" {
-		logging.Warnf(logging.ComponentNode, "node=%d %s", node.ID, compatibilityWarning)
-	}
 	if err := inlineTLSCertificateFiles(raw); err != nil {
 		return "", err
 	}
 	if err := c.includeDBUsers(ctx, raw, data); err != nil {
 		return "", err
+	}
+	raw, compatibilityWarning := xrayconfig.NormalizePayloadForXrayVersion(raw, node.XrayVersion)
+	if compatibilityWarning != "" {
+		logging.Warnf(logging.ComponentNode, "node=%d %s", node.ID, compatibilityWarning)
 	}
 	encoded, err := json.Marshal(raw)
 	if err != nil {
@@ -282,27 +303,18 @@ func (c Controller) includeDBUsers(ctx context.Context, raw map[string]any, data
 		if len(targets) == 0 {
 			continue
 		}
-		flow := user.Flow
-		if data.serviceFlows != nil {
-			if serviceFlow, ok := data.serviceFlows[user.ServiceID.Int64]; ok {
-				flow = serviceFlow
-			}
-		}
-		baseSettings, err := userread.RuntimeProxySettings(user.Settings, user.Protocol, user.CredentialKey, flow, data.masks)
-		if err != nil {
-			continue
-		}
 		for _, inbound := range targets {
 			tag := stringValue(inbound["tag"])
 			if !data.serviceTags[user.ServiceID.Int64][tag] {
 				continue
 			}
-			settings := maps.Clone(baseSettings)
-			if user.Protocol == "shadowsocks" {
-				settings = userread.RuntimeShadowsocksSettings(baseSettings, ensureMap(inbound, "settings"))
+			settings, err := userread.RuntimeProxySettingsForInbound(user.Settings, inbound, user.CredentialKey, user.Flow, data.masks)
+			if err != nil {
+				logging.Warnf(logging.ComponentNode, "build runtime user %d on inbound %s: %v", user.ID, tag, err)
+				continue
 			}
-			if flow := stringValue(settings["flow"]); flow != "" && !flowSupportedForInbound(inbound) {
-				delete(settings, "flow")
+			if user.Protocol == "shadowsocks" {
+				settings = userread.RuntimeShadowsocksSettings(settings, ensureMap(inbound, "settings"))
 			}
 			settings["email"] = inboundRuntimeUserEmail(user.ID, user.Username, tag)
 			clients := ensureMap(inbound, "settings")["clients"].([]any)
@@ -313,37 +325,60 @@ func (c Controller) includeDBUsers(ctx context.Context, raw map[string]any, data
 }
 
 func (c Controller) userOperationRequiresConfigSync(ctx context.Context, node NodeRow, operation OperationRow) (bool, error) {
-	required, _, err := c.userOperationConfigSyncDecision(ctx, node, operation)
+	return c.userOperationRequiresConfigSyncCached(ctx, node, operation, &runtimeSyncCache{})
+}
+
+func (c Controller) userOperationRequiresConfigSyncCached(ctx context.Context, node NodeRow, operation OperationRow, cache *runtimeSyncCache) (bool, error) {
+	required, _, err := c.userOperationConfigSyncDecisionCached(ctx, node, operation, cache)
 	return required, err
 }
 
+type runtimeSyncCache struct {
+	loaded      bool
+	serviceTags map[int64]map[string]bool
+	inbounds    []map[string]any
+}
+
 func (c Controller) userOperationConfigSyncDecision(ctx context.Context, node NodeRow, operation OperationRow) (bool, []map[string]any, error) {
-	if !isRuntimeUserOperation(operation.OperationType) || !operation.UserID.Valid {
+	return c.userOperationConfigSyncDecisionCached(ctx, node, operation, &runtimeSyncCache{})
+}
+
+func (c Controller) userOperationConfigSyncDecisionCached(ctx context.Context, node NodeRow, operation OperationRow, cache *runtimeSyncCache) (bool, []map[string]any, error) {
+	if !xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) || !operation.UserID.Valid {
 		return false, nil, nil
 	}
-	// Updated nodes reconcile one user against their cached runtime config. Old
-	// nodes are detected after dial and keep the full-sync compatibility path.
-	if operation.OperationType == "update_user" {
+	// A nil repository is only possible in lightweight unit tests. Production
+	// controllers always have a database and must inspect virtual protocols so
+	// their generated peer runtime is refreshed too.
+	if c.repo.db == nil {
 		return false, nil, nil
 	}
 	var serviceID sql.NullInt64
-	if err := c.repo.db.QueryRowContext(ctx, `SELECT service_id FROM users WHERE id = ?`, operation.UserID.Int64).Scan(&serviceID); err != nil {
+	var speedLimit int64
+	if err := c.repo.db.QueryRowContext(ctx, `SELECT service_id, COALESCE(speed_limit_kbps, 0) FROM users WHERE id = ?`, operation.UserID.Int64).Scan(&serviceID, &speedLimit); err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil, nil
 		}
 		return false, nil, err
 	}
+	if speedLimit > 0 && operation.OperationType != "remove_user" && operation.OperationType != "disable_user" {
+		return true, nil, nil
+	}
 	if !serviceID.Valid || serviceID.Int64 <= 0 {
 		return false, nil, nil
 	}
-	serviceTags, err := c.repo.ServiceAllowedTags(ctx)
-	if err != nil {
-		return false, nil, err
+	if !cache.loaded {
+		serviceTags, err := c.repo.ServiceAllowedTags(ctx)
+		if err != nil {
+			return false, nil, err
+		}
+		inbounds, err := c.runtimeInbounds(ctx)
+		if err != nil {
+			return false, nil, err
+		}
+		cache.serviceTags, cache.inbounds, cache.loaded = serviceTags, inbounds, true
 	}
-	inbounds, err := c.runtimeInbounds(ctx)
-	if err != nil {
-		return false, nil, err
-	}
+	serviceTags, inbounds := cache.serviceTags, cache.inbounds
 	target := xrayconfig.NodeTargetID(node.ID)
 	for _, inbound := range inbounds {
 		if !protocolRequiresFullUserSync(stringValue(inbound["protocol"])) {
@@ -359,7 +394,7 @@ func (c Controller) userOperationConfigSyncDecision(ctx context.Context, node No
 
 func protocolRequiresFullUserSync(protocol string) bool {
 	switch strings.ToLower(strings.TrimSpace(protocol)) {
-	case xrayconfig.OVProtocol, xrayconfig.L2TPProtocol, xrayconfig.PPTPProtocol, xrayconfig.WGProtocol, xrayconfig.IKEv2Protocol, xrayconfig.AnyConnectProtocol, "ssh":
+	case xrayconfig.OVProtocol, xrayconfig.L2TPProtocol, xrayconfig.PPTPProtocol, xrayconfig.WGProtocol, xrayconfig.AWGProtocol, xrayconfig.IKEv2Protocol, xrayconfig.AnyConnectProtocol, "ssh":
 		return true
 	default:
 		return false
@@ -379,15 +414,11 @@ func (c Controller) loadRuntimeConfigDataForProtocols(ctx context.Context, proto
 	if err != nil {
 		return nil, err
 	}
-	serviceFlows, err := c.repo.ServiceFlows(ctx)
-	if err != nil {
-		return nil, err
-	}
 	masks, err := c.repo.UUIDMasks(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &runtimeConfigData{users: users, serviceTags: serviceTags, serviceFlows: serviceFlows, masks: masks}, nil
+	return &runtimeConfigData{users: users, serviceTags: serviceTags, masks: masks}, nil
 }
 
 func applyRuntimeAPI(raw map[string]any, apiPort int) {
@@ -403,13 +434,19 @@ func applyRuntimeAPI(raw map[string]any, apiPort int) {
 		"statsUserDownlink": true,
 		"statsUserOnline":   true,
 	})
-	policy["levels"] = levels
-	policy["system"] = mergeMaps(mapValue(policy["system"]), map[string]any{
-		"statsInboundDownlink":  false,
-		"statsInboundUplink":    false,
+	system := mapValue(policy["system"])
+	systemDefaults := map[string]any{
 		"statsOutboundDownlink": true,
 		"statsOutboundUplink":   true,
-	})
+	}
+	if _, ok := system["statsInboundDownlink"]; !ok {
+		systemDefaults["statsInboundDownlink"] = true
+	}
+	if _, ok := system["statsInboundUplink"]; !ok {
+		systemDefaults["statsInboundUplink"] = true
+	}
+	policy["levels"] = levels
+	policy["system"] = mergeMaps(system, systemDefaults)
 	raw["policy"] = policy
 
 	inbounds := listOfMaps(raw["inbounds"])
@@ -599,21 +636,6 @@ func mapsToInterfaces(items []map[string]any) []any {
 		result = append(result, item)
 	}
 	return result
-}
-
-func flowSupportedForInbound(inbound map[string]any) bool {
-	stream := mapValue(inbound["streamSettings"])
-	security := strings.ToLower(stringValue(stream["security"]))
-	network := strings.ToLower(stringValue(stream["method"]))
-	if network == "" {
-		network = strings.ToLower(stringValue(stream["network"]))
-	}
-	tcpSettings := mapValue(stream["tcpSettings"])
-	header := mapValue(tcpSettings["header"])
-	headerType := strings.ToLower(stringValue(header["type"]))
-	return (security == "tls" || security == "reality") &&
-		(network == "tcp" || network == "raw" || network == "kcp") &&
-		headerType != "http"
 }
 
 func ensureMap(parent map[string]any, key string) map[string]any {

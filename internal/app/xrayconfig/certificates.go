@@ -1,11 +1,76 @@
 package xrayconfig
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+// StreamCertificateError checks TLS material without applying a configuration.
+// Verification-only CA entries have no private key and are not server pairs.
+func StreamCertificateError(item map[string]any, now time.Time) error {
+	if err := validateStreamCertificateFiles(item); err != nil {
+		return err
+	}
+	for _, certificate := range certificateMapList(mapValue(mapValue(item["streamSettings"])["tlsSettings"])["certificates"]) {
+		usage := jsonvalue.String(certificate["usage"])
+		if usage != "" && usage != "encipherment" {
+			continue
+		}
+		cert, err := diagnosticCertificateContent(certificate, "certificate", []string{"certificateFile", "certFile", "certfile"})
+		if err != nil {
+			return err
+		}
+		key, err := diagnosticCertificateContent(certificate, "key", []string{"keyFile", "keyfile"})
+		if err != nil {
+			return err
+		}
+		pair, err := tls.X509KeyPair(cert, key)
+		if err != nil {
+			return fmt.Errorf("TLS certificate/private key is missing, invalid or mismatched: %w", err)
+		}
+		leaf, err := x509.ParseCertificate(pair.Certificate[0])
+		if err != nil {
+			return fmt.Errorf("parse TLS certificate: %w", err)
+		}
+		if now.Before(leaf.NotBefore) {
+			return fmt.Errorf("TLS certificate is not valid before %s", leaf.NotBefore.UTC().Format(time.RFC3339))
+		}
+		if !now.Before(leaf.NotAfter) {
+			return fmt.Errorf("TLS certificate expired at %s", leaf.NotAfter.UTC().Format(time.RFC3339))
+		}
+	}
+	return nil
+}
+
+func diagnosticCertificateContent(certificate map[string]any, key string, aliases []string) ([]byte, error) {
+	if hasCertificateContent(certificate[key]) {
+		if content, ok := certificate[key].(string); ok {
+			return []byte(content), nil
+		}
+		return []byte(strings.Join(stringList(certificate[key]), "\n")), nil
+	}
+	path := firstNonEmptyCertificatePath(certificate, aliases)
+	if path == "" {
+		return nil, nil
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("read TLS %s file: %w", key, err)
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, (1<<20)+1))
+	if len(data) > 1<<20 {
+		return nil, fmt.Errorf("TLS %s file exceeds 1 MiB", key)
+	}
+	return data, err
+}
 
 // ValidateCertificateFiles ensures every TLS certificate that references a file
 // path points to a readable, non-empty file on the local filesystem.
@@ -19,7 +84,7 @@ func ValidateCertificateFiles(payload map[string]any) error {
 	for _, section := range []string{"inbounds", "outbounds"} {
 		for _, item := range listOfMaps(payload[section]) {
 			if err := validateStreamCertificateFiles(item); err != nil {
-				tag := stringValue(item["tag"])
+				tag := jsonvalue.String(item["tag"])
 				if tag == "" {
 					tag = "<untagged>"
 				}
@@ -106,7 +171,7 @@ func hasCertificateContent(value any) bool {
 		return false
 	case []any:
 		for _, item := range typed {
-			if strings.TrimSpace(stringValue(item)) != "" {
+			if strings.TrimSpace(jsonvalue.String(item)) != "" {
 				return true
 			}
 		}
@@ -120,7 +185,7 @@ func hasCertificateContent(value any) bool {
 
 func firstNonEmptyCertificatePath(certificate map[string]any, pathKeys []string) string {
 	for _, key := range pathKeys {
-		if path := strings.TrimSpace(stringValue(certificate[key])); path != "" {
+		if path := strings.TrimSpace(jsonvalue.String(certificate[key])); path != "" {
 			return path
 		}
 	}

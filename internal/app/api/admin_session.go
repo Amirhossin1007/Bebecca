@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -17,7 +18,7 @@ import (
 
 const (
 	adminSessionCookie = "rebecca_session"
-	activeSessionLife  = 30 * 24 * time.Hour
+	activeSessionLife  = 90 * 24 * time.Hour
 	pendingSessionLife = 5 * time.Minute
 )
 
@@ -102,6 +103,10 @@ func (s *Server) handleAuthSession(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, err := s.sessionContext(r)
 	if err != nil {
+		if !adminapp.IsAuthRejection(err) {
+			writeError(w, http.StatusServiceUnavailable, "session check is temporarily unavailable")
+			return
+		}
 		clearAdminSessionCookie(w, r)
 		writeAuthError(w, err)
 		return
@@ -215,6 +220,12 @@ func (s *Server) handleAuthSessions(w http.ResponseWriter, r *http.Request) {
 	if err != nil || id <= 0 {
 		writeError(w, http.StatusNotFound, "Session not found")
 		return
+	}
+	if id != ctx.Session.ID {
+		if err := s.checkDeviceCanManageAccount(r.Context(), ctx.Session); err != nil {
+			writeStatusError(w, err)
+			return
+		}
 	}
 	revoked, err := s.adminRepo.RevokeSession(r.Context(), ctx.Admin.ID, id, time.Now().UTC())
 	if err != nil {
@@ -498,6 +509,18 @@ UPDATE admin_sessions SET revoked_at = ? WHERE admin_id = ? AND id != ? AND revo
 	ctx.Admin.TOTPEnabled = false
 	ctx.Session.State = nextState
 	writeJSON(w, http.StatusOK, authSessionResponse(ctx.Admin, *ctx.Session))
+}
+
+func (s *Server) checkDeviceCanManageAccount(ctx context.Context, session *adminapp.AdminSession) error {
+	now := time.Now().UTC()
+	others, err := s.adminRepo.CountOtherActiveSessions(ctx, session.AdminID, session.ID, now)
+	if err != nil {
+		return err
+	}
+	if !adminapp.DeviceMayManageAccount(session.CreatedAt, others, now) {
+		return statusError{status: http.StatusForbidden, detail: "A new device must wait 24 hours after login before changing the password or logging out other devices"}
+	}
+	return nil
 }
 
 func (s *Server) sessionContext(r *http.Request) (adminapp.EffectiveAdminContext, error) {

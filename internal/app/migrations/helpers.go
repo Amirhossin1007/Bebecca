@@ -421,3 +421,45 @@ func quoteList(dialect string, values []string) string {
 	}
 	return strings.Join(quoted, ", ")
 }
+
+func RenameTableIfExists(ctx context.Context, db DBTX, dialect string, from string, to string) (bool, error) {
+	exists, err := HasTable(ctx, db, dialect, from)
+	if err != nil || !exists {
+		return false, err
+	}
+	target, err := HasTable(ctx, db, dialect, to)
+	if err != nil {
+		return false, err
+	}
+	if target {
+		return false, fmt.Errorf("cannot rename table %s: %s already exists", from, to)
+	}
+	query := fmt.Sprintf("ALTER TABLE %s RENAME TO %s", QuoteIdent(dialect, from), QuoteIdent(dialect, to))
+	if NormalizeDialect(dialect) == "mysql" {
+		query = fmt.Sprintf("RENAME TABLE %s TO %s", QuoteIdent(dialect, from), QuoteIdent(dialect, to))
+	}
+	_, err = db.ExecContext(ctx, query)
+	return true, err
+}
+
+func RenameColumnIfExists(ctx context.Context, db DBTX, dialect string, table string, from string, to string) (bool, error) {
+	exists, err := HasColumn(ctx, db, dialect, table, from)
+	if err != nil || !exists {
+		return false, err
+	}
+	target, err := HasColumn(ctx, db, dialect, table, to)
+	if err != nil {
+		return false, err
+	}
+	if target {
+		return false, fmt.Errorf("cannot rename %s.%s: %s already exists", table, from, to)
+	}
+	query := fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s", QuoteIdent(dialect, table), QuoteIdent(dialect, from), QuoteIdent(dialect, to))
+	_, err = db.ExecContext(ctx, query)
+	return true, err
+}
+
+func DropTableIfExists(ctx context.Context, db DBTX, dialect string, table string) error {
+	_, err := db.ExecContext(ctx, "DROP TABLE IF EXISTS "+QuoteIdent(dialect, table))
+	return err
+}

@@ -57,8 +57,9 @@ type ConfigLinksResponse struct {
 }
 
 type ConfigLinkMetadata struct {
-	FinalMask  map[string]any
-	MuxEnabled bool
+	FinalMask      map[string]any
+	MuxEnabled     bool
+	ClientSettings map[string]any
 }
 
 type ConfigLinkUser struct {
@@ -83,7 +84,7 @@ type ConfigLinkUser struct {
 }
 
 type UserListItem struct {
-	ID                     int64            `json:"-"`
+	ID                     int64            `json:"id"`
 	Username               string           `json:"username"`
 	Status                 string           `json:"status"`
 	UsedTraffic            int64            `json:"used_traffic"`
@@ -136,6 +137,7 @@ type UserDetail struct {
 	OnHoldExpireDuration   *int64                    `json:"on_hold_expire_duration"`
 	OnHoldTimeout          *string                   `json:"on_hold_timeout"`
 	IPLimit                int64                     `json:"ip_limit"`
+	SpeedLimitKbps         int64                     `json:"speed_limit_kbps"`
 	AutoDeleteInDays       *int64                    `json:"auto_delete_in_days"`
 	Subadress              string                    `json:"subadress,omitempty"`
 	ServiceID              *int64                    `json:"service_id"`
@@ -287,6 +289,7 @@ type Host struct {
 	FragmentSetting      *string        `json:"fragment_setting"`
 	NoiseSetting         *string        `json:"noise_setting"`
 	FinalMask            map[string]any `json:"finalmask,omitempty"`
+	ClientSettings       map[string]any `json:"client_settings,omitempty"`
 	RandomUserAgent      bool           `json:"random_user_agent"`
 	UseSNIAsHost         bool           `json:"use_sni_as_host"`
 	ServiceIDs           []int64        `json:"service_ids,omitempty"`

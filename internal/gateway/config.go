@@ -10,23 +10,63 @@ import (
 )
 
 type Config struct {
-	Addr             string
-	ExtraListenPorts []int
-	TLSCertFile      string
-	TLSKeyFile       string
-	CertificateBase  string
-	DashboardPath    string
-	APIHandler       http.Handler
+	Addr                 string
+	ExtraListenPorts     []int
+	TLSCertFile          string
+	TLSKeyFile           string
+	CertificateBase      string
+	DashboardPath        string
+	APIHandler           http.Handler
+	ProxyProtocol        bool
+	ProxyProtocolPolicy  string
+	ProxyProtocolTrusted []string
 }
+
+var defaultProxyProtocolTrusted = []string{"127.0.0.0/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"}
 
 func LoadConfig() Config {
 	env := loadEnvFiles()
+	proxyProtocol, proxyProtocolPolicy := parseProxyProtocolConfig(env)
 	return Config{
-		Addr:            gatewayListenAddr(env),
-		TLSCertFile:     lookupEnv(env, "UVICORN_SSL_CERTFILE", ""),
-		TLSKeyFile:      lookupEnv(env, "UVICORN_SSL_KEYFILE", ""),
-		CertificateBase: lookupEnv(env, "REBECCA_CERT_BASE", "/var/lib/rebecca/certificates"),
-		DashboardPath:   "/dashboard/",
+		Addr:                 gatewayListenAddr(env),
+		TLSCertFile:          lookupEnv(env, "UVICORN_SSL_CERTFILE", ""),
+		TLSKeyFile:           lookupEnv(env, "UVICORN_SSL_KEYFILE", ""),
+		CertificateBase:      lookupEnv(env, "REBECCA_CERT_BASE", "/var/lib/rebecca/certificates"),
+		DashboardPath:        "/dashboard/",
+		ProxyProtocol:        proxyProtocol,
+		ProxyProtocolPolicy:  proxyProtocolPolicy,
+		ProxyProtocolTrusted: parseProxyProtocolTrusted(env),
+	}
+}
+
+func parseProxyProtocolTrusted(env map[string]string) []string {
+	var trusted []string
+	for _, item := range strings.Split(lookupEnv(env, "REBECCA_PROXY_PROTOCOL_TRUSTED", ""), ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			trusted = append(trusted, item)
+		}
+	}
+	if len(trusted) == 0 {
+		return defaultProxyProtocolTrusted
+	}
+	return trusted
+}
+
+func parseProxyProtocolConfig(env map[string]string) (bool, string) {
+	val := strings.ToLower(strings.TrimSpace(lookupEnv(env, "REBECCA_PROXY_PROTOCOL", lookupEnv(env, "PROXY_PROTOCOL", ""))))
+	policy := strings.ToLower(strings.TrimSpace(lookupEnv(env, "REBECCA_PROXY_PROTOCOL_POLICY", lookupEnv(env, "PROXY_PROTOCOL_POLICY", "use"))))
+	if policy == "" {
+		policy = "use"
+	}
+	switch val {
+	case "require", "strict":
+		return true, "require"
+	case "1", "true", "yes", "on", "use":
+		return true, policy
+	case "0", "false", "no", "off":
+		return false, policy
+	default:
+		return false, policy
 	}
 }
 

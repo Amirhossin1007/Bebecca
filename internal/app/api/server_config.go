@@ -9,11 +9,15 @@ import (
 	"strings"
 )
 
+const defaultSponsorManifestURL = "https://raw.githubusercontent.com/rebeccapanel/Rebecca/dev/sponsors/webdade/manifest.json"
+
 type Config struct {
 	Database                     string
 	CertificateBase              string
 	CertbotBinary                string
 	ExternalAppsBase             string
+	SponsorManifestURL           string
+	SponsorCacheDir              string
 	MySQLRootPassword            string
 	NodeOperationsPollInterval   string
 	NodeUsageCollectionInterval  string
@@ -62,6 +66,8 @@ func LoadConfig() (Config, error) {
 		CertificateBase:              lookup("REBECCA_CERT_BASE"),
 		CertbotBinary:                lookup("REBECCA_CERTBOT_BIN"),
 		ExternalAppsBase:             lookup("REBECCA_EXTERNAL_APPS_BASE"),
+		SponsorManifestURL:           firstNonEmpty(lookup("REBECCA_SPONSOR_MANIFEST_URL"), defaultSponsorManifestURL),
+		SponsorCacheDir:              firstNonEmpty(lookup("REBECCA_SPONSOR_CACHE_DIR"), filepath.Join(firstNonEmpty(lookup("REBECCA_DATA_DIR"), "/var/lib/rebecca"), "sponsor-cache")),
 		MySQLRootPassword:            lookup("MYSQL_ROOT_PASSWORD"),
 		NodeOperationsPollInterval:   lookup("REBECCA_NODE_OPERATIONS_POLL_INTERVAL"),
 		NodeUsageCollectionInterval:  lookup("REBECCA_NODE_USAGE_COLLECTION_INTERVAL"),

@@ -3,10 +3,13 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/rebeccapanel/rebecca/internal/app/logging"
+	"github.com/rebeccapanel/rebecca/internal/app/notifications"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 )
 
@@ -113,5 +116,65 @@ func writeConfigError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, detail)
 	default:
 		writeError(w, http.StatusInternalServerError, detail)
+	}
+}
+
+func (s *Server) handleCoreConfigPropagatePreview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var op xrayconfig.PropagationOp
+	if err := decodeOptionalJSON(r, &op); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	targets, err := s.configRepo.PreviewPropagation(r.Context(), op)
+	if err != nil {
+		writeConfigError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"targets": targets})
+}
+
+func (s *Server) handleCoreConfigPropagate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var op xrayconfig.PropagationOp
+	if err := decodeOptionalJSON(r, &op); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	targets, err := s.configRepo.ApplyPropagation(r.Context(), op)
+	if err != nil {
+		writeConfigError(w, err)
+		return
+	}
+	s.kickNodeOperationsSoon()
+	s.notifyPropagationFailures(r, targets)
+	writeJSON(w, http.StatusOK, map[string]any{"targets": targets})
+}
+
+func (s *Server) notifyPropagationFailures(r *http.Request, targets []xrayconfig.PropagationResult) {
+	failed := []string{}
+	for _, target := range targets {
+		if target.Error == "" || target.Status != xrayconfig.PropagationOK {
+			continue
+		}
+		name := target.Name
+		if name == "" {
+			name = target.ID
+		}
+		failed = append(failed, name+": "+target.Error)
+	}
+	principal := notificationPrincipal(r)
+	if len(failed) == 0 || principal.ID == 0 {
+		return
+	}
+	title := fmt.Sprintf("Xray group update failed on %d node(s)", len(failed))
+	if _, _, err := s.notificationService().Send(r.Context(), notifications.Sender{ID: principal.ID, Username: principal.Username}, title, strings.Join(failed, "\n"), []int64{principal.ID}); err != nil {
+		logging.Warnf(logging.ComponentRuntime, "xray group update notification failed: %v", err)
 	}
 }

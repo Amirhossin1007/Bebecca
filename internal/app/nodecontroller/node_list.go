@@ -26,13 +26,14 @@ func (c Controller) List(ctx context.Context, req Request) (NodeListResult, erro
 
 	for idx := range rows {
 		enrichCertificateFields(&rows[idx], defaultCert, defaultKey)
+		skipNodeMetrics(&rows[idx])
 	}
 	if !req.IncludeMetrics {
 		return NodeListResult{Nodes: rows}, nil
 	}
 
 	for idx := range rows {
-		if rows[idx].Status == "disabled" || rows[idx].Status == "limited" {
+		if skipNodeMetrics(&rows[idx]) {
 			continue
 		}
 		wg.Add(1)
@@ -55,6 +56,7 @@ func (c Controller) List(ctx context.Context, req Request) (NodeListResult, erro
 	for update := range updates {
 		if update.err != nil {
 			rows[update.idx].AgentStatus = "degraded"
+			rows[update.idx].XrayStatus = "unknown"
 			message := friendlyNodeError("metrics", rows[update.idx].ID, update.err).Error()
 			rows[update.idx].Message = &message
 			continue
@@ -74,12 +76,13 @@ func (c Controller) Get(ctx context.Context, req Request) (NodeListItem, error) 
 	}
 	item := rows[0]
 	enrichCertificateFields(&item, defaultCert, defaultKey)
-	if item.Status != "disabled" && item.Status != "limited" {
+	if !skipNodeMetrics(&item) {
 		metricsCtx, cancel := withListMetricsTimeout(ctx)
-		runtime, err := c.Metrics(metricsCtx, Request{NodeID: item.ID})
+		runtime, err := c.cachedMetrics(metricsCtx, Request{NodeID: item.ID, MetricsMaxAge: req.MetricsMaxAge})
 		cancel()
 		if err != nil {
 			item.AgentStatus = "degraded"
+			item.XrayStatus = "unknown"
 			message := friendlyNodeError("metrics", item.ID, err).Error()
 			item.Message = &message
 			return item, nil
@@ -87,6 +90,17 @@ func (c Controller) Get(ctx context.Context, req Request) (NodeListItem, error) 
 		applyRuntimeToNodeItem(&item, runtime)
 	}
 	return item, nil
+}
+
+func skipNodeMetrics(item *NodeListItem) bool {
+	if item.Status != nodeapp.StatusDisabled && item.Status != nodeapp.StatusLimited {
+		return false
+	}
+	// These nodes are intentionally not queried. Clear persisted runtime
+	// values so an old "running" state is never shown.
+	item.AgentStatus = "unknown"
+	item.XrayStatus = "stopped"
+	return true
 }
 
 func (c Controller) Sync(ctx context.Context, req Request) (RuntimeResult, error) {
@@ -115,7 +129,7 @@ func (c Controller) Sync(ctx context.Context, req Request) (RuntimeResult, error
 		_ = c.repo.SetError(ctx, node.ID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", node.ID, err)
 	}
-	runtimeReq, err := c.runtimeConfigRequest(ctx, node, queuedOperationID("sync_config", supersededIDs, node.ID), configJSON)
+	runtimeReq, err := c.runtimeConfigRequest(ctx, node, newOperationID("sync_config", node.ID), configJSON)
 	if err != nil {
 		_ = c.repo.SetError(ctx, node.ID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", node.ID, err)
@@ -123,7 +137,7 @@ func (c Controller) Sync(ctx context.Context, req Request) (RuntimeResult, error
 	if err := c.prepareRuntimeRevision(ctx, client, node.ID, runtimeReq); err != nil {
 		return RuntimeResult{}, err
 	}
-	res, err := client.Runtime().SyncConfig(ctx, runtimeReq)
+	res, err := client.Runtime().SyncConfig(ctx, runtimeReq, client.RequestOptions(runtimeReq)...)
 	if err != nil {
 		_ = c.repo.SetError(ctx, node.ID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", node.ID, err)
@@ -213,4 +227,36 @@ func setCertificatePublicKey(item *NodeListItem, cert string) {
 
 func withListMetricsTimeout(parent context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(parent, 12*time.Second)
+}
+
+type nodeMetricsEntry struct {
+	mu     sync.Mutex
+	at     time.Time
+	result RuntimeResult
+	err    error
+}
+
+func (c Controller) cachedMetrics(ctx context.Context, req Request) (RuntimeResult, error) {
+	return c.cachedNodeMetrics(ctx, req, c.Metrics)
+}
+
+func (c Controller) cachedNodeMetrics(ctx context.Context, req Request, fetch func(context.Context, Request) (RuntimeResult, error)) (RuntimeResult, error) {
+	if c.metricsCache == nil || req.MetricsMaxAge <= 0 {
+		return fetch(ctx, req)
+	}
+	value, _ := c.metricsCache.LoadOrStore(req.NodeID, &nodeMetricsEntry{})
+	entry := value.(*nodeMetricsEntry)
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if !entry.at.IsZero() && time.Since(entry.at) < req.MetricsMaxAge {
+		return entry.result, entry.err
+	}
+	result, err := fetch(ctx, req)
+	if err != nil && ctx.Err() != nil {
+		return RuntimeResult{}, err
+	}
+	entry.at = time.Now()
+	entry.result = result
+	entry.err = err
+	return result, err
 }

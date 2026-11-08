@@ -10,14 +10,17 @@ import {
 	useColorMode,
 	VStack,
 } from "@chakra-ui/react";
+import { InfoIcon } from "components/common/InfoIcon";
 import { PanelSelect as Select } from "components/common/PanelSelect";
-import { InformationCircleIcon } from "@heroicons/react/24/outline";
-import type { ApexOptions } from "apexcharts";
 import { ChartBox } from "components/common/ChartBox";
 import {
 	DateRangePicker,
 	type DateRangeValue,
 } from "components/common/DateRangePicker";
+import {
+	buildUsageAreaOptions,
+	buildUsageDonutOptions,
+} from "components/usage/usageChartOptions";
 import { useAdminsStore } from "contexts/AdminsContext";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -35,7 +38,6 @@ import type {
 import { formatBytes } from "utils/formatByte";
 
 dayjs.extend(utc);
-const InfoIcon = chakra(InformationCircleIcon, { baseStyle: { w: 4, h: 4 } });
 
 interface DailyUsagePoint {
 	date: string;
@@ -70,85 +72,6 @@ const toUtcMillis = (value: string) => {
 	const normalized = hasTime ? value.replace(" ", "T") : `${value}T00:00`;
 	return dayjs.utc(normalized).valueOf();
 };
-
-const buildDailyUsageOptions = (
-	colorMode: string,
-	categories: string[],
-): ApexOptions => {
-	const axisColor = colorMode === "dark" ? "#d8dee9" : "#1a202c";
-	return {
-		chart: {
-			type: "area" as const,
-			toolbar: { show: false },
-			zoom: { enabled: false },
-		},
-		dataLabels: { enabled: false },
-		stroke: { curve: "smooth" as const, width: 2 },
-		fill: {
-			type: "gradient" as const,
-			gradient: {
-				shadeIntensity: 1,
-				opacityFrom: 0.35,
-				opacityTo: 0.05,
-				stops: [0, 80, 100],
-			},
-		},
-		grid: { borderColor: colorMode === "dark" ? "#2D3748" : "#E2E8F0" },
-		xaxis: {
-			categories,
-			labels: { style: { colors: categories.map(() => axisColor) } },
-			axisBorder: { show: false },
-			axisTicks: { show: false },
-		},
-		yaxis: {
-			labels: {
-				formatter: (value: number) => formatBytes(Number(value) || 0, 1),
-				style: { colors: [axisColor] },
-			},
-		},
-		tooltip: {
-			theme: colorMode === "dark" ? "dark" : "light",
-			shared: true,
-			fillSeriesColor: false,
-			y: { formatter: (value: number) => formatBytes(Number(value) || 0, 2) },
-		},
-		colors: [colorMode === "dark" ? "#63B3ED" : "#3182CE"],
-	};
-};
-
-const buildServiceDonutOptions = (
-	colorMode: string,
-	labels: string[],
-): ApexOptions => ({
-	labels,
-	legend: {
-		position: "bottom" as const,
-		labels: { colors: colorMode === "dark" ? "#d8dee9" : "#1a202c" },
-	},
-	tooltip: {
-		y: {
-			formatter: (value: number) => formatBytes(Number(value) || 0, 2),
-			title: {
-				formatter: (
-					seriesName: string,
-					opts?: { seriesIndex: number; w: { globals: { labels: string[] } } },
-				) => opts?.w?.globals?.labels?.[opts.seriesIndex] ?? seriesName,
-			},
-		},
-	},
-	colors: [
-		"#3182CE",
-		"#63B3ED",
-		"#ED8936",
-		"#38A169",
-		"#9F7AEA",
-		"#F6AD55",
-		"#4299E1",
-		"#E53E3E",
-		"#D53F8C",
-		"#805AD5",
-	],
-});
 
 const AdminsUsage: FC = () => {
 	const { t } = useTranslation();
@@ -238,7 +161,7 @@ const AdminsUsage: FC = () => {
 		[serviceAdminUsage, t],
 	);
 	const serviceDonutOptions = useMemo(
-		() => buildServiceDonutOptions(colorMode, serviceDonutLabels),
+		() => buildUsageDonutOptions(colorMode, serviceDonutLabels),
 		[colorMode, serviceDonutLabels],
 	);
 
@@ -439,7 +362,7 @@ const AdminsUsage: FC = () => {
 
 	const chartConfig = useMemo(
 		() => ({
-			options: buildDailyUsageOptions(colorMode, categories),
+			options: buildUsageAreaOptions(colorMode, categories),
 			series,
 		}),
 		[colorMode, categories, series],

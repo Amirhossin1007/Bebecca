@@ -76,8 +76,9 @@ type UsageFlushResult struct {
 }
 
 type UsageHistoryFlushResult struct {
-	UserRows     int `json:"user_rows"`
-	OutboundRows int `json:"outbound_rows"`
+	UserRows       int `json:"user_rows"`
+	OutboundRows   int `json:"outbound_rows"`
+	OrphanUserRows int `json:"orphan_user_rows"`
 }
 
 type stagedUserUsageRow struct {
@@ -192,6 +193,23 @@ func (r Repository) InboundUsageCoefficients(ctx context.Context) (map[string]fl
 		if tag != "" {
 			result[tag] = normalizeUsageFactor(coefficient)
 		}
+	}
+	return result, rows.Err()
+}
+
+func (r Repository) IPLimitedUserIDs(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id FROM users WHERE COALESCE(ip_limit, 0) > 0`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []string
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		result = append(result, strconv.FormatInt(id, 10))
 	}
 	return result, rows.Err()
 }
@@ -486,6 +504,19 @@ func (r Repository) FlushStagedUsageHistory(ctx context.Context, limit int, opti
 	usageHistoryFlushMu.Lock()
 	defer usageHistoryFlushMu.Unlock()
 
+	// A node may flush usage after its user was deleted. Replaying that stale
+	// history row violates the users foreign key and otherwise retries forever.
+	// Current (unprocessed) rows are intentionally left for the normal flush.
+	orphanRows := 0
+	if result, err := r.db.ExecContext(ctx, `DELETE FROM node_usage_user_queue
+WHERE processed_at IS NOT NULL
+  AND history_processed_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM users WHERE users.id = node_usage_user_queue.user_id)`); err != nil {
+		return UsageHistoryFlushResult{}, err
+	} else if affected, err := result.RowsAffected(); err == nil {
+		orphanRows = int(affected)
+	}
+
 	userRows, err := r.pendingStagedUserUsageHistory(ctx, limit)
 	if err != nil {
 		return UsageHistoryFlushResult{}, err
@@ -495,7 +526,7 @@ func (r Repository) FlushStagedUsageHistory(ctx context.Context, limit int, opti
 		return UsageHistoryFlushResult{}, err
 	}
 	if len(userRows) == 0 && len(outboundRows) == 0 {
-		return UsageHistoryFlushResult{}, nil
+		return UsageHistoryFlushResult{OrphanUserRows: orphanRows}, nil
 	}
 
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -551,7 +582,7 @@ func (r Repository) FlushStagedUsageHistory(ctx context.Context, limit int, opti
 	if err := tx.Commit(); err != nil {
 		return UsageHistoryFlushResult{}, err
 	}
-	return UsageHistoryFlushResult{UserRows: len(userRows), OutboundRows: len(outboundRows)}, nil
+	return UsageHistoryFlushResult{UserRows: len(userRows), OutboundRows: len(outboundRows), OrphanUserRows: orphanRows}, nil
 }
 
 func mergeUsagePersistOptions(optionValues []UsagePersistOptions) UsagePersistOptions {
@@ -743,6 +774,10 @@ func (r Repository) persistUserUsage(ctx context.Context, tx *sql.Tx, node NodeR
 	serviceUsage := map[int64]int64{}
 	adminServiceUsage := map[[2]int64]int64{}
 	persistedUserUsage := map[int64]int64{}
+	coefficients, err := r.adminServiceUsageCoefficientsTx(ctx, tx, mapping)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load admin usage coefficients: %w", err)
+	}
 
 	for _, userID := range keysInt64(aggregated) {
 		value := aggregated[userID]
@@ -752,14 +787,17 @@ func (r Repository) persistUserUsage(ctx context.Context, tx *sql.Tx, node NodeR
 			continue
 		}
 		persistedUserUsage[userID] = value
+		charged := value
+		if row.AdminID.Valid && row.ServiceID.Valid {
+			pair := [2]int64{row.AdminID.Int64, row.ServiceID.Int64}
+			charged = scaleUserUsage(value, coefficients[pair])
+			adminServiceUsage[pair] += charged
+		}
 		if row.AdminID.Valid {
-			adminUsage[row.AdminID.Int64] += value
+			adminUsage[row.AdminID.Int64] += charged
 		}
 		if row.ServiceID.Valid {
 			serviceUsage[row.ServiceID.Int64] += value
-			if row.AdminID.Valid {
-				adminServiceUsage[[2]int64{row.AdminID.Int64, row.ServiceID.Int64}] += value
-			}
 		}
 	}
 	if len(persistedUserUsage) > 0 {
@@ -813,7 +851,7 @@ WHERE id = ?`,
 		value := adminServiceUsage[key]
 		if _, err := tx.ExecContext(
 			ctx,
-			`UPDATE admins_services
+			`UPDATE service_admins
 SET used_traffic = COALESCE(used_traffic, 0) + ?,
     lifetime_used_traffic = COALESCE(lifetime_used_traffic, 0) + ?,
     updated_at = ?
@@ -835,11 +873,62 @@ WHERE admin_id = ? AND service_id = ?`,
 	return persistedUserUsage, operations, nil
 }
 
+func (r Repository) adminServiceUsageCoefficientsTx(ctx context.Context, tx *sql.Tx, mapping map[int64]usageUserMapping) (map[[2]int64]float64, error) {
+	serviceIDs := map[int64]struct{}{}
+	for _, row := range mapping {
+		if row.AdminID.Valid && row.ServiceID.Valid {
+			serviceIDs[row.ServiceID.Int64] = struct{}{}
+		}
+	}
+	coefficients := map[[2]int64]float64{}
+	if len(serviceIDs) == 0 {
+		return coefficients, nil
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT s.id, COALESCE(s.usage_coefficient, 1), sa.admin_id, sa.usage_coefficient
+FROM services s
+LEFT JOIN service_admins sa ON sa.service_id = s.id
+WHERE s.id IN (`+placeholders(len(serviceIDs))+`)`, int64Args(keysStructInt64(serviceIDs))...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	serviceDefaults := map[int64]float64{}
+	overrides := map[[2]int64]float64{}
+	for rows.Next() {
+		var serviceID int64
+		var serviceDefault float64
+		var adminID sql.NullInt64
+		var override sql.NullFloat64
+		if err := rows.Scan(&serviceID, &serviceDefault, &adminID, &override); err != nil {
+			return nil, err
+		}
+		serviceDefaults[serviceID] = normalizeUsageFactor(serviceDefault)
+		if adminID.Valid && override.Valid {
+			overrides[[2]int64{adminID.Int64, serviceID}] = normalizeUsageFactor(override.Float64)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for _, row := range mapping {
+		if !row.AdminID.Valid || !row.ServiceID.Valid {
+			continue
+		}
+		pair := [2]int64{row.AdminID.Int64, row.ServiceID.Int64}
+		if override, ok := overrides[pair]; ok {
+			coefficients[pair] = override
+			continue
+		}
+		coefficients[pair] = serviceDefaults[row.ServiceID.Int64]
+	}
+	return coefficients, nil
+}
+
 func (r Repository) loadUsageUserMapping(ctx context.Context, tx *sql.Tx, userIDs []int64) (map[int64]usageUserMapping, error) {
 	if len(userIDs) == 0 {
 		return map[int64]usageUserMapping{}, nil
 	}
-	query := `SELECT id, admin_id, service_id FROM users WHERE status IN ('active', 'on_hold') AND id IN (` + placeholders(len(userIDs)) + `)`
+	query := `SELECT id, admin_id, service_id FROM users WHERE COALESCE(status, '') IN ('active', 'on_hold') AND id IN (` + placeholders(len(userIDs)) + `)`
 	rows, err := tx.QueryContext(ctx, query, int64Args(userIDs)...)
 	if err != nil {
 		return nil, err
@@ -890,7 +979,7 @@ func (r Repository) batchTouchUsersOnline(ctx context.Context, exec usageExecer,
 	return forEachInt64Chunk(userIDs, usagePersistBatchSize, func(chunk []int64) error {
 		query := `INSERT INTO user_presence (user_id, online_at)
 SELECT id, ? FROM users
-WHERE status IN ('active', 'on_hold') AND id IN (` + placeholders(len(chunk)) + `)`
+WHERE COALESCE(status, '') IN ('active', 'on_hold') AND id IN (` + placeholders(len(chunk)) + `)`
 		args := make([]any, 0, 2+len(chunk))
 		args = append(args, r.timeArg(now))
 		args = append(args, int64Args(chunk)...)
@@ -1054,7 +1143,7 @@ func (r Repository) enforceUsageLifecycle(ctx context.Context, tx *sql.Tx, userI
        COALESCE(used_traffic, 0),
        data_limit,
        expire,
-	       COALESCE((SELECT up.online_at FROM user_presence up WHERE up.user_id = users.id), online_at),
+	       (SELECT up.online_at FROM user_presence up WHERE up.user_id = users.id),
        on_hold_expire_duration,
        on_hold_timeout,
        edit_at,
@@ -1346,11 +1435,11 @@ func (r Repository) incrementSystemUsage(ctx context.Context, tx *sql.Tx, up int
 	if r.dialect == "sqlite" {
 		_, err := tx.ExecContext(
 			ctx,
-			`INSERT INTO system (id, uplink, downlink)
+			`INSERT INTO master_usage (id, uplink, downlink)
 VALUES (1, ?, ?)
 ON CONFLICT(id) DO UPDATE
-SET uplink = COALESCE(system.uplink, 0) + excluded.uplink,
-    downlink = COALESCE(system.downlink, 0) + excluded.downlink`,
+SET uplink = COALESCE(master_usage.uplink, 0) + excluded.uplink,
+    downlink = COALESCE(master_usage.downlink, 0) + excluded.downlink`,
 			up,
 			down,
 		)
@@ -1358,7 +1447,7 @@ SET uplink = COALESCE(system.uplink, 0) + excluded.uplink,
 	}
 	_, err := tx.ExecContext(
 		ctx,
-		"INSERT INTO `system` (id, uplink, downlink)\n"+
+		"INSERT INTO `master_usage` (id, uplink, downlink)\n"+
 			`VALUES (1, ?, ?)
 ON DUPLICATE KEY UPDATE
     uplink = COALESCE(uplink, 0) + VALUES(uplink),
@@ -1812,6 +1901,77 @@ ORDER BY id LIMIT ?`, r.timeArg(cutoff), limit)
 		}
 	}
 	return total, nil
+}
+
+// CompactOldNodeUserUsageDay replaces the oldest complete day before cutoff
+// with one row per user and node while preserving the exact traffic total.
+func (r Repository) CompactOldNodeUserUsageDay(ctx context.Context, cutoff time.Time) (int, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	nonMidnight := "TIME(created_at) <> '00:00:00'"
+	if r.dialect == "sqlite" {
+		nonMidnight = "strftime('%H:%M:%S', created_at) <> '00:00:00'"
+	}
+	var oldest any
+	err = tx.QueryRowContext(ctx, `SELECT MIN(created_at)
+FROM node_user_usages
+WHERE created_at < ? AND user_id IS NOT NULL AND node_id IS NOT NULL AND `+nonMidnight, r.timeArg(cutoff)).Scan(&oldest)
+	if err != nil {
+		return 0, err
+	}
+	oldestTime := usageDBTime(oldest)
+	if oldestTime == nil {
+		return 0, nil
+	}
+	dayStart := time.Date(oldestTime.Year(), oldestTime.Month(), oldestTime.Day(), 0, 0, 0, 0, time.UTC)
+	dayEnd := dayStart.AddDate(0, 0, 1)
+
+	rows, err := tx.QueryContext(ctx, `SELECT user_id, node_id, COALESCE(SUM(used_traffic), 0), COUNT(*)
+FROM node_user_usages
+WHERE created_at >= ? AND created_at < ? AND user_id IS NOT NULL AND node_id IS NOT NULL
+GROUP BY user_id, node_id`, r.timeArg(dayStart), r.timeArg(dayEnd))
+	if err != nil {
+		return 0, err
+	}
+	usageByNode := map[int64]map[int64]int64{}
+	sourceRows := 0
+	for rows.Next() {
+		var userID, nodeID, usedTraffic int64
+		var count int
+		if err := rows.Scan(&userID, &nodeID, &usedTraffic, &count); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		if usageByNode[nodeID] == nil {
+			usageByNode[nodeID] = map[int64]int64{}
+		}
+		usageByNode[nodeID][userID] = usedTraffic
+		sourceRows += count
+	}
+	if err := rows.Close(); err != nil {
+		return 0, err
+	}
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM node_user_usages
+WHERE created_at >= ? AND created_at < ? AND user_id IS NOT NULL AND node_id IS NOT NULL`, r.timeArg(dayStart), r.timeArg(dayEnd)); err != nil {
+		return 0, err
+	}
+	for nodeID, usageByUser := range usageByNode {
+		if err := r.batchUpsertNodeUserUsage(ctx, tx, dayStart, nodeID, usageByUser); err != nil {
+			return 0, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return sourceRows, nil
 }
 
 func groupStagedUsersByNode(rows []stagedUserUsageRow) map[int64][]stagedUserUsageRow {

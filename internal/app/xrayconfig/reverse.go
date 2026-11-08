@@ -1,6 +1,9 @@
 package xrayconfig
 
-import "strings"
+import (
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
+	"strings"
+)
 
 // ReverseClients returns static VLESS clients used by Xray's reverse proxy.
 // Regular panel users are injected separately when the runtime config is built.
@@ -9,7 +12,7 @@ func ReverseClients(value any) []any {
 	result := make([]any, 0, len(clients))
 	for _, client := range clients {
 		reverse := mapValue(client["reverse"])
-		if strings.TrimSpace(stringValue(reverse["tag"])) == "" {
+		if strings.TrimSpace(jsonvalue.String(reverse["tag"])) == "" {
 			continue
 		}
 		result = append(result, deepCopyMap(client))
@@ -26,13 +29,13 @@ func removeLegacyReverse(config map[string]any) {
 
 	bridgeTags := map[string]struct{}{}
 	for _, bridge := range listOfMaps(legacy["bridges"]) {
-		if tag := strings.TrimSpace(stringValue(bridge["tag"])); tag != "" {
+		if tag := strings.TrimSpace(jsonvalue.String(bridge["tag"])); tag != "" {
 			bridgeTags[tag] = struct{}{}
 		}
 	}
 	portalTags := map[string]struct{}{}
 	for _, portal := range listOfMaps(legacy["portals"]) {
-		if tag := strings.TrimSpace(stringValue(portal["tag"])); tag != "" {
+		if tag := strings.TrimSpace(jsonvalue.String(portal["tag"])); tag != "" {
 			portalTags[tag] = struct{}{}
 		}
 	}
@@ -42,7 +45,7 @@ func removeLegacyReverse(config map[string]any) {
 		rules := listOfMaps(routing["rules"])
 		next := make([]any, 0, len(rules))
 		for _, rule := range rules {
-			if _, removed := portalTags[stringValue(rule["outboundTag"])]; removed {
+			if _, removed := portalTags[jsonvalue.String(rule["outboundTag"])]; removed {
 				continue
 			}
 			inboundTags := stringList(rule["inboundTag"])

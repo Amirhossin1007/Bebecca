@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"math"
 	"regexp"
 	"sort"
@@ -38,12 +39,29 @@ func (r Repository) GroupedInbounds(ctx context.Context) (map[string][]map[strin
 
 	grouped := make(map[string][]map[string]any)
 	seen := make(map[string]bool)
+	subscriptionTags := r.subscriptionOutboundTags(ctx)
 	for _, item := range stored {
-		cfg, err := Parse(item.Config, r.manageableParseOptions())
-		if err != nil {
-			continue
+		// A broken saved inbound must remain visible and must not hide its siblings.
+		byProtocol := map[string][]ResolvedInbound{}
+		resolver := &Config{raw: item.Config, options: normalizeOptions(r.manageableParseOptions())}
+		resolver.migrateDeprecated()
+		routingErrors := routingInboundErrors(item.Config, subscriptionTags)
+		for _, inbound := range listOfMaps(item.Config["inbounds"]) {
+			if !r.isManageableInbound(inbound) {
+				continue
+			}
+			resolved, err := resolver.resolveInbound(inbound)
+			if err != nil {
+				resolved = ResolvedInbound{"tag": inbound["tag"], "protocol": inbound["protocol"], "port": inbound["port"], "network": streamNetwork(mapValue(inbound["streamSettings"])), "tls": "none"}
+			}
+			if validationErr := inboundValidationError(inbound); validationErr != nil {
+				resolved["validation_error"] = validationErr.Error()
+			} else if message := routingErrors[jsonvalue.String(inbound["tag"])]; message != "" {
+				resolved["validation_error"] = message
+			}
+			protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
+			byProtocol[protocol] = append(byProtocol[protocol], resolved)
 		}
-		byProtocol := cfg.InboundsByProtocol()
 		protocols := make([]string, 0, len(byProtocol))
 		for protocol := range byProtocol {
 			protocols = append(protocols, protocol)
@@ -51,7 +69,7 @@ func (r Repository) GroupedInbounds(ctx context.Context) (map[string][]map[strin
 		sort.Strings(protocols)
 		for _, protocol := range protocols {
 			for _, inbound := range byProtocol[protocol] {
-				tag := stringValue(inbound["tag"])
+				tag := jsonvalue.String(inbound["tag"])
 				if tag == "" || seen[tag] {
 					continue
 				}
@@ -93,7 +111,7 @@ func (r Repository) GetInbound(ctx context.Context, tag string) (map[string]any,
 		return nil, err
 	}
 	for _, inbound := range inbounds {
-		if stringValue(inbound["tag"]) == tag {
+		if jsonvalue.String(inbound["tag"]) == tag {
 			return inbound, nil
 		}
 	}
@@ -113,7 +131,7 @@ func (r Repository) CreateInbound(ctx context.Context, payload map[string]any) (
 	if err != nil {
 		return InboundMutationResult{}, err
 	}
-	tag := stringValue(inbound["tag"])
+	tag := jsonvalue.String(inbound["tag"])
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -150,7 +168,7 @@ func (r Repository) CreateInbound(ctx context.Context, payload map[string]any) (
 	if err := r.persistMutatedTargetConfigsTx(ctx, tx, configs); err != nil {
 		return InboundMutationResult{}, err
 	}
-	if err := r.ensureInboundRecordTx(ctx, tx, tag, stringValue(inbound["protocol"])); err != nil {
+	if err := r.ensureInboundRecordTx(ctx, tx, tag, jsonvalue.String(inbound["protocol"])); err != nil {
 		return InboundMutationResult{}, err
 	}
 	if err := r.setInboundUsageCoefficientTx(ctx, tx, tag, usageCoefficient); err != nil {
@@ -265,7 +283,7 @@ func (r Repository) UpdateInbound(ctx context.Context, tag string, payload map[s
 	if err := r.persistMutatedTargetConfigsTx(ctx, tx, configs); err != nil {
 		return InboundMutationResult{}, err
 	}
-	if err := r.ensureInboundRecordTx(ctx, tx, tag, stringValue(inbound["protocol"])); err != nil {
+	if err := r.ensureInboundRecordTx(ctx, tx, tag, jsonvalue.String(inbound["protocol"])); err != nil {
 		return InboundMutationResult{}, err
 	}
 	if err := r.setInboundUsageCoefficientTx(ctx, tx, tag, usageCoefficient); err != nil {
@@ -406,13 +424,15 @@ func (r Repository) manageableInboundsWithTargets(ctx context.Context) ([]map[st
 	}
 	byTag := make(map[string]map[string]any)
 	order := make([]string, 0)
+	subscriptionTags := r.subscriptionOutboundTags(ctx)
 	for _, item := range stored {
 		inbounds := listOfMaps(item.Config["inbounds"])
+		routingErrors := routingInboundErrors(item.Config, subscriptionTags)
 		for _, inbound := range inbounds {
 			if !r.isManageableInbound(inbound) {
 				continue
 			}
-			tag := stringValue(inbound["tag"])
+			tag := jsonvalue.String(inbound["tag"])
 			if tag == "" {
 				continue
 			}
@@ -428,6 +448,11 @@ func (r Repository) manageableInboundsWithTargets(ctx context.Context) ([]map[st
 				return nil, err
 			}
 			sanitized := sanitizeInbound(inbound, direct, effective)
+			if err := inboundValidationError(inbound); err != nil {
+				sanitized["validation_error"] = err.Error()
+			} else if message := routingErrors[tag]; message != "" {
+				sanitized["validation_error"] = message
+			}
 			record := metadata[tag]
 			sanitized["uplink"] = record.Uplink
 			sanitized["downlink"] = record.Downlink
@@ -474,6 +499,7 @@ func extractInboundUsageCoefficient(payload map[string]any, fallback float64) (f
 	delete(clean, "usage_coefficient")
 	delete(clean, "uplink")
 	delete(clean, "downlink")
+	delete(clean, "validation_error")
 	if !ok || raw == nil {
 		return normalizedInboundUsageCoefficient(fallback), clean, nil
 	}
@@ -552,10 +578,10 @@ func targetIDFromInboundTarget(value any) (string, error) {
 	case string:
 		return normalizeTargetID(typed)
 	case map[string]any:
-		if raw := stringValue(typed["id"]); raw != "" {
+		if raw := jsonvalue.String(typed["id"]); raw != "" {
 			return normalizeTargetID(raw)
 		}
-		if raw := stringValue(typed["target_id"]); raw != "" {
+		if raw := jsonvalue.String(typed["target_id"]); raw != "" {
 			return normalizeTargetID(raw)
 		}
 		return "", fmt.Errorf("target item is missing id")
@@ -583,7 +609,7 @@ func (r Repository) prepareInboundPayload(payload map[string]any, enforceTag str
 		return nil, fmt.Errorf("%w: payload must be an object", ErrInvalidInbound)
 	}
 	inbound := deepCopyMap(payload)
-	tag := strings.TrimSpace(stringValue(inbound["tag"]))
+	tag := strings.TrimSpace(jsonvalue.String(inbound["tag"]))
 	if tag == "" {
 		return nil, fmt.Errorf("%w: tag is required", ErrInvalidInbound)
 	}
@@ -593,7 +619,7 @@ func (r Repository) prepareInboundPayload(payload map[string]any, enforceTag str
 	if r.isReservedInboundTag(tag) {
 		return nil, fmt.Errorf("%w: %s", ErrReservedInboundTag, tag)
 	}
-	protocol := strings.TrimSpace(stringValue(inbound["protocol"]))
+	protocol := strings.TrimSpace(jsonvalue.String(inbound["protocol"]))
 	if protocol == "" {
 		return nil, fmt.Errorf("%w: protocol is required", ErrInvalidInbound)
 	}
@@ -685,7 +711,7 @@ func normalizeRealitySettings(inbound map[string]any) error {
 	if len(stream) == 0 {
 		return nil
 	}
-	security := strings.ToLower(strings.TrimSpace(stringValue(stream["security"])))
+	security := strings.ToLower(strings.TrimSpace(jsonvalue.String(stream["security"])))
 	if security != "reality" {
 		return nil
 	}
@@ -694,7 +720,7 @@ func normalizeRealitySettings(inbound map[string]any) error {
 		reality = make(map[string]any)
 		stream["realitySettings"] = reality
 	}
-	if privateKey := strings.TrimSpace(stringValue(reality["privateKey"])); privateKey != "" {
+	if privateKey := strings.TrimSpace(jsonvalue.String(reality["privateKey"])); privateKey != "" {
 		normalized, err := normalizeRealityPrivateKey(privateKey)
 		if err != nil {
 			return err
@@ -738,7 +764,7 @@ func normalizeShortIDs(value any) []any {
 		}
 	case []any:
 		for _, item := range typed {
-			clean := removeWhitespace(stringValue(item))
+			clean := removeWhitespace(jsonvalue.String(item))
 			if clean != "" {
 				out = append(out, clean)
 			}
@@ -771,7 +797,7 @@ func validatePortAvailable(config map[string]any, inbound map[string]any, skipTa
 		seen[port] = struct{}{}
 	}
 	for _, existing := range listOfMaps(config["inbounds"]) {
-		tag := stringValue(existing["tag"])
+		tag := jsonvalue.String(existing["tag"])
 		if skipTag != "" && tag == skipTag {
 			continue
 		}
@@ -791,7 +817,7 @@ func inboundRuntimePorts(inbound map[string]any) []int {
 	if port, err := parseConfigPort(inbound["port"]); err == nil && port > 0 {
 		ports = append(ports, port)
 	}
-	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	if protocol == "web" {
 		ports = append(ports, 80)
 	}
@@ -812,8 +838,8 @@ func upsertInbound(config map[string]any, inbound map[string]any, oldTag string)
 	inbounds := listOfMaps(config["inbounds"])
 	replaced := false
 	for idx, existing := range inbounds {
-		tag := stringValue(existing["tag"])
-		if (oldTag != "" && tag == oldTag) || (oldTag == "" && tag == stringValue(inbound["tag"])) {
+		tag := jsonvalue.String(existing["tag"])
+		if (oldTag != "" && tag == oldTag) || (oldTag == "" && tag == jsonvalue.String(inbound["tag"])) {
 			inbounds[idx] = deepCopyMap(inbound)
 			replaced = true
 			break
@@ -829,7 +855,7 @@ func removeInboundFromConfig(config map[string]any, tag string) {
 	inbounds := listOfMaps(config["inbounds"])
 	next := make([]map[string]any, 0, len(inbounds))
 	for _, inbound := range inbounds {
-		if stringValue(inbound["tag"]) == tag {
+		if jsonvalue.String(inbound["tag"]) == tag {
 			continue
 		}
 		next = append(next, inbound)
@@ -851,7 +877,7 @@ func sanitizeInbound(inbound map[string]any, directTargets []string, effectiveTa
 	if len(settings) == 0 {
 		settings = make(map[string]any)
 	}
-	if !isVirtualTunnelProtocol(normalizeProxyProtocol(stringValue(sanitized["protocol"]))) {
+	if !isVirtualTunnelProtocol(normalizeProxyProtocol(jsonvalue.String(sanitized["protocol"]))) {
 		settings["clients"] = []any{}
 	}
 	sanitized["settings"] = settings
@@ -862,7 +888,7 @@ func sanitizeInbound(inbound map[string]any, directTargets []string, effectiveTa
 
 func reverseClientsForInbound(config map[string]any, tag string) ([]any, bool) {
 	for _, inbound := range listOfMaps(config["inbounds"]) {
-		if stringValue(inbound["tag"]) == tag {
+		if jsonvalue.String(inbound["tag"]) == tag {
 			return ReverseClients(mapValue(inbound["settings"])["clients"]), true
 		}
 	}
@@ -977,7 +1003,7 @@ func (r Repository) effectiveTargetsForInboundTx(ctx context.Context, tx *sql.Tx
 
 func configHasInbound(config map[string]any, tag string) bool {
 	for _, inbound := range listOfMaps(config["inbounds"]) {
-		if stringValue(inbound["tag"]) == tag {
+		if jsonvalue.String(inbound["tag"]) == tag {
 			return true
 		}
 	}
@@ -1014,7 +1040,7 @@ func (r Repository) findManageableInboundTx(ctx context.Context, tx *sql.Tx, tag
 }
 
 func (r Repository) ensureSingleL2TPInboundTx(ctx context.Context, tx *sql.Tx, inbound map[string]any, allowedTag string) error {
-	protocol := normalizeProxyProtocol(stringValue(inbound["protocol"]))
+	protocol := normalizeProxyProtocol(jsonvalue.String(inbound["protocol"]))
 	if protocol != L2TPProtocol && protocol != IKEv2Protocol {
 		return nil
 	}
@@ -1058,8 +1084,8 @@ func (r Repository) findSingleIPSecInboundTagTx(ctx context.Context, tx *sql.Tx,
 
 func (r Repository) findProtocolInboundTagInConfig(config map[string]any, allowedTag, protocol string) string {
 	for _, candidate := range listOfMaps(config["inbounds"]) {
-		tag := stringValue(candidate["tag"])
-		if tag != "" && tag != allowedTag && r.isManageableInbound(candidate) && normalizeProxyProtocol(stringValue(candidate["protocol"])) == protocol {
+		tag := jsonvalue.String(candidate["tag"])
+		if tag != "" && tag != allowedTag && r.isManageableInbound(candidate) && normalizeProxyProtocol(jsonvalue.String(candidate["protocol"])) == protocol {
 			return tag
 		}
 	}
@@ -1098,11 +1124,11 @@ func (r Repository) findL2TPInboundTagTx(ctx context.Context, tx *sql.Tx, allowe
 
 func (r Repository) findL2TPInboundTagInConfig(config map[string]any, allowedTag string) string {
 	for _, candidate := range listOfMaps(config["inbounds"]) {
-		tag := stringValue(candidate["tag"])
+		tag := jsonvalue.String(candidate["tag"])
 		if tag == "" || tag == allowedTag || !r.isManageableInbound(candidate) {
 			continue
 		}
-		if normalizeProxyProtocol(stringValue(candidate["protocol"])) == L2TPProtocol {
+		if normalizeProxyProtocol(jsonvalue.String(candidate["protocol"])) == L2TPProtocol {
 			return tag
 		}
 	}
@@ -1111,7 +1137,7 @@ func (r Repository) findL2TPInboundTagInConfig(config map[string]any, allowedTag
 
 func findInboundInConfig(config map[string]any, tag string) map[string]any {
 	for _, inbound := range listOfMaps(config["inbounds"]) {
-		if stringValue(inbound["tag"]) == tag {
+		if jsonvalue.String(inbound["tag"]) == tag {
 			return inbound
 		}
 	}

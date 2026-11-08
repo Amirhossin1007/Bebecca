@@ -11,7 +11,15 @@ NODE_VERSION_SET=0
 REBECCA_NODE_SCRIPT_FLAVOR="${REBECCA_NODE_SCRIPT_FLAVOR:-binary}"
 REBECCA_NODE_SCRIPT_SOURCE_FILE="${REBECCA_NODE_SCRIPT_SOURCE_FILE:-rebecca-node-binary.sh}"
 
-SCRIPT_DEFAULT_APP_NAME="${REBECCA_NODE_DEFAULT_APP_NAME:-rebecca-node}"
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+SCRIPT_NAME="$(basename "$SCRIPT_PATH")"
+SCRIPT_BASENAME="${SCRIPT_NAME%.*}"
+SCRIPT_DEFAULT_APP_NAME="${REBECCA_NODE_DEFAULT_APP_NAME:-$SCRIPT_BASENAME}"
+case "$SCRIPT_DEFAULT_APP_NAME" in
+    rebecca-node-binary|@|bash|sh)
+        SCRIPT_DEFAULT_APP_NAME="rebecca-node"
+    ;;
+esac
 
 declare -a DISCOVERED_NODE_PATHS=()
 declare -a DISCOVERED_NODE_NAMES=()
@@ -152,7 +160,7 @@ REBECCA_NODE_BINARY_DEV_BRANCH="${REBECCA_NODE_BINARY_DEV_BRANCH:-dev}"
 REBECCA_NODE_BINARY_DEV_RELEASE_TAG="${REBECCA_NODE_BINARY_DEV_RELEASE_TAG:-dev-binaries}"
 REBECCA_NODE_BINARY_WORKFLOW_NAME="${REBECCA_NODE_BINARY_WORKFLOW_NAME:-binary-build}"
 REBECCA_NODE_BINARY_ARTIFACT_PREFIX="${REBECCA_NODE_BINARY_ARTIFACT_PREFIX:-rebecca-node-binaries}"
-DEFAULT_XRAY_CORE_VERSION="${DEFAULT_XRAY_CORE_VERSION:-v26.7.11}"
+DEFAULT_XRAY_CORE_VERSION="${DEFAULT_XRAY_CORE_VERSION:-v26.5.9}"
 
 # Default node channel values
 BRANCH="master"
@@ -687,6 +695,26 @@ select_install_mode() {
     esac
 }
 
+prompt_node_name() {
+    if [ "$APP_NAME_FROM_ARG" -eq 1 ] || [ ! -t 0 ]; then
+        return
+    fi
+
+    local default_name="${APP_NAME:-$SCRIPT_DEFAULT_APP_NAME}"
+    local node_name
+    while true; do
+        read -r -p "Node name [$default_name]: " node_name
+        node_name="${node_name:-$default_name}"
+        if [[ "$node_name" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
+            APP_NAME="$node_name"
+            APP_DIR=""
+            set_app_context
+            return
+        fi
+        colorized_echo red "Invalid node name. Use letters, numbers, hyphens, or underscores."
+    done
+}
+
 ensure_script_matches_installed_mode() {
     local forced_mode
     local installed_mode
@@ -741,6 +769,46 @@ select_node_version() {
             exit 1
         ;;
     esac
+}
+
+select_xray_core_version() {
+    if [ -n "${XRAY_CORE_VERSION:-}" ]; then
+        return
+    fi
+    if [ ! -t 0 ]; then
+        XRAY_CORE_VERSION="$DEFAULT_XRAY_CORE_VERSION"
+        return
+    fi
+
+    colorized_echo cyan "Select Xray-core version:"
+    colorized_echo yellow "  1) Default ($DEFAULT_XRAY_CORE_VERSION)"
+    colorized_echo yellow "  2) Latest Xray release"
+    colorized_echo yellow "  3) Enter a version manually (for example, v26.5.9)"
+    local choice custom_version
+    while true; do
+        read -r -p "Xray version [1]: " choice
+        case "$choice" in
+            ""|1|default)
+                XRAY_CORE_VERSION="$DEFAULT_XRAY_CORE_VERSION"
+                return
+            ;;
+            2|latest)
+                XRAY_CORE_VERSION="latest"
+                return
+            ;;
+            3|manual)
+                read -r -p "Enter Xray version (vX.Y.Z): " custom_version
+                if [[ "$custom_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    XRAY_CORE_VERSION="$custom_version"
+                    return
+                fi
+                colorized_echo red "Invalid version. Use the vX.Y.Z format."
+            ;;
+            *)
+                colorized_echo red "Invalid Xray version selection."
+            ;;
+        esac
+    done
 }
 
 BRANCH="master"
@@ -990,11 +1058,18 @@ get_node_binary_release_asset_metadata() {
         release_payload=$(curl -fsSL "$release_api" 2>/dev/null) || release_payload=""
         resolved_tag=$(echo "$release_payload" | jq -r '.tag_name // empty')
         node_asset_name="rebecca-node-${resolved_tag}-linux-${binary_arch}"
-        node_asset_url=$(echo "$release_payload" | jq -r --arg name "$node_asset_name" '
-            .assets[]?
-            | select(.name == $name)
-            | .browser_download_url
-        ' | head -n 1)
+        node_asset_url=$(echo "$release_payload" | jq -r --arg name "$node_asset_name" --arg arch "$binary_arch" '
+            [
+                .assets[]?
+                | select(
+                    (.name == $name)
+                    or (.name | test("^rebecca-node-.*-linux-" + $arch + "$"))
+                )
+                | select(.browser_download_url != null)
+            ]
+            | sort_by(if .name == $name then 0 else 1 end, .name)
+            | .[0].browser_download_url // empty
+        ')
         if [ -n "$node_asset_url" ] && [ "$node_asset_url" != "null" ]; then
             printf '%s|%s\n' "${resolved_tag:-$node_version}" "$node_asset_url"
             return 0
@@ -1110,6 +1185,44 @@ get_node_binary_dev_artifact_metadata() {
 
     colorized_echo red "No usable Rebecca-node linux-${binary_arch} dev artifact was found on branch ${REBECCA_NODE_BINARY_DEV_BRANCH}." >&2
     colorized_echo yellow "The dev binary workflow must publish ${REBECCA_NODE_BINARY_ARTIFACT_PREFIX}-linux-${binary_arch} before this server can install the dev binary." >&2
+    exit 1
+}
+
+get_node_binary_dev_artifact_metadata_for_version() {
+    local requested_version="$1"
+    local binary_arch="$2"
+    local requested_sha="${requested_version#dev-}"
+    local workflow_name="${REBECCA_NODE_BINARY_WORKFLOW_NAME}"
+    local workflow_path
+    local runs_url
+    local run_json
+    local run_id
+    local head_sha
+    local artifact_name
+
+    if ! [[ "$requested_version" =~ ^dev-[0-9a-fA-F]{7,40}$ ]]; then
+        colorized_echo red "Invalid Rebecca-node dev build: $requested_version" >&2
+        exit 1
+    fi
+    case "$workflow_name" in
+        *.yml|*.yaml) ;;
+        *) workflow_name="${workflow_name}.yml" ;;
+    esac
+    workflow_path=".github/workflows/${workflow_name}"
+    runs_url="https://api.github.com/repos/${REBECCA_NODE_RELEASE_REPO}/actions/runs?branch=${REBECCA_NODE_BINARY_DEV_BRANCH}&event=push&status=success&per_page=100"
+    while IFS= read -r run_json; do
+        [ -n "$run_json" ] || continue
+        run_id=$(echo "$run_json" | jq -r '.id // empty')
+        head_sha=$(echo "$run_json" | jq -r '.head_sha // empty')
+        [ -n "$run_id" ] && [ -n "$head_sha" ] || continue
+        [[ "$head_sha" == "$requested_sha"* ]] || continue
+        [[ "$(echo "$run_json" | jq -r '.path // empty')" == "$workflow_path" ]] || continue
+        artifact_name="${REBECCA_NODE_BINARY_ARTIFACT_PREFIX}-linux-${binary_arch}"
+        printf '%s|%s\n' "$requested_version" "https://nightly.link/${REBECCA_NODE_RELEASE_REPO}/workflows/${workflow_name}/${head_sha}/${artifact_name}.zip"
+        return 0
+    done < <(curl -fsSL "$runs_url" | jq -c '.workflow_runs[]?')
+
+    colorized_echo red "Rebecca-node dev build $requested_version was not found in successful workflow runs." >&2
     exit 1
 }
 
@@ -1246,6 +1359,7 @@ configure_binary_node_env() {
     set_env_value "XRAY_API_PORT" "$XRAY_API_PORT"
 
     set_env_value "REBECCA_DATA_DIR" "$DATA_DIR"
+    set_env_value "REBECCA_NODE_APP_NAME" "$APP_NAME"
     set_env_value "SSL_CLIENT_CERT_FILE" "$CERT_FILE"
     set_env_value "SSL_CERT_FILE" "$CERT_FILE"
     set_env_value "SSL_KEY_FILE" "$CERT_KEY_FILE"
@@ -1317,6 +1431,12 @@ install_binary_rebecca_node() {
         ui_spinner_run "Installing Rebecca-node custom binary" install -m 755 "$REBECCA_NODE_BINARY_OVERRIDE" "$tmp_dir/rebecca-node"
         resolved_version="${REBECCA_NODE_BINARY_OVERRIDE_VERSION:-custom}"
         artifact_url="local-override"
+    elif [[ "$node_version" =~ ^dev-[0-9a-fA-F]{7,40}$ ]]; then
+        IFS='|' read -r resolved_version artifact_url < <(get_node_binary_dev_artifact_metadata_for_version "$node_version" "$binary_arch")
+        package_path="$tmp_dir/rebecca-node-binaries.zip"
+        ui_spinner_run "Downloading Rebecca-node dev binary artifact" curl -fL "$artifact_url" -o "$package_path"
+        ui_spinner_run "Extracting Rebecca-node dev artifact" unzip -j -o "$package_path" -d "$tmp_dir"
+        normalize_node_dev_artifact "$tmp_dir" "$binary_arch"
     elif [ "$node_version" = "dev" ]; then
         IFS='|' read -r resolved_version artifact_url < <(get_node_binary_dev_artifact_metadata "$binary_arch")
         if [[ "$artifact_url" == *.zip ]]; then
@@ -1488,6 +1608,7 @@ services:
     restart: always
     network_mode: host
     environment:
+      REBECCA_NODE_APP_NAME: "$APP_NAME"
       REBECCA_DATA_DIR: "/var/lib/rebecca-node"
       SSL_CLIENT_CERT_FILE: "/var/lib/rebecca-node/cert.pem"
       SSL_CERT_FILE: "/var/lib/rebecca-node/cert.pem"
@@ -1679,6 +1800,8 @@ install_command() {
     local install_mode
     local node_version
 
+    prompt_node_name
+
     # Check if rebecca is already installed
     if is_rebecca_node_installed; then
         colorized_echo red "Rebecca-node is already installed at $APP_DIR"
@@ -1709,6 +1832,11 @@ install_command() {
     esac
     colorized_echo blue "Selected install mode: $install_mode"
     colorized_echo blue "Selected release channel: $node_version"
+
+    if [ "$install_mode" = "binary" ]; then
+        select_xray_core_version
+        colorized_echo blue "Selected Xray-core version: $XRAY_CORE_VERSION"
+    fi
 
     detect_os
     if ! command -v jq >/dev/null 2>&1; then
@@ -2099,102 +2227,37 @@ identify_the_operating_system_and_architecture() {
 # Function to update the Xray core
 get_xray_core() {
     identify_the_operating_system_and_architecture
-    clear
-    
-    
-    validate_version() {
-        local version="$1"
-        
-        local response=$(curl -s "https://api.github.com/repos/XTLS/Xray-core/releases/tags/$version")
-        if echo "$response" | grep -q '"message": "Not Found"'; then
-            echo "invalid"
-        else
-            echo "valid"
-        fi
-    }
-    
-    
-    print_menu() {
-        clear
-        echo -e "\033[1;32m==============================\033[0m"
-        echo -e "\033[1;32m      Xray-core Installer     \033[0m"
-        echo -e "\033[1;32m==============================\033[0m"
-       current_version=$(get_current_xray_core_version)
-        echo -e "\033[1;33m>>>> Current Xray-core version: \033[1;1m$current_version\033[0m"
-        echo -e "\033[1;32m==============================\033[0m"
-        echo -e "\033[1;33mAvailable Xray-core versions:\033[0m"
-        for ((i=0; i<${#versions[@]}; i++)); do
-            echo -e "\033[1;34m$((i + 1)):\033[0m ${versions[i]}"
-        done
-        echo -e "\033[1;32m==============================\033[0m"
-        echo -e "\033[1;35mM:\033[0m Enter a version manually"
-        echo -e "\033[1;31mQ:\033[0m Quit"
-        echo -e "\033[1;32m==============================\033[0m"
-    }
-    
-    
-    latest_releases=$(curl -s "https://api.github.com/repos/XTLS/Xray-core/releases?per_page=$LAST_XRAY_CORES")
-    
-    
-    versions=($(echo "$latest_releases" | grep -oP '"tag_name": "\K(.*?)(?=")'))
-    
-    while true; do
-        print_menu
-        read -p "Choose a version to install (1-${#versions[@]}), or press M to enter manually, Q to quit: " choice
-        
-        if [[ "$choice" =~ ^[1-9][0-9]*$ ]] && [ "$choice" -le "${#versions[@]}" ]; then
-            
-            choice=$((choice - 1))
-            
-            selected_version=${versions[choice]}
-            break
-            elif [ "$choice" == "M" ] || [ "$choice" == "m" ]; then
-            while true; do
-                read -p "Enter the version manually (e.g., v1.2.3): " custom_version
-                if [ "$(validate_version "$custom_version")" == "valid" ]; then
-                    selected_version="$custom_version"
-                    break 2
-                else
-                    echo -e "\033[1;31mInvalid version or version does not exist. Please try again.\033[0m"
-                fi
-            done
-            elif [ "$choice" == "Q" ] || [ "$choice" == "q" ]; then
-            echo -e "\033[1;31mExiting.\033[0m"
-            exit 0
-        else
-            echo -e "\033[1;31mInvalid choice. Please try again.\033[0m"
-            sleep 2
-        fi
-    done
-    
-    echo -e "\033[1;32mSelected version $selected_version for installation.\033[0m"
-    
-    
-if ! dpkg -s unzip >/dev/null 2>&1; then
-    echo -e "\033[1;33mInstalling required packages...\033[0m"
-    detect_os
-    install_package unzip
-fi
+    select_xray_core_version
+    selected_version="$XRAY_CORE_VERSION"
 
-    
-    
-    mkdir -p $DATA_MAIN_DIR/xray-core
-    cd $DATA_MAIN_DIR/xray-core
-    
-    
-    
+    if ! command -v unzip >/dev/null 2>&1; then
+        detect_os
+        install_package unzip
+    fi
+
+    mkdir -p "$DATA_MAIN_DIR/xray-core"
+    cd "$DATA_MAIN_DIR/xray-core"
+
     xray_filename="Xray-linux-$ARCH.zip"
-    xray_download_url="https://github.com/XTLS/Xray-core/releases/download/${selected_version}/${xray_filename}"
-    
-    echo -e "\033[1;33mDownloading Xray-core version ${selected_version} in the background...\033[0m"
-    wget "${xray_download_url}" -q &
-    wait
-    
-    
-    echo -e "\033[1;33mExtracting Xray-core in the background...\033[0m"
-    unzip -o "${xray_filename}" >/dev/null 2>&1 &
-    wait
-    rm "${xray_filename}"
+    if [ "$selected_version" = "latest" ]; then
+        xray_download_url="https://github.com/XTLS/Xray-core/releases/latest/download/${xray_filename}"
+    else
+        xray_download_url="https://github.com/XTLS/Xray-core/releases/download/${selected_version}/${xray_filename}"
+    fi
+
+    colorized_echo blue "Downloading Xray-core ${selected_version}"
+    if ! curl -fL "$xray_download_url" -o "$xray_filename"; then
+        rm -f "$xray_filename"
+        colorized_echo red "Failed to download Xray-core ${selected_version}."
+        exit 1
+    fi
+    colorized_echo blue "Installing Xray-core ${selected_version}"
+    if ! unzip -o "$xray_filename" >/dev/null 2>&1; then
+        rm -f "$xray_filename"
+        colorized_echo red "Failed to extract Xray-core ${selected_version}."
+        exit 1
+    fi
+    rm -f "$xray_filename"
 }
 get_current_xray_core_version() {
     XRAY_BINARY="$DATA_MAIN_DIR/xray-core/xray"

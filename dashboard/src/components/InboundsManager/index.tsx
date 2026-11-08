@@ -22,7 +22,7 @@ import type { CoreConfigTarget } from "contexts/CoreSettingsContext";
 import { fetchInbounds as refreshInboundsStore } from "contexts/DashboardContext";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { fetch } from "service/http";
+import { fetch, getAPIErrorMessage } from "service/http";
 import {
 	buildInboundPayload,
 	getInboundTraffic,
@@ -30,12 +30,14 @@ import {
 	protocolOptions,
 	type RawInbound,
 } from "utils/inbounds";
+import { getInboundTargetIds } from "utils/inboundTargets";
 import { SizeFormatter } from "utils/outbound";
 import {
 	DEFAULT_SEARCH_MATCH_OPTIONS,
 	matchesAnySearch,
 } from "utils/searchMatch";
 import { sortByTraffic, type TrafficSortOrder } from "utils/trafficSort";
+import { type InboundSpeedMap, summarizeInbounds } from "utils/resourceSummary";
 import { SearchableTagSelect } from "../common/SearchableTagSelect";
 import { SearchInput } from "../common/SearchInput";
 import { ConfirmDialog, DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
@@ -77,17 +79,11 @@ const normalizeInboundTargets = (inbound: RawInbound): RawInbound => ({
 	),
 });
 
-const getInboundTargetIds = (inbound: RawInbound) =>
-	inbound.effective_targets?.length
-		? inbound.effective_targets
-		: inbound.targets?.length
-			? inbound.targets
-			: ["master"];
-
 export const InboundsManager: FC = () => {
 	const { t } = useTranslation();
 	const toast = useToast();
 	const [inbounds, setInbounds] = useState<RawInbound[]>([]);
+	const [speeds, setSpeeds] = useState<InboundSpeedMap>({});
 	const [configTargets, setConfigTargets] = useState<CoreConfigTarget[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isMutating, setIsMutating] = useState(false);
@@ -118,8 +114,8 @@ export const InboundsManager: FC = () => {
 				setInbounds((data || []).map(normalizeInboundTargets));
 				setConfigTargets(targetsResponse?.targets || []);
 			})
-			.catch(() => {
-				setError(t("inbounds.error.load"));
+			.catch((error) => {
+				setError(getAPIErrorMessage(error) || t("inbounds.error.load"));
 			})
 			.finally(() => setIsLoading(false));
 	}, [t]);
@@ -127,6 +123,23 @@ export const InboundsManager: FC = () => {
 	useEffect(() => {
 		loadInbounds();
 	}, [loadInbounds]);
+
+	useEffect(() => {
+		let active = true;
+		const loadSpeeds = () => {
+			fetch<InboundSpeedMap>("/inbounds/speeds")
+				.then((data) => {
+					if (active) setSpeeds(data || {});
+				})
+				.catch(() => undefined);
+		};
+		loadSpeeds();
+		const timer = window.setInterval(loadSpeeds, 5000);
+		return () => {
+			active = false;
+			window.clearInterval(timer);
+		};
+	}, []);
 
 	const filtered = useMemo(() => {
 		const matches = inbounds.filter((inbound) => {
@@ -467,6 +480,9 @@ export const InboundsManager: FC = () => {
 			(a, b) => b[1] - a[1],
 		)[0];
 
+		const totals = summarizeInbounds(filtered, speeds);
+		const isFiltered = filtered.length !== inbounds.length;
+
 		return [
 			{
 				label: t("total"),
@@ -492,12 +508,23 @@ export const InboundsManager: FC = () => {
 				colorScheme: "green",
 			},
 			{
+				label: isFiltered ? t("summary.filteredUsage") : t("summary.usage"),
+				value: SizeFormatter.sizeFormat(totals.total),
+				colorScheme: "blue",
+				helper: `↑ ${SizeFormatter.sizeFormat(totals.upload)} · ↓ ${SizeFormatter.sizeFormat(totals.download)}`,
+			},
+			{
+				label: t("summary.speed"),
+				value: `↑ ${SizeFormatter.sizeFormat(totals.uploadSpeed)}/s · ↓ ${SizeFormatter.sizeFormat(totals.downloadSpeed)}/s`,
+				colorScheme: "cyan",
+			},
+			{
 				label: t("usersPage.filtered"),
 				value: filtered.length,
 				colorScheme: "teal",
 			},
 		];
-	}, [filtered.length, inbounds, t]);
+	}, [filtered, inbounds, speeds, t]);
 
 	const inboundColumns = useMemo<DataTableColumn<RawInbound>[]>(
 		() => [
@@ -519,6 +546,14 @@ export const InboundsManager: FC = () => {
 						<Text fontWeight="semibold" noOfLines={1}>
 							{inbound.tag}
 						</Text>
+						{inbound.validation_error && (
+							<Tooltip label={inbound.validation_error} hasArrow>
+								<Stack spacing={1} align="start">
+									<Tag size="sm" colorScheme="red">{t("diagnostics.broken")}</Tag>
+									<Text fontSize="xs" color="red.400" noOfLines={2}>{inbound.validation_error}</Text>
+								</Stack>
+							</Tooltip>
+						)}
 						{inbound.listen && (
 							<Text fontSize="xs" color="panel.textMuted" noOfLines={1}>
 								{inbound.listen}
@@ -618,6 +653,37 @@ export const InboundsManager: FC = () => {
 				},
 			},
 			{
+				id: "speed",
+				header: t("inbounds.speed"),
+				priority: "medium",
+				width: "175px",
+				maxWidth: "195px",
+				mobilePriority: 6,
+				mobileMetaLabel: t("inbounds.speed"),
+				cell: (inbound) => {
+					const speed = speeds[inbound.tag];
+					return (
+						<HStack
+							spacing={3}
+							whiteSpace="nowrap"
+							fontSize="xs"
+							dir="ltr"
+							sx={{
+								fontVariantNumeric: "tabular-nums",
+								unicodeBidi: "isolate",
+							}}
+						>
+							<Text color="teal.400">
+								↑ {SizeFormatter.sizeFormat(speed?.upload_speed ?? 0)}/s
+							</Text>
+							<Text color="blue.400">
+								↓ {SizeFormatter.sizeFormat(speed?.download_speed ?? 0)}/s
+							</Text>
+						</HStack>
+					);
+				},
+			},
+			{
 				id: "sniffing",
 				header: t("inbounds.sniffing"),
 				priority: "low",
@@ -683,7 +749,7 @@ export const InboundsManager: FC = () => {
 				},
 			},
 		],
-		[t, targetNameById],
+		[t, targetNameById, speeds],
 	);
 
 	const inboundRowActions = (

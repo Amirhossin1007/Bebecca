@@ -78,6 +78,23 @@ func (s *Server) handleWindscribeSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	tag = windscribeOutboundTag(tag, location)
+	config, err := s.configRepo.GetTargetRawConfig(r.Context(), fmt.Sprintf("node:%d", nodeID))
+	if err != nil {
+		writeConfigError(w, err)
+		return
+	}
+	if existingTag, conflict := managedProxyConflict(config, tag, port); conflict {
+		writeError(w, http.StatusConflict, fmt.Sprintf("local proxy port %d is already used by outbound %s", port, existingTag))
+		return
+	}
+	if existingTag, conflict := managedProxyLocationConflict(config, "windscribe", location, tag); conflict {
+		writeError(w, http.StatusConflict, fmt.Sprintf("Windscribe location %s is already used by outbound %s", strings.ToUpper(location), existingTag))
+		return
+	}
+	if existingTag, conflict := managedProxySingletonConflict(config, "windscribe", tag); conflict {
+		writeError(w, http.StatusConflict, fmt.Sprintf("only one Windscribe outbound can run on a node; existing outbound: %s", existingTag))
+		return
+	}
 	proxyUsername, err := randomWindscribeCredential()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -102,8 +119,10 @@ func (s *Server) handleWindscribeSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	outbound := map[string]any{
-		"tag":      tag,
-		"protocol": "socks",
+		"tag":                    tag,
+		"rebecca_proxy":          "windscribe",
+		"rebecca_proxy_location": location,
+		"protocol":               "socks",
 		"settings": map[string]any{
 			"servers": []map[string]any{{
 				"address": "127.0.0.1",

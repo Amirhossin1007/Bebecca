@@ -14,6 +14,7 @@ import (
 	"time"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/logging"
 	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
 	"github.com/rebeccapanel/rebecca/internal/app/usage"
 	userapp "github.com/rebeccapanel/rebecca/internal/app/user"
@@ -349,10 +350,21 @@ func (s *Server) handleUserCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.kickUserNodeOperationsSoon(result.UserID)
+	if result.SpeedLimitChanged {
+		s.queueUserSpeedLimitSync(r.Context())
+	}
 	createdReport := userReportForTelegram(result, principal.Context.Admin.Username, principal.Context.Admin.Username, raw)
 	s.telegramReports.UserCreated(r.Context(), createdReport)
 	s.enqueueWebhook(r.Context(), webhookUserEvent(webhookapp.ActionUserCreated, createdReport))
 	s.writeUserMutationDetail(w, r, principal, result, http.StatusCreated)
+}
+
+func (s *Server) queueUserSpeedLimitSync(ctx context.Context) {
+	if err := s.nodeControllerQueueSync(ctx, nil, map[string]any{"source": "user_speed_limit"}); err != nil {
+		logging.Warnf(logging.ComponentRuntime, "user speed limit sync queue failed: %v", err)
+		return
+	}
+	s.kickNodeOperationsSoon()
 }
 
 func (s *Server) handleUserUpdate(w http.ResponseWriter, r *http.Request, username string) {
@@ -372,6 +384,9 @@ func (s *Server) handleUserUpdate(w http.ResponseWriter, r *http.Request, userna
 		return
 	}
 	s.kickUserNodeOperationsSoon(result.UserID)
+	if result.SpeedLimitChanged {
+		s.queueUserSpeedLimitSync(r.Context())
+	}
 	report := userReportForTelegram(result, principal.Context.Admin.Username, principal.Context.Admin.Username, raw)
 	s.telegramReports.UserUpdated(r.Context(), report)
 	s.enqueueWebhook(r.Context(), webhookUserEvent(webhookapp.ActionUserUpdated, report))
@@ -394,6 +409,9 @@ func (s *Server) handleUserDelete(w http.ResponseWriter, r *http.Request, userna
 		return
 	}
 	s.kickUserNodeOperationsSoon(result.UserID)
+	if result.SpeedLimitChanged {
+		s.queueUserSpeedLimitSync(r.Context())
+	}
 	deletedReport := telegramapp.UserReport{
 		Username: result.Username,
 		Owner:    principal.Context.Admin.Username,

@@ -364,6 +364,7 @@
 	"hostsDialog.title": "Используя эту настройку, Вы можете настроить свои inbound.",
 	"hostsDialog.useSniAsHost": "Use sni as host",
 	"hostsDialog.username": "Имя пользователя",
+	"hostsDialog.userId": "Числовой ID пользователя",
 	"hostsPage.active": "Active",
 	"hostsPage.activeToggle": "Active host",
 	"hostsPage.addHost": "Add host",
@@ -791,6 +792,7 @@
 	"usersTable.noUser": "В системе нет созданных пользователей",
 	"usersTable.noUserMatched": "Похоже, нет пользователя, соответствующего вашему запросу",
 	"usersTable.service": "service",
+	"usersTable.userId": "ID пользователя",
 	"usersTable.defaultService": "Default",
 	"usersTable.status": "Статус",
 	"usersTable.total": "Всего",
@@ -908,5 +910,6 @@
 	"nodes.nodeUpdateAvailable": "Доступно обновление",
 	"settings.telegram.backupScope": "Область резервного копирования",
 	"total": "Всего",
-	"loadAverage": "Средняя загрузка"
+	"loadAverage": "Средняя загрузка",
+	"sponsors.sponsoredBy": "При поддержке"
 }

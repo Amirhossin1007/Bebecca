@@ -30,6 +30,7 @@ import {
 	ClockIcon,
 	GlobeAltIcon,
 	LinkIcon,
+	LinkSlashIcon,
 	NoSymbolIcon,
 	PencilIcon,
 	PlusCircleIcon,
@@ -98,12 +99,16 @@ const USER_STATUS_TEXT_COLORS: Partial<Record<UserListItem["status"], string>> =
 
 const UserSpeed: FC<{ user: UserListItem }> = ({ user }) => {
 	const { t } = useTranslation();
-	const upload = useDashboard(
-		(state) => state.liveUserStats[user.username]?.upload_speed,
-	) ?? user.upload_speed ?? 0;
-	const download = useDashboard(
-		(state) => state.liveUserStats[user.username]?.download_speed,
-	) ?? user.download_speed ?? 0;
+	const upload =
+		useDashboard((state) => state.liveUserStats[user.username]?.upload_speed) ??
+		user.upload_speed ??
+		0;
+	const download =
+		useDashboard(
+			(state) => state.liveUserStats[user.username]?.download_speed,
+		) ??
+		user.download_speed ??
+		0;
 	if (upload === 0 && download === 0) {
 		return <Text color="panel.textMuted">—</Text>;
 	}
@@ -124,6 +129,21 @@ const UserPresence: FC<{ user: UserListItem }> = ({ user }) => {
 		(state) => state.liveUserStats[user.username]?.is_online,
 	);
 	return <UserOnlineBadge isOnline={isOnline ?? user.is_online} />;
+};
+
+const MobileUserOnlineDot: FC<{ user: UserListItem }> = ({ user }) => {
+	const liveIsOnline = useDashboard(
+		(state) => state.liveUserStats[user.username]?.is_online,
+	);
+	const isOnline = liveIsOnline ?? user.is_online;
+	return (
+		<Box
+			as="span"
+			className="rb-user-mobile-online-dot"
+			data-online={isOnline ? "true" : "false"}
+			aria-hidden="true"
+		/>
+	);
 };
 
 const iconProps = {
@@ -162,7 +182,8 @@ const LockOverlayIcon = chakra(LockClosedIcon, {
 	},
 });
 const ResetIcon = chakra(ArrowPathIcon, iconProps);
-const RevokeIcon = chakra(NoSymbolIcon, iconProps);
+const DisableIcon = chakra(NoSymbolIcon, iconProps);
+const RevokeIcon = chakra(LinkSlashIcon, iconProps);
 const TrafficIcon = chakra(PlusCircleIcon, iconProps);
 const ExtendIcon = chakra(ClockIcon, iconProps);
 const UsageHistoryIcon = chakra(ChartBarIcon, iconProps);
@@ -922,7 +943,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 				maxWidth: "84px",
 				headerAlign: "start",
 				cellAlign: "start",
-				mobileVisible: true,
+				mobileVisible: false,
 				mobilePriority: 1,
 				mobileMetaLabel: t("usersTable.online"),
 				cell: (user) => <UserPresence user={user} />,
@@ -945,17 +966,23 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobileMetaLabel: t("username"),
 				cell: (user) => (
 					<Stack spacing={0.5} minW={0} align="flex-start">
-						<Text
-							fontWeight="semibold"
-							noOfLines={1}
-							maxW="full"
-							color="panel.text"
-							dir="ltr"
-							sx={{ unicodeBidi: "isolate" }}
-							_hover={canOpenUserDialog ? { color: "panel.accent" } : undefined}
-						>
-							{formatUsernamePreview(user.username)}
-						</Text>
+						<HStack spacing={1.5} minW={0} maxW="full">
+							<MobileUserOnlineDot user={user} />
+							<Text
+								fontWeight="semibold"
+								noOfLines={1}
+								maxW="full"
+								minW={0}
+								color="panel.text"
+								dir="ltr"
+								sx={{ unicodeBidi: "isolate" }}
+								_hover={
+									canOpenUserDialog ? { color: "panel.accent" } : undefined
+								}
+							>
+								{formatUsernamePreview(user.username)}
+							</Text>
+						</HStack>
 						<UserAdminChip adminUsername={user.admin_username} />
 						<Text
 							className="rb-user-card-status"
@@ -967,6 +994,22 @@ export const UsersTable: FC<UsersTableProps> = ({
 							{t(`status.${user.status}`)}
 						</Text>
 					</Stack>
+				),
+			},
+			{
+				id: "id",
+				header: t("usersTable.userId"),
+				accessor: (user) => user.id,
+				sortable: true,
+				width: "96px",
+				minWidth: "84px",
+				maxWidth: "120px",
+				cellAlign: "start",
+				mobileVisible: false,
+				cell: (user) => (
+					<Text fontSize="sm" color="panel.text" dir="ltr" fontFamily="mono">
+						{user.id}
+					</Text>
 				),
 			},
 			{
@@ -1258,7 +1301,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			actions.push({
 				id: "disable",
 				label: t("usersTable.disableUser"),
-				icon: <RevokeIcon />,
+				icon: <DisableIcon />,
 				isDisabled: contextAction === "disable",
 				onClick: () => handleDisableUser(user),
 			});
@@ -1459,12 +1502,30 @@ export const UsersTable: FC<UsersTableProps> = ({
 		return (
 			<Box className="rb-resource-expanded">
 				<Box className="rb-resource-details" data-density="compact">
+					<Box className="rb-resource-meta">
+						<Text as="span" color="panel.textMuted">
+							{t("username")}
+						</Text>
+						<Text
+							color="panel.text"
+							minW={0}
+							className="rb-resource-meta-value"
+							dir="ltr"
+							sx={{ unicodeBidi: "isolate" }}
+						>
+							{user.username}
+						</Text>
+					</Box>
 					{detailColumns.map((column) => (
 						<Box key={column.id} className="rb-resource-meta">
 							<Text as="span" color="panel.textMuted">
 								{column.mobileMetaLabel ?? column.mobileLabel ?? column.header}
 							</Text>
-							<Box color="panel.text" minW={0} className="rb-resource-meta-value">
+							<Box
+								color="panel.text"
+								minW={0}
+								className="rb-resource-meta-value"
+							>
 								{column.mobileDetailCell?.(user) ?? column.cell?.(user)}
 							</Box>
 						</Box>
@@ -1594,7 +1655,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 								: undefined
 						}
 						isRowExpanded={
-							isDesktop ? (user) => expandedUsername === user.username : undefined
+							isDesktop
+								? (user) => expandedUsername === user.username
+								: undefined
 						}
 						renderExpandedRow={isDesktop ? renderExpandedUser : undefined}
 						sorting={userSorting}
@@ -1610,7 +1673,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 									<Button
 										size="sm"
 										variant="outline"
-										leftIcon={<RevokeIcon />}
+										leftIcon={<DisableIcon />}
 										onClick={handleBulkDisable}
 										isLoading={bulkAction === "disable"}
 										isDisabled={

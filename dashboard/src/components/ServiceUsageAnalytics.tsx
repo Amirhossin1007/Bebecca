@@ -9,9 +9,12 @@ import {
 	useColorMode,
 	VStack,
 } from "@chakra-ui/react";
+import {
+	buildUsageAreaOptions,
+	buildUsageDonutOptions,
+} from "components/usage/usageChartOptions";
+import { InfoIcon } from "components/common/InfoIcon";
 import { PanelSelect as Select } from "components/common/PanelSelect";
-import { InformationCircleIcon } from "@heroicons/react/24/outline";
-import type { ApexOptions } from "apexcharts";
 import { ChartBox } from "components/common/ChartBox";
 import {
 	DateRangePicker,
@@ -34,18 +37,13 @@ import type {
 import { formatBytes } from "utils/formatByte";
 import {
 	buildRangeFromPreset,
-	type RangeState as SharedRangeState,
-	type UsagePreset as SharedUsagePreset,
+	dateRangeValueToUsageRange as dateRangeValueToRangeState,
+	usageRangeToDateRangeValue as rangeStateToDateRangeValue,
+	type UsageRange as RangeState,
+	type UsageRangePreset as UsagePreset,
 } from "utils/usageRange";
 
 dayjs.extend(utc);
-
-const InfoIcon = chakra(InformationCircleIcon, { baseStyle: { w: 4, h: 4 } });
-
-type RangeKey = "24h" | "7d" | "30d" | "90d" | "custom";
-type PresetRangeKey = Exclude<RangeKey, "custom">;
-type UsagePreset = SharedUsagePreset<PresetRangeKey>;
-type RangeState = SharedRangeState<RangeKey>;
 
 const presets: UsagePreset[] = [
 	{ key: "24h", label: "24h", amount: 24, unit: "hour" },
@@ -71,121 +69,13 @@ const formatTimeseriesLabel = (
 		: parsed.format("YYYY-MM-DD");
 };
 
-const buildAreaChartOptions = (
-	colorMode: string,
-	categories: string[],
-	label: string,
-): ApexOptions => {
-	const axisColor = colorMode === "dark" ? "#d8dee9" : "#1a202c";
-	return {
-		chart: {
-			type: "area" as const,
-			toolbar: { show: false },
-			zoom: { enabled: false },
-		},
-		dataLabels: { enabled: false },
-		stroke: { curve: "smooth" as const, width: 2 },
-		fill: {
-			type: "gradient" as const,
-			gradient: {
-				shadeIntensity: 1,
-				opacityFrom: 0.35,
-				opacityTo: 0.05,
-				stops: [0, 80, 100],
-			},
-		},
-		grid: { borderColor: colorMode === "dark" ? "#2D3748" : "#E2E8F0" },
-		xaxis: {
-			categories,
-			labels: { style: { colors: categories.map(() => axisColor) }, rotate: 0 },
-			axisBorder: { show: false },
-			axisTicks: { show: false },
-		},
-		yaxis: {
-			labels: {
-				formatter: (value: number) => formatBytes(Number(value) || 0, 1),
-				style: { colors: [axisColor] },
-			},
-			title: { text: label, style: { color: axisColor } },
-		},
-		tooltip: {
-			theme: colorMode === "dark" ? "dark" : "light",
-			shared: true,
-			fillSeriesColor: false,
-			y: { formatter: (value: number) => formatBytes(Number(value) || 0, 2) },
-		},
-		colors: [colorMode === "dark" ? "#63B3ED" : "#3182CE"],
-	};
-};
-
-const buildDonutOptions = (
-	colorMode: string,
-	labels: string[],
-): ApexOptions => ({
-	labels,
-	legend: {
-		position: "bottom" as const,
-		labels: { colors: colorMode === "dark" ? "#d8dee9" : "#1a202c" },
-	},
-	tooltip: {
-		y: {
-			formatter: (value: number) => formatBytes(Number(value) || 0, 2),
-			title: {
-				formatter: (
-					seriesName: string,
-					opts?: { seriesIndex: number; w: { globals: { labels: string[] } } },
-				) => opts?.w?.globals?.labels?.[opts.seriesIndex] ?? seriesName,
-			},
-		},
-	},
-	colors: [
-		"#3182CE",
-		"#63B3ED",
-		"#ED8936",
-		"#38A169",
-		"#9F7AEA",
-		"#F6AD55",
-		"#4299E1",
-		"#E53E3E",
-		"#D53F8C",
-		"#805AD5",
-	],
-});
-
 type ServiceUsageAnalyticsProps = {
 	services: ServiceSummary[];
 	selectedServiceId?: number | null;
 };
 
 // Helper function to convert RangeState to DateRangeValue
-const rangeStateToDateRangeValue = (range: RangeState): DateRangeValue => ({
-	start: range.start,
-	end: range.end,
-	presetKey: range.key,
-	key: range.key,
-	unit: range.unit,
-});
-
 // Helper function to convert DateRangeValue to RangeState
-const dateRangeValueToRangeState = (value: DateRangeValue): RangeState => {
-	const unit: "day" | "hour" = value.unit === "hour" ? "hour" : "day";
-	const key = (value.presetKey || value.key || "custom") as RangeKey;
-	if (key !== "custom") {
-		return {
-			key,
-			start: value.start,
-			end: value.end,
-			unit,
-		};
-	}
-	return {
-		key: "custom",
-		start: value.start,
-		end: value.end,
-		unit,
-	};
-};
-
 export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 	services,
 	selectedServiceId,
@@ -475,11 +365,10 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 
 	const areaOptions = useMemo(
 		() =>
-			buildAreaChartOptions(
-				colorMode,
-				categories,
-				t("services.usageYAxis"),
-			),
+			buildUsageAreaOptions(colorMode, categories, {
+				yTitle: t("services.usageYAxis"),
+				xLabelRotate: 0,
+			}),
 		[categories, colorMode, t],
 	);
 
@@ -498,9 +387,7 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 		return (
 			adminSelectOptions.find((option) => option.value === targetValue)
 				?.label ??
-			(selectedAdminId === null
-				? t("services.unassignedAdmin")
-				: "")
+			(selectedAdminId === null ? t("services.unassignedAdmin") : "")
 		);
 	}, [adminSelectOptions, selectedAdminId, t]);
 
@@ -524,11 +411,10 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 
 	const adminTimeseriesOptions = useMemo(
 		() =>
-			buildAreaChartOptions(
-				colorMode,
-				adminTimeseriesCategories,
-				t("services.usageYAxis"),
-			),
+			buildUsageAreaOptions(colorMode, adminTimeseriesCategories, {
+				yTitle: t("services.usageYAxis"),
+				xLabelRotate: 0,
+			}),
 		[adminTimeseriesCategories, colorMode, t],
 	);
 
@@ -547,13 +433,11 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 	);
 	const donutLabels = useMemo(
 		() =>
-			adminUsage.map(
-				(item) => item.username || t("services.unassignedAdmin"),
-			),
+			adminUsage.map((item) => item.username || t("services.unassignedAdmin")),
 		[adminUsage, t],
 	);
 	const donutOptions = useMemo(
-		() => buildDonutOptions(colorMode, donutLabels),
+		() => buildUsageDonutOptions(colorMode, donutLabels),
 		[colorMode, donutLabels],
 	);
 	const adminTotal = useMemo(
@@ -564,13 +448,9 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 	if (serviceOptions.length === 0) {
 		return (
 			<VStack spacing={2} align="stretch" mt={4}>
-				<Text fontWeight="semibold">
-					{t("services.usageAnalyticsTitle")}
-				</Text>
+				<Text fontWeight="semibold">{t("services.usageAnalyticsTitle")}</Text>
 				<Box borderWidth="1px" borderRadius="md" p={6}>
-					<Text color="gray.500">
-						{t("services.noServicesAvailable")}
-					</Text>
+					<Text color="gray.500">{t("services.noServicesAvailable")}</Text>
 				</Box>
 			</VStack>
 		);
@@ -669,9 +549,7 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 						fontSize="sm"
 					>
 						<HStack spacing={2} align="center">
-							<Text fontWeight="semibold">
-								{t("services.adminUsageTrend")}
-							</Text>
+							<Text fontWeight="semibold">{t("services.adminUsageTrend")}</Text>
 							<InfoIcon color="gray.500" aria-label="info" cursor="help" />
 						</HStack>
 					</Tooltip>
@@ -811,8 +689,7 @@ export const ServiceUsageAnalytics: FC<ServiceUsageAnalyticsProps> = ({
 									py={2}
 								>
 									<Text fontWeight="medium">
-										{item.username ||
-											t("services.unassignedAdmin")}
+										{item.username || t("services.unassignedAdmin")}
 									</Text>
 									<Text fontSize="sm" color="gray.500">
 										{formatBytes(item.used_traffic || 0, 2)}

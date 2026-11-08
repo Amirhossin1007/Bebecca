@@ -115,7 +115,7 @@ func (r Repository) systemUsage(ctx context.Context) (int64, int64, error) {
 	var downlink sql.NullInt64
 	err := r.db.QueryRowContext(
 		ctx,
-		"SELECT COALESCE(uplink, 0), COALESCE(downlink, 0) FROM `system` ORDER BY id LIMIT 1",
+		"SELECT COALESCE(uplink, 0), COALESCE(downlink, 0) FROM `master_usage` ORDER BY id LIMIT 1",
 	).Scan(&uplink, &downlink)
 	if err == sql.ErrNoRows {
 		return 0, 0, nil
@@ -177,12 +177,6 @@ func (r Repository) userCounts(ctx context.Context, adminID *int64) (map[string]
 		"limited":  0,
 		"on_hold":  0,
 	}
-	total, err := r.countUsers(ctx, adminID, "")
-	if err != nil {
-		return nil, err
-	}
-	result["total"] = total
-
 	clauses := []string{"status != ?"}
 	args := []any{"deleted"}
 	if adminID != nil {
@@ -201,6 +195,7 @@ func (r Repository) userCounts(ctx context.Context, adminID *int64) (map[string]
 		if err := rows.Scan(&status, &count); err != nil {
 			return nil, err
 		}
+		result["total"] += count
 		if _, ok := result[status]; ok {
 			result[status] = count
 		}

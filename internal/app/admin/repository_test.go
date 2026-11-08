@@ -24,7 +24,7 @@ func testAdminRepository(t *testing.T) (Repository, *sql.DB) {
 	t.Cleanup(func() { _ = db.Close() })
 
 	statements := []string{
-		`CREATE TABLE jwt (id INTEGER PRIMARY KEY, admin_secret_key TEXT, secret_key TEXT)`,
+		`CREATE TABLE auth_secrets (id INTEGER PRIMARY KEY, admin_secret_key TEXT, secret_key TEXT)`,
 		`CREATE TABLE admins (
 			id INTEGER PRIMARY KEY,
 			username TEXT NOT NULL,
@@ -77,7 +77,7 @@ func testAdminRepository(t *testing.T) (Repository, *sql.DB) {
 			otp_attempts INTEGER NOT NULL DEFAULT 0,
 			revoked_at DATETIME NULL
 		)`,
-		`CREATE TABLE admins_services (
+		`CREATE TABLE service_admins (
 			admin_id INTEGER NOT NULL,
 			service_id INTEGER NOT NULL,
 			used_traffic BIGINT DEFAULT 0,
@@ -91,7 +91,7 @@ func testAdminRepository(t *testing.T) (Repository, *sql.DB) {
 			delete_user_usage_limit_enabled INTEGER DEFAULT 0,
 			delete_user_usage_limit BIGINT NULL
 		)`,
-		`INSERT INTO jwt (id, admin_secret_key, secret_key) VALUES (1, 'admin-secret', 'legacy-secret')`,
+		`INSERT INTO auth_secrets (id, admin_secret_key, secret_key) VALUES (1, 'admin-secret', 'legacy-secret')`,
 	}
 	for _, statement := range statements {
 		if _, err := db.Exec(statement); err != nil {
@@ -136,7 +136,7 @@ func insertAdmin(t *testing.T, db *sql.DB, username string, role AdminRole, stat
 		t.Fatal(err)
 	}
 	_, err = db.Exec(
-		`INSERT INTO admins_services (
+		`INSERT INTO service_admins (
 			admin_id, service_id, used_traffic, lifetime_used_traffic, created_traffic,
 			deleted_users_usage, data_limit, traffic_limit_mode, show_user_traffic,
 			users_limit, delete_user_usage_limit_enabled, delete_user_usage_limit

@@ -1,0 +1,56 @@
+import { ChakraProvider } from "@chakra-ui/react";
+import * as React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { StaticRouter } from "react-router-dom";
+import useGetUser from "hooks/useGetUser";
+import { AdminRole } from "types/Admin";
+import { describe, expect, it, vi } from "vitest";
+import NotificationsPage from "./NotificationsPage";
+
+Object.assign(globalThis, { React });
+vi.mock("react-i18next", () => ({
+	useTranslation: () => ({
+		t: (key: string) => key,
+		i18n: { language: "en", dir: () => "ltr" },
+	}),
+}));
+vi.mock("hooks/useGetUser", () => ({ default: vi.fn() }));
+vi.mock("react-query", () => ({
+	useQuery: vi.fn(() => ({ data: undefined })),
+	useMutation: vi.fn(() => ({ mutate: vi.fn(), isLoading: false })),
+	useQueryClient: vi.fn(() => ({ invalidateQueries: vi.fn() })),
+}));
+
+const render = (role: AdminRole) => {
+	vi.mocked(useGetUser).mockReturnValue({
+		userData: { role },
+	} as any);
+	return renderToStaticMarkup(
+		<ChakraProvider>
+			<StaticRouter basename="/dashboard" location="/dashboard/notifications">
+				<NotificationsPage />
+			</StaticRouter>
+		</ChakraProvider>,
+	);
+};
+
+describe("notifications page", () => {
+	it("shows only the inbox to standard admins", () => {
+		const markup = render(AdminRole.Standard);
+		expect(markup).toContain("notifications.tabs.inbox");
+		expect(markup).not.toContain("notifications.tabs.send");
+		expect(markup).not.toContain("notifications.tabs.rules");
+	});
+
+	it("adds sending for sudo admins without automatic rules", () => {
+		const markup = render(AdminRole.Sudo);
+		expect(markup).toContain("notifications.tabs.send");
+		expect(markup).not.toContain("notifications.tabs.rules");
+	});
+
+	it("shows sending and automatic rules to full access admins", () => {
+		const markup = render(AdminRole.FullAccess);
+		expect(markup).toContain("notifications.tabs.send");
+		expect(markup).toContain("notifications.tabs.rules");
+	});
+});

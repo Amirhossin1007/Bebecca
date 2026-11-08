@@ -8,7 +8,7 @@ function App() {
 	return (
 		<SeasonalProvider>
 			<SeasonalOverlay />
-			<RouterProvider router={router} />
+			<RouterProvider router={router} useTransitions={false} />
 		</SeasonalProvider>
 	);
 }

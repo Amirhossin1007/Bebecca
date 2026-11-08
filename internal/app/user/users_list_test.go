@@ -21,7 +21,7 @@ func TestUsersListIncludesOpenTunnelSessionsInOnlineStatus(t *testing.T) {
 	defer db.Close()
 
 	for _, statement := range []string{
-		`CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, status TEXT, used_traffic BIGINT, created_at DATETIME, expire BIGINT, data_limit BIGINT, data_limit_reset_strategy TEXT, online_at DATETIME, service_id BIGINT, admin_id BIGINT, credential_key TEXT, subadress TEXT, flow TEXT, on_hold_expire_duration BIGINT)`,
+		`CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, status TEXT, used_traffic BIGINT, created_at DATETIME, expire BIGINT, data_limit BIGINT, data_limit_reset_strategy TEXT, service_id BIGINT, admin_id BIGINT, credential_key TEXT, subscription_token TEXT, flow TEXT, on_hold_expire_duration BIGINT)`,
 		`CREATE TABLE user_presence (user_id INTEGER PRIMARY KEY, online_at DATETIME NOT NULL)`,
 		`CREATE TABLE admins (id INTEGER PRIMARY KEY, username TEXT)`,
 		`CREATE TABLE services (id INTEGER PRIMARY KEY, name TEXT)`,
@@ -30,7 +30,8 @@ func TestUsersListIncludesOpenTunnelSessionsInOnlineStatus(t *testing.T) {
 		`CREATE TABLE user_online_ips (node_id BIGINT, user_id BIGINT, last_seen_at DATETIME)`,
 		`CREATE TABLE vpn_user_sessions (node_id BIGINT, user_id BIGINT, last_seen_at DATETIME, ended_at DATETIME)`,
 		`INSERT INTO nodes (id, status) VALUES (1, 'connected')`,
-		`INSERT INTO users (id, username, status, used_traffic, created_at, online_at) VALUES (1, 'tunnel-user', 'active', 0, CURRENT_TIMESTAMP, NULL), (2, 'stale-user', 'active', 0, CURRENT_TIMESTAMP, datetime('now', '-10 minutes'))`,
+		`INSERT INTO users (id, username, status, used_traffic, created_at) VALUES (1, 'tunnel-user', 'active', 0, CURRENT_TIMESTAMP), (2, 'stale-user', 'active', 0, CURRENT_TIMESTAMP)`,
+		`INSERT INTO user_presence (user_id, online_at) VALUES (2, datetime('now', '-10 minutes'))`,
 		`INSERT INTO vpn_user_sessions (node_id, user_id, last_seen_at, ended_at) VALUES (1, 1, CURRENT_TIMESTAMP, NULL)`,
 	} {
 		if _, err := db.Exec(statement); err != nil {
@@ -137,7 +138,7 @@ func TestUsersListIncludesOpenTunnelSessionsInOnlineStatus(t *testing.T) {
 	if summary.onlineTotal != 1 {
 		t.Fatalf("expected fresh Xray activity to be online, got %d", summary.onlineTotal)
 	}
-	if _, err := db.Exec(`UPDATE users SET online_at = CURRENT_TIMESTAMP WHERE id = 2`); err != nil {
+	if _, err := db.Exec(`UPDATE user_presence SET online_at = CURRENT_TIMESTAMP WHERE user_id = 2`); err != nil {
 		t.Fatal(err)
 	}
 	summary, err = repo.queryUsersSummary(context.Background(), usersFilter{})

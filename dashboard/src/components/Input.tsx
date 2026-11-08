@@ -53,6 +53,7 @@ export type InputProps = PropsWithChildren<
 		step?: number;
 		label?: string;
 		clearable?: boolean;
+		precision?: number;
 	} & ChakraInputProps
 >;
 
@@ -74,6 +75,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 			onClick,
 			error,
 			clearable = false,
+			precision = 5,
 			...props
 		},
 		ref,
@@ -94,13 +96,13 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 			type === "number"
 				? {
 						keepWithinRange: true,
-						precision: 5,
+						precision,
 						format: (value: string | number) => {
 							return Number.isNaN(parseFloat(String(value)))
 								? value
-								: Number(parseFloat(String(value)).toFixed(5)) === 0
+								: Number(parseFloat(String(value)).toFixed(precision)) === 0
 									? value
-									: Number(parseFloat(String(value)).toFixed(5));
+									: Number(parseFloat(String(value)).toFixed(precision));
 						},
 						min:
 							typeof props.min === "number"
@@ -116,7 +118,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 							typeof props.defaultValue === "string" ||
 							typeof props.defaultValue === "number"
 								? props.defaultValue
-								: 0,
+								: typeof value === "string" || typeof value === "number"
+									? value
+									: 0,
 						onBlur,
 						onClick,
 						disabled,

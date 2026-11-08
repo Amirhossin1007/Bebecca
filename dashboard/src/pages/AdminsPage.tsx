@@ -2,7 +2,6 @@ import {
 	Text,
 	VStack,
 } from "@chakra-ui/react";
-import AdminDetailsDrawer from "components/AdminDetailsDrawer";
 import { AdminDialog } from "components/AdminDialog";
 import { AdminsTable } from "components/AdminsTable";
 import { Filters, ReloadIcon } from "components/Filters";
@@ -66,7 +65,6 @@ export const AdminsPage: FC = () => {
 			/>
 			<Pagination for="admins" />
 			<AdminDialog />
-			<AdminDetailsDrawer />
 		</VStack>
 	);
 };

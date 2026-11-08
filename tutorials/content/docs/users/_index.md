@@ -15,6 +15,7 @@ The Users page is the daily workspace for creating accounts, checking access, an
 - [Get a single config](single-config/) — copy one inbound config instead of the full subscription.
 - [Renew a user](renew-user/) — add time or traffic while keeping the existing account and link.
 - [Prepare an on-hold user](on-hold/) — create the account now and start its timer on first connection.
+- [Bulk actions](bulk-actions/) — create, edit, or delete many users in one previewed run.
 
 ## A reliable daily flow
 

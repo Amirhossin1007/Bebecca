@@ -320,9 +320,8 @@ export const QRCodeDialog: FC = () => {
 											<IconButton
 												size="sm"
 												position="absolute"
-												left="-2"
-												top="50%"
-												transform="translateY(-50%)"
+												left="0"
+												top="calc(100% + 4px)"
 												zIndex={1}
 												aria-label={t("a11y.previous")}
 												isDisabled={configItems.length < 2}
@@ -379,9 +378,8 @@ export const QRCodeDialog: FC = () => {
 											<IconButton
 												size="sm"
 												position="absolute"
-												right="-2"
-												top="50%"
-												transform="translateY(-50%)"
+												right="0"
+												top="calc(100% + 4px)"
 												zIndex={1}
 												aria-label={t("a11y.next")}
 												isDisabled={configItems.length < 2}

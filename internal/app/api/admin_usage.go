@@ -15,6 +15,23 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/searchmatch"
 )
 
+func (s *Server) handleAdminsSpeeds(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/admins/speeds" {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	principal, _ := r.Context().Value(adminContextKey).(adminPrincipal)
+	if !(principal.Context.Admin.HasFullAccess() || principal.Context.Admin.Permissions.AdminManagement.CanView) {
+		writeError(w, http.StatusForbidden, "You're not allowed to view admins.")
+		return
+	}
+	writeJSON(w, http.StatusOK, s.liveAdminSpeedsFor(principal))
+}
+
 func (s *Server) handleAdminsList(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/admins" {
 		writeError(w, http.StatusNotFound, "not found")

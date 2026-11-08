@@ -22,7 +22,10 @@ type FileDropzoneProps = {
 	description?: ReactNode;
 	emptyText: ReactNode;
 	isDisabled?: boolean;
-	onFileSelect: (file: File | null) => void;
+	multiple?: boolean;
+	onFileSelect?: (file: File | null) => void;
+	onFilesSelect?: (files: File[]) => void;
+	selectedFiles?: File[];
 	selectedFile?: File | null;
 	title: ReactNode;
 };
@@ -46,8 +49,11 @@ export const FileDropzone = ({
 	description,
 	emptyText,
 	isDisabled = false,
+	multiple = false,
 	onFileSelect,
+	onFilesSelect,
 	selectedFile,
+	selectedFiles,
 	title,
 }: FileDropzoneProps) => {
 	const inputRef = useRef<HTMLInputElement | null>(null);
@@ -59,14 +65,26 @@ export const FileDropzone = ({
 	const iconBg = useColorModeValue("white", "whiteAlpha.100");
 	const mutedColor = useColorModeValue("gray.500", "gray.400");
 
+	const hasSelection = selectedFiles
+		? selectedFiles.length > 0
+		: Boolean(selectedFile);
+
 	useEffect(() => {
-		if (!selectedFile && inputRef.current) {
+		if (!hasSelection && inputRef.current) {
 			inputRef.current.value = "";
 		}
-	}, [selectedFile]);
+	}, [hasSelection]);
 
 	const selectFile = (fileList: FileList | null) => {
-		onFileSelect(fileList?.[0] ?? null);
+		if (multiple) {
+			const files = Array.from(fileList ?? []);
+			if (inputRef.current) {
+				inputRef.current.value = "";
+			}
+			onFilesSelect?.(files);
+			return;
+		}
+		onFileSelect?.(fileList?.[0] ?? null);
 	};
 
 	const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -142,6 +160,7 @@ export const FileDropzone = ({
 				ref={inputRef}
 				type="file"
 				accept={accept}
+				multiple={multiple}
 				disabled={isDisabled}
 				onChange={handleInputChange}
 				style={{ display: "none" }}
@@ -155,9 +174,9 @@ export const FileDropzone = ({
 					p={2.5}
 				>
 					<Icon
-						as={selectedFile ? DocumentTextIcon : ArrowUpTrayIcon}
+						as={hasSelection ? DocumentTextIcon : ArrowUpTrayIcon}
 						boxSize={5}
-						color={selectedFile ? "primary.400" : mutedColor}
+						color={hasSelection ? "primary.400" : mutedColor}
 					/>
 				</Box>
 				<VStack align="stretch" spacing={1} minW={0} flex="1">

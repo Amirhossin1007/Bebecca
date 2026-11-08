@@ -17,36 +17,42 @@ import (
 	"github.com/rebeccapanel/rebecca/internal/app/logging"
 	"github.com/rebeccapanel/rebecca/internal/app/nodeclient"
 	outboundsubapp "github.com/rebeccapanel/rebecca/internal/app/outboundsub"
+	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 )
 
 type Controller struct {
-	repo              Repository
-	outboundSubs      outboundsubapp.Service
-	nodeLocks         *sync.Map
-	nodeClients       *sync.Map
-	healthFailures    *sync.Map
-	runtimeConfigPrep chan struct{}
+	repo               Repository
+	outboundSubs       outboundsubapp.Service
+	nodeLocks          *sync.Map
+	nodeClients        *sync.Map
+	metricsCache       *sync.Map
+	healthFailures     *sync.Map
+	runtimeDiagnostics *sync.Map
+	runtimeConfigPrep  chan struct{}
+	inboundSpeeds      *inboundSpeedTracker
 }
 
 const (
 	maxConcurrentSingleNodeOperations  = 8
 	maxConcurrentRuntimeUserOperations = 32
-	bulkRuntimeUserOperationThreshold  = 32
 	nodeHealthFailureThreshold         = 3
 	maxNodeOperationID                 = int64(1<<63 - 1)
 )
 
 func NewController(repo Repository) Controller {
 	return Controller{
-		repo:              repo,
-		outboundSubs:      outboundsubapp.NewService(repo.db, repo.dialect),
-		nodeLocks:         &sync.Map{},
-		nodeClients:       &sync.Map{},
-		healthFailures:    &sync.Map{},
-		runtimeConfigPrep: make(chan struct{}, 1),
+		repo:               repo,
+		outboundSubs:       outboundsubapp.NewService(repo.db, repo.dialect),
+		nodeLocks:          &sync.Map{},
+		nodeClients:        &sync.Map{},
+		metricsCache:       &sync.Map{},
+		healthFailures:     &sync.Map{},
+		runtimeDiagnostics: &sync.Map{},
+		runtimeConfigPrep:  make(chan struct{}, 1),
+		inboundSpeeds:      newInboundSpeedTracker(),
 	}
 }
 
@@ -100,13 +106,22 @@ func (c Controller) lockRuntimeConfigPreparation(ctx context.Context) (func(), e
 }
 
 func (c Controller) lockNode(nodeID int64) func() {
+	unlock, _ := c.lockNodeContext(context.Background(), nodeID)
+	return unlock
+}
+
+func (c Controller) lockNodeContext(ctx context.Context, nodeID int64) (func(), error) {
 	if c.nodeLocks == nil {
-		return func() {}
+		return func() {}, nil
 	}
-	value, _ := c.nodeLocks.LoadOrStore(nodeID, &sync.Mutex{})
-	lock := value.(*sync.Mutex)
-	lock.Lock()
-	return lock.Unlock
+	value, _ := c.nodeLocks.LoadOrStore(nodeID, make(chan struct{}, 1))
+	slot := value.(chan struct{})
+	select {
+	case slot <- struct{}{}:
+		return func() { <-slot }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 func (c Controller) PrepareStartupFullSync(ctx context.Context) (int, error) {
@@ -150,7 +165,7 @@ func (c Controller) Connect(ctx context.Context, req Request) (RuntimeResult, er
 			return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
 		}
 	}
-	syncReq, err := c.runtimeConfigRequest(ctx, node, queuedOperationID("sync_config", supersededIDs, req.NodeID), configJSON)
+	syncReq, err := c.runtimeConfigRequest(ctx, node, newOperationID("sync_config", req.NodeID), configJSON)
 	if err != nil {
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
@@ -158,7 +173,7 @@ func (c Controller) Connect(ctx context.Context, req Request) (RuntimeResult, er
 	if err := c.prepareRuntimeRevision(ctx, client, node.ID, syncReq); err != nil {
 		return RuntimeResult{}, err
 	}
-	syncRes, err := client.Runtime().SyncConfig(ctx, syncReq)
+	syncRes, err := client.Runtime().SyncConfig(ctx, syncReq, client.RequestOptions(syncReq)...)
 	if err != nil {
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
@@ -218,7 +233,7 @@ func (c Controller) restartNow(ctx context.Context, req Request) (RuntimeResult,
 	if err := c.prepareRuntimeRevision(ctx, client, node.ID, runtimeReq); err != nil {
 		return RuntimeResult{}, err
 	}
-	res, err := client.Runtime().RestartRuntime(ctx, runtimeReq)
+	res, err := client.Runtime().RestartRuntime(ctx, runtimeReq, client.RequestOptions(runtimeReq)...)
 	if err != nil {
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("restart", req.NodeID, err)
@@ -263,6 +278,7 @@ func (c Controller) Health(ctx context.Context, req Request) (RuntimeResult, err
 		return RuntimeResult{}, err
 	}
 	result.Status = "connected"
+	c.rememberRuntimeDiagnostics(result)
 	return result, nil
 }
 
@@ -287,6 +303,7 @@ func (c Controller) Metrics(ctx context.Context, req Request) (RuntimeResult, er
 		return RuntimeResult{}, err
 	}
 	result.Status = "connected"
+	c.rememberRuntimeDiagnostics(result)
 	return result, nil
 }
 
@@ -298,7 +315,9 @@ func (c Controller) RecoverNodes(ctx context.Context, req RecoverNodesRequest) (
 	result := RecoverNodesResult{Checked: len(nodeIDs)}
 	for _, nodeID := range nodeIDs {
 		metricsCtx, cancel := WithDefaultTimeout(ctx)
-		_, err := c.Connect(metricsCtx, Request{NodeID: nodeID})
+		// A failed health poll is not a request to replace the live runtime.
+		// Restore control-plane health only; pending changes stay in the queue.
+		_, err := c.Health(metricsCtx, Request{NodeID: nodeID})
 		cancel()
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d: %v", nodeID, err))
@@ -459,17 +478,13 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 	}
 	result := ProcessOperationsResult{}
 	blockedNodes := map[int64]bool{}
-	foldedNodes := bulkRuntimeUserOperationNodes(operations)
-	for nodeID := range foldedNodes {
-		if err := c.repo.QueueSyncConfig(ctx, &nodeID, nil); err != nil {
-			return result, err
-		}
-	}
 	groups := []operationGroup{}
 	groupIndexes := map[string]int{}
 	globalCoalesced := []OperationRow{}
+	runtimeUserOperations := []OperationRow{}
 	for _, operation := range operations {
-		if operation.NodeID.Valid && foldedNodes[operation.NodeID.Int64] && isRuntimeUserOperation(operation.OperationType) {
+		if operation.NodeID.Valid && operation.UserID.Valid && xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
+			runtimeUserOperations = append(runtimeUserOperations, operation)
 			continue
 		}
 		if canCoalesceRuntimeSyncOperation(operation) && !operation.NodeID.Valid {
@@ -485,6 +500,14 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 		}
 		groups[idx].operations = append(groups[idx].operations, operation)
 	}
+	userResult, err := c.applyRuntimeUserOperationBatch(ctx, runtimeUserOperations)
+	result.Processed += userResult.Processed
+	result.Done += userResult.Done
+	result.Retrying += userResult.Retrying
+	result.Failed += userResult.Failed
+	if err != nil {
+		return result, err
+	}
 	if err := c.processOrderedOperationGroups(ctx, groups, blockedNodes, &result, maxConcurrentSingleNodeOperations); err != nil {
 		return result, err
 	}
@@ -492,53 +515,6 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 		if err := c.processCoalescedOperations(ctx, globalCoalesced, blockedNodes, &result); err != nil {
 			return result, err
 		}
-	}
-	return result, nil
-}
-
-func bulkRuntimeUserOperationNodes(operations []OperationRow) map[int64]bool {
-	counts := map[int64]int{}
-	for _, operation := range operations {
-		if operation.NodeID.Valid && isRuntimeUserOperation(operation.OperationType) {
-			counts[operation.NodeID.Int64]++
-		}
-	}
-	result := map[int64]bool{}
-	for nodeID, count := range counts {
-		if count > bulkRuntimeUserOperationThreshold {
-			result[nodeID] = true
-		}
-	}
-	return result
-}
-
-func (c Controller) ProcessRuntimeUserOperations(ctx context.Context, req ProcessUserOperationsRequest) (ProcessOperationsResult, error) {
-	if req.UserID <= 0 {
-		return ProcessOperationsResult{}, nil
-	}
-	operations, err := c.repo.PendingRuntimeUserOperations(ctx, req.UserID, req.Limit)
-	if err != nil {
-		return ProcessOperationsResult{}, err
-	}
-	result := ProcessOperationsResult{}
-	if len(operations) == 0 {
-		return result, nil
-	}
-	blockedNodes := map[int64]bool{}
-	groups := []operationGroup{}
-	groupIndexes := map[string]int{}
-	for _, operation := range operations {
-		key := operationSingleKey(operation)
-		idx, ok := groupIndexes[key]
-		if !ok {
-			idx = len(groups)
-			groupIndexes[key] = idx
-			groups = append(groups, operationGroup{key: key})
-		}
-		groups[idx].operations = append(groups[idx].operations, operation)
-	}
-	if err := c.processOrderedOperationGroups(ctx, groups, blockedNodes, &result, maxConcurrentRuntimeUserOperations); err != nil {
-		return result, err
 	}
 	return result, nil
 }
@@ -776,13 +752,13 @@ func operationCoalesceKey(operation OperationRow) string {
 
 func (c Controller) runOperation(ctx context.Context, operation OperationRow) error {
 	unlock := func() {}
-	if operation.NodeID.Valid && (isRuntimeSyncOperation(operation.OperationType) || isRuntimeUserOperation(operation.OperationType)) {
+	if operation.NodeID.Valid && (isRuntimeSyncOperation(operation.OperationType) || xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType)) {
 		unlock = c.lockNode(operation.NodeID.Int64)
 	}
 	defer unlock()
 	prepared, err := c.prepareRuntimeConfigOperation(ctx, operation)
 	if err != nil {
-		if operation.NodeID.Valid && !isRuntimeUserOperation(operation.OperationType) {
+		if operation.NodeID.Valid && !xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 			_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
 		}
 		return err
@@ -832,12 +808,12 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 	case "sync_config", "add_user", "update_user", "remove_user", "disable_user", "enable_user":
 		client, node, err := c.dial(ctx, operation.NodeID.Int64)
 		if err != nil {
-			if !isRuntimeUserOperation(operation.OperationType) {
+			if !xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 				_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
 			}
 			return err
 		}
-		if isRuntimeUserOperation(operation.OperationType) && operation.UserID.Valid {
+		if xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) && operation.UserID.Valid {
 			syncConfig, decided := prepared.userSyncDecision(node.ID)
 			if !decided {
 				syncConfig, err = c.userOperationRequiresConfigSync(ctx, node, operation)
@@ -866,15 +842,16 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 		var runtimeReq *nodev1.RuntimeConfigRequest
 		if prepared != nil && prepared.nodeID == node.ID && prepared.configJSON == configJSON {
 			runtimeReq = &nodev1.RuntimeConfigRequest{
-				OperationId:     fmt.Sprintf("%s-%d", operation.OperationType, operation.ID),
+				OperationId:     operation.remoteOperationID(operation.OperationType),
 				ConfigJson:      configJSON,
 				OvRuntimeJson:   prepared.ovRuntimeJSON,
+				UserSpeedLimits: prepared.userSpeedLimits,
 				DesiredRevision: uint64(operation.ID),
 			}
 		} else {
-			runtimeReq, err = c.runtimeConfigRequest(ctx, node, fmt.Sprintf("%s-%d", operation.OperationType, operation.ID), configJSON)
+			runtimeReq, err = c.runtimeConfigRequest(ctx, node, operation.remoteOperationID(operation.OperationType), configJSON)
 			if err != nil {
-				if !isRuntimeUserOperation(operation.OperationType) {
+				if !xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 					_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
 				}
 				return err
@@ -883,9 +860,9 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 		if err := c.prepareRuntimeRevision(ctx, client, node.ID, runtimeReq); err != nil {
 			return err
 		}
-		res, err := client.Runtime().SyncConfig(ctx, runtimeReq)
+		res, err := client.Runtime().SyncConfig(ctx, runtimeReq, client.RequestOptions(runtimeReq)...)
 		if err != nil {
-			if !isRuntimeUserOperation(operation.OperationType) {
+			if !xrayconfig.IsRuntimeUserNodeOperationType(operation.OperationType) {
 				_ = c.repo.SetError(ctx, operation.NodeID.Int64, err.Error())
 			}
 			return err
@@ -898,7 +875,7 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 			return err
 		}
 		req.NodeID = operation.NodeID.Int64
-		req.OperationID = fmt.Sprintf("%s-%d", operation.OperationType, operation.ID)
+		req.OperationID = operation.remoteOperationID(operation.OperationType)
 		switch operation.OperationType {
 		case "update_runtime":
 			_, err := c.updateRuntimeNow(ctx, req)
@@ -938,10 +915,10 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 				return err
 			}
 		}
-		_, err := c.restartNow(ctx, Request{NodeID: operation.NodeID.Int64, ConfigJSON: configJSON, OperationID: fmt.Sprintf("restart_node-%d", operation.ID)})
+		_, err := c.restartNow(ctx, Request{NodeID: operation.NodeID.Int64, ConfigJSON: configJSON, OperationID: operation.remoteOperationID("restart_node")})
 		return err
 	case "reboot_node":
-		_, err := c.rebootHostNow(ctx, Request{NodeID: operation.NodeID.Int64, OperationID: fmt.Sprintf("reboot_node-%d", operation.ID)})
+		_, err := c.rebootHostNow(ctx, Request{NodeID: operation.NodeID.Int64, OperationID: operation.remoteOperationID("reboot_node")})
 		return err
 	default:
 		return fmt.Errorf("unsupported node operation: %s", operation.OperationType)
@@ -951,15 +928,6 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 func isRuntimeSyncOperation(operationType string) bool {
 	switch operationType {
 	case "sync_config":
-		return true
-	default:
-		return false
-	}
-}
-
-func isRuntimeUserOperation(operationType string) bool {
-	switch operationType {
-	case "add_user", "update_user", "remove_user", "disable_user", "enable_user":
 		return true
 	default:
 		return false
@@ -1056,6 +1024,9 @@ func (c Controller) dial(ctx context.Context, nodeID int64) (*nodeclient.Client,
 			cached := value.(cachedNodeClient)
 			state := cached.client.State()
 			if cached.key == cacheKey && state != connectivity.TransientFailure && state != connectivity.Shutdown {
+				if cached.client.HandshakeDue(nodeHandshakeRefreshInterval) {
+					refreshNodeHandshake(ctx, cached.client)
+				}
 				return cached.client, node, nil
 			}
 			c.nodeClients.Delete(nodeID)
@@ -1066,8 +1037,13 @@ func (c Controller) dial(ctx context.Context, nodeID int64) (*nodeclient.Client,
 	for _, address := range addresses {
 		attemptCtx, cancel := withNodeDialAttemptTimeout(ctx)
 		client, err := nodeclient.Dial(attemptCtx, address, tlsConfig, grpc.WithBlock())
+		cancel()
 		if err == nil {
-			hello, helloErr := client.Control().Hello(attemptCtx, &nodev1.HelloRequest{MasterId: "rebecca-master"})
+			// The dial deadline only covers transport setup. Reusing that context
+			// for Hello makes a slow TLS handshake leave no time for the first RPC.
+			helloCtx, helloCancel := withNodeDialAttemptTimeout(ctx)
+			hello, helloErr := client.Control().Hello(helloCtx, &nodev1.HelloRequest{MasterId: "rebecca-master"})
+			helloCancel()
 			if helloErr != nil {
 				_ = client.Close()
 				err = helloErr
@@ -1075,7 +1051,6 @@ func (c Controller) dial(ctx context.Context, nodeID int64) (*nodeclient.Client,
 				client.SetHandshake(hello.GetNodeVersion(), hello.GetRuntime().GetCapabilities())
 			}
 		}
-		cancel()
 		if err == nil {
 			if c.nodeClients != nil {
 				actual, loaded := c.nodeClients.LoadOrStore(nodeID, cachedNodeClient{key: cacheKey, client: client})
@@ -1089,6 +1064,17 @@ func (c Controller) dial(ctx context.Context, nodeID int64) (*nodeclient.Client,
 		errors = append(errors, address+": "+err.Error())
 	}
 	return nil, node, fmt.Errorf("node gRPC dial failed: %s", strings.Join(errors, "; "))
+}
+
+func refreshNodeHandshake(ctx context.Context, client *nodeclient.Client) {
+	helloCtx, cancel := withNodeDialAttemptTimeout(ctx)
+	defer cancel()
+	hello, err := client.Control().Hello(helloCtx, &nodev1.HelloRequest{MasterId: "rebecca-master"})
+	if err != nil {
+		client.DeferHandshake()
+		return
+	}
+	client.SetHandshake(hello.GetNodeVersion(), hello.GetRuntime().GetCapabilities())
 }
 
 type cachedNodeClient struct {
@@ -1108,6 +1094,7 @@ func (c Controller) finishRuntime(ctx context.Context, node NodeRow, state *node
 		return RuntimeResult{}, err
 	}
 	result.Status = "connected"
+	c.rememberRuntimeDiagnostics(result)
 	return result, nil
 }
 
@@ -1217,17 +1204,11 @@ func newOperationID(action string, nodeID int64) string {
 	return fmt.Sprintf("%s-%d-%d", action, nodeID, time.Now().UTC().UnixNano())
 }
 
-func queuedOperationID(action string, ids []int64, nodeID int64) string {
-	var latest int64
-	for _, id := range ids {
-		if id > latest {
-			latest = id
-		}
+func (operation OperationRow) remoteOperationID(prefix string) string {
+	if key := strings.TrimSpace(operation.IdempotencyKey); key != "" {
+		return prefix + "-" + key
 	}
-	if latest > 0 {
-		return fmt.Sprintf("%s-%d", action, latest)
-	}
-	return newOperationID(action, nodeID)
+	return fmt.Sprintf("%s-%d", prefix, operation.ID)
 }
 
 func WithDefaultTimeout(parent context.Context) (context.Context, context.CancelFunc) {
@@ -1235,6 +1216,8 @@ func WithDefaultTimeout(parent context.Context) (context.Context, context.Cancel
 }
 
 const nodeDialAttemptTimeout = 6 * time.Second
+
+const nodeHandshakeRefreshInterval = time.Minute
 
 func withNodeDialAttemptTimeout(parent context.Context) (context.Context, context.CancelFunc) {
 	if deadline, ok := parent.Deadline(); ok {

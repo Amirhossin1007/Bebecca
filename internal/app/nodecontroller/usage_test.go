@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -67,7 +68,7 @@ func TestUsageCollectionResetsXrayCountersByDefault(t *testing.T) {
 	}
 }
 
-func TestCollectUsageDialFailureMarksNodeDegraded(t *testing.T) {
+func TestCollectUsageDialFailureDoesNotChangeNodeHealth(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "usage-status.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -76,10 +77,10 @@ func TestCollectUsageDialFailureMarksNodeDegraded(t *testing.T) {
 	defer db.Close()
 
 	_, err = db.ExecContext(ctx, `
-CREATE TABLE tls (
+CREATE TABLE default_certificates (
 	id INTEGER PRIMARY KEY,
 	certificate TEXT,
-	`+"`key`"+` TEXT
+	private_key TEXT
 );
 CREATE TABLE nodes (
 	id INTEGER PRIMARY KEY,
@@ -103,6 +104,7 @@ CREATE TABLE inbounds (
 	tag TEXT NOT NULL UNIQUE,
 	usage_coefficient REAL NOT NULL DEFAULT 1
 );
+CREATE TABLE users (id INTEGER PRIMARY KEY, ip_limit INTEGER NULL);
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	operation_type TEXT NOT NULL,
@@ -116,12 +118,12 @@ CREATE TABLE node_operations (
 	created_at DATETIME NOT NULL,
 	updated_at DATETIME NOT NULL
 );
-INSERT INTO tls (id, certificate, `+"`key`"+`) VALUES (1, 'invalid-cert', 'invalid-key');
+INSERT INTO default_certificates (id, certificate, private_key) VALUES (1, 'invalid-cert', 'invalid-key');
 INSERT INTO nodes (
-	id, name, address, port, api_port, status, xray_version, message,
+	id, name, address, port, api_port, status, agent_status, xray_version, message,
 	certificate, certificate_key, xray_config_mode, xray_config, usage_coefficient
 ) VALUES (
-	7, 'usage-node', '127.0.0.1', 62051, 62052, 'connected', '', '',
+	7, 'usage-node', '127.0.0.1', 62051, 62052, 'connected', 'connected', '', '',
 	'', '', 'default', '', 1
 );
 `)
@@ -138,6 +140,17 @@ INSERT INTO nodes (
 		t.Fatal("expected usage collection error")
 	}
 	assertString(t, db, `SELECT status FROM nodes WHERE id = 7`, "connected")
-	assertString(t, db, `SELECT agent_status FROM nodes WHERE id = 7`, "degraded")
+	assertString(t, db, `SELECT agent_status FROM nodes WHERE id = 7`, "connected")
 	assertInt64(t, db, `SELECT COUNT(*) FROM node_operations`, 0)
+
+	t.Run("health recovery does not enqueue a runtime replacement", func(t *testing.T) {
+		if _, err := db.Exec(`UPDATE nodes SET status = 'error', last_status_change = NULL WHERE id = 7`); err != nil {
+			t.Fatal(err)
+		}
+		recovered, err := controller.RecoverNodes(ctx, RecoverNodesRequest{Limit: 10})
+		if err != nil || recovered.Checked != 1 || len(recovered.Errors) != 1 || !strings.Contains(recovered.Errors[0], "certificate") {
+			t.Fatalf("expected a read-only health attempt: result=%#v err=%v", recovered, err)
+		}
+		assertInt64(t, db, `SELECT COUNT(*) FROM node_operations`, 0)
+	})
 }

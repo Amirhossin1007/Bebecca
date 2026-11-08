@@ -12,12 +12,16 @@ import (
 	"time"
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
+	"github.com/rebeccapanel/rebecca/internal/app/nodeclient"
 	nodev1 "github.com/rebeccapanel/rebecca/internal/proto/node/v1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
 	usageCollectionConcurrency = 8
 	usageRPCTimeout            = 45 * time.Second
+	ipLookupScopeCapability    = "ip_scope_lookup"
 )
 
 func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (CollectUsageResult, error) {
@@ -38,8 +42,13 @@ func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (
 		return CollectUsageResult{}, err
 	}
 	inboundCoefficients := map[string]float64{}
+	var ipLimitedUserIDs []string
 	if collectUsers {
 		inboundCoefficients, err = c.repo.InboundUsageCoefficients(ctx)
+		if err != nil {
+			return CollectUsageResult{}, err
+		}
+		ipLimitedUserIDs, err = c.repo.IPLimitedUserIDs(ctx)
 		if err != nil {
 			return CollectUsageResult{}, err
 		}
@@ -73,13 +82,16 @@ func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (
 				return
 			}
 
-			nodeResult := c.collectUsageForNode(ctx, node, collectUsers, collectOutbound, reset, collectorID, inboundCoefficients, persistOptions)
+			nodeResult := c.collectUsageForNode(ctx, node, collectUsers, collectOutbound, reset, collectorID, inboundCoefficients, ipLimitedUserIDs, persistOptions)
 			mu.Lock()
 			mergeCollectUsageResult(&result, nodeResult)
 			mu.Unlock()
 		}()
 	}
 	wg.Wait()
+	if collectUsers {
+		result.Errors = append(result.Errors, c.applyIPLimitBlocks(ctx, nodes)...)
+	}
 	result.Speeds = mergeUserTrafficSpeeds(result.Speeds)
 	if len(result.Speeds) > 0 {
 		identities, identityErr := c.repo.UserSpeedIdentities(ctx, speedUserIDs(result.Speeds))
@@ -101,6 +113,13 @@ func (c Controller) CollectUsage(ctx context.Context, req CollectUsageRequest) (
 	return result, nil
 }
 
+func ipScopeForNode(client *nodeclient.Client, userIDs []string) *nodev1.IPLookupScope {
+	if !client.Supports(ipLookupScopeCapability) {
+		return nil
+	}
+	return &nodev1.IPLookupScope{Uids: userIDs}
+}
+
 func (c Controller) collectUsageForNode(
 	ctx context.Context,
 	node NodeRow,
@@ -109,39 +128,36 @@ func (c Controller) collectUsageForNode(
 	reset bool,
 	collectorID string,
 	inboundCoefficients map[string]float64,
+	ipLimitedUserIDs []string,
 	persistOptions UsagePersistOptions,
 ) CollectUsageResult {
 	result := CollectUsageResult{Nodes: 1}
-	communicationFailed := false
-	recordCommunicationFailure := func(err error) {
-		communicationFailed = true
-		c.recordHealthFailure(ctx, node.ID, err)
-	}
 	dialCtx, dialCancel := WithDefaultTimeout(ctx)
 	client, _, err := c.dial(dialCtx, node.ID)
 	dialCancel()
 	if err != nil {
-		recordCommunicationFailure(err)
 		result.Errors = append(result.Errors, fmt.Sprintf("node %d: %s", node.ID, err.Error()))
 		return result
 	}
 
-	var userBatch *nodev1.UserUsageBatch
-	var outboundBatch *nodev1.OutboundUsageBatch
 	var userDeltas []UserUsageDelta
 	var outboundDeltas []OutboundUsageDelta
 	var inboundDeltas []InboundUsageDelta
 
+	pulledAt := time.Now()
+	batches := fetchUsageBatches(ctx, client, usageBatchRequest{
+		collectUsers:     collectUsers,
+		collectOutbound:  collectOutbound,
+		reset:            reset,
+		collectorID:      collectorID,
+		ipLimitedUserIDs: ipLimitedUserIDs,
+	})
+	userBatch := batches.user
+	outboundBatch := batches.outbound
+
 	if collectUsers {
-		rpcCtx, rpcCancel := withUsageRPCTimeout(ctx)
-		userBatch, err = client.Usage().CollectUserUsage(rpcCtx, &nodev1.CollectUsageRequest{
-			CollectorId: collectorID,
-			Reset_:      reset,
-		})
-		rpcCancel()
-		if err != nil {
-			recordCommunicationFailure(err)
-			result.Errors = append(result.Errors, fmt.Sprintf("node %d user usage: %s", node.ID, err.Error()))
+		if batches.userErr != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("node %d user usage: %s", node.ID, batches.userErr.Error()))
 			return result
 		}
 		if strings.TrimSpace(userBatch.GetBatchId()) != "" {
@@ -184,15 +200,8 @@ func (c Controller) collectUsageForNode(
 	}
 
 	if collectOutbound {
-		rpcCtx, rpcCancel := withUsageRPCTimeout(ctx)
-		outboundBatch, err = client.Usage().CollectOutboundUsage(rpcCtx, &nodev1.CollectUsageRequest{
-			CollectorId: collectorID,
-			Reset_:      reset,
-		})
-		rpcCancel()
-		if err != nil {
-			recordCommunicationFailure(err)
-			result.Errors = append(result.Errors, fmt.Sprintf("node %d outbound usage: %s", node.ID, err.Error()))
+		if batches.outboundErr != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("node %d outbound usage: %s", node.ID, batches.outboundErr.Error()))
 			return result
 		}
 		if strings.TrimSpace(outboundBatch.GetBatchId()) != "" {
@@ -235,15 +244,15 @@ func (c Controller) collectUsageForNode(
 		result.Errors = append(result.Errors, fmt.Sprintf("node %d DB write: %s", node.ID, err.Error()))
 		return result
 	}
-	if collectUsers {
-		rpcCtx, rpcCancel := WithDefaultTimeout(ctx)
-		err := c.applyIPLimitBlocksForNode(rpcCtx, client, node)
-		rpcCancel()
-		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("node %d IP limiter: %s", node.ID, err.Error()))
-		}
-	}
 
+	if batches.bundled {
+		outboundAcked := result.OutboundAcked
+		ackBundledUsage(ctx, client, node.ID, userBatchID, outboundBatchID, &result)
+		if collectOutbound && reset && (outboundBatchID == "" || result.OutboundAcked > outboundAcked) {
+			c.inboundSpeeds.record(node.ID, pulledAt, inboundDeltas)
+		}
+		return result
+	}
 	if userBatch != nil && strings.TrimSpace(userBatch.GetBatchId()) != "" {
 		rpcCtx, rpcCancel := WithDefaultTimeout(ctx)
 		ack, ackErr := client.Usage().AckUserUsage(rpcCtx, &nodev1.AckUsageRequest{BatchId: userBatch.GetBatchId()})
@@ -251,10 +260,10 @@ func (c Controller) collectUsageForNode(
 		if ackErr == nil && ack.GetAcknowledged() {
 			result.UserAcked++
 		} else if ackErr != nil {
-			recordCommunicationFailure(ackErr)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack user usage: %s", node.ID, ackErr.Error()))
 		}
 	}
+	outboundAcked := result.OutboundAcked
 	if outboundBatch != nil && strings.TrimSpace(outboundBatch.GetBatchId()) != "" {
 		rpcCtx, rpcCancel := WithDefaultTimeout(ctx)
 		ack, ackErr := client.Usage().AckOutboundUsage(rpcCtx, &nodev1.AckUsageRequest{BatchId: outboundBatch.GetBatchId()})
@@ -262,14 +271,116 @@ func (c Controller) collectUsageForNode(
 		if ackErr == nil && ack.GetAcknowledged() {
 			result.OutboundAcked++
 		} else if ackErr != nil {
-			recordCommunicationFailure(ackErr)
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d ack outbound usage: %s", node.ID, ackErr.Error()))
 		}
 	}
-	if !communicationFailed {
-		c.clearHealthFailures(node.ID)
+	if collectOutbound && reset && (outboundBatchID == "" || result.OutboundAcked > outboundAcked) {
+		c.inboundSpeeds.record(node.ID, pulledAt, inboundDeltas)
 	}
 	return result
+}
+
+type usageBatchRequest struct {
+	collectUsers     bool
+	collectOutbound  bool
+	reset            bool
+	collectorID      string
+	ipLimitedUserIDs []string
+}
+
+type usageBatches struct {
+	user        *nodev1.UserUsageBatch
+	outbound    *nodev1.OutboundUsageBatch
+	userErr     error
+	outboundErr error
+	bundled     bool
+}
+
+func fetchUsageBatches(ctx context.Context, client *nodeclient.Client, req usageBatchRequest) usageBatches {
+	if client.Supports(nodeclient.CapabilityUsageBundle) {
+		rpcCtx, rpcCancel := withUsageBundleRPCTimeout(ctx)
+		bundleReq := &nodev1.CollectAllUsageRequest{
+			CollectorId:  req.collectorID,
+			Reset_:       req.reset,
+			IpScope:      ipScopeForNode(client, req.ipLimitedUserIDs),
+			SkipUsers:    !req.collectUsers,
+			SkipOutbound: !req.collectOutbound,
+		}
+		res, err := client.Usage().CollectAllUsage(rpcCtx, bundleReq, client.RequestOptions(bundleReq)...)
+		rpcCancel()
+		if status.Code(err) != codes.Unimplemented {
+			return bundledUsageBatches(req, res, err)
+		}
+	}
+	return separateUsageBatches(ctx, client, req)
+}
+
+func bundledUsageBatches(req usageBatchRequest, res *nodev1.CollectAllUsageResponse, err error) usageBatches {
+	batches := usageBatches{bundled: true}
+	if err != nil {
+		if req.collectUsers {
+			batches.userErr = err
+		}
+		if req.collectOutbound {
+			batches.outboundErr = err
+		}
+		return batches
+	}
+	batches.user = res.GetUsers()
+	batches.outbound = res.GetOutbound()
+	if message := res.GetOutboundError(); message != "" {
+		batches.outboundErr = errors.New(message)
+	}
+	return batches
+}
+
+func separateUsageBatches(ctx context.Context, client *nodeclient.Client, req usageBatchRequest) usageBatches {
+	var batches usageBatches
+	if req.collectUsers {
+		rpcCtx, rpcCancel := withUsageRPCTimeout(ctx)
+		usageReq := &nodev1.CollectUsageRequest{
+			CollectorId: req.collectorID,
+			Reset_:      req.reset,
+			IpScope:     ipScopeForNode(client, req.ipLimitedUserIDs),
+		}
+		batches.user, batches.userErr = client.Usage().CollectUserUsage(rpcCtx, usageReq, client.RequestOptions(usageReq)...)
+		rpcCancel()
+		if batches.userErr != nil {
+			return batches
+		}
+	}
+	if req.collectOutbound {
+		rpcCtx, rpcCancel := withUsageRPCTimeout(ctx)
+		batches.outbound, batches.outboundErr = client.Usage().CollectOutboundUsage(rpcCtx, &nodev1.CollectUsageRequest{
+			CollectorId: req.collectorID,
+			Reset_:      req.reset,
+		})
+		rpcCancel()
+	}
+	return batches
+}
+
+func ackBundledUsage(ctx context.Context, client *nodeclient.Client, nodeID int64, userBatchID, outboundBatchID string, result *CollectUsageResult) {
+	if userBatchID == "" && outboundBatchID == "" {
+		return
+	}
+	rpcCtx, rpcCancel := WithDefaultTimeout(ctx)
+	ack, err := client.Usage().AckAllUsage(rpcCtx, &nodev1.AckAllUsageRequest{UserBatchId: userBatchID, OutboundBatchId: outboundBatchID})
+	rpcCancel()
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("node %d ack usage: %s", nodeID, err.Error()))
+		return
+	}
+	if ack.GetUsersAcknowledged() {
+		result.UserAcked++
+	}
+	if ack.GetOutboundAcknowledged() {
+		result.OutboundAcked++
+	}
+}
+
+func withUsageBundleRPCTimeout(parent context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(parent, 2*usageRPCTimeout)
 }
 
 func withUsageRPCTimeout(parent context.Context) (context.Context, context.CancelFunc) {
@@ -433,6 +544,16 @@ func (c Controller) PruneProcessedUsageQueue(ctx context.Context, cutoff time.Ti
 		return err
 	})
 	return deleted, err
+}
+
+func (c Controller) CompactOldNodeUserUsageDay(ctx context.Context, cutoff time.Time) (int, error) {
+	var compacted int
+	err := retryTransientUsageWrite(ctx, func() error {
+		var err error
+		compacted, err = c.repo.CompactOldNodeUserUsageDay(ctx, cutoff)
+		return err
+	})
+	return compacted, err
 }
 
 func isTransientUsagePersistError(err error) bool {

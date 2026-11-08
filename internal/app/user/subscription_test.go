@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rebeccapanel/rebecca/internal/app/jsonvalue"
 	"github.com/rebeccapanel/rebecca/internal/app/outboundsub"
 )
 
@@ -149,10 +150,10 @@ func TestShadowsocksTLSUsesClientNativeLinkWithoutLossyConversion(t *testing.T) 
 		t.Fatal(err)
 	}
 	stream := configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"].(map[string]any)
-	if stream["network"] != "ws" || stream["security"] != "tls" || stream["tlsSettings"].(map[string]any)["serverName"] != "sni.example.com" {
+	if stream["method"] != "ws" || stream["security"] != "tls" || stream["tlsSettings"].(map[string]any)["serverName"] != "sni.example.com" {
 		t.Fatalf("Xray JSON lost Shadowsocks TLS: %#v", stream)
 	}
-	if masks := listOfMaps(mapValue(stream["finalmask"])["tcp"]); len(masks) != 1 || stringValue(masks[0]["type"]) != "fragment" {
+	if masks := listOfMaps(mapValue(stream["finalmask"])["tcp"]); len(masks) != 1 || jsonvalue.String(masks[0]["type"]) != "fragment" {
 		t.Fatalf("Xray JSON lost Shadowsocks FinalMask: %#v", stream)
 	}
 	if binary := strings.TrimSpace(os.Getenv("REBECCA_XRAY_TEST_BINARY")); binary != "" {
@@ -190,25 +191,18 @@ func TestShadowsocksWebSocketHeartbeatSurvivesXrayJSON(t *testing.T) {
 	}
 }
 
-func TestShadowsocksMuxOnlyIsNotSilentlyDowngraded(t *testing.T) {
+func TestShadowsocksMuxKeepsStandardShareLink(t *testing.T) {
 	link := shadowsocksShareLink("ss-mux", "ss.example.com", ResolvedInbound{
 		"port": 443, "network": "tcp", "mux_enable": true,
 	}, map[string]any{"method": "aes-256-gcm", "password": "secret"})
-	profile, err := outboundsub.DecodeV2rayNShadowsocks(link)
-	if err != nil || !profile.MuxEnabled {
-		t.Fatalf("Shadowsocks mux was not represented in the client link: profile=%#v err=%v", profile, err)
+	if !strings.HasPrefix(link, "ss://") || strings.Contains(link, "v2rayn://") {
+		t.Fatalf("Shadowsocks mux produced a non-standard share link: %s", link)
 	}
 	parsed, err := parseSubscriptionShareURL(link)
-	if err != nil || !shadowsocksHasNativeStreamSettings(parsed) {
-		t.Fatalf("Shadowsocks mux-only link was treated as plain SIP002: parsed=%#v err=%v", parsed, err)
+	if err != nil || shadowsocksHasNativeStreamSettings(parsed) {
+		t.Fatalf("Shadowsocks mux link is not a plain SIP002 link: parsed=%#v err=%v", parsed, err)
 	}
-	if _, ok := singBoxShadowsocksOutbound(parsed, "ss-mux"); ok {
-		t.Fatal("sing-box conversion silently dropped Shadowsocks mux")
-	}
-	if _, ok := clashShadowsocksProxy("ss-mux", parsed); ok {
-		t.Fatal("Mihomo conversion silently dropped Shadowsocks mux")
-	}
-	body, err := renderXrayJSONSubscription([]string{link}, false)
+	body, err := renderXrayJSONSubscriptionWithMetadata([]string{link}, []ConfigLinkMetadata{{MuxEnabled: true}}, false, "", "", true)
 	if err != nil || !strings.Contains(body, `"mux"`) || !strings.Contains(body, `"enabled": true`) {
 		t.Fatalf("xray-json lost standalone Shadowsocks mux: body=%s err=%v", body, err)
 	}
@@ -262,7 +256,7 @@ func TestStructuredSubscriptionsCoverSupportedShareProtocols(t *testing.T) {
 	seen := map[string]bool{}
 	for _, raw := range singBox["outbounds"].([]any) {
 		outbound := raw.(map[string]any)
-		seen[stringValue(outbound["type"])] = true
+		seen[jsonvalue.String(outbound["type"])] = true
 	}
 	for _, protocol := range []string{"selector", "vless", "vmess", "trojan", "shadowsocks", "hysteria2"} {
 		if !seen[protocol] {
@@ -290,7 +284,7 @@ func TestStructuredSubscriptionsCoverSupportedShareProtocols(t *testing.T) {
 	v2rayProtocols := map[string]bool{}
 	for _, config := range configs {
 		outbounds := config["outbounds"].([]any)
-		v2rayProtocols[stringValue(outbounds[0].(map[string]any)["protocol"])] = true
+		v2rayProtocols[jsonvalue.String(outbounds[0].(map[string]any)["protocol"])] = true
 	}
 	for _, protocol := range []string{"vless", "vmess", "trojan", "shadowsocks", "hysteria"} {
 		if !v2rayProtocols[protocol] {
@@ -341,7 +335,7 @@ func TestSingBoxSubscriptionUsesFullTemplateAndRealNames(t *testing.T) {
 	proxyCount := 0
 	for _, raw := range config["outbounds"].([]any) {
 		outbound := raw.(map[string]any)
-		switch stringValue(outbound["type"]) {
+		switch jsonvalue.String(outbound["type"]) {
 		case "selector":
 			if outbound["tag"] == "proxy" {
 				selector = outbound
@@ -353,7 +347,7 @@ func TestSingBoxSubscriptionUsesFullTemplateAndRealNames(t *testing.T) {
 			if headers["User-Agent"] != "Rebecca" || headers["Host"] == "" {
 				t.Fatalf("sing-box settings/link transport merge failed: %#v", transport)
 			}
-			if strings.HasPrefix(stringValue(outbound["tag"]), "proxy-") {
+			if strings.HasPrefix(jsonvalue.String(outbound["tag"]), "proxy-") {
 				t.Fatalf("sing-box replaced the link name: %#v", outbound["tag"])
 			}
 		}
@@ -394,7 +388,7 @@ func TestSingBoxOmitsUnsupportedRawHTTPHeaderObfuscation(t *testing.T) {
 	}
 	proxyCount := 0
 	for _, raw := range config["outbounds"].([]any) {
-		if outbound, ok := raw.(map[string]any); ok && stringValue(outbound["type"]) == "vless" {
+		if outbound, ok := raw.(map[string]any); ok && jsonvalue.String(outbound["type"]) == "vless" {
 			proxyCount++
 		}
 	}
@@ -470,7 +464,7 @@ func TestSingBoxSubscriptionMigratesLegacyCustomTemplate(t *testing.T) {
 	}
 	actions := map[string]bool{}
 	for _, raw := range config["route"].(map[string]any)["rules"].([]any) {
-		actions[stringValue(raw.(map[string]any)["action"])] = true
+		actions[jsonvalue.String(raw.(map[string]any)["action"])] = true
 	}
 	for _, action := range []string{"resolve", "sniff", "hijack-dns", "route"} {
 		if !actions[action] {
@@ -695,7 +689,7 @@ func TestXrayJSONPreservesTLSCipherSuites(t *testing.T) {
 	}
 	var singBoxVLESS map[string]any
 	for _, outbound := range listOfMaps(singBoxConfig["outbounds"]) {
-		if stringValue(outbound["type"]) == "vless" {
+		if jsonvalue.String(outbound["type"]) == "vless" {
 			singBoxVLESS = outbound
 			break
 		}
@@ -868,7 +862,7 @@ func TestXrayJSONPreservesCompleteCurrentFinalMaskAndMux(t *testing.T) {
 		want []string
 		mux  bool
 	}{
-		{name: "five UDP plus all QUIC", mask: full, want: []string{"header-custom", "mkcp-legacy", "noise", "salamander", "sudoku"}, mux: true},
+		{name: "five UDP plus all QUIC", mask: full, want: []string{"udphop", "header-custom", "mkcp-legacy", "noise", "salamander", "sudoku"}, mux: true},
 		{name: "XDNS", mask: map[string]any{"udp": []any{map[string]any{"type": "xdns", "settings": map[string]any{"domains": []any{"t.example.com:txt"}, "resolvers": []any{"t.example.com:txt+udp://8.8.8.8:53"}}}}}, want: []string{"xdns"}},
 		{name: "Realm", mask: map[string]any{"udp": []any{map[string]any{"type": "realm", "settings": map[string]any{"url": "realm://token@example.com/id", "stunServers": []any{"stun.example.com:3478"}}}}}, want: []string{"realm"}},
 		{name: "XICMP", mask: map[string]any{"udp": []any{map[string]any{"type": "xicmp", "settings": map[string]any{"dgram": true, "ips": []any{"1.1.1.1"}}}}}, want: []string{"xicmp"}},
@@ -888,20 +882,23 @@ func TestXrayJSONPreservesCompleteCurrentFinalMaskAndMux(t *testing.T) {
 			finalMask := mapValue(mapValue(outbound["streamSettings"])["finalmask"])
 			got := []string{}
 			for _, mask := range listOfMaps(finalMask["udp"]) {
-				got = append(got, stringValue(mask["type"]))
+				got = append(got, jsonvalue.String(mask["type"]))
 			}
 			if !reflect.DeepEqual(got, fixture.want) {
 				t.Fatalf("UDP masks changed: got=%v want=%v", got, fixture.want)
 			}
 			if fixture.mux {
-				if list := listOfMaps(finalMask["tcp"]); len(list) != 3 || stringValue(list[0]["type"]) != "header-custom" || stringValue(list[1]["type"]) != "fragment" || stringValue(list[2]["type"]) != "sudoku" {
+				if list := listOfMaps(finalMask["tcp"]); len(list) != 3 || jsonvalue.String(list[0]["type"]) != "header-custom" || jsonvalue.String(list[1]["type"]) != "fragment" || jsonvalue.String(list[2]["type"]) != "sudoku" {
 					t.Fatalf("TCP masks changed: %#v", finalMask["tcp"])
 				}
 				gotQUIC := mapValue(finalMask["quicParams"])
-				if len(gotQUIC) != 14 {
+				if len(gotQUIC) != 13 {
 					t.Fatalf("QUIC fields changed: %#v", gotQUIC)
 				}
 				for key := range quic {
+					if key == "udpHop" {
+						continue
+					}
 					if _, ok := gotQUIC[key]; !ok {
 						t.Fatalf("QUIC field %q was dropped: %#v", key, gotQUIC)
 					}
@@ -1666,6 +1663,18 @@ func TestHysteria2GeckoUsesNativeDefaultsAcrossOutputs(t *testing.T) {
 	}
 }
 
+func TestXrayJSONMovesHysteriaPortHoppingToCurrentMask(t *testing.T) {
+	link := "hysteria2://secret@example.com:443/?mport=20000-30000#hop"
+	current, err := renderXrayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(current, `"type": "udphop"`) || !strings.Contains(current, `"remotePorts": "20000-30000"`) || strings.Contains(current, `"udpHop"`) {
+		t.Fatalf("current Xray JSON uses a removed UDP hop field: body=%s err=%v", current, err)
+	}
+	legacy, err := renderV2RayJSONSubscription([]string{link}, false)
+	if err != nil || !strings.Contains(legacy, `"udpHop"`) || strings.Contains(legacy, `"type": "udphop"`) {
+		t.Fatalf("legacy JSON changed: body=%s err=%v", legacy, err)
+	}
+}
+
 func TestHysteria2OptionalAuthAndECHAcrossStructuredFormats(t *testing.T) {
 	const ech = "AAECAwQFBgcICQ=="
 	noAuth := "hysteria2://example.com/?sni=hy.example.com#no-auth"
@@ -2099,7 +2108,7 @@ func TestXrayJSONCurrentKCPDialectAndLayerAnchors(t *testing.T) {
 	finalMask := mapValue(mapValue(configs[0]["outbounds"].([]any)[0].(map[string]any)["streamSettings"])["finalmask"])
 	types := []string{}
 	for _, mask := range listOfMaps(finalMask["udp"]) {
-		types = append(types, stringValue(mask["type"]))
+		types = append(types, jsonvalue.String(mask["type"]))
 	}
 	if got := strings.Join(types, ","); got != "xicmp,mkcp-legacy,mkcp-legacy,noise,sudoku" || strings.Contains(body, "mkcp-aes128gcm") || strings.Contains(body, "header-dns") {
 		t.Fatalf("current KCP masks/order mismatch: types=%q body=%s", got, body)

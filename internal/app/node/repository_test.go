@@ -132,6 +132,16 @@ func TestNodeRepositoryCreateUpdateResetDeleteAndRegenerate(t *testing.T) {
 	if err := repo.DeleteNode(ctx, created.ID); !IsKind(err, ErrorNotFound) {
 		t.Fatalf("expected repeated delete to return not found, got %v", err)
 	}
+	var archivedName string
+	if err := db.QueryRow(`SELECT name FROM nodes WHERE id = 1`).Scan(&archivedName); err != nil {
+		t.Fatalf("read archived node name: %v", err)
+	}
+	if archivedName == name || !strings.Contains(archivedName, "[deleted-1]") {
+		t.Fatalf("deleted node name was not released: %q", archivedName)
+	}
+	if _, err := repo.CreateNode(ctx, baseNodeCreate(name)); err != nil {
+		t.Fatalf("reusing a deleted node name: %v", err)
+	}
 }
 
 func TestNodeRepositoryDoesNotSyncForNonConnectionEdits(t *testing.T) {
@@ -235,7 +245,7 @@ func newNodeTestDB(t *testing.T) *sql.DB {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	stmts := []string{
-		`CREATE TABLE tls (id INTEGER PRIMARY KEY, key TEXT NOT NULL, certificate TEXT NOT NULL)`,
+		`CREATE TABLE default_certificates (id INTEGER PRIMARY KEY, private_key TEXT NOT NULL, certificate TEXT NOT NULL)`,
 		`CREATE TABLE nodes (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			name TEXT UNIQUE,
@@ -292,7 +302,7 @@ func newNodeTestDB(t *testing.T) *sql.DB {
 		`CREATE TABLE vpn_user_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, user_id INTEGER NOT NULL, protocol TEXT NOT NULL, inbound_tag TEXT NULL, session_id TEXT NOT NULL, assigned_ip TEXT NULL, client_ip TEXT NULL, started_at DATETIME NOT NULL, last_seen_at DATETIME NOT NULL, ended_at DATETIME NULL)`,
 		`CREATE TABLE user_online_ips (id INTEGER PRIMARY KEY AUTOINCREMENT, node_id INTEGER NOT NULL, user_id INTEGER NOT NULL, protocol TEXT NOT NULL, ip TEXT NOT NULL, last_seen_at DATETIME NOT NULL)`,
 		`CREATE TABLE outbound_traffic (id INTEGER PRIMARY KEY AUTOINCREMENT, target_id TEXT NOT NULL, node_id INTEGER NULL, outbound_id TEXT NOT NULL, uplink INTEGER NOT NULL DEFAULT 0, downlink INTEGER NOT NULL DEFAULT 0)`,
-		`INSERT INTO tls (id, key, certificate) VALUES (1, 'legacy-key', 'legacy-cert')`,
+		`INSERT INTO default_certificates (id, private_key, certificate) VALUES (1, 'legacy-key', 'legacy-cert')`,
 		`INSERT INTO node_usages (created_at, node_id, uplink, downlink) VALUES ('2026-06-09 00:00:00', 1, 10, 20)`,
 		`INSERT INTO node_user_usages (created_at, user_id, node_id, used_traffic) VALUES ('2026-06-09 00:00:00', 1, 1, 30)`,
 		`INSERT INTO node_usage_user_queue (node_id, batch_id, user_id, used_traffic, online, created_at) VALUES (1, 'users-batch', 1, 30, 1, '2026-06-09 00:00:00')`,

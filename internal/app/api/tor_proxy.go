@@ -58,6 +58,18 @@ func (s *Server) handleTorProxySetup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, fmt.Sprintf("outbound tag already exists: %s", duplicateTag))
 		return
 	}
+	for _, profile := range profiles {
+		if existingTag, conflict := managedProxyConflict(config, profile.Tag, profile.Port); conflict {
+			writeError(w, http.StatusConflict, fmt.Sprintf("local proxy port %d is already used by outbound %s", profile.Port, existingTag))
+			return
+		}
+		if profile.Country != "" {
+			if existingTag, conflict := managedProxyLocationConflict(config, "tor", profile.Country, profile.Tag); conflict {
+				writeError(w, http.StatusConflict, fmt.Sprintf("Tor location %s is already used by outbound %s", strings.ToUpper(profile.Country), existingTag))
+				return
+			}
+		}
+	}
 
 	nodeIDs := []int64{nodeID}
 	if !isNode {
@@ -234,8 +246,10 @@ func splitTorLocations(value string) []string {
 
 func torOutbound(profile torProxyProfile) map[string]any {
 	return map[string]any{
-		"tag":      profile.Tag,
-		"protocol": "socks",
+		"tag":                    profile.Tag,
+		"rebecca_proxy":          "tor",
+		"rebecca_proxy_location": profile.Country,
+		"protocol":               "socks",
 		"settings": map[string]any{
 			"servers": []map[string]any{{
 				"address": "127.0.0.1",

@@ -46,6 +46,7 @@ import {
 	ArrowUpTrayIcon,
 	BoltIcon,
 	CheckCircleIcon,
+	ChevronDoubleUpIcon,
 	CloudArrowUpIcon,
 	TrashIcon as DeleteIcon,
 	PencilIcon as EditIcon,
@@ -61,7 +62,14 @@ import { PanelSelect as Select } from "components/common/PanelSelect";
 import { SearchInput } from "components/common/SearchInput";
 import { ConfirmDialog } from "components/dialogs/ConfirmDialog";
 import {
+	applyXrayPropagation,
+	type PropagationOp,
+	type PropagationSection,
+	propagationKey,
+} from "service/xrayPropagation";
+import {
 	DataTable,
+	PageLoadingSkeleton,
 	type DataTableBulkAction,
 	type DataTableColumn,
 	type DataTableRowAction,
@@ -71,6 +79,7 @@ import {
 import { useCoreSettings } from "contexts/CoreSettingsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
+import { isMullvadOutbound } from "utils/mullvad";
 import { DEFAULT_SEARCH_MATCH_OPTIONS, matchesSearch } from "utils/searchMatch";
 import {
 	type FC,
@@ -85,9 +94,10 @@ import {
 } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { SiNordvpn, SiTorproject } from "react-icons/si";
+import { SiMullvad, SiNordvpn, SiTorproject } from "react-icons/si";
 import { useMutation, useQuery } from "react-query";
-import { fetch as apiFetch } from "service/http";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { fetch as apiFetch, getAPIErrorMessage } from "service/http";
 import psiphonIconUrl from "../assets/brands/psiphon.png";
 import windscribeIconUrl from "../assets/brands/windscribe.png";
 import type { BalancerFormValues } from "../components/BalancerModal";
@@ -124,6 +134,9 @@ const DnsPresetsModal = lazy(async () => ({
 }));
 const FakeDnsModal = lazy(async () => ({
 	default: (await import("../components/FakeDnsModal")).FakeDnsModal,
+}));
+const MullvadModal = lazy(async () => ({
+	default: (await import("../components/MullvadModal")).MullvadModal,
 }));
 const NordVPNModal = lazy(async () => ({
 	default: (await import("../components/NordVPNModal")).NordVPNModal,
@@ -162,6 +175,9 @@ const AddIconStyled = chakra(AddIcon, { baseStyle: { w: 3.5, h: 3.5 } });
 const DeleteIconStyled = chakra(DeleteIcon, { baseStyle: { w: 4, h: 4 } });
 const EditIconStyled = chakra(EditIcon, { baseStyle: { w: 4, h: 4 } });
 const ArrowUpIconStyled = chakra(ArrowUpIcon, { baseStyle: { w: 4, h: 4 } });
+const ChevronDoubleUpIconStyled = chakra(ChevronDoubleUpIcon, {
+	baseStyle: { w: 4, h: 4 },
+});
 const ArrowDownIconStyled = chakra(ArrowDownIcon, {
 	baseStyle: { w: 4, h: 4 },
 });
@@ -198,6 +214,11 @@ const MoreIconStyled = chakra(EllipsisHorizontalIcon, {
 const NordVPNIconStyled = () => (
 	<Box as="span" display="inline-flex" color="#4687ff">
 		{SiNordvpn({ size: 16, "aria-hidden": true })}
+	</Box>
+);
+const MullvadIconStyled = () => (
+	<Box as="span" display="inline-flex">
+		{SiMullvad({ size: 16, "aria-hidden": true })}
 	</Box>
 );
 const TorIconStyled: FC<{ size?: number }> = ({ size = 16 }) => (
@@ -425,6 +446,12 @@ type ManagedOutboundMeta = {
 };
 
 const managedOutboundMeta = (outbound: any): ManagedOutboundMeta | null => {
+	const metadataProvider = String(outbound?.rebecca_proxy ?? "")
+		.trim()
+		.toLowerCase();
+	if (["tor", "windscribe", "psiphon"].includes(metadataProvider)) {
+		return { provider: metadataProvider as ManagedOutboundProvider };
+	}
 	const tag = String(outbound?.tag ?? "").trim();
 	const match = tag.match(
 		/(?:^|[-_.])(tor|windscribe|psiphon)(?:-([a-z]{2}))?$/i,
@@ -716,6 +743,9 @@ const SettingRow: FC<{
 };
 
 export const CoreSettingsPage: FC = () => {
+	const location = useLocation();
+	const [searchParams] = useSearchParams();
+	const requestedTarget = searchParams.get("target") || "master";
 	const { t } = useTranslation();
 	const {
 		fetchCoreSettings,
@@ -732,7 +762,15 @@ export const CoreSettingsPage: FC = () => {
 	const onEditingCore = useDashboard((state) => state.onEditingCore);
 	const canManageXraySettings =
 		getUserIsSuccess && Boolean(userData.permissions?.sections.xray);
-	const [selectedTarget, setSelectedTarget] = useState("master");
+	const [selectedTarget, setSelectedTarget] = useState(requestedTarget);
+	useEffect(() => setSelectedTarget(requestedTarget), [requestedTarget]);
+	const [pendingPropagations, setPendingPropagations] = useState<
+		PropagationOp[]
+	>([]);
+	const [deleteWarning, setDeleteWarning] = useState<{
+		description: string;
+		onConfirm: () => void;
+	} | null>(null);
 	const toast = useToast();
 	const {
 		isOpen: isOutboundOpen,
@@ -784,6 +822,17 @@ export const CoreSettingsPage: FC = () => {
 		onOpen: onNordOpen,
 		onClose: onNordClose,
 	} = useDisclosure();
+	const {
+		isOpen: isMullvadOpen,
+		onOpen: onMullvadOpen,
+		onClose: onMullvadClose,
+	} = useDisclosure();
+	// the outbound the Mullvad window opens on; undefined for a new one
+	const [mullvadEditTag, setMullvadEditTag] = useState<string>();
+	const openMullvad = (tag?: string) => {
+		setMullvadEditTag(tag);
+		onMullvadOpen();
+	};
 	const {
 		isOpen: isOutboundSubsOpen,
 		onOpen: onOutboundSubsOpen,
@@ -856,6 +905,9 @@ export const CoreSettingsPage: FC = () => {
 		scope: "target" | "all";
 	} | null>(null);
 	const [outboundTestStates, setOutboundTestStates] = useState<
+		Record<number, OutboundTestState>
+	>({});
+	const [outboundHealthStates, setOutboundHealthStates] = useState<
 		Record<number, OutboundTestState>
 	>({});
 	const [subscriptionOutbounds, setSubscriptionOutbounds] = useState<
@@ -944,13 +996,13 @@ export const CoreSettingsPage: FC = () => {
 		[],
 	);
 	const readHashTab = useCallback(
-		() => (window.location.hash || "").replace(/^#/, "").toLowerCase(),
+		(hash = window.location.hash) => (hash || "").replace(/^#/, "").toLowerCase(),
 		[],
 	);
 
 	useEffect(() => {
-		const syncFromHash = () => {
-			const idx = tabKeys.indexOf(readHashTab());
+		const syncFromHash = (hash: string) => {
+			const idx = tabKeys.indexOf(readHashTab(hash));
 			if (idx >= 0) {
 				setActiveTab(idx);
 			} else {
@@ -962,10 +1014,11 @@ export const CoreSettingsPage: FC = () => {
 				);
 			}
 		};
-		syncFromHash();
-		window.addEventListener("hashchange", syncFromHash);
-		return () => window.removeEventListener("hashchange", syncFromHash);
-	}, [readHashTab, tabKeys]);
+		syncFromHash(location.hash);
+		const onHashChange = () => syncFromHash(window.location.hash);
+		window.addEventListener("hashchange", onHashChange);
+		return () => window.removeEventListener("hashchange", onHashChange);
+	}, [location.hash, readHashTab, tabKeys]);
 
 	const pageShellBg = useColorModeValue("white", "surface.dark");
 	const pageShellBorder = useColorModeValue("gray.200", "whiteAlpha.300");
@@ -1203,6 +1256,119 @@ export const CoreSettingsPage: FC = () => {
 		},
 	);
 
+	const propagationBaseFor = (section: PropagationSection, current: unknown) => {
+		if (current == null) return null;
+		const pending = pendingPropagations.find(
+			(op) =>
+				op.source === selectedTarget &&
+				op.section === section &&
+				propagationKey(op.after) === propagationKey(current),
+		);
+		return pending ? pending.before : current;
+	};
+
+	const queuePropagation = (
+		section: PropagationSection,
+		current: unknown,
+		after: unknown,
+		targets: string[],
+	) => {
+		setPendingPropagations((previous) => {
+			const next = [...previous];
+			const index =
+				current == null
+					? -1
+					: next.findIndex(
+							(op) =>
+								op.source === selectedTarget &&
+								op.section === section &&
+								propagationKey(op.after) === propagationKey(current),
+						);
+			if (index >= 0) {
+				if (targets.length) {
+					next[index] = { ...next[index], after, targets };
+				} else {
+					next.splice(index, 1);
+				}
+			} else if (targets.length) {
+				next.push({
+					source: selectedTarget,
+					section,
+					before: current ?? null,
+					after,
+					targets,
+				});
+			}
+			return next;
+		});
+	};
+
+	const applyPendingPropagations = async () => {
+		const operations = pendingPropagations.filter(
+			(op) => op.source === selectedTarget,
+		);
+		setPendingPropagations([]);
+		const summary = { applied: 0, skipped: 0, failed: 0 };
+		for (const operation of operations) {
+			try {
+				const results = await applyXrayPropagation(operation);
+				for (const result of results) {
+					if (result.applied) summary.applied += 1;
+					else if (result.error) summary.failed += 1;
+					else summary.skipped += 1;
+				}
+			} catch {
+				summary.failed += operation.targets.length;
+			}
+		}
+		return summary;
+	};
+
+	const countOutboundReferences = (tags: string[]) => {
+		const names = tags.filter(Boolean);
+		if (!names.length) return 0;
+		return (
+			getRoutingRules().filter((rule) =>
+				names.includes(String(rule.outboundTag ?? "")),
+			).length +
+			getBalancers().filter((balancer) =>
+				balancer.selector.some((tag) => names.includes(tag)),
+			).length
+		);
+	};
+
+	const confirmOutboundRemoval = (tags: unknown[], remove: () => void) => {
+		const references = countOutboundReferences(
+			tags.map((tag) => String(tag ?? "")),
+		);
+		if (!references) {
+			remove();
+			return;
+		}
+		setDeleteWarning({
+			description: t("pages.xray.propagate.deleteOutboundReferenced", {
+				count: references,
+			}),
+			onConfirm: remove,
+		});
+	};
+
+	const renameOutboundReferences = (oldTag: string, newTag: string) => {
+		commitRoutingRules(
+			getRoutingRules().map((rule) =>
+				rule.outboundTag === oldTag ? { ...rule, outboundTag: newTag } : rule,
+			),
+		);
+		commitBalancers(
+			getBalancers().map((balancer) => ({
+				...balancer,
+				selector: balancer.selector.map((tag) =>
+					tag === oldTag ? newTag : tag,
+				),
+			})),
+		);
+	};
+
 	const handleOnSave = form.handleSubmit(({ config: submittedConfig }: any) => {
 		const nextConfig = JSON.parse(JSON.stringify(submittedConfig || {}));
 		if (!dnsEnabledState) {
@@ -1212,7 +1378,7 @@ export const CoreSettingsPage: FC = () => {
 			nextConfig.dns = createDefaultDnsConfig();
 		}
 		updateConfig(nextConfig, selectedTarget)
-			.then(() => {
+			.then(async () => {
 				form.reset({ config: nextConfig });
 				initialConfigStringRef.current = serializeConfig(nextConfig);
 				setDnsEnabledState(Boolean(nextConfig.dns));
@@ -1223,6 +1389,16 @@ export const CoreSettingsPage: FC = () => {
 					position: "top",
 					duration: 3000,
 				});
+				const summary = await applyPendingPropagations();
+				if (summary.applied + summary.skipped + summary.failed > 0) {
+					toast({
+						title: t("pages.xray.propagate.summary", summary),
+						status: summary.failed ? "warning" : "success",
+						isClosable: true,
+						position: "top",
+						duration: 5000,
+					});
+				}
 			})
 			.catch((e) => {
 				let message = t("core.generalErrorMessage");
@@ -1472,6 +1648,83 @@ export const CoreSettingsPage: FC = () => {
 		}
 	};
 
+	const checkOutboundHealth = async (index: number) => {
+		const outbounds = getOutbounds();
+		const outbound = outbounds[index];
+		if (!outbound) return;
+		if (!managedOutboundMeta(outbound)) {
+			toast({
+				title: t("pages.xray.outbound.healthSupported"),
+				status: "warning",
+				isClosable: true,
+				position: "top",
+				duration: 4000,
+			});
+			return;
+		}
+		if (isMasterTarget) {
+			toast({
+				title: outboundNodeTargetRequiredMessage,
+				status: "warning",
+				isClosable: true,
+				position: "top",
+				duration: 4000,
+			});
+			return;
+		}
+		setOutboundHealthStates((prev) => ({
+			...prev,
+			[index]: { testing: true, result: null },
+		}));
+		try {
+			const response = await apiFetch<{
+				success: boolean;
+				obj?: OutboundTestResult;
+				msg?: string;
+			}>("/panel/xray/outboundHealth", {
+				method: "POST",
+				body: {
+					outbound: JSON.stringify(outbound),
+					allOutbounds: JSON.stringify(outbounds),
+					target_id: selectedTarget,
+					test_type: "latency",
+				},
+			});
+			const result = response?.obj ?? {
+				success: false,
+				error: response?.msg || t("pages.xray.outbound.healthFailed"),
+			};
+			setOutboundHealthStates((prev) => ({
+				...prev,
+				[index]: { testing: false, result },
+			}));
+			toast({
+				title: result.success
+					? `${t("pages.xray.outbound.healthHealthy")}: ${outboundTestResultLabel(result)}`
+					: `${t("pages.xray.outbound.healthFailed")}: ${result.error || t("unknown")}`,
+				status: result.success ? "success" : "error",
+				isClosable: true,
+				position: "top",
+				duration: 4000,
+			});
+		} catch (error: unknown) {
+			const detail =
+				getAPIErrorMessage(error) || t("pages.xray.outbound.healthFailed");
+			const result = { success: false, error: detail };
+			setOutboundHealthStates((prev) => ({
+				...prev,
+				[index]: { testing: false, result },
+			}));
+			toast({
+				title: `${t("pages.xray.outbound.healthFailed")}: ${detail}`,
+				status: "error",
+				isClosable: true,
+				position: "top",
+				duration: 4000,
+			});
+		}
+	};
+
 	const handleOutboundModalClose = () => {
 		setEditingOutboundIndex(null);
 		onOutboundClose();
@@ -1677,11 +1930,14 @@ export const CoreSettingsPage: FC = () => {
 	const deleteOutbound = (index: number) => {
 		const outbounds = getOutbounds();
 		if (index < 0 || index >= outbounds.length) return;
-		outbounds.splice(index, 1);
-		commitOutbounds(outbounds);
-		setSelectedOutboundIds((current) =>
-			current.filter((id) => Number(id) !== index),
-		);
+		confirmOutboundRemoval([outbounds[index]?.tag], () => {
+			const current = getOutbounds();
+			current.splice(index, 1);
+			commitOutbounds(current);
+			setSelectedOutboundIds((selected) =>
+				selected.filter((id) => Number(id) !== index),
+			);
+		});
 	};
 
 	const deleteSelectedOutbounds = (ids: string[]) => {
@@ -1691,13 +1947,19 @@ export const CoreSettingsPage: FC = () => {
 			.sort((a, b) => b - a);
 		if (!indexes.length) return;
 		const outbounds = getOutbounds();
-		for (const index of indexes) {
-			if (index >= 0 && index < outbounds.length) {
-				outbounds.splice(index, 1);
-			}
-		}
-		commitOutbounds(outbounds);
-		setSelectedOutboundIds([]);
+		confirmOutboundRemoval(
+			indexes.map((index) => outbounds[index]?.tag),
+			() => {
+				const current = getOutbounds();
+				for (const index of indexes) {
+					if (index >= 0 && index < current.length) {
+						current.splice(index, 1);
+					}
+				}
+				commitOutbounds(current);
+				setSelectedOutboundIds([]);
+			},
+		);
 	};
 
 	const moveOutbound = (fromIndex: number, toIndex: number) => {
@@ -1717,6 +1979,10 @@ export const CoreSettingsPage: FC = () => {
 
 	const moveOutboundUp = (index: number) => {
 		moveOutbound(index, index - 1);
+	};
+
+	const moveOutboundToTop = (index: number) => {
+		moveOutbound(index, 0);
 	};
 
 	const moveOutboundDown = (index: number) => {
@@ -1839,8 +2105,14 @@ export const CoreSettingsPage: FC = () => {
 		commitRoutingRules(currentRules);
 	};
 
-	const handleRuleModalSubmit = (rule: RoutingRule) => {
+	const handleRuleModalSubmit = (rule: RoutingRule, targetIds: string[]) => {
 		const currentRules = getRoutingRules();
+		queuePropagation(
+			"routing.rules",
+			editingRuleIndex !== null ? (canonicalRoutingRules[editingRuleIndex] ?? null) : null,
+			rule,
+			targetIds,
+		);
 		if (
 			editingRuleIndex !== null &&
 			editingRuleIndex >= 0 &&
@@ -1992,10 +2264,20 @@ export const CoreSettingsPage: FC = () => {
 		[],
 	);
 
-	const handleBalancerSubmit = (values: BalancerFormValues) => {
+	const handleBalancerSubmit = (
+		values: BalancerFormValues,
+		targetIds: string[],
+	) => {
 		const balancers = getBalancers();
 		const nextBalancer = toBalancerConfig(values);
 		let oldTag: string | undefined;
+		const previous =
+			editingBalancerIndex !== null &&
+			editingBalancerIndex >= 0 &&
+			editingBalancerIndex < balancers.length
+				? balancers[editingBalancerIndex]
+				: undefined;
+		queuePropagation("balancers", previous ?? null, nextBalancer, targetIds);
 		if (
 			editingBalancerIndex !== null &&
 			editingBalancerIndex >= 0 &&
@@ -2029,8 +2311,25 @@ export const CoreSettingsPage: FC = () => {
 	const deleteBalancer = (index: number) => {
 		const balancers = getBalancers();
 		if (index < 0 || index >= balancers.length) return;
-		balancers.splice(index, 1);
-		commitBalancers(balancers);
+		const tag = balancers[index].tag;
+		const removeBalancer = () => {
+			const current = getBalancers();
+			current.splice(index, 1);
+			commitBalancers(current);
+		};
+		const references = tag
+			? getRoutingRules().filter((rule) => rule.balancerTag === tag).length
+			: 0;
+		if (!references) {
+			removeBalancer();
+			return;
+		}
+		setDeleteWarning({
+			description: t("pages.xray.propagate.deleteBalancerReferenced", {
+				count: references,
+			}),
+			onConfirm: removeBalancer,
+		});
 	};
 
 	const addReverse = () => {
@@ -3104,7 +3403,22 @@ export const CoreSettingsPage: FC = () => {
 		}
 	};
 
-	const handleOutboundSave = (outboundJson: unknown) => {
+	const handleMullvadSave = (
+		outbound: OutboundJson,
+		replaceIndex: number | null,
+	) => {
+		const previousTag =
+			replaceIndex === null
+				? ""
+				: String(getOutbounds()[replaceIndex]?.tag ?? "");
+		// a renamed outbound keeps its routing rules and balancers
+		if (previousTag && previousTag !== outbound.tag) {
+			renameOutboundReferences(previousTag, String(outbound.tag));
+		}
+		handleNordSave(outbound, replaceIndex);
+	};
+
+	const handleOutboundSave = (outboundJson: unknown, targetIds: string[]) => {
 		const outbound = outboundJson as OutboundJson;
 		const outbounds = getOutbounds();
 		const tag = String(outbound.tag ?? "");
@@ -3114,6 +3428,16 @@ export const CoreSettingsPage: FC = () => {
 		if (duplicateIndex >= 0) {
 			throw new Error(t("pages.xray.outbound.tagExistsNamed", { tag }));
 		}
+		const previous =
+			editingOutboundIndex !== null &&
+			editingOutboundIndex >= 0 &&
+			editingOutboundIndex < outbounds.length
+				? outbounds[editingOutboundIndex]
+				: undefined;
+		if (previous?.tag && previous.tag !== tag) {
+			renameOutboundReferences(String(previous.tag), tag);
+		}
+		queuePropagation("outbounds", previous ?? null, outbound, targetIds);
 		if (
 			editingOutboundIndex !== null &&
 			editingOutboundIndex >= 0 &&
@@ -3445,6 +3769,37 @@ export const CoreSettingsPage: FC = () => {
 		);
 	};
 
+	const renderOutboundHealthButton = (
+		outbound: any,
+		state: OutboundTestState | undefined,
+		onCheck: () => void,
+	) => {
+		if (!managedOutboundMeta(outbound)) return null;
+		const resultLabel = state?.result
+			? state.result.success
+				? `${t("pages.xray.outbound.healthHealthy")}: ${outboundTestResultLabel(state.result)}`
+				: `${t("pages.xray.outbound.healthFailed")}: ${state.result.error || t("unknown")}`
+			: t("pages.xray.outbound.healthCheck");
+		return (
+			<Tooltip hasArrow label={resultLabel} shouldWrapChildren>
+				<IconButton
+					aria-label={t("pages.xray.outbound.healthCheck")}
+					icon={<CheckCircleIcon width={18} height={18} />}
+					size="sm"
+					isRound
+					variant="outline"
+					colorScheme="green"
+					isLoading={Boolean(state?.testing)}
+					isDisabled={isMasterTarget}
+					onClick={(event) => {
+						event.stopPropagation();
+						onCheck();
+					}}
+				/>
+			</Tooltip>
+		);
+	};
+
 	const routingRuleColumns: DataTableColumn<RoutingRuleDisplayRow>[] = [
 		{
 			id: "rule",
@@ -3566,6 +3921,14 @@ export const CoreSettingsPage: FC = () => {
 			onClick: () => openRouteTest(row.originalIndex),
 		},
 		{
+			id: "move-top",
+			label: t("pages.xray.rules.top"),
+			icon: <ChevronDoubleUpIconStyled />,
+			isDisabled:
+				routingRuleSearch.trim().length > 0 || row.originalIndex === 0,
+			onClick: () => replaceRule(row.originalIndex, 0),
+		},
+		{
 			id: "move-up",
 			label: t("pages.xray.rules.up"),
 			icon: <ArrowUpIconStyled />,
@@ -3647,11 +4010,18 @@ export const CoreSettingsPage: FC = () => {
 			priority: "medium",
 			hideBelow: "lg",
 			cell: ({ outbound, originalIndex }) =>
-				renderOutboundTestButton(
-					outbound,
-					outboundTestStates[originalIndex],
-					() => testOutbound(originalIndex),
-				),
+				<HStack spacing={1}>
+					{renderOutboundTestButton(
+						outbound,
+						outboundTestStates[originalIndex],
+						() => testOutbound(originalIndex),
+					)}
+					{renderOutboundHealthButton(
+						outbound,
+						outboundHealthStates[originalIndex],
+						() => checkOutboundHealth(originalIndex),
+					)}
+				</HStack>,
 			mobileMetaLabel: t("pages.xray.routeTester.test"),
 		},
 	];
@@ -3664,6 +4034,31 @@ export const CoreSettingsPage: FC = () => {
 			label: t("edit"),
 			icon: <EditIconStyled />,
 			onClick: () => editOutbound(row.originalIndex),
+		},
+		...(isMullvadOutbound(form.getValues("config.outbounds")?.[row.originalIndex])
+			? [
+					{
+						id: "edit-mullvad",
+						label: t("pages.xray.mullvad.edit"),
+						icon: <MullvadIconStyled />,
+						onClick: () =>
+							openMullvad(
+								String(
+									form.getValues("config.outbounds")?.[row.originalIndex]?.tag ?? "",
+								),
+							),
+					},
+				]
+			: []),
+		{
+			id: "move-top",
+			label: t("pages.xray.outbound.moveToTop"),
+			icon: <ChevronDoubleUpIconStyled />,
+			isDisabled:
+				outboundSearch.trim().length > 0 ||
+				outboundTrafficSort !== "default" ||
+				row.originalIndex === 0,
+			onClick: () => moveOutboundToTop(row.originalIndex),
 		},
 		{
 			id: "move-up",
@@ -3987,11 +4382,7 @@ export const CoreSettingsPage: FC = () => {
 	];
 
 	if (!getUserIsSuccess) {
-		return (
-			<VStack spacing={4} align="center" py={10}>
-				<Spinner size="lg" />
-			</VStack>
-		);
+		return <PageLoadingSkeleton />;
 	}
 
 	if (!canManageXraySettings) {
@@ -4142,6 +4533,7 @@ export const CoreSettingsPage: FC = () => {
 												<HStack as="span" minW={0} spacing={1}>
 													<Text as="span" noOfLines={1}>
 														{target.name}
+														{target.address ? ` - ${target.address}` : ""}
 													</Text>
 													{target.mode === "custom" && (
 														<Text
@@ -4819,6 +5211,12 @@ export const CoreSettingsPage: FC = () => {
 														onClick={onNordOpen}
 													>
 														NordVPN
+													</MenuItem>
+													<MenuItem
+														icon={<MullvadIconStyled />}
+														onClick={() => openMullvad()}
+													>
+														Mullvad
 													</MenuItem>
 													<MenuItem
 														icon={<TorIconStyled />}
@@ -5550,6 +5948,15 @@ export const CoreSettingsPage: FC = () => {
 								: null
 						}
 						existingTags={availableOutboundTags}
+						sourceTarget={selectedTarget}
+						propagationBase={
+							propagationBaseFor(
+								"outbounds",
+								editingOutboundIndex !== null
+									? (canonicalOutbounds[editingOutboundIndex] ?? null)
+									: null,
+							) as Record<string, unknown> | null
+						}
 						onSubmitOutbound={handleOutboundSave}
 					/>
 				)}
@@ -5567,6 +5974,15 @@ export const CoreSettingsPage: FC = () => {
 						availableBalancerTags={availableBalancerTags}
 						onTestOutbound={testOutboundByTag}
 						outboundTestingByTag={outboundTestingByTag}
+						sourceTarget={selectedTarget}
+						propagationBase={
+							propagationBaseFor(
+								"routing.rules",
+								editingRuleIndex !== null
+									? (canonicalRoutingRules[editingRuleIndex] ?? null)
+									: null,
+							) as RoutingRule | null
+						}
 						onSubmit={handleRuleModalSubmit}
 						onClose={handleRuleModalClose}
 					/>
@@ -5617,6 +6033,18 @@ export const CoreSettingsPage: FC = () => {
 						onClose={handleNordModalClose}
 						initialOutbounds={getOutbounds()}
 						onSave={handleNordSave}
+						onDelete={handleNordDelete}
+					/>
+				)}
+				{isMullvadOpen && (
+					<MullvadModal
+						isOpen={isMullvadOpen}
+						onClose={onMullvadClose}
+						initialTag={mullvadEditTag}
+						targetID={selectedTarget}
+						canPing={!isMasterTarget}
+						initialOutbounds={getOutbounds()}
+						onSave={handleMullvadSave}
 						onDelete={handleNordDelete}
 					/>
 				)}
@@ -5695,6 +6123,15 @@ export const CoreSettingsPage: FC = () => {
 											? balancersData[editingBalancerIndex]?.tag
 											: ""),
 							)}
+						sourceTarget={selectedTarget}
+						propagationBase={
+							propagationBaseFor(
+								"balancers",
+								editingBalancerIndex !== null
+									? (getBalancers()[editingBalancerIndex] ?? null)
+									: null,
+							) as Record<string, unknown> | null
+						}
 						onSubmit={handleBalancerSubmit}
 					/>
 				)}
@@ -5730,6 +6167,17 @@ export const CoreSettingsPage: FC = () => {
 					/>
 				)}
 			</Suspense>
+			<ConfirmDialog
+				isOpen={Boolean(deleteWarning)}
+				onClose={() => setDeleteWarning(null)}
+				onConfirm={() => {
+					deleteWarning?.onConfirm();
+					setDeleteWarning(null);
+				}}
+				title={t("pages.xray.propagate.deleteTitle")}
+				description={deleteWarning?.description ?? ""}
+				colorScheme="red"
+			/>
 			<ConfirmDialog
 				isOpen={Boolean(outboundReset)}
 				onClose={() => setOutboundReset(null)}

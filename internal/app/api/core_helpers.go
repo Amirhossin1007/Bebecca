@@ -92,6 +92,48 @@ func (s *Server) handleOutboundTest(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, outboundTestEnvelope(result))
 }
 
+func (s *Server) handleOutboundHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var payload map[string]any
+	if err := decodeOptionalJSON(r, &payload); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	outbound, allOutbounds, err := outboundTestPayload(payload)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if provider := managedOutboundProvider(outbound); provider == "" {
+		writeError(w, http.StatusBadRequest, "health checks are available for Tor, Windscribe, and Psiphon outbounds only")
+		return
+	}
+	target := firstNonEmpty(stringFromAny(payload["target_id"]), stringFromAny(payload["target"]))
+	nodeID, isNode, err := nodeIDFromTarget(target, stringFromAny(payload["node_id"]))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !isNode || nodeID <= 0 {
+		writeError(w, http.StatusBadRequest, "Outbound health checks run on nodes only. Change the target to a node before checking this service.")
+		return
+	}
+	if err := validateOutboundTestRequest(outbound, "latency"); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	testURL := firstNonEmpty(stringFromAny(payload["test_url"]), stringFromAny(payload["testUrl"]), outboundTestDefaultURL)
+	ctx, cancel := context.WithTimeout(r.Context(), outboundTestTimeout)
+	defer cancel()
+	result := s.runOutboundTest(ctx, nodeID, outbound, allOutbounds, "latency", testURL)
+	response := outboundTestEnvelope(result)
+	response["provider"] = managedOutboundProvider(outbound)
+	writeJSON(w, http.StatusOK, response)
+}
+
 func (s *Server) handleOutboundTests(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -210,15 +252,28 @@ func (s *Server) handleRouteTest(w http.ResponseWriter, r *http.Request) {
 		RouteTestURL:    testURL,
 	})
 	if err != nil {
-		writeError(w, http.StatusBadGateway, "Selected node is not available for route test")
+		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"success": true, "obj": routeTestObject(result)})
 }
 
+// effectiveOutboundTestType keeps latency tests away from WireGuard outbounds. A latency test
+// starts a second Xray with the outbound, which is a second session with the same WireGuard key:
+// the remote peer moves to it and the running tunnel stalls for a few seconds. Those outbounds are
+// measured with ICMP to their endpoint instead.
+func effectiveOutboundTestType(outbound map[string]any, testType string) string {
+	protocol := strings.ToLower(strings.TrimSpace(stringFromAny(outbound["protocol"])))
+	if protocol == "wireguard" && testType == "latency" && outboundHasAddress(outbound) {
+		return "icmp"
+	}
+	return testType
+}
+
 func (s *Server) runOutboundTest(ctx context.Context, nodeID int64, outbound map[string]any, allOutbounds []map[string]any, testType string, testURL string) nodecontroller.OutboundTestResult {
 	outboundTag := strings.TrimSpace(stringFromAny(outbound["tag"]))
 	outboundProtocol := strings.ToLower(strings.TrimSpace(stringFromAny(outbound["protocol"])))
+	testType = effectiveOutboundTestType(outbound, testType)
 	if outboundTag == "" {
 		return nodecontroller.OutboundTestResult{
 			Success:  false,
@@ -248,7 +303,7 @@ func (s *Server) runOutboundTest(ctx context.Context, nodeID int64, outbound map
 	if err != nil {
 		return nodecontroller.OutboundTestResult{
 			Success:  false,
-			Error:    "Selected node is not available for outbound test",
+			Error:    err.Error(),
 			TestType: testType,
 		}
 	}

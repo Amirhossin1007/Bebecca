@@ -70,6 +70,7 @@ func ValidateUserServiceCreate(payload *UserServiceCreate, catalog MutationConte
 		OnHoldExpireDuration:   payload.OnHoldExpireDuration,
 		OnHoldTimeout:          payload.OnHoldTimeout,
 		IPLimit:                payload.IPLimit,
+		SpeedLimitKbps:         payload.SpeedLimitKbps,
 		AutoDeleteInDays:       payload.AutoDeleteInDays,
 		NextPlans:              payload.NextPlans,
 	}
@@ -289,6 +290,9 @@ func validateUserBase(payload *UserPayloadBase, catalog MutationContext) error {
 	if payload.IPLimit != nil && *payload.IPLimit < 0 {
 		zero := int64(0)
 		payload.IPLimit = &zero
+	}
+	if payload.SpeedLimitKbps != nil && (*payload.SpeedLimitKbps < 0 || *payload.SpeedLimitKbps > 1000000000) {
+		return ValidationError{Detail: "Speed limit must be between 0 and 1000000000 Kbps"}
 	}
 	if payload.OnHoldExpireDuration != nil && *payload.OnHoldExpireDuration <= 0 {
 		payload.OnHoldExpireDuration = nil

@@ -1,8 +1,8 @@
-import { Box, Flex, Spinner, Text, VStack } from "@chakra-ui/react";
+import { Box, Text, VStack } from "@chakra-ui/react";
 import AdminsUsage from "components/AdminsUsage";
 import NodesUsageAnalytics from "components/NodesUsageAnalytics";
 import ServiceUsageAnalytics from "components/ServiceUsageAnalytics";
-import { TabSystem } from "components/ui";
+import { PageLoadingSkeleton, TabSystem } from "components/ui";
 import { useServicesStore } from "contexts/ServicesContext";
 import useGetUser from "hooks/useGetUser";
 import { type FC, useCallback, useEffect, useMemo, useState } from "react";
@@ -84,11 +84,7 @@ export const UsagePage: FC = () => {
 	}, [fetchServices, canViewUsage]);
 
 	if (!getUserIsSuccess) {
-		return (
-			<Flex justify="center" align="center" py={10}>
-				<Spinner />
-			</Flex>
-		);
+		return <PageLoadingSkeleton />;
 	}
 
 	if (!canViewUsage) {
@@ -105,11 +101,7 @@ export const UsagePage: FC = () => {
 	}
 
 	if (isRuntimeSettingsLoading) {
-		return (
-			<Flex justify="center" align="center" py={10}>
-				<Spinner />
-			</Flex>
-		);
+		return <PageLoadingSkeleton />;
 	}
 
 	if (!recordNodeUsage && !recordNodeUserUsages) {
