@@ -21,9 +21,11 @@ import {
 	getInboundTraffic,
 	inboundPortNumbers,
 	type InboundFormValues,
+	protocolLabel,
 	protocolOptions,
 	type RawInbound,
 } from "utils/inbounds";
+import { supportsSniffing } from "utils/inboundCapabilities";
 import { getInboundTargetIds } from "utils/inboundTargets";
 import { SizeFormatter } from "utils/outbound";
 import {
@@ -34,6 +36,14 @@ import { type InboundSpeedMap, summarizeInbounds } from "utils/resourceSummary";
 import { SearchableTagSelect } from "../common/SearchableTagSelect";
 import { SearchInput } from "../common/SearchInput";
 import { OverviewBand } from "components/ui/overview-band";
+import { TagChips } from "components/labels/TagChips";
+import { TagFilterButton } from "components/labels/TagFilterButton";
+import {
+	EMPTY_LABEL_FILTER,
+	type LabelFilterValue,
+	matchesTagFilter,
+} from "components/labels/LabelFilter";
+import { saveLabels, useInvalidateLabels, useLabelItems } from "service/labels";
 import { ConfirmDialog, DeleteConfirmDialog } from "../dialogs/ConfirmDialog";
 import {
 	DataTable,
@@ -133,9 +143,15 @@ export const InboundsManager: FC = () => {
 		};
 	}, []);
 
+	const { data: inboundLabels } = useLabelItems("inbound");
+	const invalidateLabels = useInvalidateLabels();
+	const [tagFilter, setTagFilter] = useState<LabelFilterValue>(EMPTY_LABEL_FILTER);
 	const filtered = useMemo(() => {
 		const matches = inbounds.filter((inbound) => {
 			if (filter.protocol !== "all" && inbound.protocol !== filter.protocol) {
+				return false;
+			}
+			if (!matchesTagFilter(inboundLabels?.items[inbound.tag]?.tags, tagFilter)) {
 				return false;
 			}
 			return matchesAnySearch(
@@ -145,7 +161,7 @@ export const InboundsManager: FC = () => {
 			);
 		});
 		return matches;
-	}, [inbounds, filter, searchMatch]);
+	}, [inbounds, filter, searchMatch, inboundLabels, tagFilter]);
 	const targetNameById = useMemo(
 		() =>
 			Object.fromEntries(
@@ -178,7 +194,7 @@ export const InboundsManager: FC = () => {
 		},
 	) => {
 		const { mode, initial, onSuccess } = options;
-		const { note: nextNote, ...inboundValues } = values;
+		const { note: nextNote, tags: nextTags, ...inboundValues } = values;
 		setIsMutating(true);
 		try {
 			const normalizedTag = (values.tag || "").trim().toLowerCase();
@@ -237,6 +253,14 @@ export const InboundsManager: FC = () => {
 					});
 				} catch {
 					toast.error(t("entityNote.saveFailed"));
+				}
+			}
+			if (nextTags !== undefined) {
+				try {
+					await saveLabels("inbound", payload.tag, { tags: nextTags });
+					await invalidateLabels();
+				} catch {
+					toast.error(t("labels.saveFailed"));
 				}
 			}
 			onSuccess();
@@ -455,7 +479,7 @@ export const InboundsManager: FC = () => {
 		];
 		const segments = ranked.slice(0, 4).map(([protocol, value], index) => ({
 			key: protocol,
-			label: protocol.toUpperCase(),
+			label: protocolLabel(protocol),
 			value,
 			tone: tones[index],
 		}));
@@ -474,7 +498,8 @@ export const InboundsManager: FC = () => {
 			(inbound) => getInboundTargetIds(inbound).length > 1,
 		).length;
 		const sniffingCount = inbounds.filter(
-			(inbound) => inbound.sniffing?.enabled,
+			(inbound) =>
+				supportsSniffing(inbound.protocol) && inbound.sniffing?.enabled,
 		).length;
 		const totals = summarizeInbounds(filtered, speeds);
 		const isFiltered = filtered.length !== inbounds.length;
@@ -541,6 +566,14 @@ export const InboundsManager: FC = () => {
 							</TooltipTrigger>
 <TooltipContent>{inbound.validation_error}</TooltipContent>
 </Tooltip>
+						)}
+						{!inbound.validation_error && inbound.compatibility_warning && (
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<p className="text-[0.75rem] text-amber-500 line-clamp-2">{inbound.compatibility_warning}</p>
+								</TooltipTrigger>
+								<TooltipContent>{inbound.compatibility_warning}</TooltipContent>
+							</Tooltip>
 						)}
 						{inbound.listen && (
 							<p className="text-[0.75rem] text-panel-text-muted truncate">
@@ -662,7 +695,10 @@ export const InboundsManager: FC = () => {
 			},
 			{
 				id: "sniffing",
-				sortValue: (inbound) => (inbound.sniffing?.enabled ? 1 : 0),
+				sortValue: (inbound) =>
+					supportsSniffing(inbound.protocol) && inbound.sniffing?.enabled
+						? 1
+						: 0,
 				header: t("inbounds.sniffing"),
 				priority: "low",
 				hideBelow: "xl",
@@ -671,7 +707,9 @@ export const InboundsManager: FC = () => {
 				mobilePriority: 6,
 				mobileMetaLabel: t("inbounds.sniffing"),
 				cell: (inbound) =>
-					inbound.sniffing?.enabled ? (
+					!supportsSniffing(inbound.protocol) ? (
+						<span className="text-muted-foreground">–</span>
+					) : inbound.sniffing?.enabled ? (
 						<Badge className="bg-green-600 text-white">
 							{t("inbounds.sniffingEnabled")}
 						</Badge>
@@ -680,6 +718,17 @@ export const InboundsManager: FC = () => {
 							{t("inbounds.sniffingDisabled")}
 						</Badge>
 					),
+			},
+			{
+				id: "tags",
+				header: t("tags.title"),
+				priority: "low",
+				hideBelow: "lg",
+				width: "170px",
+				maxWidth: "220px",
+				mobilePriority: 8,
+				mobileMetaLabel: t("tags.title"),
+				cell: (inbound) => <TagChips tags={inboundLabels?.items[inbound.tag]?.tags} limit={2} />,
 			},
 			{
 				id: "targets",
@@ -726,7 +775,7 @@ export const InboundsManager: FC = () => {
 				},
 			},
 		],
-		[t, targetNameById, speeds],
+		[t, targetNameById, speeds, inboundLabels],
 	);
 
 	const inboundRowActions = (
@@ -780,6 +829,7 @@ export const InboundsManager: FC = () => {
 						onSortingChange={setInboundSorting}
 					/>
 					</div>
+					<TagFilterButton type="inbound" value={tagFilter} onChange={setTagFilter} />
 					<div className="md:flex md:flex-row">
 					<SearchableTagSelect size="sm" value={filter.protocol} options={[
 							{
@@ -788,7 +838,7 @@ export const InboundsManager: FC = () => {
 							},
 							...protocolOptions.map((option) => ({
 								value: option,
-								label: option.toUpperCase(),
+								label: protocolLabel(option),
 							})),
 						]} placeholder={t("inbounds.filterProtocol")} onChange={(value) =>
 							setFilter((prev) => ({ ...prev, protocol: String(value) }))

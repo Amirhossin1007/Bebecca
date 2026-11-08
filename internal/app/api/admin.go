@@ -17,6 +17,7 @@ import (
 	"time"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
+	"github.com/rebeccapanel/rebecca/internal/app/labels"
 	telegramapp "github.com/rebeccapanel/rebecca/internal/app/telegram"
 	webhookapp "github.com/rebeccapanel/rebecca/internal/app/webhook"
 	"github.com/rebeccapanel/rebecca/internal/app/xrayconfig"
@@ -140,6 +141,11 @@ func (s *Server) handleCreateAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	labelAssignment, err := adminLabelAssignment(payload.fields)
+	if err != nil {
+		writeLabelError(w, err)
+		return
+	}
 	var created adminapp.Admin
 	err = s.withTx(r.Context(), func(tx *sql.Tx) error {
 		exists, err := adminExistsTx(r.Context(), tx, payload.Username)
@@ -222,6 +228,12 @@ func (s *Server) handleCreateAdmin(w http.ResponseWriter, r *http.Request) {
 			if err := syncAdminServiceLimitsTx(r.Context(), tx, adminID, *payload.ServiceLimits, perms.Users.Delete); err != nil {
 				return err
 			}
+		}
+		if !labelAssignment.Empty() && !canManageGroups(principal.Context.Admin, labels.TypeAdmin) {
+			return statusError{status: http.StatusForbidden, detail: "You're not allowed"}
+		}
+		if err := labels.SetManyTx(r.Context(), tx, []labels.Ref{labels.AdminRef(adminID)}, labelAssignment); err != nil {
+			return labelStatusError(err)
 		}
 		created, err = adminByUsernameTx(r.Context(), tx, payload.Username)
 		if err != nil {
@@ -318,6 +330,11 @@ func (s *Server) handleUpdateAdmin(w http.ResponseWriter, r *http.Request, usern
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	labelAssignment, err := adminLabelAssignment(payload.fields)
+	if err != nil {
+		writeLabelError(w, err)
+		return
+	}
 	var previous adminapp.Admin
 	var updated adminapp.Admin
 	var limitTransition adminLimitTransition
@@ -331,6 +348,14 @@ func (s *Server) handleUpdateAdmin(w http.ResponseWriter, r *http.Request, usern
 		if !isSelf {
 			if err := ensureCanManageAdmin(principal.Context.Admin, target); err != nil {
 				return err
+			}
+		}
+		if !labelAssignment.Empty() {
+			if !canManageGroups(principal.Context.Admin, labels.TypeAdmin) {
+				return statusError{status: http.StatusForbidden, detail: "You're not allowed"}
+			}
+			if err := labels.SetManyTx(r.Context(), tx, []labels.Ref{labels.AdminRef(target.ID)}, labelAssignment); err != nil {
+				return labelStatusError(err)
 			}
 		}
 		role := target.Role
@@ -537,6 +562,12 @@ func (s *Server) handleDeleteAdmin(w http.ResponseWriter, r *http.Request, usern
 			return err
 		}
 		if _, err := tx.ExecContext(r.Context(), `DELETE FROM service_admins WHERE admin_id = ?`, target.ID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(r.Context(), `DELETE FROM entity_group_members WHERE entity_type = ? AND entity_id = ?`, labels.TypeAdmin, target.ID); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(r.Context(), `DELETE FROM entity_tags WHERE entity_type = ? AND entity_id = ?`, labels.TypeAdmin, target.ID); err != nil {
 			return err
 		}
 		now := dbTimestamp(time.Now().UTC())

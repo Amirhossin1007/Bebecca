@@ -1,3 +1,4 @@
+import { TagChips } from "components/labels/TagChips";
 import { Button } from "components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "components/ui/dialog";
@@ -675,6 +676,37 @@ export const AdminsTable: FC<AdminsTableProps> = ({
 				mobilePriority: 1,
 				mobileMetaLabel: t("status"),
 				cell: (admin) => <AdminStatusBadge status={admin.status} />,
+			},
+			{
+				id: "group",
+				width: "120px",
+				minWidth: "96px",
+				maxWidth: "150px",
+				header: t("groups.group"),
+				menuLabel: t("groups.group"),
+				priority: "medium",
+				truncate: true,
+				tooltip: true,
+				accessor: (admin) => admin.group?.name ?? "",
+				mobilePriority: 3,
+				mobileMetaLabel: t("groups.group"),
+				cell: (admin) => (
+					<p className={cn("text-[0.875rem] truncate max-w-full", admin.group ? "text-panel-text" : "text-panel-text-muted")}>
+						{admin.group?.name ?? "–"}
+					</p>
+				),
+			},
+			{
+				id: "tags",
+				width: "170px",
+				minWidth: "120px",
+				maxWidth: "220px",
+				header: t("tags.title"),
+				menuLabel: t("tags.title"),
+				priority: "low",
+				mobilePriority: 4,
+				mobileMetaLabel: t("tags.title"),
+				cell: (admin) => <TagChips tags={admin.tags} limit={2} />,
 			},
 			{
 				id: "role",

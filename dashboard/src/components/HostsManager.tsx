@@ -1,3 +1,12 @@
+import { TagChips } from "components/labels/TagChips";
+import { TagFilterButton } from "components/labels/TagFilterButton";
+import {
+	EMPTY_LABEL_FILTER,
+	type LabelFilterValue,
+	matchesTagFilter,
+} from "components/labels/LabelFilter";
+import { useInvalidateLabels, useTags } from "service/labels";
+import { TagsSelect } from "components/labels/TagsSelect";
 import { Field, FieldLabel } from "components/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Badge } from "components/ui/badge";
@@ -95,6 +104,7 @@ const JsonEditor = lazy(async () => ({
 
 type HostData = {
 	id: number | null;
+	tags: string[];
 	remark: string;
 	address: string;
 	dns_primary: string;
@@ -201,6 +211,7 @@ const coerceHostValue = <Key extends keyof HostData>(
 
 const EMPTY_HOST_DATA: HostData = {
 	id: null,
+	tags: [],
 	remark: "",
 	address: "",
 	dns_primary: "1.1.1.1",
@@ -419,7 +430,10 @@ const DynamicTokensPopover: FC = () => {
 				</div>
 			</PopoverTrigger>
 			
-				<PopoverContent className="max-w-[20rem] text-[0.75rem]">
+				<PopoverContent
+					collisionPadding={12}
+					className="max-h-[var(--radix-popover-content-available-height)] max-w-[20rem] overflow-y-auto text-[0.75rem]"
+				>
 					
 					
 					<div className="p-3">
@@ -530,6 +544,7 @@ const CertificateFingerprintField: FC<{
 
 const normalizeHostData = (host: HostsSchema[string][number]): HostData => ({
 	id: host.id ?? null,
+	tags: host.tags ?? [],
 	remark: host.remark ?? "",
 	address: mergeRotationValue(host.address, host.address_options),
 	dns_primary: normalizeString(host.dns_primary) || "1.1.1.1",
@@ -569,6 +584,7 @@ const normalizeHostData = (host: HostsSchema[string][number]): HostData => ({
 
 const cloneHostData = (data: HostData): HostData => ({
 	id: data.id ?? null,
+	tags: [...(data.tags ?? [])],
 	remark: data.remark,
 	address: data.address,
 	dns_primary: data.dns_primary,
@@ -709,6 +725,7 @@ const formatHostForApi = (
 	const data = fitToInbound ? fitHostToInbound(rawData, inbound) : rawData;
 	return {
 		id: data.id ?? null,
+		tags: data.tags ?? [],
 		remark: data.remark.trim(),
 		address: rotationTextToOptions(data.address).join(", "),
 		dns_primary: data.dns_primary.trim(),
@@ -1013,6 +1030,7 @@ const HostForm: FC<HostFormProps> = ({
 		inheritedHostValue(data.security, selectedInbound?.tls)
 			?.trim()
 			.toLowerCase() ?? "";
+	const { data: knownHostTags = [] } = useTags("host");
 	const {
 		showsRequestHost,
 		showsRequestPath,
@@ -1089,6 +1107,13 @@ const HostForm: FC<HostFormProps> = ({
 								</div>
 							) : null}
 						</div>
+					</FormField>
+					<FormField label={t("tags.title")} className="md:col-span-2">
+						<TagsSelect
+							value={data.tags ?? []}
+							onChange={(next) => onChange("tags", next)}
+							options={knownHostTags.map((item) => item.tag)}
+						/>
 					</FormField>
 					<FormField
 						label={t("hostsDialog.address")}
@@ -1740,7 +1765,12 @@ export const HostsManager: FC = () => {
 	const { t } = useTranslation();
 	
 	const hosts = useHosts((state) => state.hosts);
-	const fetchHosts = useHosts((state) => state.fetchHosts);
+	const fetchHostsStore = useHosts((state) => state.fetchHosts);
+	const invalidateLabels = useInvalidateLabels();
+	const fetchHosts = useCallback(async () => {
+		await fetchHostsStore();
+		void invalidateLabels();
+	}, [fetchHostsStore, invalidateLabels]);
 	const isLoading = useHosts((state) => state.loading);
 	const isPostLoading = useHosts((state) => state.isPostLoading);
 	const setHosts = useHosts((state) => state.setHosts);
@@ -1869,11 +1899,17 @@ export const HostsManager: FC = () => {
 		[activeHosts, allHosts, includeDisabled],
 	);
 
+	const [tagFilter, setTagFilter] = useState<LabelFilterValue>(EMPTY_LABEL_FILTER);
 	const filteredHosts = useMemo(() => {
+		const tagged = tagFilter.tags.length
+			? baseFilteredHosts.filter((host) =>
+					matchesTagFilter(host.data.tags, tagFilter),
+				)
+			: baseFilteredHosts;
 		if (!searchQuery.trim()) {
-			return baseFilteredHosts;
+			return tagged;
 		}
-		return baseFilteredHosts.filter((host) => {
+		return tagged.filter((host) => {
 			const values = [
 				host.data.remark,
 				host.data.address,
@@ -1885,7 +1921,7 @@ export const HostsManager: FC = () => {
 			];
 			return matchesAnySearch(values, searchQuery, searchMatch);
 		});
-	}, [baseFilteredHosts, searchMatch, searchQuery]);
+	}, [baseFilteredHosts, searchMatch, searchQuery, tagFilter]);
 
 	const displayedHosts = filteredHosts;
 
@@ -2483,6 +2519,19 @@ export const HostsManager: FC = () => {
 				},
 			},
 			{
+				id: "tags",
+				header: t("tags.title"),
+				priority: "low",
+				hideBelow: "lg",
+				width: "170px",
+				maxWidth: "220px",
+				mobilePriority: 7,
+				mobileMetaLabel: t("tags.title"),
+				cell: (host) => (
+					<TagChips tags={host.data.tags} limit={2} />
+				),
+			},
+			{
 				id: "sni",
 				sortValue: (host) => host.data.sni ?? "",
 				header: t("hostsDialog.sni"),
@@ -2596,6 +2645,7 @@ export const HostsManager: FC = () => {
 						onSortingChange={setHostSorting}
 					/>
 					</div>
+					<TagFilterButton type="host" value={tagFilter} onChange={setTagFilter} />
 					<label className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={includeDisabled} onCheckedChange={(checked: boolean) => setIncludeDisabled(checked)} /><span>{t("hostsPage.showDisabled")}</span></label>
 				</div></div>
 						<div className="flex shrink-0 items-center justify-end gap-1">

@@ -1,3 +1,5 @@
+import { TagsSelect } from "components/labels/TagsSelect";
+import { useLabelItems, useTags } from "service/labels";
 import { Field, FieldDescription, FieldError, FieldLabel } from "components/ui/field";
 import { Input } from "components/ui/input";
 import { Textarea } from "components/ui/textarea";
@@ -7,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "components/ui/alert";
 import { Checkbox } from "components/ui/checkbox";
 import { Collapsible, CollapsibleContent } from "components/ui/collapsible";
 import { RadioGroup, RadioGroupItem } from "components/ui/radio-group";
-import { NativeSelect } from "components/ui/native-select";
+import { PanelSelect } from "components/common/PanelSelect";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { Badge } from "components/ui/badge";
 import { toast } from "components/ui/sonner";
@@ -66,7 +68,10 @@ import {
 	createDefaultHysteriaUdpMask,
 	createDefaultInboundForm,
 	createDefaultTlsCertificate,
+	createDefaultWireguardPeer,
+	HOSTLESS_PROTOCOLS,
 	type InboundFormValues,
+	protocolLabel,
 	protocolOptions,
 	type RawInbound,
 	rawInboundToFormValues,
@@ -87,6 +92,13 @@ import {
 	validateInboundFormFields,
 	validateInboundFormValues,
 } from "utils/inbounds";
+import {
+	networksForProtocol,
+	protocolSupportsReality,
+	protocolSupportsTls,
+	sniffingDestinationsFor,
+	supportsSniffing,
+} from "utils/inboundCapabilities";
 import {
 	getCustomNodeTargetIds,
 	sortInboundTargets,
@@ -177,32 +189,6 @@ const TPROXY_OPTIONS: Array<"" | "off" | "redirect" | "tproxy"> = [
 	"off",
 	"redirect",
 	"tproxy",
-];
-const TLS_COMPATIBLE_PROTOCOLS: Array<InboundFormValues["protocol"]> = [
-	"vmess",
-	"vless",
-	"trojan",
-	"shadowsocks",
-	"hysteria",
-];
-const TLS_COMPATIBLE_NETWORKS: Array<InboundFormValues["streamNetwork"]> = [
-	"tcp",
-	"ws",
-	"http",
-	"grpc",
-	"httpupgrade",
-	"xhttp",
-	"hysteria",
-];
-const REALITY_COMPATIBLE_PROTOCOLS: Array<InboundFormValues["protocol"]> = [
-	"vless",
-	"trojan",
-];
-const REALITY_COMPATIBLE_NETWORKS: Array<InboundFormValues["streamNetwork"]> = [
-	"tcp",
-	"http",
-	"grpc",
-	"xhttp",
 ];
 const XHTTP_MODE_OPTIONS: Array<InboundFormValues["xhttpMode"]> = [
 	"auto",
@@ -411,6 +397,14 @@ export const InboundFormModal: FC<Props> = ({
 		name: "socksAccounts",
 	});
 	const {
+		fields: wgxPeerFields,
+		append: appendWgxPeer,
+		remove: removeWgxPeer,
+	} = useFieldArray({
+		control,
+		name: "wgxPeers",
+	});
+	const {
 		fields: wsHeaderFields,
 		append: appendWsHeader,
 		remove: removeWsHeader,
@@ -545,8 +539,7 @@ export const InboundFormModal: FC<Props> = ({
 	const autoL2TPTunnelPortRef = useRef("");
 	const autoAnyConnectUDPPortRef = useRef("");
 	const supportsStreamSettings =
-		currentProtocol !== "http" &&
-		currentProtocol !== "socks" &&
+		!HOSTLESS_PROTOCOLS.includes(currentProtocol) &&
 		currentProtocol !== "openvpn" &&
 		currentProtocol !== "wireguard" &&
 		currentProtocol !== "amneziawg" &&
@@ -563,19 +556,20 @@ export const InboundFormModal: FC<Props> = ({
 		() => ["X25519, not Post-Quantum", "ML-KEM-768, Post-Quantum"],
 		[],
 	);
-	const ALL_NETWORK_OPTIONS =
-		currentProtocol === "hysteria" ? ["hysteria"] : streamNetworks;
-	const canEnableTls = useMemo(
-		() =>
-			TLS_COMPATIBLE_PROTOCOLS.includes(currentProtocol) &&
-			TLS_COMPATIBLE_NETWORKS.includes(streamNetwork),
-		[currentProtocol, streamNetwork],
+	const ALL_NETWORK_OPTIONS = useMemo(() => {
+		const networks = networksForProtocol(currentProtocol);
+		return networks.includes(streamNetwork)
+			? networks
+			: [...networks, streamNetwork];
+	}, [currentProtocol, streamNetwork]);
+	const canEnableTls = protocolSupportsTls(currentProtocol, streamNetwork);
+	const canEnableReality = protocolSupportsReality(
+		currentProtocol,
+		streamNetwork,
 	);
-	const canEnableReality = useMemo(
-		() =>
-			REALITY_COMPATIBLE_PROTOCOLS.includes(currentProtocol) &&
-			REALITY_COMPATIBLE_NETWORKS.includes(streamNetwork),
-		[currentProtocol, streamNetwork],
+	const sniffingDestinations = useMemo(
+		() => sniffingDestinationsFor(formValues),
+		[formValues],
 	);
 	const streamCompatibilityError = useMemo(() => {
 		if (!supportsStreamSettings) {
@@ -634,8 +628,6 @@ export const InboundFormModal: FC<Props> = ({
 		}
 		return protocolOptions.filter(
 			(option) =>
-				option !== "http" &&
-				option !== "socks" &&
 				!(option === "l2tp" && l2tpExists) &&
 				!(option === "ikev2" && ikev2Exists),
 		);
@@ -675,11 +667,17 @@ export const InboundFormModal: FC<Props> = ({
 	}, [initialValue, isOpen, reset]);
 
 	useEffect(() => {
-		if (currentProtocol !== "hysteria") {
+		const fixedNetwork =
+			currentProtocol === "hysteria"
+				? "hysteria"
+				: currentProtocol === "masque"
+					? "masque"
+					: null;
+		if (!fixedNetwork) {
 			return;
 		}
-		if (streamNetwork !== "hysteria") {
-			form.setValue("streamNetwork", "hysteria", {
+		if (streamNetwork !== fixedNetwork) {
+			form.setValue("streamNetwork", fixedNetwork, {
 				shouldDirty: true,
 				shouldValidate: true,
 			});
@@ -1078,6 +1076,16 @@ export const InboundFormModal: FC<Props> = ({
 		queryFn: () => apiFetch<EntityNote>(`/notes/inbound/${encodeURIComponent(noteTag)}`),
 		enabled: isOpen && isEditMode && canViewNote && Boolean(noteTag),
 	});
+	const { data: inboundLabels } = useLabelItems("inbound", isOpen);
+	const { data: knownInboundTags = [] } = useTags("inbound", isOpen);
+	const originalTags = useMemo(
+		() => (isEditMode ? (inboundLabels?.items[noteTag]?.tags ?? []) : []),
+		[inboundLabels, isEditMode, noteTag],
+	);
+	const [tagsDraft, setTagsDraft] = useState<string[]>([]);
+	useEffect(() => {
+		setTagsDraft(originalTags);
+	}, [originalTags, isOpen]);
 	const [noteDraft, setNoteDraft] = useState("");
 	useEffect(() => {
 		setNoteDraft(noteQuery.data?.note ?? "");
@@ -1095,7 +1103,12 @@ export const InboundFormModal: FC<Props> = ({
 		}
 		const nextNote = noteDraft.trim();
 		const originalNote = isEditMode ? (noteQuery.data?.note ?? "") : "";
-		await onSubmit({ ...values, note: canViewNote && nextNote !== originalNote ? nextNote : undefined });
+		const tagsChanged = tagsDraft.join("\n") !== originalTags.join("\n");
+		await onSubmit({
+			...values,
+			note: canViewNote && nextNote !== originalNote ? nextNote : undefined,
+			tags: tagsChanged ? tagsDraft : undefined,
+		});
 	};
 
 	const handleGenerateRealityKeypair = useCallback(async () => {
@@ -1477,7 +1490,7 @@ export const InboundFormModal: FC<Props> = ({
 									{mode === "create" ? t("inbounds.add") : mode === "clone" ? t("inbounds.cloneTitle") : t("inbounds.edit")}
 								</DialogTitle>
 								<DialogDescription className="truncate text-xs text-muted-foreground">
-									{String(currentProtocol).toUpperCase()}
+									{protocolLabel(String(currentProtocol))}
 								</DialogDescription>
 							</div>
 						</div>
@@ -1525,8 +1538,12 @@ export const InboundFormModal: FC<Props> = ({
 											</FormControl>
 											
 										</div>
+										<FormControl>
+											<FormLabel>{t("tags.title")}</FormLabel>
+											<TagsSelect value={tagsDraft} onChange={setTagsDraft} options={knownInboundTags.map((item) => item.tag)} />
+										</FormControl>
 										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-											<FormControl required isInvalid={!!portError || !!fieldValidationErrors.port}>
+											<FormControl className={currentProtocol === "tun" ? "hidden" : undefined} required isInvalid={!!portError || !!fieldValidationErrors.port}>
 												<FormLabel helpKey="portHelp">{t("port")}</FormLabel>
 												<Input
 													{...register("port", { required: true })}
@@ -1567,7 +1584,7 @@ export const InboundFormModal: FC<Props> = ({
 													disabled={mode === "edit"}
 													options={visibleProtocolOptions.map((option) => ({
 														value: option,
-														label: option.toUpperCase(),
+														label: protocolLabel(option),
 													}))}
 													placeholder={t("protocol")}
 													onChange={(value) => {
@@ -1578,6 +1595,40 @@ export const InboundFormModal: FC<Props> = ({
 															shouldDirty: true,
 															shouldValidate: true,
 														});
+														if (HOSTLESS_PROTOCOLS.includes(nextProtocol)) {
+															const defaults = createDefaultInboundForm(nextProtocol);
+															for (const key of [
+																"httpAccounts",
+																"socksAuth",
+																"socksAccounts",
+																"socksUdpIp",
+																"tunnelAllowedNetwork",
+																"tunName",
+																"tunMtu",
+																"tunUserLevel",
+																"tunAutoOutboundsInterface",
+																"wgxSecretKey",
+																"wgxMtu",
+																"wgxPeers",
+															] as const) {
+																form.setValue(key, defaults[key] as never, {
+																	shouldDirty: true,
+																});
+															}
+														}
+														if (nextProtocol === "masque") {
+															form.setValue("streamNetwork", "masque", {
+																shouldDirty: true,
+																shouldValidate: true,
+															});
+															form.setValue("streamSecurity", "tls", {
+																shouldDirty: true,
+																shouldValidate: true,
+															});
+															form.setValue("tlsAlpn", ["h3", "h2"], {
+																shouldDirty: true,
+															});
+														}
 														if (nextProtocol === "hysteria") {
 															form.setValue("streamNetwork", "hysteria", {
 																shouldDirty: true,
@@ -1956,7 +2007,7 @@ export const InboundFormModal: FC<Props> = ({
 												</FormControl>
 											</div>
 										)}
-										{currentProtocol === "socks" && (
+										{currentProtocol === "mixed" && (
 											<div className="flex flex-col gap-3">
 												<FormControl className="flex items-center">
 													<FormLabel className="mb-0" helpKey="inbounds.socks.udpHelp">{t("inbounds.socks.udp")}</FormLabel>
@@ -2033,6 +2084,200 @@ export const InboundFormModal: FC<Props> = ({
 															</p>
 														)}
 													</div>
+												)}
+											</div>
+										)}
+										{currentProtocol === "masque" && (
+											<div className="flex flex-col gap-3">
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+													<FormControl isInvalid={Boolean(fieldValidationErrors.masquePath)}>
+														<FormLabel helpKey="inbounds.masque.pathHelp">{t("inbounds.masque.path")}</FormLabel>
+														<Input {...register("masquePath")} placeholder="/.well-known/masque/ip/*/*/" />
+													</FormControl>
+													<FormControl isInvalid={Boolean(fieldValidationErrors.masqueMtu)}>
+														<FormLabel helpKey="inbounds.masque.mtuHelp">{t("inbounds.masque.mtu")}</FormLabel>
+														<Input {...register("masqueMtu")} inputMode="numeric" placeholder="1400" />
+														<FieldError>{fieldValidationErrors.masqueMtu}</FieldError>
+													</FormControl>
+												</div>
+												<FormControl isInvalid={Boolean(fieldValidationErrors.masqueAddress)}>
+													<FormLabel helpKey="inbounds.masque.addressHelp">{t("inbounds.masque.address")}</FormLabel>
+													<Textarea rows={2} {...register("masqueAddress")} placeholder="10.14.0.1/24" />
+													<FieldError>{fieldValidationErrors.masqueAddress}</FieldError>
+												</FormControl>
+											</div>
+										)}
+										{currentProtocol === "tunnel" && (
+											<div className="flex flex-col gap-3">
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+													<FormControl isInvalid={Boolean(fieldValidationErrors.tunnelRewriteAddress)}>
+														<FormLabel helpKey="inbounds.tunnel.rewriteAddressHelp">{t("inbounds.tunnel.rewriteAddress")}</FormLabel>
+														<Input {...register("tunnelRewriteAddress")} placeholder="1.1.1.1" />
+														<FieldError>{fieldValidationErrors.tunnelRewriteAddress}</FieldError>
+													</FormControl>
+													<FormControl isInvalid={Boolean(fieldValidationErrors.tunnelRewritePort)}>
+														<FormLabel helpKey="inbounds.tunnel.rewritePortHelp">{t("inbounds.tunnel.rewritePort")}</FormLabel>
+														<Input {...register("tunnelRewritePort")} inputMode="numeric" placeholder="53" />
+														<FieldError>{fieldValidationErrors.tunnelRewritePort}</FieldError>
+													</FormControl>
+												</div>
+												<FormControl>
+													<FormLabel helpKey="inbounds.tunnel.portMapHelp">{t("inbounds.tunnel.portMap")}</FormLabel>
+													<Textarea rows={3} {...register("tunnelPortMap")} placeholder="8080=10.0.0.5:80" />
+												</FormControl>
+												<FormControl>
+													<FormLabel helpKey="inbounds.tunnel.allowedNetworkHelp">{t("inbounds.tunnel.allowedNetwork")}</FormLabel>
+													<Controller
+														control={control}
+														name="tunnelAllowedNetwork"
+														render={({ field }) => (
+															<SearchableTagSelect
+																value={field.value}
+																options={["tcp,udp", "tcp", "udp"].map((option) => ({ value: option, label: option }))}
+																placeholder={t("inbounds.tunnel.allowedNetwork")}
+																onChange={(value) => field.onChange(String(value))}
+															/>
+														)}
+													/>
+												</FormControl>
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0" helpKey="inbounds.tunnel.followRedirectHelp">{t("inbounds.tunnel.followRedirect")}</FormLabel>
+													<Controller control={control} name={"tunnelFollowRedirect"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
+												</FormControl>
+											</div>
+										)}
+										{currentProtocol === "tun" && (
+											<div className="flex flex-col gap-3">
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+													<FormControl>
+														<FormLabel helpKey="inbounds.tun.nameHelp">{t("inbounds.tun.name")}</FormLabel>
+														<Input {...register("tunName")} placeholder="xray0" />
+													</FormControl>
+													<FormControl isInvalid={Boolean(fieldValidationErrors.tunMtu)}>
+														<FormLabel helpKey="inbounds.tun.mtuHelp">{t("inbounds.tun.mtu")}</FormLabel>
+														<Input {...register("tunMtu")} inputMode="numeric" placeholder="1500" />
+														<FieldError>{fieldValidationErrors.tunMtu}</FieldError>
+													</FormControl>
+													<FormControl>
+														<FormLabel helpKey="inbounds.tun.userLevelHelp">{t("inbounds.tun.userLevel")}</FormLabel>
+														<Input {...register("tunUserLevel")} inputMode="numeric" placeholder="0" />
+													</FormControl>
+													<FormControl>
+														<FormLabel helpKey="inbounds.tun.autoOutboundsInterfaceHelp">{t("inbounds.tun.autoOutboundsInterface")}</FormLabel>
+														<Input {...register("tunAutoOutboundsInterface")} placeholder="auto" />
+													</FormControl>
+													<FormControl>
+														<FormLabel helpKey="inbounds.tun.descHelp">{t("inbounds.tun.desc")}</FormLabel>
+														<Input {...register("tunDesc")} />
+													</FormControl>
+												</div>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+													<FormControl>
+														<FormLabel helpKey="inbounds.tun.gatewayHelp">{t("inbounds.tun.gateway")}</FormLabel>
+														<Textarea rows={2} {...register("tunGateway")} />
+													</FormControl>
+													<FormControl>
+														<FormLabel helpKey="inbounds.tun.dnsHelp">{t("inbounds.tun.dns")}</FormLabel>
+														<Textarea rows={2} {...register("tunDns")} />
+													</FormControl>
+													<FormControl>
+														<FormLabel helpKey="inbounds.tun.autoRoutingTableHelp">{t("inbounds.tun.autoRoutingTable")}</FormLabel>
+														<Textarea rows={2} {...register("tunAutoRoutingTable")} />
+													</FormControl>
+													<FormControl>
+														<FormLabel helpKey="inbounds.tun.wfpBlockLeakHelp">{t("inbounds.tun.wfpBlockLeak")}</FormLabel>
+														<Textarea rows={2} {...register("tunWfpBlockLeak")} />
+													</FormControl>
+												</div>
+												<FormControl>
+													<FormLabel helpKey="inbounds.tun.autoDnsToGatewayHelp">{t("inbounds.tun.autoDnsToGateway")}</FormLabel>
+													<Controller
+														control={control}
+														name="tunAutoSystemDnsToGateway"
+														render={({ field }) => (
+															<SearchableTagSelect
+																value={field.value}
+																options={[
+																	{ value: "", label: t("inbounds.tun.default") },
+																	{ value: "true", label: t("inbounds.tun.on") },
+																	{ value: "false", label: t("inbounds.tun.off") },
+																]}
+																placeholder={t("inbounds.tun.autoDnsToGateway")}
+																onChange={(value) => field.onChange(String(value))}
+															/>
+														)}
+													/>
+												</FormControl>
+											</div>
+										)}
+										{currentProtocol === "wireguard-xray" && (
+											<div className="flex flex-col gap-3">
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+													<FormControl required isInvalid={Boolean(fieldValidationErrors.wgxSecretKey)}>
+														<FormLabel helpKey="inbounds.wireguardXray.secretKeyHelp">{t("inbounds.wireguardXray.secretKey")}</FormLabel>
+														<Input {...register("wgxSecretKey")} />
+														<FieldError>{fieldValidationErrors.wgxSecretKey}</FieldError>
+													</FormControl>
+													<FormControl>
+														<FormLabel helpKey="inbounds.wireguardXray.mtuHelp">{t("inbounds.wireguardXray.mtu")}</FormLabel>
+														<Input {...register("wgxMtu")} inputMode="numeric" placeholder="1420" />
+													</FormControl>
+													<FormControl>
+														<FormLabel helpKey="inbounds.wireguardXray.dnsHelp">{t("inbounds.wireguardXray.dns")}</FormLabel>
+														<Input {...register("wgxDns")} placeholder="1.1.1.1" />
+													</FormControl>
+												</div>
+												<FormControl className="flex items-center">
+													<FormLabel className="mb-0" helpKey="inbounds.wireguardXray.noKernelTunHelp">{t("inbounds.wireguardXray.noKernelTun")}</FormLabel>
+													<Controller control={control} name={"wgxNoKernelTun"} render={({ field }) => <Switch checked={Boolean(field.value)} onCheckedChange={field.onChange} />} />
+												</FormControl>
+												<div className="flex justify-between items-center">
+													<p className="font-medium">{t("inbounds.wireguardXray.peers")}</p>
+													<Button onClick={() => appendWgxPeer(createDefaultWireguardPeer())} size="xs">
+														{t("inbounds.wireguardXray.addPeer")}
+													</Button>
+												</div>
+												<FieldError>{fieldValidationErrors.wgxPeers}</FieldError>
+												{wgxPeerFields.map((field, index) => (
+													<div key={field.id} className={cn("border rounded-md p-3", sectionBorder)}>
+														<div className="flex justify-between items-center mb-3">
+															<p className="font-semibold">
+																{t("inbounds.wireguardXray.peer")} #{index + 1}
+															</p>
+															<Button onClick={() => removeWgxPeer(index)} variant="ghost" size="xs" className="text-destructive hover:bg-destructive/10">
+																{t("delete")}
+															</Button>
+														</div>
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+															<FormControl>
+																<FormLabel helpKey="inbounds.wireguardXray.publicKeyHelp">{t("inbounds.wireguardXray.publicKey")}</FormLabel>
+																<Input {...register(`wgxPeers.${index}.publicKey` as const)} />
+															</FormControl>
+															<FormControl>
+																<FormLabel helpKey="inbounds.wireguardXray.privateKeyHelp">{t("inbounds.wireguardXray.privateKey")}</FormLabel>
+																<Input {...register(`wgxPeers.${index}.privateKey` as const)} />
+															</FormControl>
+															<FormControl>
+																<FormLabel helpKey="inbounds.wireguardXray.preSharedKeyHelp">{t("inbounds.wireguardXray.preSharedKey")}</FormLabel>
+																<Input {...register(`wgxPeers.${index}.preSharedKey` as const)} />
+															</FormControl>
+															<FormControl>
+																<FormLabel helpKey="inbounds.wireguardXray.keepAliveHelp">{t("inbounds.wireguardXray.keepAlive")}</FormLabel>
+																<Input {...register(`wgxPeers.${index}.keepAlive` as const)} inputMode="numeric" placeholder="25" />
+															</FormControl>
+															<FormControl>
+																<FormLabel helpKey="inbounds.wireguardXray.allowedIPsHelp">{t("inbounds.wireguardXray.allowedIPs")}</FormLabel>
+																<Textarea rows={2} {...register(`wgxPeers.${index}.allowedIPs` as const)} placeholder="10.0.0.2/32" />
+															</FormControl>
+															<FormControl>
+																<FormLabel helpKey="inbounds.wireguardXray.commentHelp">{t("inbounds.wireguardXray.comment")}</FormLabel>
+																<Input {...register(`wgxPeers.${index}.comment` as const)} />
+															</FormControl>
+														</div>
+													</div>
+												))}
+												{!wgxPeerFields.length && (
+													<p className="text-[0.875rem] text-gray-500">{t("inbounds.wireguardXray.noPeersHint")}</p>
 												)}
 											</div>
 										)}
@@ -4064,11 +4309,11 @@ export const InboundFormModal: FC<Props> = ({
 											<p className="text-[0.875rem] font-semibold">
 												{t("inbounds.streamSettings")}
 											</p>
-											{currentProtocol === "hysteria" ? (
+											{currentProtocol === "hysteria" || currentProtocol === "masque" ? (
 												<Alert className="rounded-md">
 													<Info className="size-4" aria-hidden="true" />
 													<AlertDescription className="text-[0.875rem]">
-														{t("inbounds.hysteria.fixedTransport")}
+														{currentProtocol === "masque" ? t("inbounds.masque.fixedTransport") : t("inbounds.hysteria.fixedTransport")}
 													</AlertDescription>
 												</Alert>
 											) : (
@@ -4105,7 +4350,7 @@ export const InboundFormModal: FC<Props> = ({
 	options={streamSecurityOptions.map((security) => ({
 		value: security,
 		label: security === "none" ? t("userDialog.flow.none") : security === "tls" ? "TLS" : security === "reality" ? "Reality" : security,
-		disabled: security === "tls" ? !TLS_COMPATIBLE_PROTOCOLS.includes(currentProtocol) : security === "reality" ? !REALITY_COMPATIBLE_PROTOCOLS.includes(currentProtocol) : false,
+		disabled: security === "tls" ? !canEnableTls : security === "reality" ? !canEnableReality : false,
 	}))}
 	onChange={(value) => field.onChange(value)}
 />
@@ -4697,13 +4942,22 @@ export const InboundFormModal: FC<Props> = ({
 														</div>
 													)}
 													{xhttpMode === "stream-up" && (
-														<FormControl>
-															<FormLabel helpKey="inbounds.xhttp.streamUpHelp">{t("inbounds.xhttp.streamUp")}</FormLabel>
-															<Input
-																{...register("xhttpScStreamUpServerSecs")}
-																placeholder="20-80"
-															/>
-														</FormControl>
+														<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+															<FormControl>
+																<FormLabel helpKey="inbounds.xhttp.maxBufferedHelp">{t("inbounds.xhttp.maxBuffered")}</FormLabel>
+																<Input
+																	{...register("xhttpScMaxBufferedPosts")}
+																	placeholder="30"
+																/>
+															</FormControl>
+															<FormControl>
+																<FormLabel helpKey="inbounds.xhttp.streamUpHelp">{t("inbounds.xhttp.streamUp")}</FormLabel>
+																<Input
+																	{...register("xhttpScStreamUpServerSecs")}
+																	placeholder="20-80"
+																/>
+															</FormControl>
+														</div>
 													)}
 													<FormControl className="flex items-center">
 														<FormLabel className="mb-0" helpKey="inbounds.xhttp.noSSEHelp">{t("inbounds.xhttp.noSSE")}</FormLabel>
@@ -5712,7 +5966,7 @@ export const InboundFormModal: FC<Props> = ({
 														placeholder="example.com"
 													/>
 												</FormControl>
-												{currentProtocol !== "hysteria" && (
+												{currentProtocol !== "hysteria" && currentProtocol !== "masque" && (
 													<FormControl>
 														<FormLabel helpKey="inbounds.tls.cipherSuitesHelp">{t("inbounds.tls.cipherSuites")}</FormLabel>
 														<SearchableTagSelect
@@ -5921,25 +6175,14 @@ export const InboundFormModal: FC<Props> = ({
 															{certConfig.useFile ? (
 																<FormControl>
 																	<FormLabel helpKey="inbounds.tls.existingCertificateHelp">{t("inbounds.tls.existingCertificate")}</FormLabel>
-																	<NativeSelect onChange={(event) => {
-																			const certificate = subscriptionBundle?.certificates.find(
-																				(item) => item.path === event.target.value,
-																			);
-																			if (!certificate) {
-																				return;
-																			}
-																			form.setValue(
-																				`tlsCertificates.${index}.certFile` as const,
-																				`${certificate.path}fullchain.pem`,
-																				{ shouldDirty: true },
-																			);
-																			form.setValue(
-																				`tlsCertificates.${index}.keyFile` as const,
-																				`${certificate.path}privkey.pem`,
-																				{ shouldDirty: true },
-																			);
-																		}}>
-																		{(subscriptionBundle?.certificates ?? [])
+																	<PanelSelect
+																		value={
+																			(subscriptionBundle?.certificates ?? []).find(
+																				(item) => item.path && certConfig.certFile === `${item.path}fullchain.pem`,
+																			)?.path ?? ""
+																		}
+																		placeholder={t("inbounds.tls.existingCertificate")}
+																		options={(subscriptionBundle?.certificates ?? [])
 																			.filter(
 																				(item) =>
 																					Boolean(item.path) &&
@@ -5947,12 +6190,16 @@ export const InboundFormModal: FC<Props> = ({
 																					item.status !== "invalid" &&
 																					item.status !== "revoked",
 																			)
-																			.map((item) => (
-																				<option key={item.domain} value={item.path}>
-																					{item.domain}
-																				</option>
-																			))}
-																	</NativeSelect>
+																			.map((item) => ({ value: item.path, label: item.domain }))}
+																		onValueChange={(value) => {
+																			const certificate = subscriptionBundle?.certificates.find((item) => item.path === String(value));
+																			if (!certificate) {
+																				return;
+																			}
+																			form.setValue(`tlsCertificates.${index}.certFile` as const, `${certificate.path}fullchain.pem`, { shouldDirty: true });
+																			form.setValue(`tlsCertificates.${index}.keyFile` as const, `${certificate.path}privkey.pem`, { shouldDirty: true });
+																		}}
+																	/>
 																</FormControl>
 															) : null}
 															{certConfig.useFile ? (
@@ -6384,7 +6631,7 @@ export const InboundFormModal: FC<Props> = ({
 										</div>
 									)}
 
-									{supportsStreamSettings && (
+									{supportsSniffing(currentProtocol) && (
 											<div className="flex flex-col gap-3 xray-dialog-section" data-form-section="sniffing" data-form-section-title={t("inbounds.sniffing")}>
 												<div className="flex items-center justify-between">
 													<div className="flex flex-row items-center gap-2">
@@ -6405,7 +6652,7 @@ export const InboundFormModal: FC<Props> = ({
 																render={({ field }) => (
 																	<div className="flex flex-col gap-2">
 																		<div className="flex flex-row items-center gap-4">
-																			{sniffingOptions.map((option) => (
+																			{sniffingOptions.filter((option) => sniffingDestinations.includes(option.value)).map((option) => (
 																				<label key={option.value} className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={(field.value ?? []).includes(option.value)} onCheckedChange={(checked) => field.onChange(checked === true ? [...(field.value ?? []), option.value] : (field.value ?? []).filter((item: string) => item !== option.value))} /><span>{option.label}</span></label>
 																			))}
 																		</div>

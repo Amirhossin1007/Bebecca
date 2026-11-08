@@ -7,6 +7,7 @@ import {
 	Code2,
 	Cpu,
 	Database,
+	FolderTree,
 	GitFork,
 	History,
 	Layers,
@@ -144,6 +145,7 @@ export const AppSidebar: FC<AppSidebarProps> = ({
 		const items: NavItemData[] = [
 			{ title: t("dashboard"), url: "/", icon: LayoutDashboard },
 			{ title: t("users"), url: "/users", icon: Users },
+			{ title: t("groups.title"), url: "/groups", icon: FolderTree },
 			{
 				title: t("bulkActions.menu"),
 				url: "/bulk-actions",

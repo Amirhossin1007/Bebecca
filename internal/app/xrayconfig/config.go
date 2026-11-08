@@ -23,11 +23,12 @@ const (
 )
 
 var proxyProtocols = map[string]struct{}{
-	"vmess":       {},
-	"vless":       {},
-	"trojan":      {},
-	"shadowsocks": {},
-	"hysteria":    {},
+	"vmess":        {},
+	"vless":        {},
+	"trojan":       {},
+	"shadowsocks":  {},
+	"hysteria":     {},
+	MasqueProtocol: {},
 }
 
 var auxiliaryInboundProtocols = map[string]struct{}{
@@ -64,6 +65,8 @@ var (
 		"splithttp":   {},
 		"xhttp":       {},
 		"hysteria":    {},
+		"xdrive":      {},
+		"masque":      {},
 	}
 	realityShortIDPattern  = regexp.MustCompile(`^[0-9a-fA-F]{2,16}$`)
 	xPaddingBytesPattern   = regexp.MustCompile(`^\d+(-\d+)?$`)
@@ -196,8 +199,13 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 	atLeast26622, _ := xrayVersionAtLeast(coreVersion, 26, 6, 22)
 	atLeast26930, _ := xrayVersionAtLeast(coreVersion, 26, 9, 30)
 	atLeast261010, _ := xrayVersionAtLeast(coreVersion, 26, 10, 10)
+	atLeast261017, _ := xrayVersionAtLeast(coreVersion, 26, 10, 17)
 	useSessionIDFields := atLeast26622
 	skippedLocalOSRules := 0
+	var droppedMasqueTags []string
+	if knownVersion && !atLeast261017 {
+		droppedMasqueTags = dropMasqueInbounds(cfg)
+	}
 	if !atLeast2698 {
 		routing := mapValue(cfg["routing"])
 		if rules, ok := routing["rules"].([]any); ok {
@@ -243,6 +251,7 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 		if knownVersion && !atLeast25829 && strings.EqualFold(jsonvalue.String(inbound["protocol"]), "vless") {
 			delete(mapValue(inbound["settings"]), "flow")
 		}
+		normalizeFallbackALPN(inbound)
 		stream := mapValue(inbound["streamSettings"])
 		normalizeStreamForXrayVersion(stream, atLeast26711, useSessionIDFields, knownVersion)
 		invalidPin, versionSensitive := normalizeTLSFieldsForXrayVersion(stream, atLeast26131, knownVersion)
@@ -360,6 +369,9 @@ func NormalizePayloadForXrayVersion(payload map[string]any, coreVersion string) 
 		}
 	}
 	warnings := make([]string, 0, 12)
+	if len(droppedMasqueTags) > 0 {
+		warnings = append(warnings, fmt.Sprintf("MASQUE requires Xray 26.10.17+; these inbounds were left out of this node's runtime config: %s", strings.Join(droppedMasqueTags, ", ")))
+	}
 	if skippedLocalOSRules > 0 {
 		warnings = append(warnings, fmt.Sprintf("Routing localOS requires Xray 26.9.8+; skipped %d incompatible rule(s) on this node", skippedLocalOSRules))
 	}
@@ -1201,6 +1213,37 @@ func isXrayPrivateDestination(value string) bool {
 	return false
 }
 
+func normalizeFallbackALPN(inbound map[string]any) {
+	settings := mapValue(inbound["settings"])
+	fallbacks, _ := settings["fallbacks"].([]any)
+	if len(fallbacks) == 0 {
+		return
+	}
+	result := make([]any, 0, len(fallbacks))
+	for _, item := range fallbacks {
+		fallback, _ := item.(map[string]any)
+		values, isList := fallback["alpn"].([]any)
+		if !isList {
+			result = append(result, item)
+			continue
+		}
+		if len(values) == 0 {
+			delete(fallback, "alpn")
+			result = append(result, fallback)
+			continue
+		}
+		for _, value := range values {
+			expanded := make(map[string]any, len(fallback))
+			for key, field := range fallback {
+				expanded[key] = field
+			}
+			expanded["alpn"] = jsonvalue.String(value)
+			result = append(result, expanded)
+		}
+	}
+	settings["fallbacks"] = result
+}
+
 func normalizeStreamForXrayVersion(stream map[string]any, useMethod, useSessionIDFields, knownVersion bool) {
 	normalizeStreamTransportMethod(stream, useMethod)
 	for _, key := range []string{"xhttpSettings", "splithttpSettings"} {
@@ -1654,6 +1697,12 @@ func validateExecutableInbound(inbound map[string]any) error {
 	if protocol == "hysteria" && network != "hysteria" {
 		return fmt.Errorf("invalid inbound %q: hysteria protocol requires hysteria stream network", tag)
 	}
+	if err := validateMasqueInbound(tag, protocol, network, mapValue(inbound["settings"])); err != nil {
+		return err
+	}
+	if err := validateXDriveInbound(tag, protocol, mapValue(inbound["settings"]), stream); err != nil {
+		return err
+	}
 	networkSettings := mapValue(stream[NetworkSettingsKey(network)])
 	if err := validateNetworkSettings(tag, network, networkSettings); err != nil {
 		return err
@@ -1662,7 +1711,7 @@ func validateExecutableInbound(inbound map[string]any) error {
 	security := strings.ToLower(strings.TrimSpace(jsonvalue.String(stream["security"])))
 	switch security {
 	case "", "none":
-		if protocol == "hysteria" {
+		if protocol == "hysteria" || protocol == MasqueProtocol {
 			return fmt.Errorf("invalid inbound %q: %s protocol requires TLS security", tag, strings.ToUpper(protocol))
 		}
 		return nil

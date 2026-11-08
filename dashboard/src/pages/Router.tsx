@@ -35,6 +35,7 @@ const ApiDocsPage = lazy(async () => ({
 }));
 const BulkActionsPage = lazy(() => import("./BulkActionsPage"));
 const CoreSettingsPage = lazy(() => import("./CoreSettingsPage"));
+const GroupsPage = lazy(() => import("./GroupsPage"));
 const HostsPage = lazy(() => import("./HostsPage"));
 const HAProxyPage = lazy(() => import("./HAProxyPage"));
 const IntegrationSettingsPage = lazy(async () => ({
@@ -114,6 +115,7 @@ const RouteErrorPage = () => {
 const routeSegments = new Set([
 	"login",
 	"users",
+	"groups",
 	"bulk-actions",
 	"admins",
 	"myaccount",
@@ -272,6 +274,10 @@ export const router = createBrowserRouter(
 				{
 					path: "users",
 					element: <LazyPage Page={UsersPage} />,
+				},
+				{
+					path: "groups",
+					element: <LazyPage Page={GroupsPage} />,
 				},
 				{
 					path: "bulk-actions",
