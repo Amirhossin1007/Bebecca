@@ -1,4 +1,3 @@
-import { GitHubStars } from "components/GitHubStars";
 import { HeaderCalendar } from "components/HeaderCalendar";
 import { Language } from "components/Language";
 import { NotificationBell } from "components/NotificationBell";
@@ -77,9 +76,6 @@ export function AppHeader() {
 				{getUserIsSuccess && userData.username ? (
 					<NotificationBell />
 				) : null}
-				<div className="hidden md:flex items-center">
-					<GitHubStars />
-				</div>
 				<Language triggerVariant="ghost" />
 				<ThemeSelector minimal trigger="icon" />
 			</div>

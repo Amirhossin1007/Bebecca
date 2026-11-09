@@ -42,7 +42,6 @@ import { useDisclosure } from "hooks/useDisclosure";
 import { useMediaQuery } from "hooks/useMediaQuery";
 
 import { cn } from "lib/cn";
-import { GitHubStars } from "./GitHubStars";
 import { HeaderCalendar } from "./HeaderCalendar";
 import { NotificationBell } from "./NotificationBell";
 import ThemeSelector from "./ThemeSelector";
@@ -1301,7 +1300,6 @@ export function AppLayout() {
 						<div className="flex shrink-0 items-center gap-2">
 							<HeaderCalendar isCompact={calendarCompact} />
 							{getUserIsSuccess && userData.username && <NotificationBell />}
-							<GitHubStars />
 
 							{getUserIsSuccess && userData.username && (
 								<DropdownMenu open={userMenu.isOpen} onOpenChange={(open) => {
