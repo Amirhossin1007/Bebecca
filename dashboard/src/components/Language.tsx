@@ -1,11 +1,10 @@
-import { Button } from "components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
 import { Check, Languages } from "lucide-react";
+
+import { cn } from "lib/cn";
+import { Button } from "components/ui/button";
 import type { FC, MutableRefObject, ReactNode } from "react";
 import ReactCountryFlag from "react-country-flag";
 import { useTranslation } from "react-i18next";
@@ -17,11 +16,18 @@ type HeaderProps = {
 	triggerVariant?: "outline" | "ghost";
 };
 
+const LangIcon = withClass(Languages, "w-4 h-4");
+
+const CheckIconChakra = withClass(Check, "w-4 h-4");
+
 export const Language: FC<HeaderProps> = ({
+	portalContainer,
 	triggerVariant = "outline",
 }) => {
 	const { i18n } = useTranslation();
-	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const menuBg = "bg-surface-light dark:bg-surface-dark";
+	const borderColor = "border-blackAlpha-200! dark:border-whiteAlpha-200!";
+	const textColor = "text-gray-800 dark:text-gray-100";
 
 	const changeLanguage = (lang: string) => {
 		i18n.changeLanguage(lang);
@@ -34,46 +40,42 @@ export const Language: FC<HeaderProps> = ({
 		{ code: "ru", label: "Русский", flag: "RU" },
 	];
 
+	const menuList = (
+		<DropdownMenuContent className={cn("min-w-[calc(100vw_-_24px)]! sm:min-w-[200px]! max-w-[calc(100vw_-_16px)] z-[9999]", menuBg, borderColor, textColor)}>
+			{items.map(({ code, label, flag }) => (
+				<DropdownMenuItem key={code} onSelect={() => changeLanguage(code)} className="text-[0.875rem] bg-transparent">
+					<div className="flex flex-row items-center gap-2 justify-between w-full">
+						<div className="flex flex-row items-center gap-2">
+							{code === "fa" ? (
+								<ImperialIranFlag style={{ width: "16px", height: "12px" }} />
+							) : (
+								<ReactCountryFlag
+									countryCode={flag}
+									svg
+									style={{ width: "16px", height: "12px" }}
+								/>
+							)}
+							<p>{label}</p>
+						</div>
+						{i18n.language === code && <CheckIconChakra />}
+					</div>
+				</DropdownMenuItem>
+			))}
+		</DropdownMenuContent>
+	);
+
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button
-					type="button"
-					size="sm"
-					variant={triggerVariant}
-					className="relative h-[34px] w-[34px] p-0 rounded-full md:rounded-[12px] border border-panel-border! bg-panel-surface text-panel-text hover:bg-panel-elevated! cursor-pointer shrink-0"
-				>
-					<Languages className="w-4 h-4" />
+				<Button type="button" size="sm" variant={triggerVariant} className="relative">
+					<LangIcon />
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent
-				align={isRTL ? "start" : "end"}
-				className="min-w-[calc(100vw-24px)]! sm:min-w-[200px]! max-w-[calc(100vw-16px)] z-50 rounded-[14px] bg-panel-surface border border-panel-border! text-panel-text p-1 shadow-lg"
-			>
-				{items.map(({ code, label, flag }) => (
-					<DropdownMenuItem
-						key={code}
-						onSelect={() => changeLanguage(code)}
-						className="text-sm rounded-[10px] cursor-pointer hover:bg-panel-elevated! focus:bg-panel-elevated! text-panel-text px-3 py-2"
-					>
-						<div className="flex flex-row items-center justify-between w-full">
-							<div className="flex flex-row items-center gap-2.5">
-								{code === "fa" ? (
-									<ImperialIranFlag style={{ width: "16px", height: "12px" }} />
-								) : (
-									<ReactCountryFlag
-										countryCode={flag}
-										svg
-										style={{ width: "16px", height: "12px" }}
-									/>
-								)}
-								<span>{label}</span>
-							</div>
-							{i18n.language === code && <Check className="w-4 h-4 text-panel-accent" />}
-						</div>
-					</DropdownMenuItem>
-				))}
-			</DropdownMenuContent>
+			{portalContainer ? (
+				<>{menuList}</>
+			) : (
+				<>{menuList}</>
+			)}
 		</DropdownMenu>
 	);
 };

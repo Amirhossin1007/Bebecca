@@ -1,31 +1,10 @@
 import { Button } from "components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuTrigger,
-} from "components/ui/dropdown-menu";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "components/ui/popover";
-import { ToggleRow } from "components/ui/toggle-row";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from "components/ui/tooltip";
-import { useDisclosure } from "hooks/useDisclosure";
-import { useMediaQuery } from "hooks/useMediaQuery";
-import { cn } from "lib/cn";
-import { useColorMode } from "lib/color-mode";
-import {
-	ENTITY_PAGE_LABELS,
-	ENTITY_PAGE_SECTIONS,
-	useEntityPagePrefs,
-} from "lib/entityPages";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "components/ui/dropdown-menu";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { Check, Moon, Sun, SwatchBook } from "lucide-react";
+import { useColorMode } from "lib/color-mode";
 import {
 	type CSSProperties,
 	type FC,
@@ -35,7 +14,31 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
+
+import { useDisclosure } from "hooks/useDisclosure";
+import { useMediaQuery } from "hooks/useMediaQuery";
+import { cn } from "lib/cn";
+import { ENTITY_PAGE_LABELS, ENTITY_PAGE_SECTIONS, useEntityPagePrefs } from "lib/entityPages";
+import { ToggleRow } from "components/ui/toggle-row";
 import { updateThemeColor } from "utils/themeColor";
+
+const THEME_OPTIONS: Array<{
+	key: ThemeMode;
+	label: string;
+	icon: typeof Moon;
+}> = [
+	{ key: "dark", label: "Dark", icon: Moon },
+	{ key: "light", label: "Light", icon: Sun },
+];
+
+/** Every theme-menu surface gets the same width, padding and radius. */
+const PANEL_CLASS =
+	"min-w-[min(320px,calc(100vw_-_24px))]! max-w-[calc(100vw_-_16px)] p-3 rounded-md shadow-sm sm:min-w-[320px]!";
+
+const THEME_KEY = "rb-theme";
+const CHAKRA_THEME_KEY = "chakra-ui-color-mode";
+const ACCENT_KEY = "rb-accent";
+const CUSTOM_THEMES_KEY = "rb-custom-themes";
 
 type ThemeMode = "dark" | "light";
 
@@ -54,23 +57,6 @@ type ThemeSelectorProps = {
 	onModalOpen?: () => void;
 	onModalClose?: () => void;
 };
-
-const THEME_OPTIONS: Array<{
-	key: ThemeMode;
-	label: string;
-	icon: typeof Moon;
-}> = [
-	{ key: "dark", label: "Dark", icon: Moon },
-	{ key: "light", label: "Light", icon: Sun },
-];
-
-const PANEL_CLASS =
-	"min-w-[min(320px,calc(100vw_-_24px))]! max-w-[calc(100vw_-_16px)] p-3 rounded-[14px] border border-panel-border! bg-panel-surface shadow-xl sm:min-w-[320px]!";
-
-const THEME_KEY = "rb-theme";
-const CHAKRA_THEME_KEY = "chakra-ui-color-mode";
-const ACCENT_KEY = "rb-accent";
-const CUSTOM_THEMES_KEY = "rb-custom-themes";
 
 const ACCENT_OPTIONS: AccentOption[] = [
 	{
@@ -114,11 +100,11 @@ const rgbToHex = (r: number, g: number, b: number) => {
 };
 
 const rgbToHsl = (r: number, g: number, b: number) => {
-	let red = r / 255;
-	let green = g / 255;
-	let blue = b / 255;
-	const max = Math.max(red, green, blue);
-	const min = Math.min(red, green, blue);
+	r /= 255;
+	g /= 255;
+	b /= 255;
+	const max = Math.max(r, g, b);
+	const min = Math.min(r, g, b);
 	let h = 0;
 	let s = 0;
 	const l = (max + min) / 2;
@@ -126,14 +112,14 @@ const rgbToHsl = (r: number, g: number, b: number) => {
 		const d = max - min;
 		s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
 		switch (max) {
-			case red:
-				h = (green - blue) / d + (green < blue ? 6 : 0);
+			case r:
+				h = (g - b) / d + (g < b ? 6 : 0);
 				break;
-			case green:
-				h = (blue - red) / d + 2;
+			case g:
+				h = (b - r) / d + 2;
 				break;
 			default:
-				h = (red - green) / d + 4;
+				h = (r - g) / d + 4;
 		}
 		h /= 6;
 	}
@@ -149,12 +135,11 @@ const hslToRgb = (h: number, s: number, l: number) => {
 		r = g = b = l;
 	} else {
 		const hue2rgb = (p: number, q: number, t: number) => {
-			let normalizedT = t;
-			if (normalizedT < 0) normalizedT += 1;
-			if (normalizedT > 1) normalizedT -= 1;
-			if (normalizedT < 1 / 6) return p + (q - p) * 6 * normalizedT;
-			if (normalizedT < 1 / 2) return q;
-			if (normalizedT < 2 / 3) return p + (q - p) * (2 / 3 - normalizedT) * 6;
+			if (t < 0) t += 1;
+			if (t > 1) t -= 1;
+			if (t < 1 / 6) return p + (q - p) * 6 * t;
+			if (t < 1 / 2) return q;
+			if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
 			return p;
 		};
 		const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
@@ -285,6 +270,7 @@ const EntityPageToggles: FC<{ minimal?: boolean }> = ({ minimal }) => {
 	);
 };
 
+/** The picker body. The icon, menu and nested-menu triggers all render it. */
 const ThemePanel: FC<ThemePanelProps> = ({
 	minimal,
 	activeTheme,
@@ -306,17 +292,12 @@ const ThemePanel: FC<ThemePanelProps> = ({
 							const selected = activeTheme === theme.key;
 							const Icon = theme.icon;
 							return (
-								<Button
-									key={theme.key}
-									onClick={() => onSelectTheme(theme.key)}
-									variant="outline"
-									className={cn(
-										"relative h-[72px] rounded-[10px] px-3 text-panel-text md:hover:border-panel-accent! md:hover:bg-panel-elevated active:bg-panel-elevated",
+								<Button key={theme.key} onClick={() => onSelectTheme(theme.key)} variant="outline" className={cn(
+										"relative h-[72px] rounded-[6px] px-3 text-panel-text hover:border-panel-accent! hover:bg-panel-elevated",
 										selected
 											? "border-2 border-panel-accent! bg-panel-elevated"
 											: "border border-panel-border! bg-transparent",
-									)}
-								>
+									)}>
 									<span className="flex w-full flex-col items-center justify-center gap-2">
 										<Icon className="size-4" />
 										<span className="text-center font-bold leading-none">
@@ -348,7 +329,8 @@ const ThemePanel: FC<ThemePanelProps> = ({
 							const label = t(`theme.accent.${accent.key}`, accent.label);
 							return (
 								<Tooltip key={accent.key}>
-									<TooltipTrigger asChild>
+<TooltipTrigger asChild>
+									
 										<button
 											type="button"
 											aria-label={label}
@@ -360,17 +342,18 @@ const ThemePanel: FC<ThemePanelProps> = ({
 												} as CSSProperties
 											}
 											className={cn(
-												"inline-flex h-[34px] min-w-[34px]! items-center justify-center rounded-[10px] bg-[var(--swatch)] text-white outline-none transition-all md:hover:bg-[var(--swatch-hover)] focus-visible:shadow-[0_0_0_2px_var(--rb-panel-accent)] active:scale-95",
+												"inline-flex h-[34px] min-w-[34px]! items-center justify-center rounded-[6px] bg-[var(--swatch)] text-white outline-none transition-colors hover:border-panel-text! hover:bg-[var(--swatch-hover)] focus-visible:shadow-[0_0_0_2px_var(--rb-panel-accent)]",
 												selected
-													? "ring-2 ring-panel-accent ring-offset-2 ring-offset-panel-surface"
-													: "border border-panel-border/60 md:hover:border-panel-border-strong",
+													? "border-2 border-panel-text!"
+													: "border border-panel-border!",
 											)}
 										>
 											{selected ? <Check className="size-4" /> : null}
 										</button>
-									</TooltipTrigger>
-									<TooltipContent>{label}</TooltipContent>
-								</Tooltip>
+									
+								</TooltipTrigger>
+<TooltipContent>{label}</TooltipContent>
+</Tooltip>
 							);
 						})}
 					</div>
@@ -383,6 +366,7 @@ const ThemePanel: FC<ThemePanelProps> = ({
 
 export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	minimal = false,
+	portalContainer,
 	trigger = "icon",
 	triggerLabel,
 	onModalClose,
@@ -390,6 +374,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	const { t } = useTranslation();
 	const { colorMode, setColorMode } = useColorMode();
 	const themeMenu = useDisclosure();
+	// Chakra auto-placed the nested picker to the side on desktop and below the row on mobile.
 	const isWide = useMediaQuery("(min-width: 48em)");
 	const activeTheme = normalizeTheme(colorMode);
 	const [activeAccent, setActiveAccent] = useState(getStoredAccent);
@@ -429,28 +414,18 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 
 	if (trigger === "menuItem") {
 		return (
-			<Popover
-				open={themeMenu.isOpen}
-				onOpenChange={(open) =>
+			<Popover open={themeMenu.isOpen} onOpenChange={(open) =>
 					open ? themeMenu.onOpen() : themeMenu.onClose()
-				}
-			>
+				}>
 				<PopoverTrigger asChild>
-					<Button
-						onClick={(event: ReactMouseEvent) => event.stopPropagation()}
-						variant="ghost"
-						className="h-10 w-full justify-start gap-3 rounded-[12px] bg-transparent px-3 font-medium text-panel-text md:hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated"
-					>
+					<Button onClick={(event: ReactMouseEvent) => event.stopPropagation()} variant="ghost" className="h-10 w-full justify-start gap-3 rounded-md bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
 						<SwatchBook className="size-4 shrink-0" />
 						<span className="truncate">
 							{triggerLabel || t("header.theme")}
 						</span>
 					</Button>
 				</PopoverTrigger>
-				<PopoverContent
-					side={isWide ? "left" : "bottom"}
-					className={cn("items-start", PANEL_CLASS)}
-				>
+				<PopoverContent side={isWide ? "left" : "bottom"} className={cn("items-start", PANEL_CLASS)}>
 					{panel}
 				</PopoverContent>
 			</Popover>
@@ -459,18 +434,13 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 
 	const triggerButton =
 		trigger === "icon" ? (
-			<Button
-				aria-label={t("header.theme")}
-				variant="outline"
-				size="icon"
-				className="relative h-[34px] w-[34px] rounded-full md:rounded-[12px] border border-panel-border! bg-panel-surface text-panel-text hover:bg-panel-elevated! shrink-0"
-			>
-				<SwatchBook className="size-4" />
+			<Button aria-label={t("header.theme")} variant="outline" size="icon" className="relative">
+				<SwatchBook />
 			</Button>
 		) : (
 			<Button variant="ghost" className="w-full justify-between">
 				{triggerLabel || t("header.theme")}
-				<SwatchBook className="size-4" />
+				<SwatchBook />
 			</Button>
 		);
 

@@ -4,11 +4,12 @@ import { Spinner } from "components/ui/spinner";
 import { Alert } from "components/ui/alert";
 import { Field, FieldDescription, FieldLabel } from "components/ui/field";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "components/ui/dialog";
+import { AppDialog } from "components/dialogs/AppDialog";
 import { Progress } from "components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { toast } from "components/ui/sonner";
 import { CircleAlert, CircleCheck, TriangleAlert } from "lucide-react";
-import { RefreshCw, ArrowLeftRight, Upload, Check, Clipboard, Terminal } from "lucide-react";
+import { RefreshCw, ArrowLeftRight, Upload, Check, Clipboard } from "lucide-react";
 
 import { cn } from "lib/cn";
 import useGetUser from "hooks/useGetUser";
@@ -69,15 +70,16 @@ const shouldWaitForPanelReturn = (operation?: MaintenanceOperation | null) =>
 			operation?.phase === "restarting",
 	);
 
-const createRegex = (pattern: string) => new RegExp(pattern, "g");
-const ansiEscapePattern = createRegex(
-	"(?:\\u001b|\\x1b)\\[[0-9;]*[a-zA-Z]|\\[(?:\\d{1,3}(?:;\\d{1,3})*)?m|\\x08|\\x0d",
-);
+const ansiEscapePattern =
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: Strip ANSI escape codes from raw terminal logs
+	/\u001B|\u009B|[\u001B\u009B][[\]()#;?]*(?:(?:(?:[a-zA-Z\d]*(?:;[a-zA-Z\d]*)*)?\u0007)|(?:(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]))/g;
 
 const cleanTerminalOutput = (logs?: string[]) =>
 	(logs || [])
 		.join("\n")
 		.replace(ansiEscapePattern, "")
+		// biome-ignore lint/suspicious/noControlCharactersInRegex: Strip backspace characters from terminal logs
+		.replace(/\x08/g, "")
 		.trimEnd();
 
 export const DashboardMaintenanceControls = ({
@@ -304,7 +306,7 @@ export const DashboardMaintenanceControls = ({
 	const renderUpdatePopover = () => (
 		<Popover>
 			<PopoverTrigger asChild>
-				<Button disabled={!canMaintain || !hostActionsAvailable || info.isLoading} size="xs" className={cn("h-[32px] w-full sm:w-auto px-3.5 border-panel-border! rounded-[12px] whitespace-nowrap", update?.available ? "bg-[var(--rb-panel-accent)]" : "bg-transparent", update?.available ? "text-white" : "text-panel-text")} variant={update?.available ? "default" : "outline"}>
+				<Button disabled={!canMaintain || !hostActionsAvailable || info.isLoading} size="xs" className={cn("h-[32px] w-full sm:w-auto px-3.5 border-panel-border! rounded-full whitespace-nowrap", update?.available ? "bg-[var(--rb-panel-accent)]" : "bg-transparent", update?.available ? "text-white" : "text-panel-text")} variant={update?.available ? "default" : "outline"}>
 					<div className="flex flex-row gap-1.5 items-center justify-center w-full">
 						<span className="inline-flex items-center justify-center shrink-0">
 							<Upload className="w-[15px] h-[15px]" />
@@ -463,7 +465,7 @@ export const DashboardMaintenanceControls = ({
 				)}
 
 				{canMaintain && (
-					<Button onClick={() => setConfirmAction("restart")} disabled={info.isPending || !hostActionsAvailable} variant="outline" size="xs" loading={restartMutation.isPending} className={cn("border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10", "h-[32px] px-3.5 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-[12px] whitespace-nowrap")}>
+					<Button onClick={() => setConfirmAction("restart")} disabled={info.isPending || !hostActionsAvailable} variant="outline" size="xs" loading={restartMutation.isPending} className={cn("border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10", "h-[32px] px-3.5 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap")}>
 						<div className="flex flex-row gap-1.5 items-center justify-center">
 							<span className="inline-flex items-center justify-center shrink-0">
 								<ArrowLeftRight className="w-[15px] h-[15px]" />
@@ -483,7 +485,7 @@ export const DashboardMaintenanceControls = ({
 					</div>
 
 					<div className="flex gap-2 w-full items-center">
-						<Button onClick={() => setConfirmAction("restart")} disabled={info.isPending || !hostActionsAvailable} variant="outline" size="xs" loading={restartMutation.isPending} className={cn("border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10", "flex-[1_1_50%] h-[32px] px-3 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-[12px] whitespace-nowrap")}>
+						<Button onClick={() => setConfirmAction("restart")} disabled={info.isPending || !hostActionsAvailable} variant="outline" size="xs" loading={restartMutation.isPending} className={cn("border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10", "flex-[1_1_50%] h-[32px] px-3 border-panel-border! text-red-400 hover:bg-[rgba(239,_68,_68,_0.1)] hover:border-red-400! rounded-full whitespace-nowrap")}>
 							<div className="flex flex-row gap-1.5 items-center justify-center w-full">
 								<span className="inline-flex items-center justify-center shrink-0">
 									<ArrowLeftRight className="w-[15px] h-[15px]" />
@@ -494,126 +496,112 @@ export const DashboardMaintenanceControls = ({
 							</div>
 						</Button>
 
-						<div className="flex-[1_1_50%] min-w-0!">
-							<DashboardBackupControls
-								isBinaryRuntime={hostActionsAvailable}
-								runtimeLoading={info.isLoading}
-								width="100%"
-							/>
-						</div>
+						{canBackUp && (
+							<div className={"[&_>_button]:w-full [&_>_button]:h-[32px]! [&_>_button]:rounded-full! [&_>_button]:text-[12px]! [&_>_button]:font-semibold! [&_>_button]:border-panel-border! [&_>_button]:text-panel-text! [&_>_button]:whitespace-nowrap! flex-[1_1_50%] min-w-0!"}>
+								<DashboardBackupControls
+									isBinaryRuntime={hostActionsAvailable}
+									runtimeLoading={info.isLoading}
+								/>
+							</div>
+						)}
 					</div>
 				</div>
 			)}
 
-			<Dialog open={isUpdateDialogOpen} onOpenChange={(open) => { if (!open) (() => {
-					if (operation?.error) setUpdateDialogOpen(false);
-				})(); }}>
-				
-				<DialogContent className="rounded-[20px] overflow-hidden bg-panel-surface border-panel-border! border shadow-2xl mx-4 max-w-[480px]">
-					<DialogHeader className="px-6 pt-6 pb-4 border-b border-panel-border!">
-						<div className="flex items-center justify-between">
-							<div className="flex flex-row items-center gap-3">
-								<div className="flex w-[36px] h-[36px] items-center justify-center rounded-[12px] bg-panel-elevated text-[var(--rb-panel-accent)] border border-panel-border!">
-									{operation?.error ? (
-										<RefreshCw className="w-[18px]" />
-									) : operation?.phase === "completed" ? (
-										<Check className="w-[18px]" />
-									) : (
-										<RefreshCw className="w-[18px] animate-spin" />
-									)}
-								</div>
-								<div>
-									<p className="text-[15px] font-bold text-panel-text">
-										{t("dashboard.maintenance.updateProgressTitle")}
-									</p>
-									<div className="flex flex-row items-center gap-2 mt-0.5">
-										<p className="text-[11px] text-panel-text-muted font-medium">
-											{currentVersion}
-										</p>
-										{selectedTarget && (
-											<>
-												<p className="text-[11px] text-panel-text-muted">
-													{document.documentElement.dir === "rtl" ? "←" : "→"}
-												</p>
-												<p dir="ltr" className="text-[11px] text-[var(--rb-panel-accent)] font-bold [unicode-bidi:isolate]">
-													{selectedTarget}
-												</p>
-											</>
-										)}
-									</div>
-								</div>
-							</div>
-							{operation?.error && null}
-						</div>
-					</DialogHeader>
-
-					<div className={cn("px-5 py-4 overflow-y-auto", "px-6 py-5")}>
-						<div className="flex flex-col gap-4">
-							<div className="p-4 rounded-[16px] bg-panel-elevated border border-panel-border! [transition:all_0.3s_ease]">
-								<div className="flex items-center justify-between mb-2">
-									<div className="flex flex-row items-center gap-2.5">
-										<div className={cn("flex w-[8px] h-[8px] rounded-full", operation?.error ? "bg-red-500" : (operation?.phase === "completed" ? "bg-green-500" : "bg-[var(--rb-panel-accent)]"), operation?.error ? "shadow-[0_0_10px_rgba(239,_68,_68,_0.6)]" : (operation?.phase === "completed" ? "shadow-[0_0_10px_rgba(34,_197,_94,_0.6)]" : "shadow-[0_0_10px_var(--rb-panel-accent)]"))} />
-										<p className="text-[13px] font-bold text-panel-text">
-											{operation?.phase
-												? t(`dashboard.maintenance.phase.${operation.phase}`, operation.phase)
-												: t("dashboard.maintenance.phase.queued")}
-										</p>
-									</div>
-									{typeof operation?.progress === "number" && (
-										<p dir="ltr" className="text-[12px] font-bold text-[var(--rb-panel-accent)] [font-variant-numeric:tabular-nums]">
-											{Math.round(operation.progress)}%
-										</p>
-									)}
-								</div>
-
-								<p className="text-[12px] text-panel-text-secondary font-medium mb-3">
-									{operation?.error
-										? operation.error
-										: operation?.message
-											? t(`dashboard.maintenance.message.${operation.message.replace(/[^a-zA-Z]/g, "")}`, operation.message)
-											: t("dashboard.maintenance.message.preparingUpdate")}
-								</p>
-
-								<Progress value={typeof operation?.progress === "number" ? operation.progress : undefined} className={cn("[&_>_div]:[transition:width_0.4s_ease]", operation?.error ? "[&_>_div]:bg-[var(--color-red-500)]" : (operation?.phase === "completed" ? "[&_>_div]:bg-[var(--color-green-500)]" : "[&_>_div]:bg-[var(--rb-panel-accent)]"), "rounded-full h-[6px] bg-panel-surface")} />
-							</div>
-
-							{waitingForAPI && (
-								<p className="text-[12px] text-panel-text-muted text-center">
-									{t("dashboard.maintenance.autoRefreshAfterRestart")}
-								</p>
-							)}
-
-							<div className="rounded-[16px] border border-panel-border! overflow-hidden bg-panel-elevated/40">
-								<div className="flex items-center justify-between px-3.5 py-2 border-b border-panel-border! bg-panel-elevated">
-									<div className="flex items-center gap-2">
-										<Terminal className="w-[14px] h-[14px] text-[var(--rb-panel-accent)]" />
-										<p className="text-[11px] font-semibold text-panel-text-secondary leading-[1]">
-											{t("dashboard.maintenance.liveLogs")}
-										</p>
-									</div>
-									<Tooltip>
-<TooltipTrigger asChild>
-										<Button aria-label={t("dashboard.maintenance.copyLogs")} tabIndex={-1} onClick={() => {
-												const logs = cleanTerminalOutput(operation?.logs);
-												if (logs) {
-													navigator.clipboard.writeText(logs);
-													setLogsCopied(true);
-													setTimeout(() => setLogsCopied(false), 2000);
-												}
-											}} variant="ghost" size="xs" className={cn("size-7 p-0", cn("h-[22px] w-[22px] min-w-[22px]! rounded-[6px] hover:text-panel-text", logsCopied ? "text-green-500" : "text-panel-text-muted"))}>{logsCopied ? <Check className="w-[13px]" /> : <Clipboard className="w-[13px]" />}</Button>
-									</TooltipTrigger>
-<TooltipContent>{logsCopied ? t("dashboard.maintenance.logsCopied") : t("dashboard.maintenance.copyLogs")}</TooltipContent>
-</Tooltip>
-								</div>
-
-								<pre ref={logsContainerRef} dir="ltr" className={"[&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-thumb]:bg-[rgba(255,_255,_255,_0.12)] [&::-webkit-scrollbar-thumb]:rounded-[3px] max-h-[220px] overflow-y-auto p-3.5 text-[11px] [font-family:'JetBrains_Mono',_'Fira_Code',_Menlo,_Monaco,_Consolas,_monospace] leading-[1.6] text-panel-text text-left whitespace-pre-wrap break-all"}>
-									{cleanTerminalOutput(operation?.logs) || t("dashboard.maintenance.waitingForOutput")}
-								</pre>
-							</div>
-						</div>
+			<AppDialog
+				open={isUpdateDialogOpen}
+				onClose={() => setUpdateDialogOpen(false)}
+				size="lg"
+				title={t("dashboard.maintenance.updateProgressTitle")}
+				footer={
+					<>
+						<Button onClick={() => setUpdateDialogOpen(false)} variant="ghost" size="sm">
+							{t("close")}
+						</Button>
+						{(operation?.error || operation?.phase === "completed") && (
+							<Button onClick={() => window.location.reload()} size="sm">
+								{t("refresh")}
+							</Button>
+						)}
+					</>
+				}
+			>
+				<div className="flex flex-col gap-4">
+					<div className="flex items-center justify-between gap-3 text-[0.8125rem]">
+						<p dir="ltr" className="text-panel-text-muted [unicode-bidi:isolate]">
+							{selectedTarget ? `${currentVersion} → ${selectedTarget}` : currentVersion}
+						</p>
+						{typeof operation?.progress === "number" && (
+							<p dir="ltr" className="font-bold text-panel-accent [font-variant-numeric:tabular-nums]">
+								{Math.round(operation.progress)}%
+							</p>
+						)}
 					</div>
-				</DialogContent>
-			</Dialog>
+					<div className="flex flex-col gap-2">
+						<div className="flex items-center gap-2">
+							{operation?.error ? (
+								<CircleAlert className="size-4 text-destructive" aria-hidden="true" />
+							) : operation?.phase === "completed" ? (
+								<CircleCheck className="size-4 text-panel-success" aria-hidden="true" />
+							) : (
+								<Spinner className="text-panel-accent" />
+							)}
+							<p className="font-semibold text-panel-text">
+								{operation?.phase
+									? t(`dashboard.maintenance.phase.${operation.phase}`, operation.phase)
+									: t("dashboard.maintenance.phase.queued")}
+							</p>
+						</div>
+						<Progress
+							value={typeof operation?.progress === "number" ? operation.progress : undefined}
+							className="h-[6px] rounded-full"
+						/>
+						<p className="text-[0.8125rem] text-panel-text-secondary">
+							{operation?.error
+								? operation.error
+								: operation?.message
+									? t(`dashboard.maintenance.message.${operation.message.replace(/[^a-zA-Z]/g, "")}`, operation.message)
+									: t("dashboard.maintenance.message.preparingUpdate")}
+						</p>
+						{waitingForAPI && !operation?.error && (
+							<p className="text-[0.8125rem] text-panel-text-muted">
+								{t("dashboard.maintenance.autoRefreshAfterRestart")}
+							</p>
+						)}
+					</div>
+					<div className="flex flex-col gap-2">
+						<div className="flex items-center justify-between gap-2">
+							<p className="text-[0.8125rem] font-semibold text-panel-text">
+								{t("dashboard.maintenance.liveLogs")}
+							</p>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										aria-label={t("dashboard.maintenance.copyLogs")}
+										onClick={() => {
+											const logs = cleanTerminalOutput(operation?.logs);
+											if (!logs) return;
+											navigator.clipboard.writeText(logs);
+											setLogsCopied(true);
+											window.setTimeout(() => setLogsCopied(false), 2000);
+										}}
+										variant="ghost"
+										size="xs"
+									>
+										{logsCopied ? <Check className="size-3.5" /> : <Clipboard className="size-3.5" />}
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									{logsCopied ? t("dashboard.maintenance.logsCopied") : t("dashboard.maintenance.copyLogs")}
+								</TooltipContent>
+							</Tooltip>
+						</div>
+						<pre ref={logsContainerRef} dir="ltr" className="max-h-[260px] min-h-[120px] overflow-auto rounded-md border border-panel-border bg-panel-elevated p-3 font-mono text-[0.75rem] leading-[1.6] whitespace-pre-wrap break-all text-panel-text">
+							{cleanTerminalOutput(operation?.logs) || t("dashboard.maintenance.waitingForOutput")}
+						</pre>
+					</div>
+				</div>
+			</AppDialog>
 
 			<Dialog open={confirmAction !== null} onOpenChange={(open) => { if (!open) (() => setConfirmAction(null))(); }}>
 				

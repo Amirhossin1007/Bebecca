@@ -1,7 +1,10 @@
 import { Button } from "components/ui/button";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { cn } from "lib/cn";
+
 import { BootScreen } from "../components/BootScreen";
-import { PageLoadingSkeleton, PanelLoadingSkeleton } from "../components/ui";
-import { type ComponentType, lazy, type ReactNode, Suspense, useEffect } from "react";
+import { PageLoadingSkeleton } from "../components/ui";
+import { type ComponentType, lazy, Suspense, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	createBrowserRouter,
@@ -13,7 +16,6 @@ import {
 } from "react-router-dom";
 import { fetch } from "../service/http";
 import { recoverFromStaleChunk } from "../utils/chunkRecovery";
-import { queryClient } from "../utils/react-query";
 import { hasRememberedSession, setRememberedSession } from "../utils/session";
 import { Login } from "./Login";
 
@@ -63,16 +65,9 @@ const ErrorsPage = lazy(() => import("./ErrorsPage"));
 const NotificationsPage = lazy(() => import("./NotificationsPage"));
 
 const PageLoading = () => <PageLoadingSkeleton />;
-const PanelLoading = () => <PanelLoadingSkeleton />;
 
-const LazyPage = ({
-	Page,
-	fallback = <PageLoading />,
-}: {
-	Page: ComponentType;
-	fallback?: ReactNode;
-}) => (
-	<Suspense fallback={fallback}>
+const LazyPage = ({ Page }: { Page: ComponentType }) => (
+	<Suspense fallback={<PageLoading />}>
 		<Page />
 	</Suspense>
 );
@@ -97,14 +92,14 @@ const RouteErrorPage = () => {
 	}, [error]);
 
 	return (
-		<div className="min-h-screen bg-panel-app text-panel-text px-6 py-10">
+		<div className="min-h-screen bg-gray-950 text-white px-6 py-10">
 			<div className="flex flex-col items-start gap-4 max-w-[720px] mx-auto">
-				<h1 className="text-2xl font-bold">{t("router.errorTitle")}</h1>
-				<p className="text-panel-text-secondary">{t("router.errorDescription")}</p>
-				<p className="bg-panel-surface border border-panel-border! rounded-[10px] text-red-400 font-mono text-sm p-4 w-full whitespace-pre-wrap">
+				<h2 className="font-heading font-bold text-[1.5rem] leading-[1.33] md:text-[1.875rem] md:leading-[1.2]">{t("router.errorTitle")}</h2>
+				<p className="text-gray-300">{t("router.errorDescription")}</p>
+				<p className="bg-whiteAlpha-100 border border-whiteAlpha-200! rounded-md text-red-200 font-mono text-[0.875rem] p-4 w-full whitespace-pre-wrap">
 					{routeErrorMessage(error)}
 				</p>
-				<Button onClick={() => navigate("/")}>
+				<Button onClick={() => navigate("/")} className="bg-blue-600 text-white shadow-xs hover:bg-blue-700">
 					{t("router.backToDashboard")}
 				</Button>
 			</div>
@@ -185,11 +180,7 @@ const fetchSessionWithRetry = async () => {
 		: 1;
 	for (let attempt = 1; ; attempt += 1) {
 		try {
-			return await fetch<{
-				state?: string;
-				admin?: unknown;
-				error?: string;
-			}>("/auth/session");
+			return await fetch<{ state?: string }>("/auth/session");
 		} catch (error) {
 			const status =
 				(error as { response?: { status?: number }; status?: number })?.response
@@ -221,24 +212,6 @@ const fetchAdminLoader = async ({ request }: { request: Request }) => {
 		setRememberedSession(true);
 		if (response && typeof response === "object" && "error" in response) {
 			throw new Error(`API error: ${response.error || "Unknown error"}`);
-		}
-		if (response?.admin) {
-			queryClient.setQueryData(["current-admin"], response.admin);
-		}
-		const url = new URL(request.url);
-		const pathname = url.pathname.replace(/\/+$/, "");
-		const isDashboardRoute =
-			pathname === "" ||
-			pathname === "/" ||
-			pathname.endsWith("/dashboard") ||
-			pathname === dashboardBasename.replace(/\/+$/, "");
-		if (isDashboardRoute) {
-			try {
-				await queryClient.prefetchQuery({
-					queryKey: ["statistics-query-key"],
-					queryFn: () => fetch("/system"),
-				});
-			} catch {}
 		}
 		return response;
 	} catch (error) {

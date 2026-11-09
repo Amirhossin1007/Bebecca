@@ -44,14 +44,9 @@ export const BuildVersionSelect = ({
 				value={value}
 				onChange={(event) => onChange(event.target.value)}
 			>
-				<option value="">
-					{t("dashboard.maintenance.buildVersionAutomatic")}
-				</option>
+				<option value="">{t("dashboard.maintenance.buildVersionAutomatic")}</option>
 				{builds.map((build) => (
-					<option
-						key={`${build.channel}-${build.version}`}
-						value={build.version}
-					>
+					<option key={`${build.channel}-${build.version}`} value={build.version}>
 						{build.channel === "dev" && build.commit
 							? `${build.version} · ${build.commit.slice(0, 7)}`
 							: build.version}

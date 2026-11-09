@@ -34,11 +34,7 @@ i18n
 			},
 			load: "languageOnly",
 			detection: {
-				order: ["localStorage", "sessionStorage", "cookie"],
 				caches: ["localStorage", "sessionStorage", "cookie"],
-				lookupLocalStorage: "i18nextLng",
-				lookupSessionStorage: "i18nextLng",
-				lookupCookie: "i18nextLng",
 			},
 			backend: {
 				loadPath: joinPaths([
@@ -46,12 +42,12 @@ i18n
 					`statics/locales/{{lng}}.json`,
 				]),
 			},
-		},
-		(err, _t) => {
-			if (err) console.error("i18next initialization error:", err);
-			dayjs.locale(i18n.language);
-		},
-	);
+	},
+	(err, _t) => {
+		if (err) console.error("i18next initialization error:", err);
+		dayjs.locale(i18n.language);
+	},
+);
 
 const applyDocumentLanguage = (language = "en") => {
 	if (typeof document === "undefined") return;
@@ -64,16 +60,11 @@ const applyDocumentLanguage = (language = "en") => {
 i18n.on("languageChanged", (lng) => {
 	dayjs.locale(lng);
 	applyDocumentLanguage(lng);
-	if (typeof window !== "undefined") {
-		window.dispatchEvent(new Event("resize"));
-		requestAnimationFrame(() => {
-			window.dispatchEvent(new Event("resize"));
-		});
-	}
 });
 
 applyDocumentLanguage(i18n.language || "en");
 
+// DataPicker
 registerLocale("zh-cn", zh);
 registerLocale("ru", ru);
 registerLocale("fa", fa);

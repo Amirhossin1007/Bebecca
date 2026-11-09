@@ -1,5 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 
+/* Arad Font - Persian/Arabic Font */
+/* Using local font files from public/fonts directory */
 @font-face {
   font-family: 'Arad';
   src:
@@ -24,8 +26,8 @@
   --rb-panel-text: #f5f5f5;
   --rb-panel-text-secondary: #d0d0d0;
   --rb-panel-text-muted: #8a8a8a;
-  --rb-panel-accent: #2563eb;
-  --rb-panel-accent-hover: #3b82f6;
+  --rb-panel-accent: #e0003c;
+  --rb-panel-accent-hover: #f01446;
   --rb-panel-row-hover: #1b1b1b;
   --rb-panel-row-selected: #181818;
   --rb-sidebar-offset: 0px;
@@ -33,16 +35,16 @@
   --bg-dark: #101010;
   --surface-light: #242424;
   --surface-dark: #242424;
-  --primary-50: #e9effd;
-  --primary-100: #bacef9;
-  --primary-200: #8cadf4;
-  --primary-300: #5d8bf0;
-  --primary-400: #4177ee;
-  --primary-500: #2563eb;
-  --primary-600: #1453dd;
-  --primary-700: #1147bc;
-  --primary-800: #0d3792;
-  --primary-900: #092564;
+  --primary-50: #ffe6ed;
+  --primary-100: #ffb8c9;
+  --primary-200: #ff88a5;
+  --primary-300: #fb5a82;
+  --primary-400: #f42d62;
+  --primary-500: #e0003c;
+  --primary-600: #bf0033;
+  --primary-700: #990029;
+  --primary-800: #73001f;
+  --primary-900: #4c0015;
   --rb-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --rb-ease-standard: cubic-bezier(0.77, 0, 0.175, 1);
   --rb-duration-fast: 140ms;
@@ -85,6 +87,7 @@
   --surface-dark: #ffffff;
 }
 
+/* Christmas seasonal palette, moved from chakra.config.ts. It comes after the theme blocks so it wins, as it did there. */
 .rb-seasonal-christmas {
   --primary-50: #ffe6e6;
   --primary-100: #ffcdd2;
@@ -102,26 +105,18 @@
   --surface-dark: #172235;
 }
 
-body,
-#root {
-  transition:
-    background-color 200ms cubic-bezier(0.2, 0, 0, 1),
-    color 200ms cubic-bezier(0.2, 0, 0, 1);
-}
-
 @supports (height: 100svh) {
   :root {
     --rb-dialog-viewport-height: 100svh;
   }
 }
 
+/* Prevent accidental horizontal scrolling on small screens */
 html, body, #root {
   overflow-x: hidden;
   font-family: var(--rb-font-stack);
   background: var(--rb-panel-bg);
   color: var(--rb-panel-text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -218,6 +213,8 @@ body {
   text-align: inherit;
 }
 
+/* Dense rows: 13px keeps every column inside a 1440px viewport without the
+   sticky action cell covering the last data column. */
 .rb-data-table td {
   font-size: 0.8125rem !important;
   background: var(--rb-panel-surface) !important;
@@ -225,7 +222,8 @@ body {
   border-bottom: 1px solid var(--rb-panel-border) !important;
   border-left: 0 !important;
   border-right: 0 !important;
-
+  /* A minimum, not a fixed height: cells that wrap (tag lists, a metric plus
+     its progress bar) grow instead of having their last line clipped. */
   height: auto;
   min-height: 48px;
   min-width: 0;
@@ -263,11 +261,9 @@ body {
   border-end-end-radius: 6px;
 }
 
-@media (min-width: 769px) {
-  .rb-data-table-row:hover > td {
-    background: var(--rb-panel-row-hover) !important;
-    border-color: var(--rb-panel-border-strong) !important;
-  }
+.rb-data-table-row:hover > td {
+  background: var(--rb-panel-row-hover) !important;
+  border-color: var(--rb-panel-border-strong) !important;
 }
 
 .rb-data-table-row[data-selected="true"] > td {
@@ -422,11 +418,9 @@ body {
   opacity: 0.74;
 }
 
-@media (min-width: 769px) {
-  .rb-cell-copy:hover {
-    color: var(--rb-panel-text) !important;
-    opacity: 1;
-  }
+.rb-cell-copy:hover {
+  color: var(--rb-panel-text) !important;
+  opacity: 1;
 }
 
 .rb-data-table-root[data-actions-display="menu"] .rb-actions-cell {
@@ -469,19 +463,13 @@ body {
 }
 
 .rb-data-table-root[data-actions-always="true"] .rb-row-action,
+.rb-data-table-row:hover .rb-row-action,
 .rb-data-table-row[data-selected="true"] .rb-row-action,
+.rb-resource-card:hover .rb-row-action,
 .rb-resource-card[data-selected="true"] .rb-row-action,
 .rb-row-action[aria-expanded="true"] {
   opacity: 1;
   color: var(--rb-panel-text) !important;
-}
-
-@media (min-width: 769px) {
-  .rb-data-table-row:hover .rb-row-action,
-  .rb-resource-card:hover .rb-row-action {
-    opacity: 1;
-    color: var(--rb-panel-text) !important;
-  }
 }
 
 .rb-inline-actions {
@@ -498,12 +486,10 @@ body {
   color: var(--rb-panel-text-muted);
 }
 
-@media (min-width: 769px) {
-  .rb-inline-actions .chakra-button:hover,
-  .rb-inline-actions .chakra-icon-button:hover,
-  .rb-inline-action:hover {
-    color: var(--rb-panel-text);
-  }
+.rb-inline-actions .chakra-button:hover,
+.rb-inline-actions .chakra-icon-button:hover,
+.rb-inline-action:hover {
+  color: var(--rb-panel-text);
 }
 
 .rb-mobile-actions {
@@ -551,11 +537,9 @@ body {
     width: 100%;
   }
 
-@media (min-width: 769px) {
-  .rb-resource-card:hover {
-    background: var(--rb-panel-row-hover);
-    border-color: var(--rb-panel-border-strong);
-  }
+.rb-resource-card:hover {
+  background: var(--rb-panel-row-hover);
+  border-color: var(--rb-panel-border-strong);
 }
 
 .rb-resource-card[data-selected="true"] {
@@ -894,96 +878,45 @@ body {
   border-radius: 0.5rem !important;
 }
 
-@media (max-width: 768.98px) {
+@media (max-width: 768px) {
   body {
     overscroll-behavior: none;
   }
 
-  *:hover {
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .rb-data-table-row:hover > td {
-    background: transparent !important;
-  }
-
-  .rb-resource-card:hover,
-  .rb-telemetry-card:hover,
-  .rb-card:hover,
-  .chakra-card:hover {
-    border-color: var(--rb-panel-border) !important;
-    box-shadow: none !important;
-  }
-
-  .chakra-button:not(:active):hover,
-  .chakra-icon-button:not(:active):hover,
-  .rb-header-btn:not(:active):hover {
-    box-shadow: none !important;
-    transform: none !important;
-  }
-
-  .chakra-button:active,
-  .chakra-icon-button:active,
-  .rb-header-btn:active {
-    transform: scale(0.96) !important;
-  }
-
-  [data-rb-iconswap] [data-rb-icon],
-  [data-rb-swap],
-  [data-rb-progress] {
-    --proximity: 0 !important;
-  }
-
-  .chakra-modal__overlay:not(.chakra-drawer__overlay) {
+  .chakra-modal__overlay {
     z-index: 16000 !important;
   }
 
-  .chakra-drawer__overlay {
-    display: none !important;
-  }
-
-  .chakra-drawer__content {
-    background: var(--rb-panel-surface) !important;
-  }
-
-  .chakra-modal__content-container:not(:has(.chakra-slide)) {
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 1rem !important;
+  .chakra-modal__content-container {
+    align-items: flex-end !important;
+    padding: 0 !important;
     z-index: 16001 !important;
   }
 
-  .chakra-modal__content:not(.chakra-slide) {
-    width: calc(100vw - 32px) !important;
-    max-width: min(540px, calc(100vw - 32px)) !important;
+  .chakra-modal__content {
+    width: 100vw !important;
+    max-width: 100vw !important;
     min-height: 0 !important;
-    max-height: calc(100dvh - 32px) !important;
-    margin: auto !important;
-    border-radius: 20px !important;
+    max-height: 92dvh !important;
+    margin: 0 !important;
+    border-radius: 16px 16px 0 0 !important;
     display: flex;
     flex-direction: column;
-    position: relative !important;
   }
 
-  .chakra-modal__content:not(.chakra-slide):not(.rb-confirm-dialog-content)::before {
-    content: "";
-    display: block;
-    width: 36px;
-    height: 4.5px;
-    margin: 8px auto 4px;
-    background: var(--rb-panel-border-strong, rgba(255, 255, 255, 0.22));
-    border-radius: 9999px;
-    flex-shrink: 0;
-    pointer-events: none;
-    touch-action: none;
-    cursor: grab;
+  .chakra-modal__content-container:has(.rb-confirm-dialog-content) {
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1rem !important;
   }
 
-  .chakra-modal__content:not(.chakra-slide):not(.rb-confirm-dialog-content) > .chakra-modal__header,
-  .chakra-modal__content:not(.chakra-slide):not(.rb-confirm-dialog-content) form > .chakra-modal__header {
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
+  .chakra-modal__content.rb-sidebar-drawer {
+    width: 80% !important;
+    max-width: 80% !important;
+    height: 100% !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
   }
 
   .chakra-modal__content.rb-confirm-dialog-content {
@@ -1003,7 +936,7 @@ body {
     box-shadow: none !important;
   }
 
-  .chakra-modal__header:not([data-no-extra-padding="true"]) {
+  .chakra-modal__header {
     flex-shrink: 0;
     padding-inline-end: 3.25rem;
   }
@@ -1104,11 +1037,6 @@ body {
     max-width: calc(100vw - 16px);
   }
 
-  #rb-user-menu,
-  [data-profile-submenu="true"] {
-    transition: opacity 0.15s ease, background-color 0.15s ease;
-  }
-
   .chakra-popover__popper {
     z-index: 17002 !important;
   }
@@ -1135,6 +1063,7 @@ body {
   }
 }
 
+/* Let native logical layout handle RTL; isolate only explicitly mixed text. */
 [dir="rtl"] {
   direction: rtl;
   text-align: start;
@@ -1162,6 +1091,7 @@ body {
   text-align: start;
 }
 
+/* Mirror close buttons and form icons when switching direction */
 [dir="rtl"] .chakra-modal__close-btn,
 [dir="rtl"] .chakra-drawer__close-btn,
 [dir="rtl"] .chakra-popover__close-btn,
@@ -1230,6 +1160,7 @@ table thead {
   }
 }
 
+
 .chakra-popover__popper {
   z-index: 17020 !important;
 }
@@ -1243,6 +1174,7 @@ table thead {
   width: 100%;
 }
 
+// data picker
 .react-datepicker__navigation.react-datepicker__navigation--previous,
 .react-datepicker__navigation.react-datepicker__navigation--next {
   padding-top: 6px;
@@ -1437,6 +1369,7 @@ table thead {
   gap: 8px;
 }
 
+/* Enhanced calendar styling to match the image */
 .datepicker-with-quickselect .react-datepicker {
   border: none;
   box-shadow: none;
@@ -1453,6 +1386,7 @@ table thead {
   align-items: center;
 }
 
+/* Month/Year header container with navigation buttons */
 .datepicker-with-quickselect .react-datepicker__current-month {
   font-size: 1rem;
   font-weight: 600;
@@ -1468,6 +1402,7 @@ table thead {
   width: 100%;
 }
 
+/* Navigation buttons - positioned on sides of month name */
 .datepicker-with-quickselect .react-datepicker__navigation {
   top: 8px;
   width: 28px;
@@ -1570,6 +1505,7 @@ table thead {
   background-color: transparent !important;
 }
 
+/* Quick select buttons styling */
 .datepicker-quickselect-panel button {
   font-size: 0.875rem;
   height: 40px;
@@ -1605,6 +1541,7 @@ table thead {
   color: var(--color-primary-200);
 }
 
+/* Footer time input styling */
 .datepicker-footer {
   display: flex;
   align-items: center;
@@ -1844,6 +1781,7 @@ img.apple-emoji {
   }
 }
 
+/* Keep usage pairs (used/total) ordered correctly in RTL */
 .rb-usage-pair {
   direction: ltr;
   unicode-bidi: isolate;
@@ -1852,6 +1790,7 @@ img.apple-emoji {
   gap: 4px;
 }
 
+/* Seasonal: soft snowfall overlay */
 .rb-snow-layer {
   position: fixed;
   inset: 0;
@@ -1887,6 +1826,26 @@ img.apple-emoji {
     transform: translate3d(0, 90px, 0);
   }
 }
+
+/* Seasonal: festive cursor */
+.rb-seasonal-christmas body,
+.rb-seasonal-christmas button,
+.rb-seasonal-christmas a,
+.rb-seasonal-christmas input,
+.rb-seasonal-christmas select,
+.rb-seasonal-christmas textarea {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg transform='rotate(-18 20 20)'%3E%3Cpath d='M20 4l-4 6h8l-4-6z' fill='%23fff' stroke='%23c62828' stroke-width='1.6'/%3E%3Cpath d='M20 8l-5 7h10l-5-7z' fill='%23e8f5e9' stroke='%232e7d32' stroke-width='1.6'/%3E%3Cpath d='M20 12l-6 8h12l-6-8z' fill='%23c8e6c9' stroke='%232e7d32' stroke-width='1.6'/%3E%3Cpath d='M20 17l-7 9h14l-7-9z' fill='%23a5d6a7' stroke='%232e7d32' stroke-width='1.6'/%3E%3Crect x='17' y='26' width='6' height='7' rx='1.2' fill='%238d6e63'/%3E%3Ccircle cx='20' cy='10' r='1.4' fill='%23c62828'/%3E%3Ccircle cx='18' cy='15' r='1.4' fill='%23fbc02d'/%3E%3Ccircle cx='22' cy='17' r='1.4' fill='%2300acc1'/%3E%3Ccircle cx='16.5' cy='20' r='1.4' fill='%23ef6c00'/%3E%3Ccircle cx='23.5' cy='22' r='1.4' fill='%238e24aa'/%3E%3C/g%3E%3C/svg%3E") 10 4, auto;
+}
+
+/* ============================================================
+   Users section
+   Everything below is scoped to the Users page: either under the
+   .rb-users-section wrapper (overrides of shared rb-* pieces) or
+   via rb-user-* / rb-users-* classes that only the Users
+   components render. Other pages are intentionally unaffected.
+   ============================================================ */
+
+/* --- online state --------------------------------------------------- */
 
 .rb-user-online-tag {
   display: inline-flex;
@@ -1934,6 +1893,9 @@ img.apple-emoji {
   display: inline-block;
 }
 
+/* --- "by admin" chip ---------------------------------------------- */
+
+/* Quiet ownership metadata below the username. */
 .rb-user-admin-chip {
   display: inline-block;
   vertical-align: middle;
@@ -1949,9 +1911,13 @@ img.apple-emoji {
   color: var(--rb-panel-text-secondary);
 }
 
+/* Mobile: the tag stays out of the collapsed card row (it re-appears as
+   an "Admin" row inside the expanded details instead). */
 .rb-users-section .rb-resource-card-main .rb-user-admin-chip {
   display: none;
 }
+
+/* --- gradient usage meter ------------------------------------------ */
 
 .rb-user-usage-track {
   width: 100%;
@@ -1998,6 +1964,8 @@ img.apple-emoji {
 .rb-user-usage[data-tone="critical"] .rb-user-usage-percent {
   color: #ef4444;
 }
+
+/* --- shared-piece overrides, scoped to the Users page ---------------- */
 
 .rb-users-section {
   container: rb-users / inline-size;
@@ -2108,17 +2076,26 @@ img.apple-emoji {
   }
 }
 
+/* summary count tags read as colorful pills */
 .rb-users-section .chakra-tag {
   border-radius: 999px;
   font-weight: 700;
 }
 
+/* Data-usage summary cell (mobile card row + its column header): the
+   shared component sizes this box to fit its own content ("auto" basis),
+   which let the progress bar render at a different width on every row
+   depending on the usage/lifetime text length. Pin it to a fixed basis
+   instead so every row's bar is identical, while staying responsive.
+   Sized smaller than the shared default so it doesn't crowd out the
+   username column on narrow phones. */
 :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-resource-mobile-head-summary,
 :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-resource-summary {
   flex-grow: 0;
   flex-basis: min(30vw, 8rem);
 }
 
+/* softer corners on desktop rows */
 :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-data-table-row > td:first-child {
   border-start-start-radius: 10px;
   border-end-start-radius: 10px;
@@ -2180,6 +2157,7 @@ img.apple-emoji {
   padding-inline-start: 12px !important;
 }
 
+/* mobile cards: rounder, and glowing accent while expanded */
 .rb-users-section .rb-resource-card {
   border-radius: 14px;
   padding: 0.85rem;
@@ -2195,6 +2173,7 @@ img.apple-emoji {
   box-shadow: 0 12px 26px rgb(15 23 42 / 12%);
 }
 
+/* crisp scale-in when a card expands */
 @media (prefers-reduced-motion: no-preference) {
   :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-resource-expanded {
     animation: rb-users-expand-in var(--rb-duration-ui) var(--rb-ease-out);
@@ -2214,12 +2193,16 @@ img.apple-emoji {
   }
 }
 
+/* Lighter detail rows: drop the per-row divider lines in favour of plain
+   spacing. Scoped to the Users page so other resource cards keep dividers. */
 :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-resource-details .rb-resource-meta {
   border-bottom: 0;
   padding-top: 0.35rem;
   padding-bottom: 0.35rem;
 }
 
+/* Expanded-card actions: the full inline action strip, kept flat (ghost
+   line icons, no filled circles) and tightly grouped in a wrapping row. */
 :is(.rb-users-section, .rb-admins-section, .rb-nodes-section) .rb-resource-expanded-actions .rb-inline-actions {
   gap: 0.25rem;
 }
@@ -2235,6 +2218,7 @@ img.apple-emoji {
   transform: scale(0.92);
 }
 
+/* floating bulk action bar: fast slide up, accent tint */
 .rb-users-section .rb-bulk-action-bar {
   border-radius: 14px;
   border-color: color-mix(in srgb, var(--rb-panel-accent) 35%, var(--rb-panel-border-strong));
@@ -2278,18 +2262,13 @@ img.apple-emoji {
   }
 }
 
-@media (min-width: 769px) {
-  .rb-mobile-dock {
-    display: none !important;
-  }
+/* skeleton loading rows: match the rounded look */
+.rb-users-section .chakra-skeleton {
+  border-radius: 8px;
 }
 
-@media (max-width: 768.98px) {
-  .rb-desktop-sidebar {
-    display: none !important;
-  }
-}
-
+/* Admin and node expansions: keep the attached panel inside the visible part of
+   the table so every section is reachable without scrolling sideways. */
 :is(.rb-admins-section, .rb-nodes-section, .rb-services-section) .rb-data-table-row-detail .rb-data-table-expanded-content {
   position: sticky;
   left: 0;
@@ -2322,6 +2301,7 @@ img.apple-emoji {
 	100% { transform: scale(1); }
 }
 
+/* Keyframes that used to live in Chakra style objects on the Statistics cards. */
 @keyframes shimmer {
   0% { opacity: 0.35; }
   50% { opacity: 0.75; }
@@ -2337,6 +2317,7 @@ img.apple-emoji {
   animation: shimmer 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* IntegrationSettingsPage: the card and tab styles that were a Chakra sx block. Colours are the palette the page used. */
 .master-settings-card {
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 1rem;
@@ -2442,6 +2423,7 @@ img.apple-emoji {
   padding-inline: 0.75rem;
 }
 
+/* ServicesPage: the list borders inside the service dialog, previously an sx rule on the dialog. */
 .service-dialog-list {
   border-color: rgba(0, 0, 0, 0.08);
   background-color: #f7fafc;
@@ -2451,6 +2433,7 @@ img.apple-emoji {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
+/* ServicesPage: the list borders inside the service dialog, previously an sx rule on the dialog. */
 .service-dialog-list {
   border-color: rgba(0, 0, 0, 0.08);
   background-color: #f7fafc;
@@ -2460,6 +2443,7 @@ img.apple-emoji {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
+/* Xray dialogs: the form, tab and section styles that were a Chakra sx block on the modal. */
 .rb-xray-dialog {
   --xray-field-bg: #fff;
   --xray-label-color: #2d3748;
@@ -2599,6 +2583,7 @@ img.apple-emoji {
   background-color: var(--xray-section-bg);
 }
 
+/* Loading skeletons: the pulse that was a Chakra sx block on the page skeleton. */
 @keyframes pageSkeletonPulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 0.8; }
@@ -2607,6 +2592,8 @@ img.apple-emoji {
   animation: pageSkeletonPulse 1.8s ease-in-out infinite;
 }
 
+/* Native select popups (drawn by the browser) follow the panel surface instead of
+   the OS theme, so an open dropdown never flashes a white list in dark mode. */
 select.rb-select option {
   background-color: var(--rb-panel-elevated);
   color: var(--rb-panel-text);
@@ -2617,6 +2604,8 @@ select.rb-select optgroup {
   color: var(--rb-panel-text-secondary);
 }
 
+/* The kit checkbox keeps a native input for behaviour and draws its own box:
+   Chakra's checked/indeterminate look, driven by data-state. */
 .rb-checkbox {
   transition: background-color 140ms ease, border-color 140ms ease;
 }
@@ -2650,6 +2639,8 @@ input:disabled + .rb-checkbox {
   cursor: not-allowed;
 }
 
+/* Number fields: the browser's spinner arrows are the one control we cannot
+   theme, and Chakra's NumberInput drew its own steppers. */
 input[type="number"]::-webkit-outer-spin-button,
 input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;

@@ -1,7 +1,8 @@
 import { Dialog, DialogContent, DialogHeader } from "components/ui/dialog";
 import { Button } from "components/ui/button";
 import { Spinner } from "components/ui/spinner";
-import { Download, Upload, Database, Clock, Cpu, Server, ShieldCheck, Signal, Users, ChartBar } from "lucide-react";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { Download, Upload, Database, Clock, Cpu, Server, ShieldCheck, Signal, Users } from "lucide-react";
 import { useColorMode } from "lib/color-mode";
 
 import type { ComponentPropsWithoutRef } from "react";
@@ -347,23 +348,6 @@ const HistoryModal: FC<{
 
 	const activeIntervalIndex = HISTORY_INTERVALS.findIndex((i) => i.seconds === intervalSeconds);
 
-	const MetricIcon = useMemo(() => {
-		switch (payload?.type) {
-			case "cpu":
-				return Cpu;
-			case "memory":
-				return Database;
-			case "network":
-				return Signal;
-			case "panel":
-			case "panelCpu":
-			case "panelMemory":
-				return Server;
-			default:
-				return ChartBar;
-		}
-	}, [payload?.type]);
-
 	useEffect(() => {
 		if (!isOpen) return;
 		const timer = setTimeout(() => {
@@ -686,19 +670,8 @@ const HistoryModal: FC<{
 			
 			<DialogContent className="bg-panel-surface border border-panel-border! rounded-[20px] shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_32px_80px_rgba(0,0,0,0.6)] mx-3 sm:mx-6 max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden">
 				<DialogHeader className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-4 border-b border-panel-border! text-[0.875rem] font-bold">
-					<div className="flex items-center gap-3">
-						<div className="flex items-center justify-center w-8 h-8 rounded-[10px] bg-[color-mix(in_srgb,var(--rb-panel-accent)_12%,transparent)] text-[var(--rb-panel-accent)] border border-[color-mix(in_srgb,var(--rb-panel-accent)_25%,transparent)] shrink-0">
-							<MetricIcon className="size-4.5" />
-						</div>
-						<div className="flex flex-col text-start">
-							<p className="text-panel-text text-[15px] font-bold leading-tight">
-								{t("dashboard.history.modalTitle", { metric: payload?.title ?? "" })}
-							</p>
-							<p className="text-panel-text-muted text-[11px] font-medium mt-0.5">
-								{payload?.metricLabel ? `${payload.title} (${payload.metricLabel})` : payload?.title}
-							</p>
-						</div>
-					</div>
+					<p className="text-panel-text">{t("dashboard.history.modalTitle", { metric: payload?.title ?? "" })}</p>
+					
 				</DialogHeader>
 				<div className={cn("min-h-0 flex-1 overflow-y-auto", "px-4 md:px-6 py-4 md:py-5")}>
 					<div className="flex flex-col gap-4">
@@ -851,6 +824,7 @@ const ResourceCard: FC<{
 	const criticalColor = safe >= 90 ? "#ef4444" : safe >= 75 ? "#f59e0b" : accent;
 
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: role=group is the hook the group's styles use for the card's hover styles
 		<div role="group" className="bg-panel-surface border border-panel-border! rounded-[20px] p-4 sm:p-5 relative overflow-hidden flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] [transition:border-color_0.25s_ease,_background-color_0.25s_ease,_box-shadow_0.25s_ease] hover:md:border-panel-border-strong! hover:md:bg-panel-elevated hover:md:shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_12px_32px_-4px_rgba(0,_0,_0,_0.22)]">
 			<div>
 				<div className="flex justify-between items-center mb-3">
@@ -911,7 +885,7 @@ const ResourceCard: FC<{
 						{formatPercent(safe, false)}
 					</p>
 				</div>
-				<div className="h-1 w-full overflow-hidden rounded-full bg-panel-elevated"><div className="h-full rounded-full [transition:width_0.6s_ease,_background-color_0.4s_ease]" style={{ width: `${safe}%`, backgroundColor: criticalColor }} /></div>
+				<div className="h-1 w-full overflow-hidden ${cls}"><div className="h-full rounded-full [transition:width_0.6s_ease,_background-color_0.4s_ease]" style={{ width: `${safe}%`, backgroundColor: criticalColor }} /></div>
 				{(footerLeft || footerRight) && (
 					<div dir={isRTL ? "rtl" : "ltr"} className="flex justify-between items-center mt-2 text-[11px] font-medium text-panel-text-muted [unicode-bidi:isolate] [font-variant-numeric:tabular-nums]">
 						<p className="truncate">{footerLeft}</p>
@@ -943,7 +917,7 @@ const StatRow: FC<{
 					{label}
 				</p>
 				{tag && (
-					<span dir="ltr" className="flex items-center justify-center text-[10px] px-1.5 py-0.5 rounded-[8px] bg-panel-elevated text-panel-text-muted font-semibold [transition:all_0.25s_ease] [[role=group]:hover_&]:md:bg-panel-surface [[role=group]:hover_&]:md:text-panel-text-secondary">
+					<span dir="ltr" className="flex items-center justify-center text-[10px] px-1.5 py-0.5 rounded-md bg-panel-elevated text-panel-text-muted font-semibold [transition:all_0.25s_ease] [[role=group]:hover_&]:md:bg-panel-surface [[role=group]:hover_&]:md:text-panel-text-secondary">
 						<span dir="ltr" className="[font-variant-numeric:tabular-nums]">
 							{tag.endsWith("%") ? `${tag.slice(0, -1)}%` : tag}
 						</span>
@@ -970,6 +944,7 @@ const SectionCard: FC<{
 	action?: ReactNode;
 	noHover?: boolean;
 	roleGroup?: boolean;
+	/** Extra classes for the content area, e.g. to centre a short card. */
 	contentClassName?: string;
 }> = ({
 	children,
@@ -979,7 +954,7 @@ const SectionCard: FC<{
 	roleGroup = true,
 	contentClassName,
 }) => (
-	<div role={roleGroup ? "group" : undefined} className={cn(noHover ? "" : "hover:md:border-panel-border-strong! hover:md:bg-panel-elevated hover:md:shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_12px_32px_-4px_rgba(0,_0,_0,_0.22)]", "bg-panel-surface border border-panel-border! rounded-[20px] overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] [transition:border-color_0.25s_ease,_background-color_0.25s_ease,_box-shadow_0.25s_ease] flex h-full flex-col")}>
+	<div role={roleGroup ? "group" : undefined} className={cn(noHover ? "" : "hover:md:border-panel-border-strong!" + " " + "hover:md:bg-panel-elevated" + " " + "hover:md:shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.08),_0_12px_32px_-4px_rgba(0,_0,_0,_0.22)]", "bg-panel-surface border border-panel-border! rounded-[20px] overflow-hidden shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] [transition:border-color_0.25s_ease,_background-color_0.25s_ease,_box-shadow_0.25s_ease] flex h-full flex-col")}>
 		{(title || action) && (
 			<div className="flex px-4 sm:px-5 md:px-6 py-3.5 items-center justify-between border-b border-panel-border!">
 				{title && (
@@ -1080,6 +1055,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 		queryFn: () => fetch("/system"),
 	});
 
+	// v5 removed onSuccess from useQuery: the side effect follows the data.
 	const fetchedVersion = rawSystemData?.version;
 	useEffect(() => {
 		if (fetchedVersion && version !== fetchedVersion) {
@@ -1155,7 +1131,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					</div>
 				</div>
 
-				<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
+				<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
 					{[1, 2, 3, 4].map((i) => (
 						<div key={i} className="bg-panel-surface rounded-[20px] border border-panel-border! p-4 sm:p-5 flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)] shimmer-box">
 							<div>
@@ -1256,7 +1232,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						<div className="w-[75px] h-[22px] rounded-full bg-panel-elevated" />
 					</div>
 					<div className="p-4 sm:p-5 md:p-6">
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+						<div className="grid grid-cols-2 gap-3 md:gap-4">
 							{[1, 2].map((i) => (
 								<div key={i} className="bg-panel-surface rounded-[20px] border border-panel-border! p-4 sm:p-5 flex flex-col justify-between shadow-[inset_0_1px_1px_0_rgba(255,_255,_255,_0.05),_0_8px_24px_-6px_rgba(0,_0,_0,_0.12)]">
 									<div>
@@ -1398,7 +1374,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 		<div dir={isRTL ? "rtl" : "ltr"} {...props} className="flex flex-col gap-4 md:gap-5 w-full">
 			{canSeeGlobal && <SystemDiagnostics issues={criticalIssues} criticalOnly />}
 			<div className="flex items-center justify-between flex-wrap gap-3 px-1">
-				<div className="flex flex-col items-start gap-1 min-[600px]:max-[1040px]:flex-row min-[600px]:max-[1040px]:items-center min-[600px]:max-[1040px]:gap-2.5 max-[599.98px]:flex-col max-[599.98px]:items-start max-[599.98px]:gap-1">
+				<div className={"flex-col items-start max-md:flex-row max-md:items-center min-[768px]:max-[991px]:[body:has([data-sidebar-collapsed='true'])_&]:flex-row min-[768px]:max-[991px]:[body:has([data-sidebar-collapsed='true'])_&]:items-center min-[768px]:max-[991px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:flex-col min-[768px]:max-[991px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:items-start lg:flex-col lg:items-start flex-wrap flex gap-2.5 md:gap-1"}>
 					<p className="text-[18px] md:text-[20px] font-bold text-panel-text tracking-[-0.02em]">
 						{t("dashboard.system.overview")}
 					</p>
@@ -1433,7 +1409,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				<DashboardMaintenanceControls channel={systemData.channel} version={systemData.version} />
 			</div>
 
-			<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
+			<div className={"min-[768px]:max-[910px]:[body:not(:has([data-sidebar-collapsed='true']))_&]:grid-cols-[1fr]! grid grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4"}>
 				<ResourceCard
 					label={t("dashboard.system.cpuUsage")}
 					icon={<Cpu className="w-[16px]" />}
@@ -1634,7 +1610,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					</Button>
 				}
 			>
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+				<div className="grid grid-cols-2 gap-3 md:gap-4">
 					<ResourceCard
 						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
 						icon={<Cpu className="w-[16px]" />}

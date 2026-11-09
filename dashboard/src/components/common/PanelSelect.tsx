@@ -550,6 +550,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 
 		if (mode === "multiple") {
 			return (
+				// biome-ignore lint/a11y/noStaticElementInteractions: closes the menu when focus leaves the control; the inputs keep focus
 				<div ref={multiContainerRef} onBlur={(event) => {
 						if (
 							!event.currentTarget.contains(event.relatedTarget as Node | null)
@@ -574,6 +575,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 							emitBlur();
 						}}>
 						<PopoverAnchor asChild>
+						{/* biome-ignore lint/a11y/noStaticElementInteractions: stops mousedown so the field keeps focus while the menu is used */}
 					<div onMouseDown={(event) => {
 							if (disabledState) return;
 							const target = event.target as HTMLElement | null;
@@ -582,7 +584,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 							const input = event.currentTarget.querySelector("input");
 							input?.focus();
 							setMultiOpen(true);
-						}} className={cn(resolvedBorderColor, controlBg, focusBorderColor, focusRing, "border rounded-[10px] px-1.5 py-1 [transition:border-color_0.15s_ease,_box-shadow_0.15s_ease,_background_0.15s_ease]", controlHeight, rightElement ? "pe-10" : "pe-2", disabledState ? "cursor-not-allowed" : "cursor-text", disabledState ? "opacity-60" : "opacity-100")}>
+						}} className={cn(resolvedBorderColor, controlBg, focusBorderColor, focusRing, "border rounded-md px-1.5 py-1 [transition:border-color_0.15s_ease,_box-shadow_0.15s_ease,_background_0.15s_ease]", controlHeight, rightElement ? "pe-10" : "pe-2", disabledState ? "cursor-not-allowed" : "cursor-text", disabledState ? "opacity-60" : "opacity-100")}>
 						<div className="flex flex-wrap gap-1.5 items-center">
 							{selectedValues.map((item) => (
 								<div key={item}>
@@ -614,7 +616,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					</PopoverAnchor>
 						<PopoverContent align="start" onOpenAutoFocus={(event) => event.preventDefault()} onInteractOutside={(event) => {
 								if (multiContainerRef.current?.contains(event.target as Node)) event.preventDefault();
-							}} onMouseDown={(event) => event.preventDefault()} className={cn("w-[var(--radix-popper-anchor-width)] max-h-[240px] overflow-y-auto p-1 rounded-[14px] border shadow-xl z-[16050] [scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", borderColor, menuBg)}>
+							}} onMouseDown={(event) => event.preventDefault()} className={cn("w-[var(--radix-popper-anchor-width)] max-h-[240px] overflow-y-auto p-1 rounded-md border shadow-xl z-[16050] [scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", borderColor, menuBg)}>
 							{optionList}
 						</PopoverContent>
 						</Popover>
@@ -648,7 +650,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					event.preventDefault(); (event.target as HTMLElement).querySelector<HTMLElement>(searchable && !coarsePointer ? "input" : "[data-option]:not(:disabled)")?.focus();
 				}}
 				onKeyDown={handleSingleListKeyDown}
-				className={cn(borderColor, "[scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", cn("w-[max(var(--radix-popover-trigger-width),240px)] max-w-[min(420px,_calc(100vw_-_24px))] max-h-[260px] overflow-y-auto p-1 rounded-[14px] shadow-xl z-[16050]", menuBg))}
+				className={cn(borderColor, "[scrollbar-width:none] [ms-overflow-style:none] [&::-webkit-scrollbar]:hidden", cn("w-[max(var(--radix-popover-trigger-width),240px)] max-w-[min(420px,_calc(100vw_-_24px))] max-h-[260px] overflow-y-auto p-1 rounded-md shadow-xl z-[16050]", menuBg))}
 			>
 				{searchable && (
 					<SearchInput id={`${inputId}-search`} name={`${inputId}-search-${mode}`} size="sm" containerProps={{ className: "mb-1" }} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={searchPlaceholder ?? t("search")} autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} role="combobox" aria-autocomplete="list" data-lpignore="true" data-1p-ignore="true" data-form-type="other" inputMode="text" list={`${inputId}-empty-list`} autoFocus={!coarsePointer} matchOptions={searchMatch} onMatchOptionsChange={setSearchMatch} className="h-[30px] text-[0.875rem] bg-transparent" />
@@ -669,7 +671,7 @@ export const PanelSelect = forwardRef<HTMLInputElement, PanelSelectProps>(
 					readOnly
 				/>
 				<Popover open={singleOpen && !disabledState} onOpenChange={handleSingleOpenChange}>
-					<PopoverTrigger asChild><Button size={size === "md" ? "default" : size} disabled={disabledState} variant="outline" className={cn(controlBg, resolvedBorderColor, focusBorderColor, focusRing, hoverBorder, "w-full rounded-[10px] justify-between text-start [&>span]:w-full [&>span]:justify-between", rightElement ? "pe-16" : "", controlHeight, selectedValues.length ? "font-medium" : "font-normal")}>
+					<PopoverTrigger asChild><Button size={size === "md" ? "default" : size} disabled={disabledState} variant="outline" className={cn(controlBg, resolvedBorderColor, focusBorderColor, focusRing, hoverBorder, "w-full rounded-md justify-between text-start [&>span]:w-full [&>span]:justify-between", rightElement ? "pe-16" : "", controlHeight, selectedValues.length ? "font-medium" : "font-normal")}>
 						<span className={cn("truncate", selectedValues.length ? "" : (mutedColor))}>
 							{renderLabel(buttonText)}
 						</span>

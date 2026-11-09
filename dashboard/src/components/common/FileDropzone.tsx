@@ -54,13 +54,11 @@ export const FileDropzone = ({
 }: FileDropzoneProps) => {
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
-		const tone = isDragging
-			? "border-panel-accent! bg-panel-elevated"
-			: "border-panel-border! bg-panel-surface";
-		const hoverTone = "md:hover:border-panel-border-strong! md:hover:bg-panel-elevated";
-		const iconBorder = isDragging ? "border-panel-accent!" : "border-panel-border!";
-		const iconBg = isDragging ? "bg-panel-surface" : "bg-panel-elevated";
-		const mutedColor = "text-panel-text-muted";
+		const tone = isDragging ? "border-primary-500! bg-primary-50 dark:border-primary-300! dark:bg-whiteAlpha-100" : "border-blackAlpha-300! bg-blackAlpha-50 dark:border-whiteAlpha-300! dark:bg-whiteAlpha-50";
+		const hoverTone = "hover:border-primary-500! hover:bg-primary-50 dark:hover:border-primary-300! dark:hover:bg-whiteAlpha-100";
+		const iconBorder = isDragging ? "border-primary-500! dark:border-primary-300!" : "border-blackAlpha-300! dark:border-whiteAlpha-300!";
+		const iconBg = "bg-white dark:bg-whiteAlpha-100";
+		const mutedColor = "text-gray-500 dark:text-gray-400";
 
 	const hasSelection = selectedFiles
 		? selectedFiles.length > 0
@@ -125,7 +123,8 @@ export const FileDropzone = ({
 	};
 
 	return (
-		<div role="button" tabIndex={isDisabled ? -1 : 0} aria-disabled={isDisabled} onClick={openFileDialog} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop} onKeyDown={handleKeyDown} className={cn("border border-dashed rounded-[20px] px-4 sm:px-5 py-5 transition-[background-color,border-color] duration-200 active:scale-[0.995]", tone, !isDisabled && hoverTone, isDisabled ? "cursor-not-allowed opacity-[0.55]" : "cursor-pointer opacity-100")}>
+		// biome-ignore lint/a11y/useSemanticElements: the drop zone holds block content; keyboard activation is handled in onKeyDown
+		<div role="button" tabIndex={isDisabled ? -1 : 0} aria-disabled={isDisabled} onClick={openFileDialog} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop} onKeyDown={handleKeyDown} className={cn("border border-dashed rounded-md px-4 py-4 [transition:background-color_0.15s_ease,_border-color_0.15s_ease,_opacity_0.15s_ease]", tone, !isDisabled && hoverTone, isDisabled ? "cursor-not-allowed" : "cursor-pointer", isDisabled ? "opacity-[0.55]" : "opacity-100")}>
 			<input
 				ref={inputRef}
 				type="file"
@@ -136,26 +135,22 @@ export const FileDropzone = ({
 				style={{ display: "none" }}
 			/>
 			<div className="flex flex-row gap-4 items-center">
-				<div className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl border p-2.5 transition-colors", iconBorder, iconBg)}>
-					{createElement(hasSelection ? FileText : Upload, { className: cn("size-5", hasSelection ? "text-panel-accent" : "text-panel-text-secondary") })}
+				<div className={cn("border rounded-md p-2.5", iconBorder, iconBg)}>
+					{createElement(hasSelection ? FileText : Upload, { className: cn("size-5", hasSelection ? "text-primary-400" : (mutedColor)) })}
 				</div>
 				<div className="flex flex-col items-stretch gap-1 min-w-0! flex-1">
-					<p className="text-[13px] font-bold text-panel-text truncate">
+					<p className="text-[0.875rem] font-semibold truncate">
 						{selectedFile?.name || title}
 					</p>
-					<p className={cn("text-[12px] line-clamp-2", mutedColor)}>
+					<p className={cn("text-[0.75rem] line-clamp-2", mutedColor)}>
 						{selectedFile
 							? formatFileSize(selectedFile.size)
 							: description || emptyText}
 					</p>
 				</div>
-				<button
-					type="button"
-					tabIndex={-1}
-					className="hidden sm:inline-flex h-[30px] shrink-0 items-center justify-center rounded-[10px] border border-panel-border bg-panel-elevated px-3 text-[12px] font-semibold text-panel-text transition-all md:hover:border-panel-border-strong md:hover:bg-panel-surface active:scale-95"
-				>
+				<p className={cn("text-[0.75rem] font-semibold whitespace-nowrap", isDisabled ? (mutedColor) : "text-primary-300")}>
 					{emptyText}
-				</button>
+				</p>
 			</div>
 		</div>
 	);

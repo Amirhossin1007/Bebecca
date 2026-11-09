@@ -13,10 +13,7 @@ import {
 
 export { BulkActionBar } from "./BulkActionBar";
 export { DataTable } from "./DataTable";
-export {
-	PageLoadingSkeleton,
-	PanelLoadingSkeleton,
-} from "./PageLoadingSkeleton";
+export { PageLoadingSkeleton } from "./PageLoadingSkeleton";
 export {
 	ResourceListCard,
 	ResourceRefreshButton,

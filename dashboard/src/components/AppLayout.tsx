@@ -2,10 +2,10 @@ import { Button } from "components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
 import { Sheet, SheetContent, SheetTitle } from "components/ui/sheet";
+import { TriangleAlert } from "lucide-react";
 import { LogOut, ArrowLeftRight, Share, Menu, Bell, BookOpen, Briefcase, Check, Database, Clock, SquareCode, Settings, Settings2, Terminal, Copy, Eye, House as HeroHomeIcon, Languages, Link, Server, LayoutGrid, User as UserIcon, Users, Wrench, Bell as BellSolidIcon, Briefcase as BriefcaseSolidIcon, Settings as Cog6ToothSolidIcon, House as HomeSolidIcon, Users as UserGroupSolidIcon, User as UserSolidIcon } from "lucide-react";
 import {
 	Breadcrumb,
-	BreadcrumbEllipsisDropdown,
 	BreadcrumbItem,
 	BreadcrumbLink,
 	BreadcrumbList,
@@ -18,11 +18,11 @@ import { useQuery } from "@tanstack/react-query";
 import {
 	type CSSProperties,
 	type ElementType,
-	Fragment,
 	type MouseEvent as ReactMouseEvent,
 	type PointerEvent as ReactPointerEvent,
 	useCallback,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -36,17 +36,18 @@ import { clearClientSession } from "utils/session";
 import { getSponsors, type SponsorAsset } from "service/sponsors";
 import ImperialIranFlag from "../assets/imperial-iran-flag.svg?react";
 import { AppSidebar } from "./AppSidebar";
-import { SidebarProvider } from "./ui/sidebar";
 import { useSheetSwipeToClose } from "hooks/useSheetSwipeToClose";
 import { useDisclosure } from "hooks/useDisclosure";
 import { useMediaQuery } from "hooks/useMediaQuery";
 
 import { cn } from "lib/cn";
+import { EDITOR_PAGE_ID, useActiveEntityPage } from "lib/entityPages";
 import { HeaderCalendar } from "./HeaderCalendar";
 import { NotificationBell } from "./NotificationBell";
 import ThemeSelector from "./ThemeSelector";
 import { SponsorCarousel } from "./SponsorCarousel";
 
+/** Icons are sized by the call site with `size-*` classes now, not by a Chakra wrapper. */
 const LogoutIcon = LogOut;
 const MenuIcon = Menu;
 const LanguageIconStyled = Languages;
@@ -74,11 +75,13 @@ const RecentActionsIcon = Clock;
 const ShareIcon = Share;
 const TutorialIcon = BookOpen;
 
+/** Primary tint for avatars and the active tab, per color mode. */
 const TINT_CLASS =
 	"bg-[color-mix(in_srgb,var(--primary-500)_12%,transparent)] text-[var(--primary-500)] dark:bg-[color-mix(in_srgb,var(--primary-300)_20%,transparent)] dark:text-[var(--primary-300)]";
 
+/** The frosted dock surface, shared by the bottom bar and its popovers. */
 const DOCK_CLASS =
-	"border-panel-border! bg-panel-surface shadow-[0_12px_32px_rgba(15,23,42,0.14),0_1px_3px_rgba(15,23,42,0.08)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.5)]";
+	"border-[rgba(15,23,42,0.08)]! bg-[color-mix(in_srgb,var(--rb-panel-surface)_78%,transparent)] shadow-[0_12px_32px_rgba(15,23,42,0.14),0_1px_3px_rgba(15,23,42,0.08)] [backdrop-filter:saturate(180%)_blur(20px)] dark:border-[rgba(255,255,255,0.09)]! dark:bg-[color-mix(in_srgb,var(--rb-panel-surface)_72%,transparent)] dark:shadow-[0_12px_32px_rgba(0,0,0,0.5)]";
 
 type SettingsMenuItem = {
 	key: string;
@@ -94,24 +97,21 @@ type BottomNavItem = {
 	kind?: "menu" | "link";
 };
 
-let textMeasureCanvas: HTMLCanvasElement | null = null;
-const measureBreadcrumbLabel = (text: string, isPage = false): number => {
-	if (!text) return 0;
-	if (typeof document === "undefined") {
-		return Math.ceil(text.length * (isPage ? 8.5 : 8));
-	}
-	if (!textMeasureCanvas) {
-		textMeasureCanvas = document.createElement("canvas");
-	}
-	const ctx = textMeasureCanvas.getContext("2d");
-	if (!ctx) {
-		return Math.ceil(text.length * (isPage ? 8.5 : 8));
-	}
-	ctx.font = `${isPage ? "600" : "500"} 12.5px Vazirmatn, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-	return Math.ceil(ctx.measureText(text).width);
+const breadcrumbLabels: Record<string, string> = {
+	"node-settings": "nodes",
+	"xray-settings": "xray",
 };
 
 export function AppLayout() {
+	const editorPageSection = useActiveEntityPage((state) => state.section);
+	const editorPageTitle = useActiveEntityPage((state) => state.title);
+	const mainRef = useRef<HTMLElement>(null);
+	const listScrollTop = useRef(0);
+	useLayoutEffect(() => {
+		if (mainRef.current) {
+			mainRef.current.scrollTop = editorPageSection ? 0 : listScrollTop.current;
+		}
+	}, [editorPageSection]);
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const isMobile = !useMediaQuery("(min-width: 48em)");
 	const sidebarDrawer = useDisclosure();
@@ -164,14 +164,6 @@ export function AppLayout() {
 	const tutorialsUrl = "/tutorials";
 	const sectionAccess = userData.permissions?.sections;
 	const userMenuContentRef = useRef<HTMLDivElement | null>(null);
-	const [_responsiveStage, setResponsiveStage] = useState<number>(0);
-	const [breadcrumbMode, setBreadcrumbMode] = useState<
-		"full" | "short" | "ellipsis" | "hidden"
-	>("full");
-	const [canTruncateLastCrumb, setCanTruncateLastCrumb] = useState(false);
-	const [bannerShrinkable, setBannerShrinkable] = useState(false);
-	const [calendarCompact, setCalendarCompact] = useState(false);
-	const headerRef = useRef<HTMLElement>(null);
 	const [isThemeModalOpen, setIsThemeModalOpen] = useState(false);
 	const contentRef = useRef<HTMLDivElement | null>(null);
 	const [showIosPrompt, setShowIosPrompt] = useState(false);
@@ -759,362 +751,24 @@ export function AppLayout() {
 		"/usage": "services",
 		"/xray-settings": "basic",
 	};
-	const breadcrumbItems = useMemo(() => {
-		const path = location.pathname;
-		const hashKey = (activeLocationHash || "")
-			.replace(/^#/, "")
-			.split("?")[0]
-			.toLowerCase();
-
-		let items: { label: string; path?: string }[] = [];
-
-		if (path === "/") {
-			items = [{ label: t("dashboard"), path: "/" }];
-		} else if (path === "/users") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.userHub") },
-				{ label: t("sidebar.usersList"), path: "/users" },
-			];
-		} else if (path === "/bulk-actions") {
-			const bulkActionsTabs: Record<string, string> = {
-				edit: t("bulkActions.tabs.edit"),
-				delete: t("bulkActions.tabs.delete"),
-				permissions: t("bulkActions.tabs.permissions"),
-			};
-			const activeBulkTab = bulkActionsTabs[hashKey];
-			if (activeBulkTab) {
-				items = [
-					{ label: t("dashboard"), path: "/" },
-					{ label: t("sidebar.groups.userHub") },
-					{ label: t("bulkActions.menu"), path: "/bulk-actions" },
-					{ label: activeBulkTab },
-				];
-			} else {
-				items = [
-					{ label: t("dashboard"), path: "/" },
-					{ label: t("sidebar.groups.userHub") },
-					{ label: t("bulkActions.menu"), path: "/bulk-actions" },
-				];
-			}
-		} else if (path === "/admins") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("admins"), path: "/admins" },
-			];
-		} else if (path === "/myaccount") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("myaccount.menu"), path: "/myaccount" },
-			];
-		} else if (path === "/usage") {
-			const usageTabs: Record<string, string> = {
-				services: t("usage.tabs.services"),
-				admins: t("usage.tabs.admins"),
-				nodes: t("usage.tabs.nodes"),
-			};
-			const activeUsageTab = usageTabs[hashKey] || usageTabs.services;
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("usage.menu"), path: "/usage#services" },
-				{ label: activeUsageTab },
-			];
-		} else if (path === "/hosts") {
-			const hostsTabs: Record<string, string> = {
-				inbounds: t("hostsPage.tabInbounds"),
-				hosts: t("hostsPage.tabHosts"),
-			};
-			const activeHostsTab = hostsTabs[hashKey] || hostsTabs.inbounds;
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("header.hostSettings"), path: "/hosts#inbounds" },
-				{ label: activeHostsTab },
-			];
-		} else if (path === "/services") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("services.title"), path: "/services" },
-			];
-		} else if (path === "/node-settings") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("header.nodeSettings"), path: "/node-settings" },
-			];
-		} else if (path === "/xray-logs") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.observability") },
-				{ label: t("pages.xray.logs"), path: "/xray-logs" },
-			];
-		} else if (path === "/access-insights") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.observability") },
-				{ label: t("header.accessInsights"), path: "/access-insights" },
-			];
-		} else if (path === "/recent-actions") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.observability") },
-				{ label: t("recentActions.title"), path: "/recent-actions" },
-			];
-		} else if (path === "/xray-settings") {
-			const xrayTabs: Record<string, string> = {
-				basic: t("pages.xray.basicTemplate"),
-				routing: t("pages.xray.Routings"),
-				outbounds: t("pages.xray.Outbounds"),
-				reverse: t("pages.xray.reverse.title"),
-				balancers: t("pages.xray.Balancers"),
-				dns: t("DNS"),
-				advanced: t("pages.xray.advancedTemplate"),
-			};
-			const activeXrayTab = xrayTabs[hashKey] || xrayTabs.basic;
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.coreRouting") },
-				{ label: t("header.xraySettings"), path: "/xray-settings#basic" },
-				{ label: activeXrayTab },
-			];
-		} else if (path === "/haproxy") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.coreRouting") },
-				{ label: t("haproxy.title"), path: "/haproxy" },
-			];
-		} else if (path === "/notifications") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
-				{ label: t("notifications.menu"), path: "/notifications" },
-			];
-		} else if (path === "/settings") {
-			const settingsTabs: Record<string, string> = {
-				panel: t("settings.panel.tabTitle"),
-				telegram: t("settings.telegram"),
-				subscriptions: t("settings.subscriptions.tabTitle"),
-				ssl: t("settings.ssl.tabTitle"),
-			};
-			const activeSettingsTab = settingsTabs[hashKey] || settingsTabs.panel;
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
-				{ label: t("header.integrationSettings"), path: "/settings#panel" },
-				{ label: activeSettingsTab },
-			];
-		} else if (path === "/placeholders") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
-				{ label: t("placeholders.menu"), path: "/placeholders" },
-			];
-		} else if (path === "/phpmyadmin") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
-				{ label: t("phpmyadmin.menu"), path: "/phpmyadmin" },
-			];
-		} else if (path === "/external-apps") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.groups.system") },
-				{ label: t("externalApps.menu"), path: "/external-apps" },
-			];
-		} else if (path === "/api-docs") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("apiDocs.menu"), path: "/api-docs" },
-			];
-		} else if (path === "/tutorials") {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				{ label: t("sidebar.tutorialsAndFaq"), path: "/tutorials" },
-			];
-		} else {
-			items = [
-				{ label: t("dashboard"), path: "/" },
-				...path
-					.split("/")
-					.filter(Boolean)
-					.map((part) => ({
-						label: part.replace(/[-_]+/g, " "),
-					})),
-			];
-		}
-
-		return items;
-	}, [location.pathname, activeLocationHash, t]);
-	const checkFit = useCallback(() => {
-		if (isMobile) {
-			setBreadcrumbMode("hidden");
-			setCalendarCompact(false);
-			setBannerShrinkable(false);
-			setCanTruncateLastCrumb(false);
+	const routeTrail = [
+		"dashboard",
+		...location.pathname.split("/").filter(Boolean),
+		activeLocationHash.replace(/^#/, "") ||
+			settingsDefaultTabByPath[location.pathname] ||
+			"",
+	]
+		.filter(Boolean)
+		.map((part) => breadcrumbLabels[part] ?? part.replace(/[-_]+/g, " "));
+	const locationTrail = editorPageTitle ? [...routeTrail, editorPageTitle] : routeTrail;
+	const openCurrentPage = () => {
+		const defaultTab = settingsDefaultTabByPath[location.pathname];
+		if (defaultTab) {
+			window.location.hash = defaultTab;
 			return;
 		}
-
-		const headerEl = headerRef.current;
-		if (!headerEl) return;
-
-		const computed = window.getComputedStyle(headerEl);
-		const pl = Number.parseFloat(computed.paddingLeft) || 0;
-		const pr = Number.parseFloat(computed.paddingRight) || 0;
-		const availableWidth = headerEl.clientWidth - pl - pr;
-
-		const menuBtnWidth = 34;
-		const groupGap = 12;
-		const crumbItemGap = 8;
-		const sepWidth = 14;
-
-		let calendarWidth = 180;
-		const calEl = headerEl.querySelector('[data-calendar-widget="true"]');
-		if (calEl) {
-			const rect = calEl.getBoundingClientRect();
-			if (rect.width > 0) calendarWidth = rect.width;
-		}
-
-		let notifWidth = 0;
-		if (getUserIsSuccess && userData.username) notifWidth = 34;
-
-		let githubStarsWidth = 0;
-		const ghEl = headerEl.querySelector('[data-github-stars="true"]');
-		if (ghEl) {
-			const rect = ghEl.getBoundingClientRect();
-			if (rect.width > 0) githubStarsWidth = rect.width;
-		}
-
-		let profileWidth = 0;
-		const profEl = headerEl.querySelector('[data-header-profile="true"]');
-		if (profEl) {
-			const rect = profEl.getBoundingClientRect();
-			if (rect.width > 0) profileWidth = rect.width;
-		}
-
-		const rightControlsWidth =
-			calendarWidth + notifWidth + githubStarsWidth + profileWidth;
-
-		let bannerNominalWidth = 0;
-		const bannerEl = headerEl.querySelector('[data-header-banner="true"]');
-		if (bannerEl) {
-			bannerNominalWidth = 360;
-		}
-
-		const reservedWidth =
-			menuBtnWidth +
-			groupGap +
-			bannerNominalWidth +
-			(bannerNominalWidth > 0 ? groupGap : 0) +
-			rightControlsWidth;
-
-		const count = breadcrumbItems.length;
-
-		let fullCrumbsWidth = 0;
-		if (count > 0) {
-			for (let i = 0; i < count; i++) {
-				const isLast = i === count - 1;
-				const isFirst = i === 0;
-				const pad = isFirst || isLast ? 16 : 8;
-				fullCrumbsWidth +=
-					measureBreadcrumbLabel(breadcrumbItems[i].label, isLast) + pad;
-			}
-			fullCrumbsWidth += Math.max(0, count - 1) * (sepWidth + crumbItemGap * 2);
-		}
-
-		let shortCrumbsWidth = 0;
-		if (count > 0) {
-			const firstPad = 16;
-			const lastPad = 16;
-			const firstW =
-				measureBreadcrumbLabel(breadcrumbItems[0].label, false) + firstPad;
-			const lastW =
-				measureBreadcrumbLabel(
-					breadcrumbItems[count - 1].label,
-					count > 1,
-				) + lastPad;
-
-			if (count <= 2) {
-				shortCrumbsWidth = fullCrumbsWidth;
-			} else {
-				shortCrumbsWidth =
-					firstW +
-					sepWidth +
-					crumbItemGap * 2 +
-					22 +
-					sepWidth +
-					crumbItemGap * 2 +
-					lastW;
-			}
-		}
-
-		const stage0Needed = reservedWidth + fullCrumbsWidth;
-		const stage1Needed = reservedWidth + shortCrumbsWidth;
-		const stage2Needed = reservedWidth;
-		const stage3Needed = reservedWidth - 140;
-		const stage4Needed =
-			reservedWidth -
-			bannerNominalWidth -
-			(bannerNominalWidth > 0 ? groupGap : 0) +
-			shortCrumbsWidth;
-		const stage5Needed =
-			reservedWidth -
-			bannerNominalWidth -
-			(bannerNominalWidth > 0 ? groupGap : 0);
-
-		if (availableWidth >= stage0Needed) {
-			setResponsiveStage(0);
-			setBreadcrumbMode("full");
-			setBannerShrinkable(false);
-			setCalendarCompact(false);
-			setCanTruncateLastCrumb(false);
-		} else if (availableWidth >= stage1Needed) {
-			setResponsiveStage(1);
-			setBreadcrumbMode(count > 2 ? "short" : "full");
-			setBannerShrinkable(false);
-			setCalendarCompact(false);
-			setCanTruncateLastCrumb(false);
-		} else if (availableWidth >= stage2Needed) {
-			setResponsiveStage(2);
-			setBreadcrumbMode(count > 2 ? "short" : "full");
-			setBannerShrinkable(false);
-			setCalendarCompact(false);
-			setCanTruncateLastCrumb(true);
-		} else if (availableWidth >= stage3Needed) {
-			setResponsiveStage(3);
-			setBreadcrumbMode("ellipsis");
-			setBannerShrinkable(true);
-			setCalendarCompact(false);
-			setCanTruncateLastCrumb(false);
-		} else if (availableWidth >= stage4Needed) {
-			setResponsiveStage(4);
-			setBreadcrumbMode(count > 2 ? "short" : "full");
-			setBannerShrinkable(false);
-			setCalendarCompact(true);
-			setCanTruncateLastCrumb(false);
-		} else if (availableWidth >= stage5Needed) {
-			setResponsiveStage(5);
-			setBreadcrumbMode("ellipsis");
-			setBannerShrinkable(false);
-			setCalendarCompact(true);
-			setCanTruncateLastCrumb(false);
-		} else {
-			setResponsiveStage(6);
-			setBreadcrumbMode("hidden");
-			setBannerShrinkable(false);
-			setCalendarCompact(true);
-			setCanTruncateLastCrumb(false);
-		}
-	}, [
-		isMobile,
-		breadcrumbItems,
-		getUserIsSuccess,
-		userData.username,
-	]);
-
-	useEffect(() => {
-		checkFit();
-		const handleResize = () => checkFit();
-		window.addEventListener("resize", handleResize);
-		return () => window.removeEventListener("resize", handleResize);
-	}, [checkFit]);
+		navigate(location.pathname);
+	};
 
 	const navigateToSettingsItem = (target: string) => {
 		const defaultTab = settingsDefaultTabByPath[target];
@@ -1126,11 +780,7 @@ export function AppLayout() {
 	};
 
 	return (
-		<SidebarProvider
-			defaultOpen={!sidebarCollapsed}
-			open={!sidebarCollapsed}
-			onOpenChange={(open) => setSidebarCollapsed(!open)}
-		>
+		<>
 			<div aria-hidden="true" className="hidden">
 				<ThemeSelector minimal trigger="icon" />
 			</div>
@@ -1150,6 +800,7 @@ export function AppLayout() {
 					} as CSSProperties
 				}
 			>
+				{/* persistent sidebar on md+; drawer on mobile */}
 				{!isMobile ? (
 					<AppSidebar
 						collapsed={sidebarCollapsed}
@@ -1168,151 +819,83 @@ export function AppLayout() {
 						transition: "margin 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
 					}}
 				>
-					<header
-						ref={headerRef}
-						className="sticky top-3 z-40 mx-3 mt-3 flex h-14 min-h-14 shrink-0 select-none items-center justify-between gap-4 rounded-[20px] border border-panel-border! bg-panel-surface px-3 md:mx-4 md:px-5"
-					>
+					<header className="sticky top-3 z-40 mx-3 mt-3 flex h-14 min-h-14 shrink-0 select-none items-center justify-between gap-4 rounded-2xl border border-panel-border! bg-panel-surface px-3 md:mx-4 md:px-5">
 						<div className="flex min-w-0 flex-1 items-center gap-3">
-							<Button
-								aria-label={t("a11y.toggleSidebar")}
-								onClick={() => {
+							<Button aria-label={t("a11y.toggleSidebar")} onClick={() => {
 									if (isMobile) sidebarDrawer.onOpen();
 									else setSidebarCollapsed(!sidebarCollapsed);
-								}}
-								variant="outline"
-								size="icon"
-								className="shrink-0 border-panel-border! bg-panel-elevated hover:bg-panel-border-strong"
-							>
+								}} variant="outline" size="icon" className="shrink-0 border-panel-border! bg-panel-elevated hover:bg-panel-border-strong">
 								<MenuIcon className="size-4" />
 							</Button>
 
-							{breadcrumbMode !== "hidden" && (
-								<Breadcrumb dir="ltr" className="hidden min-w-0 shrink md:block">
-									<BreadcrumbList className="flex-nowrap items-center gap-1 overflow-hidden text-xs whitespace-nowrap md:text-sm">
-										{breadcrumbMode === "ellipsis" ? (
+							{/* Stock shadcn Breadcrumb: the trail is the same, the markup is the kit's. */}
+							<Breadcrumb dir="ltr" className="hidden min-w-0 shrink md:block">
+								<BreadcrumbList className="flex-nowrap items-center gap-1 overflow-hidden text-xs whitespace-nowrap md:text-sm">
+									<BreadcrumbItem className="shrink-0">
+										<BreadcrumbLink asChild>
+											<button
+												type="button"
+												onClick={() => navigate("/")}
+												className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
+											>
+												dashboard
+											</button>
+										</BreadcrumbLink>
+									</BreadcrumbItem>
+									{locationTrail.length > 1 && (
+										<>
+											<BreadcrumbSeparator className="text-panel-text-muted">/</BreadcrumbSeparator>
 											<BreadcrumbItem>
-												<BreadcrumbEllipsisDropdown
-													items={breadcrumbItems}
-													onNavigate={(path) => navigate(path)}
-												/>
+												<BreadcrumbLink asChild>
+													<button
+														type="button"
+														onClick={openCurrentPage}
+														className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
+													>
+														{locationTrail[1]}
+													</button>
+												</BreadcrumbLink>
 											</BreadcrumbItem>
-										) : breadcrumbMode === "short" ? (
-											<>
-												{breadcrumbItems.length > 0 && (
-													<BreadcrumbItem className="shrink-0">
-														<BreadcrumbLink asChild>
-															<button
-																type="button"
-																onClick={() =>
-																	breadcrumbItems[0].path &&
-																	navigate(breadcrumbItems[0].path)
-																}
-																className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
-															>
-																{breadcrumbItems[0].label}
-															</button>
-														</BreadcrumbLink>
-													</BreadcrumbItem>
-												)}
-												{breadcrumbItems.length > 2 && (
-													<>
-														<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
-														<BreadcrumbItem>
-															<BreadcrumbEllipsisDropdown
-																items={breadcrumbItems.slice(1, -1)}
-																onNavigate={(path) => navigate(path)}
-															/>
-														</BreadcrumbItem>
-													</>
-												)}
-												{breadcrumbItems.length > 1 && (
-													<>
-														<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
-														<BreadcrumbItem className={canTruncateLastCrumb ? "min-w-0" : "shrink-0"}>
-															<BreadcrumbPage
-																className={cn(
-																	"text-xs font-semibold text-panel-text-secondary md:text-sm",
-																	canTruncateLastCrumb && "truncate max-w-[120px]",
-																)}
-															>
-																{breadcrumbItems[breadcrumbItems.length - 1].label}
-															</BreadcrumbPage>
-														</BreadcrumbItem>
-													</>
-												)}
-											</>
-										) : (
-											breadcrumbItems.map((item, index) => {
-												const isLast = index === breadcrumbItems.length - 1;
-												return (
-													<Fragment key={`${item.label}-${index}`}>
-														{index > 0 && (
-															<BreadcrumbSeparator className="text-panel-text-muted">→</BreadcrumbSeparator>
-														)}
-														<BreadcrumbItem className={isLast ? "min-w-0" : "shrink-0"}>
-															{isLast ? (
-																<BreadcrumbPage
-																	className={cn(
-																		"text-xs font-semibold text-panel-text-secondary md:text-sm",
-																		canTruncateLastCrumb && "truncate max-w-[140px]",
-																	)}
-																>
-																	{item.label}
-																</BreadcrumbPage>
-															) : (
-																<BreadcrumbLink asChild>
-																	<button
-																		type="button"
-																		onClick={() => item.path && navigate(item.path)}
-																		className="whitespace-nowrap font-semibold text-panel-text-secondary transition-colors hover:text-panel-text"
-																	>
-																		{item.label}
-																	</button>
-																</BreadcrumbLink>
-															)}
-														</BreadcrumbItem>
-													</Fragment>
-												);
-											})
-										)}
-									</BreadcrumbList>
-								</Breadcrumb>
-							)}
-
+										</>
+									)}
+									{locationTrail.length > 2 && (
+										<BreadcrumbSeparator className="text-panel-text-muted">/</BreadcrumbSeparator>
+									)}
+									{locationTrail.length > 2 && (
+										<BreadcrumbItem className="min-w-0">
+											<BreadcrumbPage className="truncate text-xs font-semibold text-panel-text-secondary md:text-sm">
+												{locationTrail.slice(2).join(" / ")}
+											</BreadcrumbPage>
+										</BreadcrumbItem>
+									)}
+								</BreadcrumbList>
+							</Breadcrumb>
 							{mobileHeaderItems.length > 0 && (
 								<div className="block w-[160px] min-w-0 shrink sm:w-[220px] md:hidden md:w-[360px]">
 									<SponsorCarousel items={mobileHeaderItems} variant="banner" />
 								</div>
 							)}
 							{sponsorHeaderItems.length > 0 && (
-								<div
-									data-header-banner="true"
-									className={cn(
-										"hidden min-w-0 shrink md:block",
-										bannerShrinkable ? "w-[220px] max-w-[220px]" : "w-[360px] max-w-[360px]",
-									)}
-								>
+								<div className="hidden w-[160px] min-w-0 shrink sm:w-[220px] md:block md:w-[360px]">
 									<SponsorCarousel items={sponsorHeaderItems} variant="banner" />
 								</div>
 							)}
 						</div>
 
 						<div className="flex shrink-0 items-center gap-2">
-							<HeaderCalendar isCompact={calendarCompact} />
-							{getUserIsSuccess && userData.username && <NotificationBell />}
+							<div className="flex h-[34px] items-center rounded-full border border-panel-border! bg-panel-elevated px-1">
+								<HeaderCalendar />
+								{getUserIsSuccess && userData.username && <NotificationBell />}
+							</div>
 
+							{/* User menu */}
 							{getUserIsSuccess && userData.username && (
 								<DropdownMenu open={userMenu.isOpen} onOpenChange={(open) => {
 										if (open) userMenu.onOpen();
 										else handleUserMenuClose();
 									}}>
 									<DropdownMenuTrigger asChild>
-										<Button
-											data-header-profile="true"
-											aria-label={t("a11y.userMenu")}
-											variant="outline"
-											className="h-[34px] min-w-[34px] rounded-[12px] border-panel-border! bg-panel-surface ps-2 pe-2 text-sm font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:bg-panel-elevated hover:border-panel-border-strong! sm:pe-3"
-										>
+										<Button aria-label={t("a11y.userMenu")} variant="outline" className="h-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-elevated ps-1 pe-1 text-sm font-semibold hover:bg-panel-border-strong sm:pe-3">
 											<span className="flex items-center gap-2">
 												<span
 													className={cn(
@@ -1328,9 +911,10 @@ export function AppLayout() {
 											</span>
 										</Button>
 									</DropdownMenuTrigger>
-									<DropdownMenuContent align={isRTL ? "start" : "end"} sideOffset={8} className="min-w-[236px]! rounded-[14px] border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-xl select-none">
+									<DropdownMenuContent align={isRTL ? "start" : "end"} sideOffset={8} className="min-w-[236px]! rounded-xl border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-xl select-none">
 										<div ref={userMenuContentRef}>
-											<div className="mx-1.5 mt-1 mb-1.5 flex items-center gap-3 rounded-[12px] bg-panel-main px-3 py-2.5">
+											{/* User info */}
+											<div className="mx-1.5 mt-1 mb-1.5 flex items-center gap-3 rounded-lg bg-panel-main px-3 py-2.5">
 												<span
 													className={cn(
 														"flex size-9 shrink-0 items-center justify-center rounded-full",
@@ -1349,16 +933,12 @@ export function AppLayout() {
 												</div>
 											</div>
 
-											{isMobile && (
-												<div className="w-full block md:hidden">
-													<HeaderCalendar inMenu={true} />
-												</div>
-											)}
+											{/* Language selector */}
 											<Popover open={languageMenu.isOpen} onOpenChange={(open) =>
 													open ? languageMenu.onOpen() : languageMenu.onClose()
 												}>
 												<PopoverTrigger asChild>
-													<Button onClick={(event: ReactMouseEvent) => event.stopPropagation()} variant="ghost" className="h-10 w-full justify-start gap-3 rounded-[12px] bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
+													<Button onClick={(event: ReactMouseEvent) => event.stopPropagation()} variant="ghost" className="h-10 w-full justify-start gap-3 rounded-md bg-transparent px-3 font-medium text-panel-text hover:bg-panel-elevated focus-visible:bg-panel-elevated active:bg-panel-elevated">
 														<LanguageIconStyled className="size-4 shrink-0" />
 														<span className="flex min-w-0 flex-1 items-center justify-between gap-3">
 															<span>{t("header.language")}</span>
@@ -1370,7 +950,7 @@ export function AppLayout() {
 														</span>
 													</Button>
 												</PopoverTrigger>
-												<PopoverContent side={isMobile ? "bottom" : isRTL ? "left" : "right"} align="start" className="min-w-[160px]! rounded-[14px] border-panel-border! bg-panel-surface py-2 text-panel-text shadow-lg select-none">
+												<PopoverContent side={isMobile ? "bottom" : isRTL ? "left" : "right"} align="start" className="min-w-[160px]! rounded-md border-panel-border! bg-panel-surface py-2 text-panel-text shadow-lg select-none">
 													{languageItems.map(({ code, label, flag }) => {
 														const isActiveLang = i18n.language === code;
 														return (
@@ -1404,6 +984,7 @@ export function AppLayout() {
 												</PopoverContent>
 											</Popover>
 
+											{/* Theme selector */}
 											<ThemeSelector
 												trigger="menuItem"
 												triggerLabel={t("header.theme")}
@@ -1413,6 +994,7 @@ export function AppLayout() {
 											/>
 
 											<DropdownMenuSeparator className="my-2 opacity-60" />
+											{/* Logout */}
 											<DropdownMenuItem onSelect={async () => {
 													try {
 														await logoutSession();
@@ -1431,11 +1013,21 @@ export function AppLayout() {
 						</div>
 					</header>
 
-					<main className="min-h-0 flex-1 overflow-auto bg-panel-main p-3 pb-40 md:p-4 md:pb-4">
-						<Outlet />
+					<main
+						ref={mainRef}
+						onScroll={(event) => {
+							if (!editorPageSection) listScrollTop.current = event.currentTarget.scrollTop;
+						}}
+						className="min-h-0 flex-1 overflow-auto bg-panel-main p-3 pb-40 md:p-4 md:pb-4"
+					>
+						<div className={cn(editorPageSection && "hidden")}>
+							<Outlet />
+						</div>
+						<div id={EDITOR_PAGE_ID} className={cn(!editorPageSection && "hidden")} />
 					</main>
 				</div>
 
+				{/* mobile drawer */}
 				{isMobile && (
 					<Sheet open={sidebarDrawer.isOpen} onOpenChange={(open) =>
 							open ? sidebarDrawer.onOpen() : sidebarDrawer.onClose()
@@ -1479,6 +1071,7 @@ export function AppLayout() {
 							</div>
 						)}
 
+						{/* Mobile bottom dock */}
 						<div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+8px)]">
 							<div
 								className={cn(
@@ -1528,7 +1121,7 @@ export function AppLayout() {
 															<motion.span
 																layoutId="mobile-bottom-nav-indicator"
 																transition={navSpring}
-																className="absolute inset-0 rounded-[12px] bg-[color-mix(in_srgb,var(--primary-500)_12%,transparent)] dark:bg-[color-mix(in_srgb,var(--primary-300)_20%,transparent)]"
+																className="absolute inset-0 rounded-2xl bg-[color-mix(in_srgb,var(--primary-500)_12%,transparent)] dark:bg-[color-mix(in_srgb,var(--primary-300)_20%,transparent)]"
 															/>
 														)}
 														<div
@@ -1584,6 +1177,8 @@ export function AppLayout() {
 														<Button ref={(node) => {
 																tabContentRefs.current[item.key] = node;
 															}} onClick={(event) => {
+																// The click only toggles through handleSettingsMenuToggle, so
+																// stop the trigger from toggling on its own.
 																event.preventDefault();
 																if (settingsHoldOpened.current) return;
 																handleSettingsMenuToggle();
@@ -1645,6 +1240,7 @@ export function AppLayout() {
 														<Button ref={(node) => {
 																tabContentRefs.current[item.key] = node;
 															}} onClick={(event) => {
+																// Same as the settings tab: the click is handled below only.
 																event.preventDefault();
 																if (accountHoldOpened.current) return;
 																handleAccountMenuClose();
@@ -1704,6 +1300,6 @@ export function AppLayout() {
 					</>
 				)}
 			</div>
-		</SidebarProvider>
+		</>
 	);
 }
