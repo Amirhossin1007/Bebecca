@@ -57,6 +57,7 @@ import { AdminRole, AdminSection } from "types/Admin";
 import { clearClientSession } from "utils/session";
 import ImperialIranFlag from "../assets/imperial-iran-flag.svg?react";
 import { AppSidebar } from "./AppSidebar";
+import { GitHubStars } from "./GitHubStars";
 import { HeaderCalendar } from "./HeaderCalendar";
 import {
 	DEFAULT_TAB_BY_PATH,
@@ -1125,11 +1126,17 @@ function AppLayoutContent() {
 			const notifEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-notifications]",
 			);
+			const starsEl = headerRef.current.querySelector<HTMLElement>(
+				"[data-header-github-stars]",
+			);
 			const profileWidth = profileEl ? profileEl.offsetWidth : 90;
 			const notifWidth =
 				!isMobile && getUserIsSuccess && notifEl ? notifEl.offsetWidth : 0;
+			const starsWidth = starsEl ? starsEl.offsetWidth : 34;
 			const rightControlsWidth =
-				profileWidth + (notifWidth > 0 ? notifWidth + 8 : 0);
+				profileWidth +
+				(notifWidth > 0 ? notifWidth + 8 : 0) +
+				(starsWidth > 0 ? starsWidth + 8 : 0);
 			const isFa = i18n.language?.startsWith("fa");
 			const fullCalendarWidth = isFa ? 184 : 200;
 			const compactCalendarWidth = 34;
@@ -1777,6 +1784,8 @@ function AppLayoutContent() {
 								data-header-controls="true"
 								className="flex h-full shrink-0 items-center gap-1.5 sm:gap-2"
 							>
+								<GitHubStars compact={isMobile} />
+
 								{!isMobile ? (
 									<HeaderCalendar isCompact={calendarCompact} />
 								) : null}
@@ -1850,21 +1859,6 @@ function AppLayoutContent() {
 
 											<div className="flex flex-col gap-0.5">
 												{isMobile ? (
-													<HeaderCalendar
-														key={`cal-menu-${isRTL ? "rtl" : "ltr"}`}
-														inMenu
-														isOpen={activeProfileSubmenu === "calendar"}
-														isPressing={pressingProfileSubmenu === "calendar"}
-														onToggle={() => toggleProfileSubmenu("calendar")}
-														onClose={() => {
-															if (activeProfileSubmenu === "calendar") {
-																setActiveProfileSubmenu(null);
-															}
-														}}
-													/>
-												) : null}
-
-												{isMobile ? (
 													<NotificationMenuItem
 														key={`notif-menu-${isRTL ? "rtl" : "ltr"}`}
 														onNavigate={closeUserMenu}
@@ -1877,6 +1871,21 @@ function AppLayoutContent() {
 														}
 														onClose={() => {
 															if (activeProfileSubmenu === "notifications") {
+																setActiveProfileSubmenu(null);
+															}
+														}}
+													/>
+												) : null}
+
+												{isMobile ? (
+													<HeaderCalendar
+														key={`cal-menu-${isRTL ? "rtl" : "ltr"}`}
+														inMenu
+														isOpen={activeProfileSubmenu === "calendar"}
+														isPressing={pressingProfileSubmenu === "calendar"}
+														onToggle={() => toggleProfileSubmenu("calendar")}
+														onClose={() => {
+															if (activeProfileSubmenu === "calendar") {
 																setActiveProfileSubmenu(null);
 															}
 														}}

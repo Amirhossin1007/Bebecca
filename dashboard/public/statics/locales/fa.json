@@ -4196,5 +4196,13 @@
 	"sidebar.usersList": "لیست کاربران",
 	"sidebar.tutorialsAndFaq": "آموزش و سوالات",
 	"calendar.today": "امروز",
-	"header.calendar": "تقویم"
+	"header.calendar": "تقویم",
+	"header.githubStars": "گیت‌هاب",
+	"dashboard.backup.confirmImportTitle": "تأیید بازیابی پشتیبان",
+	"dashboard.backup.confirmImportAction": "بازیابی پشتیبان",
+	"dashboard.users.disabled": "غیرفعال",
+	"dashboard.system.panelMemory": "حافظه پنل",
+	"dashboard.system.loadAverage": "بار سیستم",
+	"dashboard.system.xrayCore": "هسته Xray",
+	"dashboard.system.coreUptime": "زمان فعالیت هسته"
 }

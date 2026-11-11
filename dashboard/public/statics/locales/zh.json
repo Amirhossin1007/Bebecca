@@ -942,5 +942,13 @@
 	"sidebar.usersList": "用户列表",
 	"sidebar.tutorialsAndFaq": "教程与常见问题",
 	"calendar.today": "今天",
-	"header.calendar": "日历"
+	"header.calendar": "日历",
+	"header.githubStars": "GitHub",
+	"dashboard.backup.confirmImportTitle": "确认恢复备份",
+	"dashboard.backup.confirmImportAction": "恢复备份",
+	"dashboard.users.disabled": "已禁用",
+	"dashboard.system.panelMemory": "面板内存",
+	"dashboard.system.loadAverage": "系统负载",
+	"dashboard.system.xrayCore": "Xray 核心",
+	"dashboard.system.coreUptime": "核心运行时间"
 }

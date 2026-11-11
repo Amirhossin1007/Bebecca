@@ -205,13 +205,13 @@ const normalizeTheme = (value?: string | null): ThemeMode =>
 const normalizeAccent = (value?: string | null) =>
 	ACCENT_OPTIONS.some((option) => option.key === value)
 		? (value as string)
-		: "crimson";
+		: "blue";
 
 const getStoredAccent = () => {
 	try {
 		return normalizeAccent(localStorage.getItem(ACCENT_KEY));
 	} catch {
-		return "crimson";
+		return "blue";
 	}
 };
 

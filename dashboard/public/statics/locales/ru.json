@@ -941,5 +941,13 @@
 	"sidebar.usersList": "Список пользователей",
 	"sidebar.tutorialsAndFaq": "Обучение и FAQ",
 	"calendar.today": "Сегодня",
-	"header.calendar": "Календарь"
+	"header.calendar": "Календарь",
+	"header.githubStars": "GitHub",
+	"dashboard.backup.confirmImportTitle": "Подтверждение восстановления",
+	"dashboard.backup.confirmImportAction": "Восстановить копию",
+	"dashboard.users.disabled": "Отключены",
+	"dashboard.system.panelMemory": "Память панели",
+	"dashboard.system.loadAverage": "Средняя нагрузка",
+	"dashboard.system.xrayCore": "Ядро Xray",
+	"dashboard.system.coreUptime": "Время работы ядра"
 }

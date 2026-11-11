@@ -185,6 +185,8 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(
 			</div>
 		);
 
+		const slideOffset = isRTL ? "100%" : "-100%";
+
 		return (
 			<button
 				type="button"
@@ -192,21 +194,18 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(
 				onClick={handleClick}
 				onMouseEnter={() => setIsPaused(true)}
 				onMouseLeave={() => setIsPaused(false)}
-				className={cn(
-					"relative flex h-[34px] min-w-0 flex-1 cursor-pointer items-center overflow-hidden text-start transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.98]",
-					collapsed ? "justify-center" : "gap-2.5",
-				)}
+				className="relative flex h-[34px] min-w-0 flex-1 cursor-pointer items-center justify-start overflow-hidden text-start transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.98]"
 			>
 				<AnimatePresence mode="wait" initial={false}>
 					<motion.div
 						key={currentItem.id}
-						initial={{ opacity: 0, y: 10, filter: "blur(2px)" }}
-						animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-						exit={{ opacity: 0, y: -10, filter: "blur(2px)" }}
-						transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+						initial={{ transform: `translate3d(${slideOffset}, 0, 0)` }}
+						animate={{ transform: "translate3d(0%, 0, 0)" }}
+						exit={{ transform: `translate3d(${slideOffset}, 0, 0)` }}
+						transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
 						className={cn(
-							"flex h-[34px] w-full items-center",
-							collapsed ? "justify-center" : "gap-2.5",
+							"flex h-[34px] w-full items-center justify-start gap-2.5 ps-[18px] transition-[padding] duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform",
+							collapsed ? "pe-0" : "pe-2.5",
 						)}
 					>
 						{collapsed ? (
@@ -223,11 +222,17 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(
 						) : (
 							logoGraphic
 						)}
-						{!collapsed ? (
-							<span className="min-w-0 flex-1 truncate pt-0.5 text-[17px] font-extrabold tracking-[-0.02em] text-panel-text">
-								{currentItem.label}
-							</span>
-						) : null}
+						<span
+							aria-hidden={collapsed}
+							className={cn(
+								"min-w-0 flex-1 truncate pt-0.5 text-[17px] font-extrabold tracking-[-0.02em] text-panel-text transition-opacity ease-out",
+								collapsed
+									? "pointer-events-none opacity-0 duration-150"
+									: "opacity-100 delay-[40ms] duration-200",
+							)}
+						>
+							{currentItem.label}
+						</span>
 					</motion.div>
 				</AnimatePresence>
 			</button>
@@ -235,22 +240,28 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(
 	},
 );
 
-interface CollapsedGroupPopoverProps {
+interface GroupNavRowProps {
 	group: GroupNavItem;
+	collapsed: boolean;
 	isGroupActive: boolean;
+	isOpen: boolean;
 	isRTL: boolean;
 	isItemActive: (url: string) => boolean;
+	onToggleOpen: () => void;
 	onNavigate: (url: string, event?: ReactMouseEvent) => void;
 }
 
-const CollapsedGroupPopover: FC<CollapsedGroupPopoverProps> = ({
+const GroupNavRow: FC<GroupNavRowProps> = ({
 	group,
+	collapsed,
 	isGroupActive,
+	isOpen,
 	isRTL,
 	isItemActive,
+	onToggleOpen,
 	onNavigate,
 }) => {
-	const [open, setOpen] = useState(false);
+	const [flyoutOpen, setFlyoutOpen] = useState(false);
 	const isDesktop = useMediaQuery("(min-width: 769px)");
 	const closeTimeoutRef = useRef<number | null>(null);
 	const GroupIcon = group.icon;
@@ -264,18 +275,24 @@ const CollapsedGroupPopover: FC<CollapsedGroupPopoverProps> = ({
 	};
 
 	const handleMouseEnter = () => {
-		if (!isDesktop) return;
+		if (!collapsed || !isDesktop) return;
 		clearCloseTimer();
-		setOpen(true);
+		setFlyoutOpen(true);
 	};
 
 	const handleMouseLeave = () => {
-		if (!isDesktop) return;
+		if (!collapsed || !isDesktop) return;
 		clearCloseTimer();
 		closeTimeoutRef.current = window.setTimeout(() => {
-			setOpen(false);
+			setFlyoutOpen(false);
 		}, 110);
 	};
+
+	useEffect(() => {
+		if (!collapsed) {
+			setFlyoutOpen(false);
+		}
+	}, [collapsed]);
 
 	useEffect(() => {
 		return () => {
@@ -285,74 +302,162 @@ const CollapsedGroupPopover: FC<CollapsedGroupPopoverProps> = ({
 		};
 	}, []);
 
+	const showAccentBar = isGroupActive && (collapsed || !isOpen);
+
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger asChild>
-				<button
-					type="button"
-					aria-label={group.title}
+		<div data-nav-group={group.id}>
+			<Popover
+				open={collapsed ? flyoutOpen : false}
+				onOpenChange={(next) => {
+					if (collapsed) setFlyoutOpen(next);
+				}}
+			>
+				<PopoverTrigger asChild>
+					<button
+						type="button"
+						aria-label={group.title}
+						aria-expanded={collapsed ? flyoutOpen : isOpen}
+						onMouseEnter={handleMouseEnter}
+						onMouseLeave={handleMouseLeave}
+						onClick={() => {
+							if (!collapsed) {
+								onToggleOpen();
+							} else if (!isDesktop) {
+								setFlyoutOpen((prev) => !prev);
+							} else if (visibleSubs[0]?.url) {
+								onNavigate(visibleSubs[0].url);
+							}
+						}}
+						className={cn(
+							"relative flex h-[38px] w-full cursor-pointer items-center justify-start gap-2.5 overflow-hidden rounded-[12px] text-[13px] transition-[padding,background-color,color,transform] duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)] outline-none select-none active:scale-[0.98] min-[769px]:hover:bg-panel-elevated",
+							collapsed ? "ps-4 pe-4" : "ps-3 pe-2.5",
+							showAccentBar
+								? "bg-panel-elevated font-bold text-panel-accent"
+								: isGroupActive
+									? "bg-transparent font-bold text-panel-text"
+									: "bg-transparent font-medium text-panel-text-secondary min-[769px]:hover:text-panel-text",
+						)}
+					>
+						{showAccentBar ? (
+							<span className="pointer-events-none absolute inset-s-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-panel-accent" />
+						) : null}
+
+						<span
+							className={cn(
+								"inline-flex size-[18px] shrink-0 items-center justify-center",
+								isGroupActive && "text-panel-accent",
+							)}
+						>
+							<GroupIcon className="size-[18px] shrink-0" />
+						</span>
+
+						<span
+							aria-hidden={collapsed}
+							className={cn(
+								"flex min-w-0 flex-1 items-center justify-between gap-2 overflow-hidden whitespace-nowrap transition-opacity ease-out",
+								collapsed
+									? "pointer-events-none opacity-0 duration-150"
+									: "opacity-100 delay-[40ms] duration-200",
+							)}
+						>
+							<span className="truncate">{group.title}</span>
+							<ChevronDown
+								className={cn(
+									"size-3.5 shrink-0 text-panel-text-muted transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+									isOpen
+										? "rotate-0"
+										: isRTL
+											? "rotate-90"
+											: "-rotate-90",
+								)}
+							/>
+						</span>
+					</button>
+				</PopoverTrigger>
+				<PopoverContent
+					dir={isRTL ? "rtl" : "ltr"}
+					side={isRTL ? "left" : "right"}
+					align="start"
+					sideOffset={10}
 					onMouseEnter={handleMouseEnter}
 					onMouseLeave={handleMouseLeave}
-					onClick={() => {
-						if (!isDesktop) {
-							setOpen((prev) => !prev);
-						} else if (visibleSubs[0]?.url) {
-							onNavigate(visibleSubs[0].url);
-						}
-					}}
-					className={cn(
-						"relative flex h-[38px] w-full cursor-pointer items-center justify-center rounded-[12px] transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.96] md:hover:bg-panel-elevated",
-						isGroupActive
-							? "bg-panel-elevated text-panel-accent font-bold"
-							: "bg-transparent text-panel-text-secondary md:hover:text-panel-text",
-					)}
+					onOpenAutoFocus={(e) => e.preventDefault()}
+					className="z-[2200] w-auto min-w-[196px]! rounded-[16px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_14px_34px_rgba(0,0,0,0.28)] select-none"
 				>
-					{isGroupActive ? (
-						<span className="pointer-events-none absolute inset-s-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-panel-accent" />
-					) : null}
-					<GroupIcon className="size-[18px] shrink-0" />
-				</button>
-			</PopoverTrigger>
-			<PopoverContent
-				dir={isRTL ? "rtl" : "ltr"}
-				side={isRTL ? "left" : "right"}
-				align="start"
-				sideOffset={10}
-				onMouseEnter={handleMouseEnter}
-				onMouseLeave={handleMouseLeave}
-				onOpenAutoFocus={(e) => e.preventDefault()}
-				className="z-[2200] w-auto min-w-[196px]! rounded-[16px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_14px_34px_rgba(0,0,0,0.28)] select-none"
-			>
-				<div className="mb-1 border-b border-panel-border! px-2.5 pt-1 pb-1.5 text-[11px] font-bold tracking-wider uppercase text-panel-text-muted">
-					{group.title}
-				</div>
-				<div className="flex flex-col gap-0.5">
-					{visibleSubs.map((sub) => {
-						const subActive = isItemActive(sub.url);
-						const SubIcon = sub.icon;
-						return (
-							<NavLink
-								key={sub.id}
-								to={sub.url}
-								onClick={(e) => {
-									setOpen(false);
-									onNavigate(sub.url, e);
-								}}
-								className={cn(
-									"relative flex h-[34px] items-center gap-2.5 rounded-[10px] px-2.5 text-xs no-underline transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] md:hover:bg-panel-elevated",
-									subActive
-										? "bg-panel-elevated font-bold text-panel-accent"
-										: "bg-transparent font-medium text-panel-text-secondary md:hover:text-panel-text",
-								)}
-							>
-								<SubIcon className="size-4 shrink-0" />
-								<span className="truncate">{sub.title}</span>
-							</NavLink>
-						);
-					})}
-				</div>
-			</PopoverContent>
-		</Popover>
+					<div className="mb-1 border-b border-panel-border! px-2.5 pt-1 pb-1.5 text-[11px] font-bold tracking-wider uppercase text-panel-text-muted">
+						{group.title}
+					</div>
+					<div className="flex flex-col gap-0.5">
+						{visibleSubs.map((sub) => {
+							const subActive = isItemActive(sub.url);
+							const SubIcon = sub.icon;
+							return (
+								<NavLink
+									key={sub.id}
+									to={sub.url}
+									onClick={(e) => {
+										setFlyoutOpen(false);
+										onNavigate(sub.url, e);
+									}}
+									className={cn(
+										"relative flex h-[34px] items-center gap-2.5 rounded-[10px] px-2.5 text-xs no-underline transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] min-[769px]:hover:bg-panel-elevated",
+										subActive
+											? "bg-panel-elevated font-bold text-panel-accent"
+											: "bg-transparent font-medium text-panel-text-secondary min-[769px]:hover:text-panel-text",
+									)}
+								>
+									<SubIcon className="size-4 shrink-0" />
+									<span className="truncate">{sub.title}</span>
+								</NavLink>
+							);
+						})}
+					</div>
+				</PopoverContent>
+			</Popover>
+
+			<AnimatePresence initial={false}>
+				{isOpen && !collapsed ? (
+					<motion.div
+						key="subitems"
+						initial={{ height: 0, opacity: 0 }}
+						animate={{ height: "auto", opacity: 1 }}
+						exit={{ height: 0, opacity: 0 }}
+						transition={{
+							duration: 0.22,
+							ease: [0.16, 1, 0.3, 1],
+						}}
+						className="overflow-hidden"
+					>
+						<div className="ms-[21px] mt-1 mb-0.5 flex flex-col gap-0.5 border-s border-panel-border! ps-2.5">
+							{visibleSubs.map((sub) => {
+								const subActive = isItemActive(sub.url);
+								const SubIcon = sub.icon;
+
+								return (
+									<NavLink
+										key={sub.id}
+										to={sub.url}
+										onClick={(e) => onNavigate(sub.url, e)}
+										className={cn(
+											"relative flex h-[34px] items-center gap-2.5 rounded-[10px] px-2.5 text-xs no-underline transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.98] min-[769px]:hover:bg-panel-elevated",
+											subActive
+												? "bg-panel-elevated font-bold text-panel-accent"
+												: "bg-transparent font-medium text-panel-text-secondary min-[769px]:hover:text-panel-text",
+										)}
+									>
+										{subActive ? (
+											<span className="pointer-events-none absolute -inset-s-[11.5px] top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-panel-accent" />
+										) : null}
+										<SubIcon className="size-4 shrink-0" />
+										<span className="truncate">{sub.title}</span>
+									</NavLink>
+								);
+							})}
+						</div>
+					</motion.div>
+				) : null}
+			</AnimatePresence>
+		</div>
 	);
 };
 
@@ -510,13 +615,13 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 						: "fixed top-3 z-[200] h-[calc(100dvh-24px)] max-h-[calc(100dvh-24px)] rounded-[20px] border border-panel-border! shadow-[0_1px_2px_rgba(0,0,0,0.03),inset_0_1px_0_0_rgba(255,255,255,0.7)] transition-[width] duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]",
 				)}
 			>
-				<div
-					className={cn(
-						"flex h-full min-h-0 w-full flex-col justify-between",
-						collapsed ? "p-2" : "p-3",
-					)}
-				>
-					<div className="mb-2 flex min-h-[48px] items-center justify-between border-b border-panel-border! px-2.5 py-2.5">
+				<div className="flex h-full min-h-0 w-full flex-col justify-between px-2 py-2.5">
+					<div
+						className={cn(
+							"-mx-2 mb-2 flex min-h-[48px] items-center justify-between border-b border-panel-border! py-2.5 ps-0",
+							inDrawer ? "pe-2.5" : "pe-0",
+						)}
+					>
 						<SidebarLogoCarousel
 							sponsors={sponsors}
 							collapsed={collapsed}
@@ -533,7 +638,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 								data-drawer-close="true"
 								aria-label={t("cancel", "Close")}
 								onClick={onRequestExpand}
-								className="inline-flex size-9 min-w-9 items-center justify-center rounded-full border border-panel-border! bg-panel-elevated/60 text-panel-text-secondary transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.92] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
+								className="inline-flex size-9 min-w-9 shrink-0 items-center justify-center rounded-full border border-panel-border! bg-panel-elevated/60 text-panel-text-secondary transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.92] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 							>
 								<X className="size-4" />
 							</button>
@@ -542,10 +647,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 
 					<div
 						dir={isRTL ? "rtl" : "ltr"}
-						className={cn(
-							"rb-sidebar-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain",
-							collapsed ? "px-0" : "px-1",
-						)}
+						className="rb-sidebar-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-0"
 					>
 						<div className="flex flex-col gap-2 py-1">
 							{navSections.map((section, secIdx) => {
@@ -562,7 +664,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 
 										<div
 											className={cn(
-												"pointer-events-none overflow-hidden whitespace-nowrap transition-[max-height,opacity,margin] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)]",
+												"pointer-events-none overflow-hidden whitespace-nowrap transition-[max-height,opacity,margin] duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
 												collapsed
 													? "mb-0 mt-0 max-h-0 opacity-0"
 													: cn(
@@ -571,7 +673,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 														),
 											)}
 										>
-											<span className="block truncate px-2.5 text-[10.5px] font-bold tracking-[0.06em] uppercase text-panel-text-muted">
+											<span className="block truncate px-3 text-[10.5px] font-bold tracking-[0.06em] uppercase text-panel-text-muted">
 												{section.title}
 											</span>
 										</div>
@@ -583,62 +685,63 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 													const ItemIcon = item.icon;
 													const showBadge = Boolean(item.badge);
 
-													const directLink = (
-														<NavLink
-															to={item.url}
-															onClick={(e) => handleNavigate(item.url, e)}
-															className={cn(
-																"relative flex h-[38px] w-full items-center overflow-hidden rounded-[12px] text-[13px] no-underline transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.98] md:hover:bg-panel-elevated",
-																collapsed
-																	? "justify-center px-0"
-																	: "justify-start gap-2.5 px-2.5",
-																isActive
-																	? "bg-panel-elevated font-bold text-panel-accent"
-																	: "bg-transparent font-medium text-panel-text-secondary md:hover:text-panel-text",
-															)}
+													return (
+														<Tooltip
+															key={item.id}
+															open={collapsed ? undefined : false}
 														>
-															{isActive ? (
-																<span className="pointer-events-none absolute inset-s-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-panel-accent" />
-															) : null}
-
-															<span className="relative inline-flex size-[18px] shrink-0 items-center justify-center">
-																<ItemIcon className="size-[18px]" />
-																{showBadge && collapsed ? (
-																	<span className="absolute -top-1 -end-1 size-2 rounded-full border-[1.5px] border-panel-surface bg-panel-accent" />
-																) : null}
-															</span>
-
-															{!collapsed ? (
-																<span className="flex min-w-0 flex-1 items-center justify-between gap-2 overflow-hidden whitespace-nowrap">
-																	<span className="truncate">{item.title}</span>
-																	{showBadge ? (
-																		<span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-panel-accent text-white">
-																			<BellRing className="size-2.5" />
-																		</span>
-																	) : null}
-																</span>
-															) : null}
-														</NavLink>
-													);
-
-													if (collapsed) {
-														return (
-															<Tooltip key={item.id}>
-																<TooltipTrigger asChild>
-																	{directLink}
-																</TooltipTrigger>
-																<TooltipContent
-																	side={isRTL ? "left" : "right"}
-																	sideOffset={10}
-																	className="z-[2200] rounded-[10px] border border-panel-border! bg-panel-surface px-3 py-1.5 text-xs font-semibold text-panel-text shadow-lg"
+															<TooltipTrigger asChild>
+																<NavLink
+																	to={item.url}
+																	onClick={(e) => handleNavigate(item.url, e)}
+																	className={cn(
+																		"relative flex h-[38px] w-full items-center justify-start gap-2.5 overflow-hidden rounded-[12px] text-[13px] no-underline transition-[padding,background-color,color,transform] duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)] outline-none select-none active:scale-[0.98] min-[769px]:hover:bg-panel-elevated",
+																		collapsed ? "ps-4 pe-4" : "ps-3 pe-2.5",
+																		isActive
+																			? "bg-panel-elevated font-bold text-panel-accent"
+																			: "bg-transparent font-medium text-panel-text-secondary min-[769px]:hover:text-panel-text",
+																	)}
 																>
-																	{item.title}
-																</TooltipContent>
-															</Tooltip>
-														);
-													}
+																	{isActive ? (
+																		<span className="pointer-events-none absolute inset-s-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-panel-accent" />
+																	) : null}
 
-													return <div key={item.id}>{directLink}</div>;
+																	<span className="relative inline-flex size-[18px] shrink-0 items-center justify-center">
+																		<ItemIcon className="size-[18px]" />
+																		{showBadge && collapsed ? (
+																			<span className="absolute -top-1 -end-1 size-2 rounded-full border-[1.5px] border-panel-surface bg-panel-accent" />
+																		) : null}
+																	</span>
+
+																	<span
+																		aria-hidden={collapsed}
+																		className={cn(
+																			"flex min-w-0 flex-1 items-center justify-between gap-2 overflow-hidden whitespace-nowrap transition-opacity ease-out",
+																			collapsed
+																				? "pointer-events-none opacity-0 duration-150"
+																				: "opacity-100 delay-[40ms] duration-200",
+																		)}
+																	>
+																		<span className="truncate">
+																			{item.title}
+																		</span>
+																		{showBadge ? (
+																			<span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-panel-accent text-white">
+																				<BellRing className="size-2.5" />
+																			</span>
+																		) : null}
+																	</span>
+																</NavLink>
+															</TooltipTrigger>
+															<TooltipContent
+																side={isRTL ? "left" : "right"}
+																sideOffset={10}
+																className="z-[2200] rounded-[10px] border border-panel-border! bg-panel-surface px-3 py-1.5 text-xs font-semibold text-panel-text shadow-lg"
+															>
+																{item.title}
+															</TooltipContent>
+														</Tooltip>
+													);
 												}
 
 												const visibleSubs = item.subItems.filter(
@@ -650,116 +753,24 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 													isItemActive(sub.url),
 												);
 												const isOpen = Boolean(openGroups[item.id]);
-												const GroupIcon = item.icon;
-
-												if (collapsed) {
-													return (
-														<CollapsedGroupPopover
-															key={item.id}
-															group={item}
-															isGroupActive={isGroupActive}
-															isRTL={isRTL}
-															isItemActive={isItemActive}
-															onNavigate={handleNavigate}
-														/>
-													);
-												}
 
 												return (
-													<div key={item.id} data-nav-group={item.id}>
-														<button
-															type="button"
-															aria-expanded={isOpen}
-															onClick={() =>
-																setOpenGroups((prev) => ({
-																	...prev,
-																	[item.id]: !isOpen,
-																}))
-															}
-															className={cn(
-																"relative flex h-[38px] w-full cursor-pointer items-center justify-between gap-2.5 overflow-hidden rounded-[12px] px-2.5 text-[13px] transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.98] md:hover:bg-panel-elevated",
-																isGroupActive && !isOpen
-																	? "bg-panel-elevated font-bold text-panel-accent"
-																	: isGroupActive
-																		? "bg-transparent font-bold text-panel-text"
-																		: "bg-transparent font-medium text-panel-text-secondary md:hover:text-panel-text",
-															)}
-														>
-															{isGroupActive && !isOpen ? (
-																<span className="pointer-events-none absolute inset-s-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-panel-accent" />
-															) : null}
-
-															<span className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
-																<span
-																	className={cn(
-																		"inline-flex size-[18px] shrink-0 items-center justify-center",
-																		isGroupActive && "text-panel-accent",
-																	)}
-																>
-																	<GroupIcon className="size-[18px]" />
-																</span>
-																<span className="truncate">{item.title}</span>
-															</span>
-
-															<ChevronDown
-																className={cn(
-																	"size-3.5 shrink-0 text-panel-text-muted transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
-																	isOpen
-																		? "rotate-0"
-																		: isRTL
-																			? "rotate-90"
-																			: "-rotate-90",
-																)}
-															/>
-														</button>
-
-														<AnimatePresence initial={false}>
-															{isOpen ? (
-																<motion.div
-																	key="subitems"
-																	initial={{ height: 0, opacity: 0 }}
-																	animate={{ height: "auto", opacity: 1 }}
-																	exit={{ height: 0, opacity: 0 }}
-																	transition={{
-																		duration: 0.22,
-																		ease: [0.16, 1, 0.3, 1],
-																	}}
-																	className="overflow-hidden"
-																>
-																	<div className="ms-[19px] mt-1 mb-0.5 flex flex-col gap-0.5 border-s border-panel-border! ps-2.5">
-																		{visibleSubs.map((sub) => {
-																			const subActive = isItemActive(sub.url);
-																			const SubIcon = sub.icon;
-
-																			return (
-																				<NavLink
-																					key={sub.id}
-																					to={sub.url}
-																					onClick={(e) =>
-																						handleNavigate(sub.url, e)
-																					}
-																					className={cn(
-																						"relative flex h-[34px] items-center gap-2.5 rounded-[10px] px-2.5 text-xs no-underline transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.98] md:hover:bg-panel-elevated",
-																						subActive
-																							? "bg-panel-elevated font-bold text-panel-accent"
-																							: "bg-transparent font-medium text-panel-text-secondary md:hover:text-panel-text",
-																					)}
-																				>
-																					{subActive ? (
-																						<span className="pointer-events-none absolute -inset-s-[11.5px] top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-panel-accent" />
-																					) : null}
-																					<SubIcon className="size-4 shrink-0" />
-																					<span className="truncate">
-																						{sub.title}
-																					</span>
-																				</NavLink>
-																			);
-																		})}
-																	</div>
-																</motion.div>
-															) : null}
-														</AnimatePresence>
-													</div>
+													<GroupNavRow
+														key={item.id}
+														group={item}
+														collapsed={collapsed}
+														isGroupActive={isGroupActive}
+														isOpen={isOpen}
+														isRTL={isRTL}
+														isItemActive={isItemActive}
+														onToggleOpen={() =>
+															setOpenGroups((prev) => ({
+																...prev,
+																[item.id]: !isOpen,
+															}))
+														}
+														onNavigate={handleNavigate}
+													/>
 												);
 											})}
 										</div>

@@ -4197,5 +4197,13 @@
 	"sidebar.usersList": "Users List",
 	"sidebar.tutorialsAndFaq": "Tutorials & FAQ",
 	"calendar.today": "Today",
-	"header.calendar": "Calendar"
+	"header.calendar": "Calendar",
+	"header.githubStars": "GitHub",
+	"dashboard.backup.confirmImportTitle": "Confirm backup restore",
+	"dashboard.backup.confirmImportAction": "Restore backup",
+	"dashboard.users.disabled": "Disabled",
+	"dashboard.system.panelMemory": "Panel memory",
+	"dashboard.system.loadAverage": "Load average",
+	"dashboard.system.xrayCore": "Xray core",
+	"dashboard.system.coreUptime": "Core uptime"
 }
