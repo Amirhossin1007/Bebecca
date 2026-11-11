@@ -8,7 +8,6 @@ import { useTranslation } from "react-i18next";
 const GITHUB_REPO_URL = "https://github.com/rebeccapanel/Rebecca";
 const GITHUB_API_URL = "https://api.github.com/repos/rebeccapanel/Rebecca";
 const STARS_CACHE_KEY = "rb-github-stars-cache-v1";
-const LEGACY_STARS_CACHE_KEY = "rb_github_stars";
 const STARS_CACHE_TTL_MS = 30 * 60 * 1000;
 
 type CachedStars = {
@@ -19,22 +18,14 @@ type CachedStars = {
 const readCachedStars = (): CachedStars | null => {
 	try {
 		const raw = localStorage.getItem(STARS_CACHE_KEY);
-		if (raw) {
-			const parsed = JSON.parse(raw) as CachedStars;
-			if (
-				typeof parsed?.count === "number" &&
-				parsed.count >= 0 &&
-				typeof parsed?.timestamp === "number"
-			) {
-				return parsed;
-			}
-		}
-		const legacyRaw = localStorage.getItem(LEGACY_STARS_CACHE_KEY);
-		if (legacyRaw) {
-			const count = Number(legacyRaw);
-			if (Number.isFinite(count) && count >= 0) {
-				return { count, timestamp: 0 };
-			}
+		if (!raw) return null;
+		const parsed = JSON.parse(raw) as CachedStars;
+		if (
+			typeof parsed?.count === "number" &&
+			parsed.count >= 0 &&
+			typeof parsed?.timestamp === "number"
+		) {
+			return parsed;
 		}
 		return null;
 	} catch {
@@ -46,17 +37,12 @@ const writeCachedStars = (count: number) => {
 	try {
 		const payload: CachedStars = { count, timestamp: Date.now() };
 		localStorage.setItem(STARS_CACHE_KEY, JSON.stringify(payload));
-		localStorage.setItem(LEGACY_STARS_CACHE_KEY, String(count));
 	} catch {}
 };
 
 const fetchGitHubStars = async (): Promise<number | null> => {
 	const cached = readCachedStars();
-	if (
-		cached &&
-		cached.timestamp > 0 &&
-		Date.now() - cached.timestamp < STARS_CACHE_TTL_MS
-	) {
+	if (cached && Date.now() - cached.timestamp < STARS_CACHE_TTL_MS) {
 		return cached.count;
 	}
 	try {
@@ -115,11 +101,10 @@ export const GitHubStars: FC<GitHubStarsProps> = memo(function GitHubStars({
 	const { data: stars } = useQuery({
 		queryKey: ["github-stars", "rebeccapanel/Rebecca"],
 		queryFn: fetchGitHubStars,
-		initialData: () => readCachedStars()?.count,
-		initialDataUpdatedAt: () => readCachedStars()?.timestamp ?? 0,
+		initialData: () => readCachedStars()?.count ?? null,
 		staleTime: STARS_CACHE_TTL_MS,
 		gcTime: 60 * 60 * 1000,
-		retry: 1,
+		retry: false,
 		refetchOnWindowFocus: false,
 	});
 
@@ -135,29 +120,26 @@ export const GitHubStars: FC<GitHubStarsProps> = memo(function GitHubStars({
 			aria-label={hasCount ? `${label} (${stars})` : label}
 			title={hasCount ? `${label} · ${stars.toLocaleString("en-US")} ★` : label}
 			className={cn(
-				"inline-flex h-[34px] shrink-0 items-center justify-center border border-panel-border! bg-panel-surface text-panel-text no-underline shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:ring-2 focus-visible:ring-panel-accent/50 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
+				"inline-flex h-[34px] shrink-0 items-center justify-center border border-panel-border! bg-panel-surface text-panel-text-secondary no-underline shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.96] active:bg-panel-elevated focus-visible:ring-2 focus-visible:ring-panel-accent/50 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
 				isIconOnly
 					? "size-[34px] min-w-[34px] rounded-full px-0"
-					: "gap-2 rounded-[12px] px-3",
+					: "rounded-[12px] px-2.5 gap-1.5",
 				className,
 			)}
 		>
-			<GitHubMark className="size-[15px] shrink-0 text-panel-text" />
+			<GitHubMark className="size-4 shrink-0 text-panel-text" />
 			{!isIconOnly ? (
 				<>
-					<span aria-hidden="true" className="h-3 w-px shrink-0 bg-panel-border" />
-					<span className="inline-flex shrink-0 items-center gap-1">
-						<Star className="size-[13px] shrink-0 fill-[#f59e0b] text-[#f59e0b]" />
-						{hasCount ? (
-							<span
-								dir="ltr"
-								style={{ unicodeBidi: "isolate" }}
-								className="text-xs font-semibold leading-none text-panel-text tabular-nums"
-							>
-								{formatStarCount(stars)}
-							</span>
-						) : null}
-					</span>
+					<Star className="size-3.5 shrink-0 fill-amber-400 text-amber-400" />
+					{hasCount ? (
+						<span
+							dir="ltr"
+							style={{ unicodeBidi: "isolate" }}
+							className="text-xs font-semibold leading-none text-panel-text tabular-nums"
+						>
+							{formatStarCount(stars)}
+						</span>
+					) : null}
 				</>
 			) : null}
 		</a>

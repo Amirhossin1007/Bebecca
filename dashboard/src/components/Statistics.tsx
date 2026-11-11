@@ -5,9 +5,7 @@ import { Button } from "components/ui/button";
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
 	DialogHeader,
-	DialogTitle,
 } from "components/ui/dialog";
 import { Spinner } from "components/ui/spinner";
 import { useDashboard } from "contexts/DashboardContext";
@@ -17,29 +15,26 @@ import type { TFunction } from "i18next";
 import { cn } from "lib/cn";
 import { useColorMode } from "lib/color-mode";
 import {
+	Activity,
 	ArrowDownLeft,
 	ArrowUpRight,
-	ChartColumn,
 	Clock,
 	Cpu,
 	Database,
 	HardDrive,
 	History,
+	Layers,
 	Server,
 	ShieldCheck,
 	Signal,
 	Users,
-	X,
 } from "lucide-react";
 import {
 	type ComponentPropsWithoutRef,
-	type CSSProperties,
 	type FC,
 	lazy,
-	type MouseEvent as ReactMouseEvent,
 	type ReactNode,
 	Suspense,
-	useCallback,
 	useEffect,
 	useMemo,
 	useRef,
@@ -52,11 +47,7 @@ import type { SystemStats } from "types/System";
 import type { UsersListResponse } from "types/User";
 import { dashboardDiagnostics } from "utils/diagnostics";
 import { formatBytes, numberWithCommas } from "utils/formatByte";
-import {
-	getTotalNetworkHistory,
-	mergeLiveSystemStats,
-	recordTotalNetworkSample,
-} from "utils/systemMetrics";
+import { mergeLiveSystemStats } from "utils/systemMetrics";
 import { getAPIWebSocketURL } from "utils/websocket";
 import { DashboardMaintenanceControls } from "./DashboardMaintenanceControls";
 import { SystemDiagnostics, useSystemDiagnostics } from "./SystemDiagnostics";
@@ -81,73 +72,6 @@ type MaintenanceInfo = {
 			error?: string | null;
 		} | null;
 	} | null;
-};
-
-type BandwidthScope = "master" | "total";
-
-const canUseInteractiveHover = () =>
-	typeof window !== "undefined" &&
-	window.innerWidth > 768 &&
-	Boolean(window.matchMedia?.("(hover: hover) and (pointer: fine)").matches);
-
-const useCardProximity = () => {
-	const leaveTimersRef = useRef<WeakMap<HTMLElement, number>>(new WeakMap());
-
-	const handleMouseMove = useCallback((e: ReactMouseEvent<HTMLElement>) => {
-		if (!canUseInteractiveHover()) return;
-		const card = e.currentTarget;
-		const rect = card.getBoundingClientRect();
-		card.style.setProperty("--mouse-x", `${e.clientX - rect.left}px`);
-		card.style.setProperty("--mouse-y", `${e.clientY - rect.top}px`);
-		card.style.setProperty("--mouse-opacity", "1");
-
-		const swappables = card.querySelectorAll<HTMLElement>(
-			"[data-rb-icon], [data-rb-swap], [data-rb-progress]",
-		);
-		const radius = 210;
-		for (const el of swappables) {
-			const pendingTimer = leaveTimersRef.current.get(el);
-			if (pendingTimer) {
-				window.clearTimeout(pendingTimer);
-				leaveTimersRef.current.delete(el);
-			}
-			el.style.removeProperty("transition");
-			const elRect = el.getBoundingClientRect();
-			const dx = Math.max(elRect.left - e.clientX, 0, e.clientX - elRect.right);
-			const dy = Math.max(elRect.top - e.clientY, 0, e.clientY - elRect.bottom);
-			const dist = Math.hypot(dx, dy);
-			if (dist < radius) {
-				const t = 1 - dist / radius;
-				const proximity = t ** 1.15;
-				el.style.setProperty("--proximity", proximity.toFixed(3));
-			} else {
-				el.style.removeProperty("--proximity");
-			}
-		}
-	}, []);
-
-	const handleMouseLeave = useCallback((e: ReactMouseEvent<HTMLElement>) => {
-		if (typeof window === "undefined" || window.innerWidth <= 768) return;
-		const card = e.currentTarget;
-		card.style.setProperty("--mouse-opacity", "0");
-		const swappables = card.querySelectorAll<HTMLElement>(
-			"[data-rb-icon], [data-rb-swap], [data-rb-progress]",
-		);
-		for (const el of swappables) {
-			el.style.setProperty(
-				"transition",
-				"background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease",
-			);
-			el.style.removeProperty("--proximity");
-			const timer = window.setTimeout(() => {
-				el.style.removeProperty("transition");
-				leaveTimersRef.current.delete(el);
-			}, 260);
-			leaveTimersRef.current.set(el, timer);
-		}
-	}, []);
-
-	return { handleMouseMove, handleMouseLeave };
 };
 
 const formatDurationText = (seconds: number, t: TFunction): string => {
@@ -271,12 +195,6 @@ const useSystemMetricsStream = (enabled = true) => {
 		const connect = () => {
 			ws = new WebSocket(url);
 			ws.onmessage = (event) => {
-				if (
-					typeof document !== "undefined" &&
-					document.visibilityState === "hidden"
-				) {
-					return;
-				}
 				try {
 					const payload = JSON.parse(event.data);
 					if (payload?.error) {
@@ -479,10 +397,8 @@ const HISTORY_INTERVALS = [
 	{ labelKey: "dashboard.history.interval.5h", seconds: 18000 },
 ] as const;
 
-type HistoryMetricType = "cpu" | "memory" | "network" | "panel";
-
 type HistoryModalPayload = {
-	type: HistoryMetricType;
+	type: "cpu" | "memory" | "network" | "panel" | "panelCpu" | "panelMemory";
 	title: string;
 	metricLabel?: string;
 	entries?: Array<{ timestamp: number; value: number }>;
@@ -505,9 +421,6 @@ const HistoryModal: FC<{
 	payload: HistoryModalPayload | null;
 	intervalSeconds: number;
 	onIntervalChange: (value: number) => void;
-	bandwidthScope: BandwidthScope;
-	onBandwidthScopeChange: (scope: BandwidthScope) => void;
-	canSeeGlobal: boolean;
 	t: TFunction;
 	isRTL?: boolean;
 }> = ({
@@ -516,9 +429,6 @@ const HistoryModal: FC<{
 	payload,
 	intervalSeconds,
 	onIntervalChange,
-	bandwidthScope,
-	onBandwidthScopeChange,
-	canSeeGlobal,
 	t,
 	isRTL = false,
 }) => {
@@ -538,21 +448,6 @@ const HistoryModal: FC<{
 	const gridColor =
 		colorMode === "dark" ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
 	const mutedTextColor = colorMode === "dark" ? "#94a3b8" : "#64748b";
-
-	const MetricIcon = useMemo(() => {
-		switch (payload?.type) {
-			case "cpu":
-				return Cpu;
-			case "memory":
-				return Database;
-			case "network":
-				return Signal;
-			case "panel":
-				return Server;
-			default:
-				return ChartColumn;
-		}
-	}, [payload?.type]);
 
 	const { latestTimestamp, availableSpan } = useMemo(() => {
 		if (!payload) {
@@ -687,9 +582,7 @@ const HistoryModal: FC<{
 			totalPoints = payload.networkEntries.filter(
 				(e) => e.timestamp >= cutoff,
 			).length;
-			return totalPoints >= 1;
-		}
-		if (payload.type === "panel") {
+		} else if (payload.type === "panel") {
 			const cLen = (payload.cpuEntries || []).filter(
 				(e) => e.timestamp >= cutoff,
 			).length;
@@ -879,149 +772,81 @@ const HistoryModal: FC<{
 				if (!open) onClose();
 			}}
 		>
-			<DialogContent
-				dir={isRTL ? "rtl" : "ltr"}
-				showCloseButton={false}
-				className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[780px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[780px]"
-			>
-				<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border! px-4 py-3.5 text-start min-[769px]:px-6">
-					<div className="flex min-w-0 items-center gap-3">
-						<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-accent">
-							<MetricIcon className="size-4" />
+			<DialogContent className="mx-3 sm:mx-6 max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden rounded-[20px] border border-panel-border bg-panel-surface p-0 shadow-[0_32px_80px_-12px_rgba(0,0,0,0.6)]">
+				<DialogHeader className="flex items-center justify-between border-b border-panel-border px-4 min-[769px]:px-6 py-4 text-[14px] font-bold">
+					<div className="flex items-center gap-2.5">
+						<span className="flex size-7 items-center justify-center rounded-[8px] bg-panel-elevated text-panel-accent">
+							<History className="size-4" />
 						</span>
-						<div className="min-w-0">
-							<DialogTitle className="truncate text-[14px] font-bold tracking-[-0.01em] text-panel-text">
-								{t("dashboard.history.modalTitle", {
-									metric: payload?.title ?? "",
-								})}
-							</DialogTitle>
-							<DialogDescription className="sr-only">
-								{payload?.title ?? ""}
-							</DialogDescription>
-						</div>
+						<p className="text-panel-text">
+							{t("dashboard.history.modalTitle", {
+								metric: payload?.title ?? "",
+							})}
+						</p>
 					</div>
-					<Button
-						type="button"
-						variant="ghost"
-						size="icon-sm"
-						onClick={onClose}
-						aria-label={t("close")}
-						className="size-8 shrink-0 rounded-[10px] text-panel-text-muted transition-[background-color,color,transform] duration-150 active:scale-[0.95] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
-					>
-						<X className="size-4" />
-					</Button>
 				</DialogHeader>
 
-				<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 min-[769px]:px-6 min-[769px]:py-5">
+				<div className="min-h-0 flex-1 overflow-y-auto px-4 min-[769px]:px-6 py-4 min-[769px]:py-5">
 					<div className="flex flex-col gap-4">
-						{(hasEnoughPoints || (isNetwork && canSeeGlobal)) && (
-							<div className="flex flex-wrap items-center justify-between gap-2.5">
-								{hasEnoughPoints ? (
-									<div className="inline-flex w-full max-w-full items-center gap-1 overflow-x-auto rounded-[12px] border border-panel-border! bg-panel-elevated p-1 min-[769px]:w-fit [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-										{HISTORY_INTERVALS.map((interval, idx) => {
-											const isAvailable =
-												idx === 0 || availableSpan >= interval.seconds * 0.5;
-											const isActive = intervalSeconds === interval.seconds;
-											return (
-												<div
-													key={interval.seconds}
-													className="relative inline-flex flex-1 items-center justify-center min-[769px]:flex-none"
-												>
-													{isActive && (
-														<motion.div
-															layoutId="historyIntervalActivePill"
-															transition={{
-																type: "tween",
-																ease: [0.22, 1, 0.36, 1],
-																duration: 0.24,
-															}}
-															className="pointer-events-none absolute inset-0 rounded-[9px] bg-panel-accent shadow-[0_2px_8px_color-mix(in_srgb,var(--rb-panel-accent)_35%,transparent)]"
-														/>
-													)}
-													<Button
-														type="button"
-														onClick={() => {
-															if (
-																isAvailable &&
-																intervalSeconds !== interval.seconds
-															) {
-																setIsSwitchingInterval(true);
-																onIntervalChange(interval.seconds);
-																window.setTimeout(
-																	() => setIsSwitchingInterval(false),
-																	240,
-																);
-															}
-														}}
-														variant="ghost"
-														size="xs"
-														className={cn(
-															"relative z-10 h-7 w-full rounded-[9px] bg-transparent! px-2.5 text-[11px] whitespace-nowrap transition-colors duration-150 sm:px-3.5",
-															isActive
-																? "font-bold text-white! min-[769px]:hover:text-white!"
-																: "font-semibold text-panel-text-muted min-[769px]:hover:text-panel-text",
-															isAvailable
-																? "cursor-pointer opacity-100"
-																: "cursor-not-allowed opacity-40",
-														)}
-													>
-														{t(interval.labelKey)}
-													</Button>
-												</div>
-											);
-										})}
-									</div>
-								) : (
-									<div />
-								)}
-
-								{isNetwork && canSeeGlobal && (
-									<div className="relative flex items-center gap-0.5 rounded-[10px] border border-panel-border! bg-panel-elevated p-0.5">
-										{(["master", "total"] as const).map((scope) => {
-											const active = bandwidthScope === scope;
-											return (
-												<div key={scope} className="relative">
-													{active && (
-														<motion.div
-															layoutId="historyBandwidthScopePill"
-															transition={{
-																type: "tween",
-																ease: [0.22, 1, 0.36, 1],
-																duration: 0.22,
-															}}
-															className="pointer-events-none absolute inset-0 rounded-[8px] bg-panel-accent shadow-[0_1px_4px_color-mix(in_srgb,var(--rb-panel-accent)_35%,transparent)]"
-														/>
-													)}
-													<Button
-														type="button"
-														onClick={() => onBandwidthScopeChange(scope)}
-														title={
-															scope === "total"
-																? t("dashboard.system.bandwidthScope.totalHint")
-																: undefined
-														}
-														variant="ghost"
-														size="xs"
-														className={cn(
-															"relative z-10 h-6 rounded-[8px] bg-transparent! px-2.5 text-[11px] font-semibold transition-colors",
-															active
-																? "text-white! min-[769px]:hover:text-white!"
-																: "text-panel-text-secondary min-[769px]:hover:text-panel-text",
-														)}
-													>
-														{t(`dashboard.system.bandwidthScope.${scope}`)}
-													</Button>
-												</div>
-											);
-										})}
-									</div>
-								)}
+						{hasEnoughPoints && (
+							<div className="inline-flex w-full min-[769px]:w-fit max-w-full items-center gap-1 overflow-x-auto rounded-[12px] border border-panel-border bg-panel-elevated p-1 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]">
+								{HISTORY_INTERVALS.map((interval, idx) => {
+									const isAvailable =
+										idx === 0 || availableSpan >= interval.seconds * 0.5;
+									const isActive = intervalSeconds === interval.seconds;
+									return (
+										<div
+											key={interval.seconds}
+											className="relative flex-1 min-[769px]:flex-none inline-flex items-center justify-center"
+										>
+											{isActive && (
+												<motion.div
+													layoutId="historyIntervalActivePill"
+													transition={{
+														type: "tween",
+														ease: [0.22, 1, 0.36, 1],
+														duration: 0.24,
+													}}
+													className="pointer-events-none absolute inset-0 rounded-[9px] bg-panel-accent shadow-[0_2px_8px_rgba(37,99,235,0.35)]"
+												/>
+											)}
+											<Button
+												onClick={() => {
+													if (
+														isAvailable &&
+														intervalSeconds !== interval.seconds
+													) {
+														setIsSwitchingInterval(true);
+														onIntervalChange(interval.seconds);
+														window.setTimeout(
+															() => setIsSwitchingInterval(false),
+															240,
+														);
+													}
+												}}
+												variant="ghost"
+												size="xs"
+												className={cn(
+													"relative z-10 h-7 w-full rounded-[9px] bg-transparent! px-2.5 sm:px-3.5 text-[11px] whitespace-nowrap transition-colors duration-150",
+													isActive
+														? "font-bold text-white min-[769px]:hover:text-white"
+														: "font-semibold text-panel-text-muted min-[769px]:hover:text-panel-text",
+													isAvailable
+														? "cursor-pointer opacity-100"
+														: "cursor-not-allowed opacity-40",
+												)}
+											>
+												{t(interval.labelKey)}
+											</Button>
+										</div>
+									);
+								})}
 							</div>
 						)}
 
 						<div
 							dir="ltr"
-							className="relative min-h-[300px] w-full rounded-[16px] border border-panel-border! bg-panel-elevated/35 p-2 sm:p-3 [&_.apexcharts-canvas]:[flex-direction:ltr]! [&_.apexcharts-legend]:flex! [&_.apexcharts-legend]:justify-center! [&_.apexcharts-legend]:gap-4! [&_.apexcharts-tooltip]:border-none! [&_.apexcharts-tooltip]:bg-transparent! [&_.apexcharts-tooltip]:shadow-none! [&_.apexcharts-yaxis-label]:[flex-direction:ltr]!"
+							className="relative min-h-[300px] w-full rounded-[16px] border border-panel-border bg-panel-elevated/35 p-2 sm:p-3 [&_.apexcharts-canvas]:[flex-direction:ltr]! [&_.apexcharts-yaxis-label]:[flex-direction:ltr]! [&_.apexcharts-legend]:flex! [&_.apexcharts-legend]:justify-center! [&_.apexcharts-legend]:gap-4! [&_.apexcharts-tooltip]:bg-transparent! [&_.apexcharts-tooltip]:border-none! [&_.apexcharts-tooltip]:shadow-none!"
 						>
 							<AnimatePresence>
 								{isSwitchingInterval && (
@@ -1054,7 +879,7 @@ const HistoryModal: FC<{
 										</div>
 									) : hasEnoughPoints && isOpen ? (
 										<HistoryChart
-											key={`${payload?.type}-${bandwidthScope}-${intervalSeconds}-${colorMode}`}
+											key={`${payload?.title}-${intervalSeconds}-${colorMode}`}
 											options={options}
 											series={chartSeries}
 											type="area"
@@ -1062,8 +887,8 @@ const HistoryModal: FC<{
 											width="100%"
 										/>
 									) : (
-										<div className="flex h-[300px] flex-col items-center justify-center gap-2 px-4 text-center">
-											<p className="text-[13px] font-medium text-panel-text-muted">
+										<div className="flex h-[300px] flex-col items-center justify-center gap-2">
+											<p className="text-[13px] text-panel-text-muted">
 												{t("noData")}
 											</p>
 										</div>
@@ -1114,9 +939,8 @@ const ResourceCard: FC<{
 	historyLabel,
 	isRTL = false,
 }) => {
-	const { handleMouseMove, handleMouseLeave } = useCardProximity();
 	const safe = clampPercent(percent);
-	const criticalColor =
+	const barColor =
 		safe >= 90
 			? "#ef4444"
 			: safe >= 75
@@ -1124,20 +948,11 @@ const ResourceCard: FC<{
 				: "var(--rb-panel-accent)";
 
 	return (
-		<article
-			onMouseMove={handleMouseMove}
-			onMouseLeave={handleMouseLeave}
-			style={{ "--rb-spotlight-size": "420px" } as CSSProperties}
-			className="rb-stat-card flex flex-col justify-between p-4 sm:p-5"
-		>
-			<div aria-hidden="true" className="rb-stat-spotlight" />
-			<div className="relative z-[1] w-full">
-				<div className="mb-3 flex items-center justify-between gap-2">
+		<article className="group relative flex flex-col justify-between overflow-hidden rounded-[20px] border border-panel-border bg-panel-surface p-4 min-[769px]:p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_8px_24px_-6px_rgba(0,0,0,0.12)] transition-[border-color,background-color,box-shadow] duration-200 ease-out min-[769px]:hover:border-panel-border-strong min-[769px]:hover:bg-panel-elevated/70">
+			<div>
+				<div className="mb-3.5 flex items-center justify-between gap-2">
 					<div className="flex min-w-0 items-center gap-2.5">
-						<span
-							data-rb-icon=""
-							className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-panel-elevated text-panel-text-secondary"
-						>
+						<span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] border border-panel-border/70 bg-panel-elevated text-panel-accent transition-colors duration-200 min-[769px]:group-hover:bg-panel-surface">
 							{icon}
 						</span>
 						<p className="truncate text-[13px] font-semibold text-panel-text-secondary">
@@ -1146,16 +961,13 @@ const ResourceCard: FC<{
 					</div>
 					{onHistory && (
 						<Button
-							type="button"
 							onClick={onHistory}
 							variant="ghost"
 							size="xs"
-							data-rb-swap=""
-							data-rb-swap-text=""
-							className="relative h-[22px] shrink-0 rounded-full bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary active:scale-[0.97] after:absolute after:-inset-2.5 after:content-['']"
+							className="relative h-6 rounded-full border border-panel-border bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary transition-colors duration-150 min-[769px]:hover:border-panel-border-strong min-[769px]:hover:bg-panel-surface min-[769px]:hover:text-panel-text after:absolute after:-inset-2 after:content-['']"
 						>
-							<span className="hidden min-[380px]:inline">{historyLabel}</span>
-							<History className="size-3.5 min-[380px]:hidden" aria-hidden="true" />
+							<span className="hidden sm:inline">{historyLabel}</span>
+							<History className="size-3.5 sm:hidden" aria-hidden="true" />
 						</Button>
 					)}
 				</div>
@@ -1166,7 +978,7 @@ const ResourceCard: FC<{
 							dir="ltr"
 							className="flex items-baseline gap-1.5 [unicode-bidi:isolate]"
 						>
-							<p className="text-[20px] leading-[1.1] font-extrabold tracking-[-0.02em] text-panel-text tabular-nums sm:text-[22px]">
+							<p className="text-[20px] sm:text-[22px] font-extrabold leading-[1.1] tracking-[-0.02em] text-panel-text tabular-nums">
 								{value}
 							</p>
 							<p className="text-[13px] font-semibold text-panel-text-muted tabular-nums">
@@ -1177,7 +989,7 @@ const ResourceCard: FC<{
 						<div className="flex flex-wrap items-baseline gap-1.5">
 							<p
 								dir="ltr"
-								className="text-[20px] leading-[1.1] font-extrabold tracking-[-0.02em] text-panel-text tabular-nums [unicode-bidi:isolate] sm:text-[22px]"
+								className="text-[20px] sm:text-[22px] font-extrabold leading-[1.1] tracking-[-0.02em] text-panel-text tabular-nums [unicode-bidi:isolate]"
 							>
 								{value}
 							</p>
@@ -1204,7 +1016,7 @@ const ResourceCard: FC<{
 				{subMeta && <div className="mt-1">{subMeta}</div>}
 			</div>
 
-			<div className="relative z-[1] mt-3.5 w-full">
+			<div className="mt-3.5">
 				<div className="mb-1.5 flex items-center justify-between">
 					<p
 						dir="ltr"
@@ -1213,27 +1025,16 @@ const ResourceCard: FC<{
 						{formatPercent(safe)}
 					</p>
 				</div>
-				<div
-					role="progressbar"
-					aria-valuenow={Math.round(safe)}
-					aria-valuemin={0}
-					aria-valuemax={100}
-					data-rb-progress=""
-					className="h-[6px] w-full overflow-hidden rounded-full bg-panel-elevated"
-				>
+				<div className="h-1.5 w-full overflow-hidden rounded-full bg-panel-elevated">
 					<div
-						className="h-full rounded-full"
-						style={{
-							width: `${safe}%`,
-							backgroundColor: criticalColor,
-							color: criticalColor,
-						}}
+						className="h-full rounded-full transition-[width,background-color] duration-500 ease-out"
+						style={{ width: `${safe}%`, backgroundColor: barColor }}
 					/>
 				</div>
 				{(footerLeft || footerRight) && (
 					<div
 						dir={isRTL ? "rtl" : "ltr"}
-						className="mt-2.5 flex items-center justify-between gap-2 border-t border-panel-border/70 pt-2 text-[11px] font-medium text-panel-text-muted tabular-nums [unicode-bidi:isolate]"
+						className="mt-2.5 flex items-center justify-between border-t border-panel-border/70 pt-2 text-[11px] font-medium text-panel-text-muted tabular-nums [unicode-bidi:isolate]"
 					>
 						<p className="truncate">{footerLeft}</p>
 						<p className="truncate">{footerRight}</p>
@@ -1261,7 +1062,7 @@ const StatRow: FC<{
 						backgroundColor: tagColor,
 						boxShadow: `0 0 8px ${tagColor}66`,
 					}}
-					className="size-[7px] shrink-0 rounded-full"
+					className="size-2 shrink-0 rounded-full"
 				/>
 			)}
 			<p
@@ -1275,9 +1076,7 @@ const StatRow: FC<{
 			{tag && (
 				<span
 					dir="ltr"
-					data-rb-swap=""
-					data-rb-swap-text=""
-					className="inline-flex items-center justify-center rounded-full bg-panel-elevated px-2 py-0.5 text-[10px] font-bold text-panel-text-secondary tabular-nums [unicode-bidi:isolate]"
+					className="inline-flex items-center justify-center rounded-full border border-panel-border bg-panel-elevated px-2 py-0.5 text-[10px] font-bold text-panel-text-secondary tabular-nums [unicode-bidi:isolate]"
 				>
 					{tag.endsWith("%") ? `${tag.slice(0, -1)}%` : tag}
 				</span>
@@ -1311,41 +1110,34 @@ const SectionCard: FC<{
 	action?: ReactNode;
 	noHover?: boolean;
 	contentClassName?: string;
-}> = ({ children, title, action, noHover = false, contentClassName }) => {
-	const { handleMouseMove, handleMouseLeave } = useCardProximity();
-
-	return (
-		<article
-			onMouseMove={noHover ? undefined : handleMouseMove}
-			onMouseLeave={noHover ? undefined : handleMouseLeave}
-			style={{ "--rb-spotlight-size": "550px" } as CSSProperties}
+}> = ({ children, title, action, noHover = false, contentClassName }) => (
+	<section
+		className={cn(
+			"group flex h-full flex-col overflow-hidden rounded-[20px] border border-panel-border bg-panel-surface shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_8px_24px_-6px_rgba(0,0,0,0.12)] transition-[border-color,background-color,box-shadow] duration-200 ease-out",
+			!noHover &&
+				"min-[769px]:hover:border-panel-border-strong min-[769px]:hover:bg-panel-elevated/60",
+		)}
+	>
+		{(title || action) && (
+			<div className="flex items-center justify-between gap-3 border-b border-panel-border px-4 sm:px-5 min-[769px]:px-6 py-3.5">
+				{title && (
+					<div className="text-[13px] font-bold tracking-[-0.01em] text-panel-text">
+						{title}
+					</div>
+				)}
+				{action}
+			</div>
+		)}
+		<div
 			className={cn(
-				"rb-stat-card flex h-full flex-col",
-				noHover && "hover:border-panel-border!",
+				"flex-1 px-4 sm:px-5 min-[769px]:px-6 py-4",
+				contentClassName,
 			)}
 		>
-			{!noHover && <div aria-hidden="true" className="rb-stat-spotlight" />}
-			{(title || action) && (
-				<div className="relative z-[1] flex flex-wrap items-center justify-between gap-2.5 border-b border-panel-border px-4 py-3.5 sm:px-5 min-[769px]:px-6">
-					{title && (
-						<div className="min-w-0 text-[13px] font-bold tracking-[-0.01em] text-panel-text">
-							{title}
-						</div>
-					)}
-					{action}
-				</div>
-			)}
-			<div
-				className={cn(
-					"relative z-[1] flex-1 px-4 py-4 sm:px-5 min-[769px]:px-6",
-					contentClassName,
-				)}
-			>
-				{children}
-			</div>
-		</article>
-	);
-};
+			{children}
+		</div>
+	</section>
+);
 
 const AnimatedHeightWrapper: FC<{
 	children: ReactNode;
@@ -1373,7 +1165,7 @@ const AnimatedHeightWrapper: FC<{
 		<motion.div
 			animate={{ height }}
 			transition={{
-				duration: 0.35,
+				duration: 0.28,
 				ease: [0.22, 1, 0.36, 1],
 			}}
 			style={{ overflow: "hidden" }}
@@ -1397,16 +1189,19 @@ const AnimatedHeightWrapper: FC<{
 	);
 };
 
-const SpeedItem: FC<{
+const SpeedTile: FC<{
 	icon: ReactNode;
 	label: string;
 	value: string;
-}> = ({ icon, label, value }) => (
-	<div className="flex items-center justify-between gap-3">
+	toneClass: string;
+}> = ({ icon, label, value, toneClass }) => (
+	<div className="flex items-center justify-between gap-3 rounded-[14px] border border-panel-border/80 bg-panel-elevated/45 px-3.5 py-3">
 		<div className="flex min-w-0 items-center gap-2.5">
 			<span
-				data-rb-icon=""
-				className="flex size-7 shrink-0 items-center justify-center rounded-[10px] bg-panel-elevated text-panel-text-secondary"
+				className={cn(
+					"flex size-8 shrink-0 items-center justify-center rounded-[9px]",
+					toneClass,
+				)}
 			>
 				{icon}
 			</span>
@@ -1416,7 +1211,7 @@ const SpeedItem: FC<{
 		</div>
 		<p
 			dir="ltr"
-			className="shrink-0 text-[13px] font-bold tracking-[-0.01em] text-panel-text tabular-nums [unicode-bidi:isolate]"
+			className="shrink-0 text-[14px] font-bold tracking-[-0.01em] text-panel-text tabular-nums [unicode-bidi:isolate]"
 		>
 			{value}
 		</p>
@@ -1467,27 +1262,21 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 	);
 	useSystemMetricsStream(true);
 
-	const [totalNetworkHistory, setTotalNetworkHistory] = useState(() =>
-		getTotalNetworkHistory(),
-	);
-
 	useEffect(() => {
-		if (!systemData) return;
-		setTotalNetworkHistory(
-			recordTotalNetworkSample(
-				systemData.total_incoming_bandwidth_speed ?? 0,
-				systemData.total_outgoing_bandwidth_speed ?? 0,
-			),
-		);
-	}, [systemData]);
+		if (systemData?.version && version !== systemData.version) {
+			useDashboard.setState({ version: systemData.version });
+		}
+	}, [systemData?.version, version]);
 
-	const [activeHistoryType, setActiveHistoryType] =
-		useState<HistoryMetricType | null>(null);
+	const [historyPayload, setHistoryPayload] =
+		useState<HistoryModalPayload | null>(null);
 	const [historyInterval, setHistoryInterval] = useState<number>(
 		HISTORY_INTERVALS[0].seconds,
 	);
 	const [userTab, setUserTab] = useState<"all" | "mine">("all");
-	const [bandwidthScope, setBandwidthScope] = useState<BandwidthScope>("total");
+	const [bandwidthScope, setBandwidthScope] = useState<"master" | "total">(
+		"total",
+	);
 
 	const canSeeGlobal =
 		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
@@ -1503,51 +1292,10 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 			(issue.resource_type === "node_service" && issue.resource === "xray"),
 	);
 
-	const openHistory = (type: HistoryMetricType) => {
+	const openHistory = (payload: HistoryModalPayload) => {
 		setHistoryInterval(HISTORY_INTERVALS[0].seconds);
-		setActiveHistoryType(type);
+		setHistoryPayload(payload);
 	};
-
-	const activeHistoryPayload = useMemo<HistoryModalPayload | null>(() => {
-		if (!activeHistoryType || !systemData) return null;
-		switch (activeHistoryType) {
-			case "cpu":
-				return {
-					type: "cpu",
-					title: t("dashboard.system.cpuUsage"),
-					metricLabel: t("dashboard.system.cpuUsage"),
-					entries: systemData.cpu_history,
-				};
-			case "memory":
-				return {
-					type: "memory",
-					title: t("dashboard.system.memoryUsage"),
-					metricLabel: t("dashboard.system.memoryUsage"),
-					entries: systemData.memory_history,
-				};
-			case "network":
-				return {
-					type: "network",
-					title: t("dashboard.system.bandwidthSpeed"),
-					networkEntries: showTotalBandwidth
-						? totalNetworkHistory
-						: systemData.network_history,
-				};
-			case "panel":
-				return {
-					type: "panel",
-					title: t("dashboard.system.panelUsage"),
-					cpuEntries: systemData.panel_cpu_history,
-					memoryEntries: systemData.panel_memory_history,
-				};
-		}
-	}, [
-		activeHistoryType,
-		showTotalBandwidth,
-		systemData,
-		t,
-		totalNetworkHistory,
-	]);
 
 	if (!systemData) {
 		return (
@@ -1637,51 +1385,62 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				<SystemDiagnostics issues={criticalIssues} criticalOnly />
 			)}
 
-			<div className="rb-dashboard-header flex flex-wrap items-start justify-between gap-3 px-1 min-[1220px]:flex-nowrap min-[1220px]:items-center">
-				<div className="rb-dashboard-header-meta flex w-full flex-col items-start gap-1.5 min-[600px]:flex-row min-[600px]:items-center min-[600px]:gap-3 min-[1220px]:w-auto min-[1220px]:flex-col min-[1220px]:items-start min-[1220px]:gap-1.5">
-					<h1 className="shrink-0 text-[18px] font-bold tracking-[-0.02em] whitespace-nowrap text-panel-text min-[769px]:text-[20px]">
-						{t("dashboard.system.overview")}
-					</h1>
-					<div className="flex flex-wrap items-center gap-2">
-						<span
-							style={{
-								animation: isHealthy
-									? "livePulse 3.5s ease-in-out infinite"
-									: "none",
-								boxShadow: isHealthy
-									? "0 0 5px rgba(34, 197, 94, 0.4)"
-									: "0 0 5px rgba(239, 68, 68, 0.4)",
-							}}
-							className={cn(
-								"size-[7px] shrink-0 rounded-full",
-								isHealthy ? "bg-[#22c55e]" : "bg-[#ef4444]",
-							)}
-						/>
-						<span className="text-[12px] font-semibold text-panel-text-secondary">
-							{hasXrayError
-								? t("diagnostics.statusError")
-								: systemData.xray_running
-									? t("dashboard.system.statusRunning")
-									: t("dashboard.system.statusStopped")}
-						</span>
+			<div className="flex flex-col gap-3.5 rounded-[20px] border border-panel-border bg-panel-surface p-4 min-[769px]:flex-row min-[769px]:items-center min-[769px]:justify-between min-[769px]:px-6 min-[769px]:py-4.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_8px_24px_-6px_rgba(0,0,0,0.12)]">
+				<div className="flex items-start sm:items-center gap-3.5 min-w-0">
+					<span className="flex size-10 shrink-0 items-center justify-center rounded-[12px] border border-panel-border bg-panel-elevated text-panel-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+						<Activity className="size-5" />
+					</span>
+					<div className="flex min-w-0 flex-col gap-1.5">
+						<h1 className="truncate text-[17px] min-[769px]:text-[19px] font-bold tracking-[-0.02em] text-panel-text">
+							{t("dashboard.system.overview")}
+						</h1>
+						<div className="flex flex-wrap items-center gap-2">
+							<span
+								className={cn(
+									"inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold",
+									isHealthy
+										? "border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
+										: "border-red-500/25 bg-red-500/10 text-red-400",
+								)}
+							>
+								<span
+									style={{
+										animation: isHealthy
+											? "livePulse 3.5s ease-in-out infinite"
+											: "none",
+									}}
+									className={cn(
+										"size-1.5 rounded-full",
+										isHealthy ? "bg-emerald-400" : "bg-red-400",
+									)}
+								/>
+								<span>
+									{hasXrayError
+										? t("diagnostics.statusError")
+										: systemData.xray_running
+											? t("dashboard.system.statusRunning")
+											: t("dashboard.system.statusStopped")}
+								</span>
+							</span>
 
-						{systemData.os && (
-							<span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-panel-text-secondary">
-								<span>·</span>
-								<span dir="ltr" className="[unicode-bidi:isolate]">
+							{systemData.os && (
+								<span
+									dir="ltr"
+									className="inline-flex items-center rounded-full border border-panel-border bg-panel-elevated px-2.5 py-0.5 text-[11px] font-semibold text-panel-text-secondary [unicode-bidi:isolate]"
+								>
 									{systemData.os}
 								</span>
-							</span>
-						)}
+							)}
 
-						{exactVersion && exactVersion !== "-" && (
-							<span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-panel-text-secondary tabular-nums">
-								<span>·</span>
-								<span dir="ltr" className="[unicode-bidi:isolate]">
+							{exactVersion && exactVersion !== "-" && (
+								<span
+									dir="ltr"
+									className="inline-flex items-center rounded-full border border-panel-border bg-panel-elevated px-2.5 py-0.5 text-[11px] font-bold text-panel-text tabular-nums [unicode-bidi:isolate]"
+								>
 									{exactVersion}
 								</span>
-							</span>
-						)}
+							)}
+						</div>
 					</div>
 				</div>
 
@@ -1691,7 +1450,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				/>
 			</div>
 
-			<div className="rb-dashboard-grid-guard grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4 min-[769px]:gap-4">
+			<div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 xl:grid-cols-4 min-[769px]:gap-4">
 				<ResourceCard
 					label={t("dashboard.system.cpuUsage")}
 					icon={<Cpu className="size-4" />}
@@ -1722,7 +1481,14 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.cpu_history.map((e) => e.value)))}`}
 					historyLabel={t("dashboard.system.viewHistory")}
 					isRTL={isRTL}
-					onHistory={() => openHistory("cpu")}
+					onHistory={() =>
+						openHistory({
+							type: "cpu",
+							title: t("dashboard.system.cpuUsage"),
+							metricLabel: t("dashboard.system.cpuUsage"),
+							entries: systemData.cpu_history,
+						})
+					}
 				/>
 				<ResourceCard
 					label={t("dashboard.system.memoryUsage")}
@@ -1734,11 +1500,18 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					footerRight={`${t("dashboard.system.peak")}: ${formatPercent(peak(systemData.memory_history.map((e) => e.value)))}`}
 					historyLabel={t("dashboard.system.viewHistory")}
 					isRTL={isRTL}
-					onHistory={() => openHistory("memory")}
+					onHistory={() =>
+						openHistory({
+							type: "memory",
+							title: t("dashboard.system.memoryUsage"),
+							metricLabel: t("dashboard.system.memoryUsage"),
+							entries: systemData.memory_history,
+						})
+					}
 				/>
 				<ResourceCard
 					label={t("dashboard.system.swapUsage")}
-					icon={<Database className="size-4" />}
+					icon={<Layers className="size-4" />}
 					value={formatBytes(systemData.swap.current, 1)}
 					totalValue={formatBytes(systemData.swap.total, 1)}
 					percent={systemData.swap.percent}
@@ -1758,26 +1531,20 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				/>
 			</div>
 
-			<div className="rb-dashboard-grid-guard grid grid-cols-1 gap-3 min-[769px]:grid-cols-2 min-[769px]:gap-4">
+			<div className="grid grid-cols-1 gap-3 min-[769px]:grid-cols-2 min-[769px]:gap-4">
 				<SectionCard
 					title={
 						<div className="flex items-center gap-2.5">
-							<span
-								data-rb-icon=""
-								className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary"
-							>
-								<Signal className="size-3.5" />
+							<span className="flex size-7 items-center justify-center rounded-[8px] bg-panel-elevated text-panel-accent">
+								<Signal className="size-4" />
 							</span>
 							<span>{t("dashboard.system.bandwidthSpeed")}</span>
 						</div>
 					}
 					action={
-						<div className="flex flex-wrap items-center gap-2">
+						<div className="flex items-center gap-2">
 							{canSeeGlobal && (
-								<div
-									data-rb-swap=""
-									className="relative flex items-center gap-0.5 rounded-[10px] bg-panel-elevated p-0.5"
-								>
+								<div className="relative flex items-center gap-0.5 rounded-[10px] border border-panel-border bg-panel-elevated p-0.5">
 									{(["master", "total"] as const).map((scope) => {
 										const active = bandwidthScope === scope;
 										return (
@@ -1787,14 +1554,13 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 														layoutId="bandwidthScopeTabPill"
 														transition={{
 															type: "tween",
-															ease: [0.16, 1, 0.3, 1],
+															ease: [0.22, 1, 0.36, 1],
 															duration: 0.22,
 														}}
-														className="pointer-events-none absolute inset-0 z-[1] rounded-[8px] border border-panel-accent! bg-panel-accent shadow-[0_1px_4px_color-mix(in_srgb,var(--rb-panel-accent)_35%,transparent)]"
+														className="pointer-events-none absolute inset-0 rounded-[8px] bg-panel-accent shadow-[0_1px_4px_rgba(37,99,235,0.35)]"
 													/>
 												)}
 												<Button
-													type="button"
 													onClick={() => setBandwidthScope(scope)}
 													title={
 														scope === "total"
@@ -1804,9 +1570,9 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 													variant="ghost"
 													size="xs"
 													className={cn(
-														"relative z-[2] h-[22px] rounded-[8px] bg-transparent! px-2.5 text-[11px] font-semibold transition-colors active:scale-[0.97]",
+														"relative z-10 h-6 rounded-[8px] bg-transparent! px-2.5 text-[11px] font-semibold transition-colors",
 														active
-															? "text-white! min-[769px]:hover:text-white!"
+															? "text-white min-[769px]:hover:text-white"
 															: "text-panel-text-secondary min-[769px]:hover:text-panel-text",
 													)}
 												>
@@ -1817,30 +1583,37 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 									})}
 								</div>
 							)}
-							<Button
-								type="button"
-								onClick={() => openHistory("network")}
-								variant="ghost"
-								size="xs"
-								data-rb-swap=""
-								data-rb-swap-text=""
-								className="relative h-[22px] shrink-0 rounded-full bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary active:scale-[0.97] after:absolute after:-inset-2.5 after:content-['']"
-							>
-								{t("dashboard.system.viewHistory")}
-							</Button>
+							{!showTotalBandwidth && (
+								<Button
+									onClick={() =>
+										openHistory({
+											type: "network",
+											title: t("dashboard.system.bandwidthSpeed"),
+											networkEntries: systemData.network_history,
+										})
+									}
+									variant="ghost"
+									size="xs"
+									className="relative h-6 rounded-full border border-panel-border bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary min-[769px]:hover:bg-panel-surface min-[769px]:hover:text-panel-text"
+								>
+									{t("dashboard.system.viewHistory")}
+								</Button>
+							)}
 						</div>
 					}
 				>
-					<div className="flex flex-col gap-3">
-						<SpeedItem
-							icon={<ArrowDownLeft className="size-3.5" />}
+					<div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
+						<SpeedTile
+							icon={<ArrowDownLeft className="size-4" />}
 							label={t("dashboard.system.incomingSpeed")}
 							value={`${formatBytes(showTotalBandwidth ? (systemData.total_incoming_bandwidth_speed ?? 0) : systemData.incoming_bandwidth_speed)}/s`}
+							toneClass="bg-blue-500/12 text-blue-400"
 						/>
-						<SpeedItem
-							icon={<ArrowUpRight className="size-3.5" />}
+						<SpeedTile
+							icon={<ArrowUpRight className="size-4" />}
 							label={t("dashboard.system.outgoingSpeed")}
 							value={`${formatBytes(showTotalBandwidth ? (systemData.total_outgoing_bandwidth_speed ?? 0) : systemData.outgoing_bandwidth_speed)}/s`}
+							toneClass="bg-emerald-500/12 text-emerald-400"
 						/>
 					</div>
 				</SectionCard>
@@ -1848,24 +1621,18 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				<SectionCard
 					title={
 						<div className="flex items-center gap-2.5">
-							<span
-								data-rb-icon=""
-								className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary"
-							>
-								<Clock className="size-3.5" />
+							<span className="flex size-7 items-center justify-center rounded-[8px] bg-panel-elevated text-panel-accent">
+								<Clock className="size-4" />
 							</span>
 							<span>{t("dashboard.system.uptime")}</span>
 						</div>
 					}
 				>
-					<div className="flex flex-col gap-3">
-						<div className="flex items-center justify-between gap-3">
+					<div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2">
+						<div className="flex items-center justify-between gap-3 rounded-[14px] border border-panel-border/80 bg-panel-elevated/45 px-3.5 py-3">
 							<div className="flex min-w-0 items-center gap-2.5">
-								<span
-									data-rb-icon=""
-									className="flex size-7 shrink-0 items-center justify-center rounded-[8px] bg-panel-elevated text-panel-text-secondary"
-								>
-									<Server className="size-3.5" />
+								<span className="flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-panel-surface text-panel-text-secondary">
+									<Server className="size-4" />
 								</span>
 								<p className="truncate text-[13px] font-semibold text-panel-text-secondary">
 									{t("dashboard.system.systemUptime")}
@@ -1873,13 +1640,10 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 							</div>
 							{formatLocalizedDuration(systemData.uptime_seconds, t, isRTL)}
 						</div>
-						<div className="flex items-center justify-between gap-3">
+						<div className="flex items-center justify-between gap-3 rounded-[14px] border border-panel-border/80 bg-panel-elevated/45 px-3.5 py-3">
 							<div className="flex min-w-0 items-center gap-2.5">
-								<span
-									data-rb-icon=""
-									className="flex size-7 shrink-0 items-center justify-center rounded-[8px] bg-panel-elevated text-panel-text-secondary"
-								>
-									<Database className="size-3.5" />
+								<span className="flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-panel-surface text-panel-accent">
+									<Database className="size-4" />
 								</span>
 								<p className="truncate text-[13px] font-semibold text-panel-text-secondary">
 									{t("dashboard.system.panelUptime")}
@@ -1899,28 +1663,31 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				noHover
 				title={
 					<div className="flex items-center gap-2.5">
-						<span
-							data-rb-icon=""
-							className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary"
-						>
-							<Cpu className="size-3.5" />
+						<span className="flex size-7 items-center justify-center rounded-[8px] bg-panel-elevated text-panel-accent">
+							<Cpu className="size-4" />
 						</span>
 						<span>{t("dashboard.system.panelUsage")}</span>
 					</div>
 				}
 				action={
 					<Button
-						type="button"
-						onClick={() => openHistory("panel")}
+						onClick={() =>
+							openHistory({
+								type: "panel",
+								title: t("dashboard.system.panelUsage"),
+								cpuEntries: systemData.panel_cpu_history,
+								memoryEntries: systemData.panel_memory_history,
+							})
+						}
 						variant="ghost"
 						size="xs"
-						className="relative h-[22px] shrink-0 rounded-full bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary transition-colors active:scale-[0.97] min-[769px]:hover:bg-panel-border min-[769px]:hover:text-panel-text after:absolute after:-inset-2.5 after:content-['']"
+						className="h-6 rounded-full border border-panel-border bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary min-[769px]:hover:bg-panel-surface min-[769px]:hover:text-panel-text"
 					>
 						{t("dashboard.system.viewHistory")}
 					</Button>
 				}
 			>
-				<div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 min-[769px]:gap-4">
+				<div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[769px]:gap-4">
 					<ResourceCard
 						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
 						icon={<Cpu className="size-4" />}
@@ -1945,219 +1712,216 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				</div>
 			</SectionCard>
 
-			<SectionCard
-				title={
-					<div className="flex items-center gap-2.5">
-						<span
-							data-rb-icon=""
-							className="flex size-7 shrink-0 items-center justify-center rounded-[10px] bg-panel-elevated text-panel-text-secondary"
-						>
-							<Users className="size-3.5" />
-						</span>
-						<span>{t("dashboard.users")}</span>
-					</div>
-				}
-				action={
-					canSeeGlobal ? (
-						<div
-							data-rb-swap=""
-							className="relative flex items-center gap-0.5 rounded-[10px] bg-panel-elevated p-0.5"
-						>
-							{(
-								[
-									{ id: "all" as const, label: t("dashboard.users.allUsers") },
-									{ id: "mine" as const, label: t("dashboard.users.myUsers") },
-								] as const
-							).map((tab) => {
-								const active = userTab === tab.id;
-								return (
-									<div key={tab.id} className="relative">
-										{active && (
-											<motion.div
-												layoutId="usersOverviewTabPill"
-												transition={{
-													type: "tween",
-													ease: [0.16, 1, 0.3, 1],
-													duration: 0.22,
-												}}
-												className="pointer-events-none absolute inset-0 z-[1] rounded-[8px] border border-panel-accent! bg-panel-accent shadow-[0_1px_4px_color-mix(in_srgb,var(--rb-panel-accent)_35%,transparent)]"
-											/>
-										)}
-										<Button
-											type="button"
-											onClick={() => setUserTab(tab.id)}
-											variant="ghost"
-											size="xs"
-											className={cn(
-												"relative z-[2] h-[22px] rounded-[8px] bg-transparent! px-2.5 text-[11px] font-semibold transition-colors active:scale-[0.97]",
-												active
-													? "text-white! min-[769px]:hover:text-white!"
-													: "text-panel-text-secondary min-[769px]:hover:text-panel-text",
-											)}
-										>
-											{tab.label}
-										</Button>
-									</div>
-								);
-							})}
-						</div>
-					) : undefined
-				}
+			<div
+				className={cn(
+					"grid grid-cols-1 gap-3 min-[769px]:gap-4",
+					canSeeGlobal && systemData.admin_overview && "xl:grid-cols-2",
+				)}
 			>
-				<AnimatedHeightWrapper activeKey={userTab}>
-					{canSeeGlobal && userTab === "all" ? (
-						<div className="flex flex-col">
-							<StatRow
-								label={t("dashboard.users.total")}
-								value={systemData.total_user}
-								tagColor="#3b82f6"
-							/>
-							<StatRow
-								label={t("dashboard.users.active")}
-								value={systemData.users_active}
-								tag={activePercent}
-								tagColor="#22c55e"
-							/>
-							<StatRow
-								label={t("dashboard.users.online")}
-								value={systemData.online_users}
-								tag={onlinePercent}
-								tagColor="#06b6d4"
-								helper={
-									systemData.online_users_upload_speed ||
-									systemData.online_users_download_speed
-										? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
-										: undefined
-								}
-							/>
-							<StatRow
-								label={t("dashboard.users.onHold")}
-								value={systemData.users_on_hold}
-								tagColor="#a855f7"
-							/>
-							<StatRow
-								label={t("dashboard.users.limited")}
-								value={systemData.users_limited}
-								tagColor="#f59e0b"
-							/>
-							<StatRow
-								label={t("dashboard.users.expired")}
-								value={systemData.users_expired}
-								tagColor="#f97316"
-							/>
-						</div>
-					) : (
-						<div className="flex flex-col">
-							<StatRow
-								label={t("dashboard.users.total")}
-								value={myTotalUsers}
-								tagColor="#3b82f6"
-							/>
-							<StatRow
-								label={t("dashboard.users.active")}
-								value={myActiveUsers}
-								tag={myActivePercent}
-								tagColor="#22c55e"
-							/>
-							<StatRow
-								label={t("dashboard.users.online")}
-								value={myOnlineUsers}
-								tag={myOnlinePercent}
-								tagColor="#06b6d4"
-								helper={
-									myOnlineUploadSpeed || myOnlineDownloadSpeed
-										? `↑ ${formatBytes(myOnlineUploadSpeed)}/s · ↓ ${formatBytes(myOnlineDownloadSpeed)}/s`
-										: undefined
-								}
-							/>
-							<StatRow
-								label={t("dashboard.users.onHold")}
-								value={myOnHoldUsers}
-								tagColor="#a855f7"
-							/>
-							<StatRow
-								label={t("dashboard.users.limited")}
-								value={myLimitedUsers}
-								tagColor="#f59e0b"
-							/>
-							<StatRow
-								label={t("dashboard.users.expired")}
-								value={myExpiredUsers}
-								tagColor="#f97316"
-							/>
-							<StatRow
-								label={t("dashboard.users.currentUserUsage")}
-								value={formatBytes(myActiveUsersUsedTraffic, 1)}
-								tagColor="#3b82f6"
-							/>
-							{systemData.personal_usage?.reset_bytes ? (
-								<StatRow
-									label={t("dashboard.users.resetData")}
-									value={formatBytes(systemData.personal_usage.reset_bytes, 1)}
-									tagColor="#f59e0b"
-								/>
-							) : null}
-						</div>
-					)}
-				</AnimatedHeightWrapper>
-			</SectionCard>
-
-			{canSeeGlobal && systemData.admin_overview && (
 				<SectionCard
 					title={
 						<div className="flex items-center gap-2.5">
-							<span
-								data-rb-icon=""
-								className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary"
-							>
-								<ShieldCheck className="size-3.5" />
+							<span className="flex size-7 items-center justify-center rounded-[8px] bg-panel-elevated text-panel-accent">
+								<Users className="size-4" />
 							</span>
-							<span>{t("dashboard.admins")}</span>
+							<span>{t("dashboard.users")}</span>
 						</div>
 					}
+					action={
+						canSeeGlobal ? (
+							<div className="relative flex items-center gap-0.5 rounded-[10px] border border-panel-border bg-panel-elevated p-0.5">
+								{(
+									[
+										{ id: "all" as const, label: t("dashboard.users.allUsers") },
+										{ id: "mine" as const, label: t("dashboard.users.myUsers") },
+									] as const
+								).map((tab) => {
+									const active = userTab === tab.id;
+									return (
+										<div key={tab.id} className="relative">
+											{active && (
+												<motion.div
+													layoutId="usersOverviewTabPill"
+													transition={{
+														type: "tween",
+														ease: [0.22, 1, 0.36, 1],
+														duration: 0.22,
+													}}
+													className="pointer-events-none absolute inset-0 rounded-[8px] bg-panel-accent shadow-[0_1px_4px_rgba(37,99,235,0.35)]"
+												/>
+											)}
+											<Button
+												onClick={() => setUserTab(tab.id)}
+												variant="ghost"
+												size="xs"
+												className={cn(
+													"relative z-10 h-6 rounded-[8px] bg-transparent! px-2.5 text-[11px] font-semibold transition-colors",
+													active
+														? "text-white min-[769px]:hover:text-white"
+														: "text-panel-text-secondary min-[769px]:hover:text-panel-text",
+												)}
+											>
+												{tab.label}
+											</Button>
+										</div>
+									);
+								})}
+							</div>
+						) : undefined
+					}
 				>
-					<div className="flex flex-col">
-						<StatRow
-							label={t("dashboard.admins.total")}
-							value={systemData.admin_overview.total_admins}
-							tagColor="#3b82f6"
-						/>
-						<StatRow
-							label={t("dashboard.admins.fullAccess")}
-							value={systemData.admin_overview.full_access_admins}
-							tagColor="#f59e0b"
-						/>
-						<StatRow
-							label={t("dashboard.admins.sudo")}
-							value={systemData.admin_overview.sudo_admins}
-							tagColor="#a855f7"
-						/>
-						<StatRow
-							label={t("dashboard.admins.standard")}
-							value={systemData.admin_overview.standard_admins}
-							tagColor="#22c55e"
-						/>
-						{systemData.admin_overview.top_admin_username && (
-							<StatRow
-								label={t("dashboard.admins.topAdmin")}
-								value={`${systemData.admin_overview.top_admin_username} · ${formatBytes(systemData.admin_overview.top_admin_usage)}`}
-								dimLabel
-								accent
-							/>
+					<AnimatedHeightWrapper activeKey={userTab}>
+						{canSeeGlobal && userTab === "all" ? (
+							<div className="flex flex-col">
+								<StatRow
+									label={t("dashboard.users.total")}
+									value={systemData.total_user}
+									tagColor="#2563eb"
+								/>
+								<StatRow
+									label={t("dashboard.users.active")}
+									value={systemData.users_active}
+									tag={activePercent}
+									tagColor="#22c55e"
+								/>
+								<StatRow
+									label={t("dashboard.users.online")}
+									value={systemData.online_users}
+									tag={onlinePercent}
+									tagColor="#06b6d4"
+									helper={
+										systemData.online_users_upload_speed ||
+										systemData.online_users_download_speed
+											? `↑ ${formatBytes(systemData.online_users_upload_speed)}/s · ↓ ${formatBytes(systemData.online_users_download_speed)}/s`
+											: undefined
+									}
+								/>
+								<StatRow
+									label={t("dashboard.users.onHold")}
+									value={systemData.users_on_hold}
+									tagColor="#a855f7"
+								/>
+								<StatRow
+									label={t("dashboard.users.limited")}
+									value={systemData.users_limited}
+									tagColor="#f59e0b"
+								/>
+								<StatRow
+									label={t("dashboard.users.expired")}
+									value={systemData.users_expired}
+									tagColor="#f97316"
+								/>
+							</div>
+						) : (
+							<div className="flex flex-col">
+								<StatRow
+									label={t("dashboard.users.total")}
+									value={myTotalUsers}
+									tagColor="#2563eb"
+								/>
+								<StatRow
+									label={t("dashboard.users.active")}
+									value={myActiveUsers}
+									tag={myActivePercent}
+									tagColor="#22c55e"
+								/>
+								<StatRow
+									label={t("dashboard.users.online")}
+									value={myOnlineUsers}
+									tag={myOnlinePercent}
+									tagColor="#06b6d4"
+									helper={
+										myOnlineUploadSpeed || myOnlineDownloadSpeed
+											? `↑ ${formatBytes(myOnlineUploadSpeed)}/s · ↓ ${formatBytes(myOnlineDownloadSpeed)}/s`
+											: undefined
+									}
+								/>
+								<StatRow
+									label={t("dashboard.users.onHold")}
+									value={myOnHoldUsers}
+									tagColor="#a855f7"
+								/>
+								<StatRow
+									label={t("dashboard.users.limited")}
+									value={myLimitedUsers}
+									tagColor="#f59e0b"
+								/>
+								<StatRow
+									label={t("dashboard.users.expired")}
+									value={myExpiredUsers}
+									tagColor="#f97316"
+								/>
+								<StatRow
+									label={t("dashboard.users.currentUserUsage")}
+									value={formatBytes(myActiveUsersUsedTraffic, 1)}
+									tagColor="#2563eb"
+								/>
+								{systemData.personal_usage?.reset_bytes ? (
+									<StatRow
+										label={t("dashboard.users.resetData")}
+										value={formatBytes(
+											systemData.personal_usage.reset_bytes,
+											1,
+										)}
+										tagColor="#f59e0b"
+									/>
+								) : null}
+							</div>
 						)}
-					</div>
+					</AnimatedHeightWrapper>
 				</SectionCard>
-			)}
+
+				{canSeeGlobal && systemData.admin_overview && (
+					<SectionCard
+						title={
+							<div className="flex items-center gap-2.5">
+								<span className="flex size-7 items-center justify-center rounded-[8px] bg-panel-elevated text-panel-accent">
+									<ShieldCheck className="size-4" />
+								</span>
+								<span>{t("dashboard.admins")}</span>
+							</div>
+						}
+					>
+						<div className="flex flex-col">
+							<StatRow
+								label={t("dashboard.admins.total")}
+								value={systemData.admin_overview.total_admins}
+								tagColor="#2563eb"
+							/>
+							<StatRow
+								label={t("dashboard.admins.fullAccess")}
+								value={systemData.admin_overview.full_access_admins}
+								tagColor="#f59e0b"
+							/>
+							<StatRow
+								label={t("dashboard.admins.sudo")}
+								value={systemData.admin_overview.sudo_admins}
+								tagColor="#a855f7"
+							/>
+							<StatRow
+								label={t("dashboard.admins.standard")}
+								value={systemData.admin_overview.standard_admins}
+								tagColor="#22c55e"
+							/>
+							{systemData.admin_overview.top_admin_username && (
+								<StatRow
+									label={t("dashboard.admins.topAdmin")}
+									value={`${systemData.admin_overview.top_admin_username} · ${formatBytes(systemData.admin_overview.top_admin_usage)}`}
+									dimLabel
+									accent
+								/>
+							)}
+						</div>
+					</SectionCard>
+				)}
+			</div>
 
 			<HistoryModal
-				open={Boolean(activeHistoryPayload)}
-				onClose={() => setActiveHistoryType(null)}
-				payload={activeHistoryPayload}
+				open={Boolean(historyPayload)}
+				onClose={() => setHistoryPayload(null)}
+				payload={historyPayload}
 				intervalSeconds={historyInterval}
 				onIntervalChange={setHistoryInterval}
-				bandwidthScope={bandwidthScope}
-				onBandwidthScopeChange={setBandwidthScope}
-				canSeeGlobal={canSeeGlobal}
 				t={t}
 				isRTL={isRTL}
 			/>

@@ -21,7 +21,7 @@ const DASHBOARD_USER_ROWS = [
 ] as const;
 
 const glassCardClass =
-	"rb-stat-card shimmer-box";
+	"relative overflow-hidden rounded-[20px] border border-panel-border bg-panel-surface/85 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_10px_28px_-8px_rgba(0,0,0,0.14)] shimmer-box";
 
 export const PageLoadingSkeleton: FC<PageLoadingSkeletonProps> = ({
 	variant = "entity",
@@ -37,151 +37,160 @@ export const PageLoadingSkeleton: FC<PageLoadingSkeletonProps> = ({
 				aria-live="polite"
 				className={cn("flex w-full flex-col gap-4 min-[769px]:gap-5", className)}
 			>
-				<div className="flex flex-wrap items-center justify-between gap-3 px-1 py-0.5">
-					<div className="flex flex-col items-start gap-2">
-						<Skeleton className="h-6 w-36 rounded-[8px] page-skeleton sm:w-44" />
-						<div className="flex flex-wrap items-center gap-2">
-							<Skeleton className="h-[18px] w-16 rounded-full page-skeleton" />
-							<Skeleton className="h-[18px] w-20 rounded-full page-skeleton" />
-							<Skeleton className="h-[18px] w-14 rounded-full page-skeleton" />
+				<div className={cn(glassCardClass, "p-4 min-[769px]:px-6 min-[769px]:py-5")}>
+					<div className="flex flex-col gap-4 min-[769px]:flex-row min-[769px]:items-center min-[769px]:justify-between">
+						<div className="flex flex-col gap-2.5">
+							<div className="flex items-center gap-3">
+								<Skeleton className="size-10 rounded-[12px] page-skeleton" />
+								<div className="flex flex-col gap-1.5">
+									<Skeleton className="h-5 w-40 min-[769px]:w-48 rounded-md page-skeleton" />
+									<div className="flex flex-wrap items-center gap-2">
+										<Skeleton className="h-5 w-20 rounded-full page-skeleton" />
+										<Skeleton className="h-5 w-24 rounded-full page-skeleton" />
+										<Skeleton className="h-5 w-16 rounded-full page-skeleton" />
+									</div>
+								</div>
+							</div>
 						</div>
-					</div>
-					<div className="grid w-full grid-cols-2 gap-2 min-[600px]:flex min-[600px]:w-auto min-[600px]:items-center">
-						<Skeleton className="col-span-2 h-8 w-full rounded-[12px] page-skeleton min-[600px]:w-24" />
-						<Skeleton className="h-8 w-full rounded-[12px] page-skeleton min-[600px]:w-24" />
-						<Skeleton className="h-8 w-full rounded-[12px] page-skeleton min-[600px]:w-24" />
+						<div className="grid grid-cols-3 gap-2 min-[769px]:flex min-[769px]:items-center min-[769px]:gap-2.5">
+							<Skeleton className="h-9 w-full min-[769px]:w-28 rounded-[12px] page-skeleton" />
+							<Skeleton className="h-9 w-full min-[769px]:w-26 rounded-[12px] page-skeleton" />
+							<Skeleton className="h-9 w-full min-[769px]:w-28 rounded-[12px] page-skeleton" />
+						</div>
 					</div>
 				</div>
 
-				<div className="rb-dashboard-grid-guard grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4 min-[769px]:gap-4">
+				<div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 xl:grid-cols-4 min-[769px]:gap-4">
 					{DASHBOARD_KPI_CARDS.map((cardKey, index) => (
 						<div
 							key={cardKey}
-							className={cn(glassCardClass, "flex flex-col justify-between p-4 sm:p-5")}
+							className={cn(glassCardClass, "flex flex-col justify-between p-4 min-[769px]:p-5")}
 						>
 							<div>
-								<div className="mb-3 flex items-center justify-between gap-2">
+								<div className="mb-3.5 flex items-center justify-between gap-2">
 									<div className="flex items-center gap-2.5">
-										<Skeleton className="size-8 rounded-[10px] page-skeleton" />
-										<Skeleton className="h-3.5 w-24 rounded-md page-skeleton" />
+										<Skeleton className="size-9 rounded-[10px] page-skeleton" />
+										<Skeleton className="h-4 w-24 rounded-md page-skeleton" />
 									</div>
-									{index < 2 && <Skeleton className="h-[22px] w-16 rounded-full page-skeleton" />}
+									{index < 2 && <Skeleton className="h-6 w-16 rounded-full page-skeleton" />}
 								</div>
 								<div className="mb-2 flex items-baseline gap-2">
 									<Skeleton className="h-7 w-20 rounded-md page-skeleton" />
 									<Skeleton className="h-4 w-16 rounded-md page-skeleton" />
 								</div>
 							</div>
-							<div className="mt-3.5 flex flex-col gap-2">
-								<Skeleton className="h-3 w-10 rounded-xs page-skeleton" />
-								<Skeleton className="h-[6px] w-full rounded-full page-skeleton" />
-								<div className="mt-1 flex items-center justify-between border-t border-panel-border/70 pt-2">
-									<Skeleton className="h-3 w-20 rounded-xs page-skeleton" />
-									<Skeleton className="h-3 w-16 rounded-xs page-skeleton" />
+							<div className="mt-3 flex flex-col gap-2">
+								<Skeleton className="h-1.5 w-full rounded-full page-skeleton" />
+								<div className="flex items-center justify-between pt-1">
+									<Skeleton className="h-3.5 w-20 rounded-xs page-skeleton" />
+									<Skeleton className="h-3.5 w-16 rounded-xs page-skeleton" />
 								</div>
 							</div>
 						</div>
 					))}
 				</div>
 
-				<div className="rb-dashboard-grid-guard grid grid-cols-1 gap-3 min-[769px]:grid-cols-2 min-[769px]:gap-4">
+				<div className="grid grid-cols-1 gap-3 min-[769px]:grid-cols-2 min-[769px]:gap-4">
 					{["bandwidth", "uptime"].map((sectionKey, idx) => (
 						<div key={sectionKey} className={glassCardClass}>
-							<div className="flex items-center justify-between border-b border-panel-border px-4 py-3.5 sm:px-5 min-[769px]:px-6">
+							<div className="flex items-center justify-between border-b border-panel-border px-4 py-3.5 min-[769px]:px-6">
 								<div className="flex items-center gap-2.5">
-									<Skeleton className="size-[26px] rounded-[7px] page-skeleton" />
+									<Skeleton className="size-7 rounded-[8px] page-skeleton" />
 									<Skeleton className="h-4 w-28 rounded-md page-skeleton" />
 								</div>
-								{idx === 0 && (
-									<div className="flex items-center gap-2">
-										<Skeleton className="h-[26px] w-24 rounded-[10px] page-skeleton" />
-										<Skeleton className="h-[22px] w-16 rounded-full page-skeleton" />
-									</div>
-								)}
+								{idx === 0 && <Skeleton className="h-6 w-24 rounded-full page-skeleton" />}
 							</div>
-							<div className="flex flex-col gap-3 px-4 py-4 sm:px-5 min-[769px]:px-6">
-								{[0, 1].map((row) => (
-									<div key={row} className="flex items-center justify-between gap-3">
-										<div className="flex items-center gap-2.5">
-											<Skeleton className="size-7 rounded-[10px] page-skeleton" />
-											<Skeleton className="h-3.5 w-24 rounded-xs page-skeleton" />
-										</div>
-										<Skeleton className="h-4 w-20 rounded-xs page-skeleton" />
-									</div>
-								))}
+							<div className="grid grid-cols-1 gap-3 p-4 min-[480px]:grid-cols-2 min-[769px]:p-6">
+								<div className="flex flex-col gap-2 rounded-[14px] border border-panel-border bg-panel-elevated/55 p-3.5">
+									<Skeleton className="h-3.5 w-24 rounded-xs page-skeleton" />
+									<Skeleton className="h-6 w-28 rounded-md page-skeleton" />
+								</div>
+								<div className="flex flex-col gap-2 rounded-[14px] border border-panel-border bg-panel-elevated/55 p-3.5">
+									<Skeleton className="h-3.5 w-24 rounded-xs page-skeleton" />
+									<Skeleton className="h-6 w-28 rounded-md page-skeleton" />
+								</div>
 							</div>
 						</div>
 					))}
 				</div>
 
 				<div className={glassCardClass}>
-					<div className="flex items-center justify-between border-b border-panel-border px-4 py-3.5 sm:px-5 min-[769px]:px-6">
+					<div className="flex items-center justify-between border-b border-panel-border px-4 py-3.5 min-[769px]:px-6">
 						<div className="flex items-center gap-2.5">
-							<Skeleton className="size-[26px] rounded-[7px] page-skeleton" />
+							<Skeleton className="size-7 rounded-[8px] page-skeleton" />
 							<Skeleton className="h-4 w-32 rounded-md page-skeleton" />
 						</div>
-						<Skeleton className="h-[22px] w-20 rounded-full page-skeleton" />
+						<Skeleton className="h-6 w-20 rounded-full page-skeleton" />
 					</div>
-					<div className="grid grid-cols-1 gap-3 px-4 py-4 min-[480px]:grid-cols-2 sm:px-5 min-[769px]:gap-4 min-[769px]:px-6">
+					<div className="grid grid-cols-1 gap-3 p-4 min-[640px]:grid-cols-2 min-[769px]:gap-4 min-[769px]:p-6">
 						{["panel-cpu", "panel-ram"].map((itemKey) => (
 							<div
 								key={itemKey}
-								className="rb-stat-card flex flex-col justify-between p-4 sm:p-5"
+								className="flex flex-col justify-between rounded-[16px] border border-panel-border bg-panel-elevated/45 p-4"
 							>
-								<div className="mb-3 flex items-center gap-2.5">
-									<Skeleton className="size-8 rounded-[10px] page-skeleton" />
-									<Skeleton className="h-4 w-28 rounded-md page-skeleton" />
+								<div className="mb-3 flex items-center justify-between">
+									<div className="flex items-center gap-2.5">
+										<Skeleton className="size-8 rounded-[9px] page-skeleton" />
+										<Skeleton className="h-4 w-28 rounded-md page-skeleton" />
+									</div>
 								</div>
-								<Skeleton className="mb-3 h-7 w-24 rounded-md page-skeleton" />
-								<Skeleton className="h-[6px] w-full rounded-full page-skeleton" />
+								<Skeleton className="mb-3 h-6 w-24 rounded-md page-skeleton" />
+								<Skeleton className="h-1.5 w-full rounded-full page-skeleton" />
 							</div>
 						))}
 					</div>
 				</div>
 
-				<div className={glassCardClass}>
-					<div className="flex items-center justify-between border-b border-panel-border px-4 py-3.5 sm:px-5 min-[769px]:px-6">
-						<div className="flex items-center gap-2.5">
-							<Skeleton className="size-7 rounded-[10px] page-skeleton" />
-							<Skeleton className="h-4 w-24 rounded-md page-skeleton" />
-						</div>
-						{canSeeGlobal && <Skeleton className="h-[26px] w-32 rounded-[10px] page-skeleton" />}
-					</div>
-					<div className="flex flex-col divide-y divide-panel-border/80 px-4 py-2 sm:px-5 min-[769px]:px-6">
-						{DASHBOARD_USER_ROWS.map((row) => (
-							<div key={row.id} className="flex items-center justify-between py-2.5">
-								<div className="flex items-center gap-2.5">
-									<Skeleton className="size-[7px] rounded-full page-skeleton" />
-									<Skeleton className={cn("h-3.5 rounded-xs page-skeleton", row.labelWidth)} />
-									{row.pill && <Skeleton className="h-4 w-10 rounded-full page-skeleton" />}
-								</div>
-								<Skeleton className={cn("h-4 rounded-xs page-skeleton", row.valWidth)} />
-							</div>
-						))}
-					</div>
-				</div>
-
-				{canSeeGlobal && (
+				<div
+					className={cn(
+						"grid grid-cols-1 gap-3 min-[769px]:gap-4",
+						canSeeGlobal && "xl:grid-cols-2",
+					)}
+				>
 					<div className={glassCardClass}>
-						<div className="flex items-center justify-between border-b border-panel-border px-4 py-3.5 sm:px-5 min-[769px]:px-6">
+						<div className="flex items-center justify-between border-b border-panel-border px-4 py-3.5 min-[769px]:px-6">
 							<div className="flex items-center gap-2.5">
-								<Skeleton className="size-[26px] rounded-[7px] page-skeleton" />
+								<Skeleton className="size-7 rounded-[8px] page-skeleton" />
 								<Skeleton className="h-4 w-24 rounded-md page-skeleton" />
 							</div>
+							<Skeleton className="h-7 w-32 rounded-[10px] page-skeleton" />
 						</div>
-						<div className="flex flex-col divide-y divide-panel-border/80 px-4 py-2 sm:px-5 min-[769px]:px-6">
-							{["total", "full", "sudo", "standard", "top"].map((rowKey) => (
-								<div key={rowKey} className="flex items-center justify-between py-2.5">
+						<div className="flex flex-col divide-y divide-panel-border px-4 py-2 min-[769px]:px-6">
+							{DASHBOARD_USER_ROWS.map((row) => (
+								<div key={row.id} className="flex items-center justify-between py-3">
 									<div className="flex items-center gap-2.5">
-										<Skeleton className="size-[7px] rounded-full page-skeleton" />
-										<Skeleton className="h-3.5 w-24 rounded-xs page-skeleton" />
+										<Skeleton className="size-2 rounded-full page-skeleton" />
+										<Skeleton className={cn("h-3.5 rounded-xs page-skeleton", row.labelWidth)} />
+										{row.pill && <Skeleton className="h-4 w-10 rounded-full page-skeleton" />}
 									</div>
-									<Skeleton className="h-4 w-12 rounded-xs page-skeleton" />
+									<Skeleton className={cn("h-4 rounded-xs page-skeleton", row.valWidth)} />
 								</div>
 							))}
 						</div>
 					</div>
-				)}
+
+					{canSeeGlobal && (
+						<div className={glassCardClass}>
+							<div className="flex items-center justify-between border-b border-panel-border px-4 py-3.5 min-[769px]:px-6">
+								<div className="flex items-center gap-2.5">
+									<Skeleton className="size-7 rounded-[8px] page-skeleton" />
+									<Skeleton className="h-4 w-24 rounded-md page-skeleton" />
+								</div>
+							</div>
+							<div className="flex flex-col divide-y divide-panel-border px-4 py-2 min-[769px]:px-6">
+								{["total", "full", "sudo", "standard", "top"].map((rowKey) => (
+									<div key={rowKey} className="flex items-center justify-between py-3">
+										<div className="flex items-center gap-2.5">
+											<Skeleton className="size-2 rounded-full page-skeleton" />
+											<Skeleton className="h-3.5 w-24 rounded-xs page-skeleton" />
+										</div>
+										<Skeleton className="h-4 w-12 rounded-xs page-skeleton" />
+									</div>
+								))}
+							</div>
+						</div>
+					)}
+				</div>
 			</div>
 		);
 	}
