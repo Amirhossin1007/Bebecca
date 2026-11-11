@@ -26,6 +26,7 @@ import {
 import useGetUser from "hooks/useGetUser";
 import { cn } from "lib/cn";
 import {
+	ArrowUpCircle,
 	Check,
 	CircleAlert,
 	CircleCheck,
@@ -33,10 +34,8 @@ import {
 	Power,
 	RefreshCw,
 	RotateCcw,
-	Sparkles,
 	Terminal,
 	TriangleAlert,
-	Upload,
 	X,
 } from "lucide-react";
 import { type FC, useCallback, useEffect, useRef, useState } from "react";
@@ -397,16 +396,17 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 					className={cn(
 						"h-9 w-full rounded-[12px] px-3.5 transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] min-[769px]:h-8 min-[769px]:w-auto whitespace-nowrap",
 						update?.available
-							? "border border-panel-accent! bg-panel-accent text-white shadow-[0_2px_10px_color-mix(in_srgb,var(--rb-panel-accent)_28%,transparent)] min-[769px]:hover:bg-panel-accent-hover"
-							: "border border-panel-border! bg-panel-surface text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
+							? "border border-panel-accent! bg-panel-accent text-white shadow-[0_2px_10px_color-mix(in_srgb,var(--rb-panel-accent)_28%,transparent)] hover:bg-panel-accent min-[769px]:hover:bg-panel-accent-hover"
+							: "border border-panel-border! bg-panel-surface text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-panel-surface dark:hover:bg-input/30 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
 					)}
 				>
 					<span className="inline-flex items-center justify-center gap-2">
-						{update?.available ? (
-							<Sparkles className="size-3.5 shrink-0 text-white" />
-						) : (
-							<Upload className="size-3.5 shrink-0 text-panel-text-secondary" />
-						)}
+						<ArrowUpCircle
+							className={cn(
+								"size-3.5 shrink-0",
+								update?.available ? "text-white" : "text-panel-text-secondary",
+							)}
+						/>
 						<span className="text-[12px] font-semibold leading-none">
 							{update?.available
 								? t("dashboard.maintenance.updateAvailable")
@@ -421,12 +421,15 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 				sideOffset={8}
 				collisionPadding={12}
 				onClick={(e) => e.stopPropagation()}
-				className="w-[min(440px,calc(100vw-24px))] max-w-[440px] max-h-[min(calc(var(--radix-popover-content-available-height,76dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_60px_-12px_rgba(0,0,0,0.48)]"
+				className="z-[2500] w-[min(400px,calc(100vw-24px))] max-w-[400px] max-h-[min(calc(var(--radix-popover-content-available-height,76dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_20px_52px_-12px_rgba(0,0,0,0.46)]"
 			>
-				<div className="flex items-center justify-between gap-3 border-b border-panel-border! px-4 py-3">
-					<p className="text-[13px] font-bold tracking-[-0.01em] text-panel-text">
-						{t("dashboard.maintenance.title")}
-					</p>
+				<div className="flex items-center justify-between gap-3 border-b border-panel-border/70! px-4 py-3">
+					<div className="flex min-w-0 items-center gap-2">
+						<ArrowUpCircle className="size-4 shrink-0 text-panel-text-secondary" />
+						<p className="truncate text-[13px] font-bold tracking-[-0.01em] text-panel-text">
+							{t("dashboard.maintenance.title")}
+						</p>
+					</div>
 					<Button
 						type="button"
 						onClick={() => info.refetch()}
@@ -440,17 +443,17 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 					</Button>
 				</div>
 
-				<div className="flex flex-col gap-4 p-4">
+				<div className="flex flex-col gap-3.5 p-4">
 					{info.isLoading && (
 						<div className="flex items-center justify-center py-5">
-							<Spinner className="text-panel-accent" />
+							<Spinner className="text-panel-text-secondary" />
 						</div>
 					)}
 
 					{info.isError && (
 						<Alert
 							variant="destructive"
-							className="rounded-[14px] text-[12px]"
+							className="rounded-[12px] text-[12px]"
 						>
 							<CircleAlert className="size-4" aria-hidden="true" />
 							<p className="text-[12px] leading-relaxed">
@@ -463,7 +466,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 						</Alert>
 					)}
 
-					<div className="flex items-center justify-between gap-3 rounded-[14px] border border-panel-border! bg-panel-elevated/65 px-3.5 py-3">
+					<div className="flex items-center justify-between gap-3 rounded-[12px] bg-panel-elevated/60 px-3.5 py-2.5">
 						<div className="flex min-w-0 flex-col gap-0.5">
 							<p className="text-[11px] font-semibold text-panel-text-muted">
 								{t("dashboard.maintenance.panelVersion")}
@@ -480,7 +483,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 						{panel?.channel && (
 							<span
 								dir="ltr"
-								className="shrink-0 rounded-full border border-panel-border! bg-panel-surface px-2.5 py-0.5 text-[11px] font-semibold text-panel-text-secondary [unicode-bidi:isolate]"
+								className="shrink-0 rounded-full bg-panel-surface px-2.5 py-0.5 text-[11px] font-semibold text-panel-text-secondary [unicode-bidi:isolate]"
 							>
 								{panel.channel}
 							</span>
@@ -488,7 +491,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 					</div>
 
 					{info.isSuccess && !hostActionsAvailable && (
-						<Alert className="rounded-[14px] text-[12px]">
+						<Alert className="rounded-[12px] text-[12px]">
 							<TriangleAlert className="size-4" aria-hidden="true" />
 							<p className="text-[12px] leading-relaxed">
 								{t("dashboard.maintenance.binaryMigrationRequired")}
@@ -497,7 +500,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 					)}
 
 					{update?.available && (
-						<Alert className="rounded-[14px] border border-emerald-500/25 bg-emerald-500/8 text-[12px]">
+						<Alert className="rounded-[12px] border border-emerald-500/20 bg-emerald-500/8 px-3.5 py-2.5 text-[12px]">
 							<CircleCheck
 								className="size-4 text-emerald-600 dark:text-emerald-400"
 								aria-hidden="true"
@@ -512,7 +515,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 					)}
 
 					{update?.error && (
-						<Alert className="rounded-[14px] text-[12px]">
+						<Alert className="rounded-[12px] text-[12px]">
 							<TriangleAlert className="size-4" aria-hidden="true" />
 							<p className="text-[12px] leading-relaxed">
 								{t("dashboard.maintenance.updateCheckFailed", {
@@ -565,7 +568,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 					)}
 
 					{selectedChannel === "dev" && hostActionsAvailable && (
-						<Alert className="rounded-[14px] border border-amber-500/25 bg-amber-500/8 text-[12px]">
+						<Alert className="rounded-[12px] border border-amber-500/20 bg-amber-500/8 px-3.5 py-2.5 text-[12px]">
 							<TriangleAlert
 								className="size-4 text-amber-600 dark:text-amber-400"
 								aria-hidden="true"
@@ -576,17 +579,17 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 						</Alert>
 					)}
 
-					<div className="flex flex-wrap items-center justify-end gap-2 border-t border-panel-border! pt-3">
+					<div className="flex flex-wrap items-center justify-end gap-2 border-t border-panel-border/70! pt-3">
 						<Button
 							type="button"
 							onClick={() => openConfirmFromPopover("soft-reload")}
 							disabled={!hostActionsAvailable}
-							variant="outline"
+							variant="ghost"
 							size="xs"
 							loading={reloadMutation.isPending}
-							className="h-8 rounded-[10px] border-panel-border! px-3 text-[12px] font-semibold text-panel-text active:scale-[0.97] min-[769px]:hover:bg-panel-elevated"
+							className="h-8 rounded-[10px] bg-panel-elevated/70 px-3 text-[12px] font-semibold text-panel-text active:scale-[0.97] min-[769px]:hover:bg-panel-elevated"
 						>
-							<RotateCcw className="size-3.5" />
+							<RotateCcw className="size-3.5 text-panel-text-secondary" />
 							<span>{t("dashboard.maintenance.softReloadAction")}</span>
 						</Button>
 						<Button
@@ -597,7 +600,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 							loading={updateMutation.isPending}
 							className="h-8 rounded-[10px] px-4 text-[12px] font-semibold active:scale-[0.97]"
 						>
-							<Upload className="size-3.5" />
+							<ArrowUpCircle className="size-3.5" />
 							<span>{t("dashboard.maintenance.updateAction")}</span>
 						</Button>
 					</div>
@@ -615,7 +618,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 			size="xs"
 			loading={restartMutation.isPending}
 			className={cn(
-				"h-9 rounded-[12px] border border-red-500/30 bg-red-500/8 px-3.5 text-red-600 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] min-[769px]:h-8 min-[769px]:hover:border-red-500/50 min-[769px]:hover:bg-red-500/14 dark:text-red-400 whitespace-nowrap",
+				"h-9 rounded-[12px] border border-red-500/30 bg-red-500/8 px-3.5 text-red-600 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-red-500/8 dark:bg-red-500/8 dark:hover:bg-red-500/8 active:scale-[0.97] min-[769px]:h-8 min-[769px]:hover:border-red-500/50 min-[769px]:hover:bg-red-500/14 min-[769px]:dark:hover:bg-red-500/14 dark:text-red-400 whitespace-nowrap",
 				extraClassName,
 			)}
 		>
@@ -630,31 +633,28 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 
 	return (
 		<div className="flex w-full min-[769px]:w-auto shrink-0 items-center justify-end">
-			<div className="hidden min-[769px]:flex flex-row items-center justify-end gap-2 shrink-0">
-				{canMaintain && renderUpdatePopover()}
-				{canBackUp && (
-					<DashboardBackupControls
-						isBinaryRuntime={hostActionsAvailable}
-						runtimeLoading={info.isLoading}
-					/>
+			<div className="grid w-full grid-cols-2 gap-2 min-[769px]:flex min-[769px]:w-auto min-[769px]:flex-row min-[769px]:items-center min-[769px]:justify-end">
+				{canMaintain && (
+					<div className="col-span-2 min-[769px]:col-span-1">
+						{renderUpdatePopover()}
+					</div>
 				)}
-				{canMaintain && renderRestartButton()}
-			</div>
-
-			<div className="flex min-[769px]:hidden flex-col gap-2 w-full">
-				{canMaintain && <div className="w-full">{renderUpdatePopover()}</div>}
-				<div className="flex w-full items-center gap-2">
-					{canBackUp && (
-						<div className="min-w-0 flex-1">
-							<DashboardBackupControls
-								isBinaryRuntime={hostActionsAvailable}
-								runtimeLoading={info.isLoading}
-								className="w-full"
-							/>
-						</div>
+				{canBackUp && (
+					<div className={cn("min-w-0", !canMaintain && "col-span-2")}>
+						<DashboardBackupControls
+							isBinaryRuntime={hostActionsAvailable}
+							runtimeLoading={info.isLoading}
+							className="w-full min-[769px]:w-auto"
+						/>
+					</div>
+				)}
+				{canMaintain &&
+					renderRestartButton(
+						cn(
+							"w-full min-[769px]:w-auto",
+							!canBackUp && "col-span-2 min-[769px]:col-span-1",
+						),
 					)}
-					{canMaintain && renderRestartButton("min-w-0 flex-1")}
-				</div>
 			</div>
 
 			<Dialog
@@ -666,13 +666,11 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 				<DialogContent
 					dir={isRTL ? "rtl" : "ltr"}
 					showCloseButton={false}
-					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[680px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[680px]"
+					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[640px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[640px]"
 				>
-					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border! px-5 py-3.5 text-start">
-						<div className="flex min-w-0 items-center gap-3">
-							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-accent">
-								<Upload className="size-4" />
-							</span>
+					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border/70! px-5 py-3.5 text-start">
+						<div className="flex min-w-0 items-center gap-2.5">
+							<ArrowUpCircle className="size-4 shrink-0 text-panel-text-secondary" />
 							<DialogTitle className="truncate text-[14px] font-bold tracking-[-0.01em] text-panel-text">
 								{t("dashboard.maintenance.updateProgressTitle")}
 							</DialogTitle>
@@ -693,49 +691,50 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 					</DialogHeader>
 
 					<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-						<div className="flex flex-col gap-4">
-							<div className="flex items-center justify-between gap-3 rounded-[14px] border border-panel-border! bg-panel-elevated/55 px-3.5 py-2.5 text-[13px]">
-								<p
-									dir="ltr"
-									className="font-semibold text-panel-text-secondary tabular-nums [unicode-bidi:isolate]"
-								>
-									{selectedTarget
-										? `${currentVersion} → ${selectedTarget}`
-										: currentVersion}
-								</p>
-								{typeof operation?.progress === "number" && (
-									<p
-										dir="ltr"
-										className="font-bold text-panel-accent tabular-nums [unicode-bidi:isolate]"
-									>
-										{Math.round(operation.progress)}%
-									</p>
-								)}
-							</div>
-
-							<div className="flex flex-col gap-2.5">
-								<div className="flex items-center gap-2">
-									{operation?.error ? (
-										<CircleAlert
-											className="size-4 text-red-600 dark:text-red-400"
-											aria-hidden="true"
-										/>
-									) : operation?.phase === "completed" ? (
-										<CircleCheck
-											className="size-4 text-emerald-600 dark:text-emerald-400"
-											aria-hidden="true"
-										/>
-									) : (
-										<Spinner className="text-panel-accent" />
-									)}
-									<p className="text-[13px] font-bold text-panel-text">
-										{operation?.phase
-											? t(
-													`dashboard.maintenance.phase.${operation.phase}`,
-													operation.phase,
-												)
-											: t("dashboard.maintenance.phase.queued")}
-									</p>
+						<div className="flex flex-col gap-3.5">
+							<div className="flex flex-col gap-3 rounded-[14px] border border-panel-border/75! bg-panel-elevated/45 p-4">
+								<div className="flex items-center justify-between gap-3">
+									<div className="flex min-w-0 items-center gap-2">
+										{operation?.error ? (
+											<CircleAlert
+												className="size-4 shrink-0 text-red-600 dark:text-red-400"
+												aria-hidden="true"
+											/>
+										) : operation?.phase === "completed" ? (
+											<CircleCheck
+												className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+												aria-hidden="true"
+											/>
+										) : (
+											<Spinner className="shrink-0 text-panel-text-secondary" />
+										)}
+										<p className="truncate text-[13px] font-bold text-panel-text">
+											{operation?.phase
+												? t(
+														`dashboard.maintenance.phase.${operation.phase}`,
+														operation.phase,
+													)
+												: t("dashboard.maintenance.phase.queued")}
+										</p>
+									</div>
+									<div className="flex shrink-0 items-center gap-2.5 text-[12px]">
+										<span
+											dir="ltr"
+											className="font-semibold text-panel-text-muted tabular-nums [unicode-bidi:isolate]"
+										>
+											{selectedTarget
+												? `${currentVersion} → ${selectedTarget}`
+												: currentVersion}
+										</span>
+										{typeof operation?.progress === "number" && (
+											<span
+												dir="ltr"
+												className="font-bold text-panel-text tabular-nums [unicode-bidi:isolate]"
+											>
+												{Math.round(operation.progress)}%
+											</span>
+										)}
+									</div>
 								</div>
 								<Progress
 									value={
@@ -756,15 +755,15 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 											: t("dashboard.maintenance.message.preparingUpdate")}
 								</p>
 								{waitingForAPI && !operation?.error && (
-									<p className="text-[12px] text-panel-text-muted">
+									<p className="text-[11px] text-panel-text-muted">
 										{t("dashboard.maintenance.autoRefreshAfterRestart")}
 									</p>
 								)}
 							</div>
 
-							<div className="flex flex-col gap-2">
-								<div className="flex items-center justify-between gap-2">
-									<div className="flex items-center gap-2 text-[12px] font-bold text-panel-text">
+							<div className="flex flex-col overflow-hidden rounded-[14px] border border-panel-border/75! bg-panel-elevated/60">
+								<div className="flex items-center justify-between gap-2 border-b border-panel-border/60! px-3.5 py-2">
+									<div className="flex items-center gap-2 text-[12px] font-semibold text-panel-text-secondary">
 										<Terminal className="size-3.5 text-panel-text-muted" />
 										<span>{t("dashboard.maintenance.liveLogs")}</span>
 									</div>
@@ -782,7 +781,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 												}}
 												variant="ghost"
 												size="xs"
-												className="h-7 rounded-[8px] px-2 active:scale-[0.96]"
+												className="h-7 rounded-[8px] px-2 text-panel-text-muted active:scale-[0.96] min-[769px]:hover:text-panel-text"
 											>
 												{logsCopied ? (
 													<Check className="size-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -801,7 +800,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 								<pre
 									ref={logsContainerRef}
 									dir="ltr"
-									className="max-h-[260px] min-h-[130px] overflow-auto rounded-[14px] border border-panel-border! bg-panel-elevated p-3.5 font-mono text-[12px] leading-[1.65] whitespace-pre-wrap break-all text-panel-text"
+									className="max-h-[250px] min-h-[120px] overflow-auto p-3.5 font-mono text-[12px] leading-[1.65] whitespace-pre-wrap break-all text-panel-text"
 								>
 									{cleanTerminalOutput(operation?.logs) ||
 										t("dashboard.maintenance.waitingForOutput")}
@@ -810,7 +809,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 						</div>
 					</div>
 
-					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border! bg-panel-surface px-5 py-3.5">
+					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border/70! px-5 py-3.5">
 						<Button
 							type="button"
 							onClick={() => setUpdateDialogOpen(false)}
@@ -843,26 +842,17 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 				<DialogContent
 					dir={isRTL ? "rtl" : "ltr"}
 					showCloseButton={false}
-					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[440px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[440px]"
+					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[420px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[420px]"
 				>
-					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border! px-5 py-3.5 text-start">
-						<div className="flex min-w-0 items-center gap-3">
-							<span
-								className={cn(
-									"flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border!",
-									confirmAction === "restart"
-										? "border-red-500/25! bg-red-500/12 text-red-600 dark:text-red-400"
-										: "bg-panel-elevated text-panel-accent",
-								)}
-							>
-								{confirmAction === "restart" ? (
-									<Power className="size-4" />
-								) : confirmAction === "soft-reload" ? (
-									<RotateCcw className="size-4" />
-								) : (
-									<Upload className="size-4" />
-								)}
-							</span>
+					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border/70! px-5 py-3.5 text-start">
+						<div className="flex min-w-0 items-center gap-2.5">
+							{confirmAction === "restart" ? (
+								<Power className="size-4 shrink-0 text-red-600 dark:text-red-400" />
+							) : confirmAction === "soft-reload" ? (
+								<RotateCcw className="size-4 shrink-0 text-panel-text-secondary" />
+							) : (
+								<ArrowUpCircle className="size-4 shrink-0 text-panel-text-secondary" />
+							)}
 							<DialogTitle className="truncate text-[14px] font-bold tracking-[-0.01em] text-panel-text">
 								{confirmAction === "restart"
 									? t("dashboard.maintenance.restartConfirmTitle")
@@ -905,7 +895,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 											})}
 						</p>
 						{confirmAction === "update" && (
-							<div className="flex items-center justify-between gap-3 rounded-[14px] border border-panel-border! bg-panel-elevated/55 px-3.5 py-2.5 text-[12px]">
+							<div className="flex items-center justify-between gap-3 rounded-[12px] bg-panel-elevated/60 px-3.5 py-2.5 text-[12px]">
 								<span className="font-semibold text-panel-text-muted">
 									{t("dashboard.maintenance.panelVersion")}
 								</span>
@@ -920,7 +910,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 							</div>
 						)}
 						{confirmAction === "update" && selectedVersion && (
-							<Alert className="rounded-[14px] border border-amber-500/25 bg-amber-500/8 text-[12px]">
+							<Alert className="rounded-[12px] border border-amber-500/20 bg-amber-500/8 px-3.5 py-2.5 text-[12px]">
 								<TriangleAlert
 									className="size-4 text-amber-600 dark:text-amber-400"
 									aria-hidden="true"
@@ -932,7 +922,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 						)}
 					</div>
 
-					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border! bg-panel-surface px-5 py-3.5">
+					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border/70! px-5 py-3.5">
 						<Button
 							type="button"
 							onClick={() => setConfirmAction(null)}

@@ -20,6 +20,7 @@ import { toast } from "components/ui/sonner";
 import { cn } from "lib/cn";
 import {
 	Archive,
+	Check,
 	CircleCheck,
 	Database,
 	Download,
@@ -179,7 +180,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 						variant="outline"
 						size="xs"
 						className={cn(
-							"h-9 w-full rounded-[12px] border border-panel-border! bg-panel-surface px-3.5 text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] min-[769px]:h-8 min-[769px]:w-auto min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] whitespace-nowrap",
+							"h-9 w-full rounded-[12px] border border-panel-border! bg-panel-surface px-3.5 text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-panel-surface dark:hover:bg-input/30 active:scale-[0.97] min-[769px]:h-8 min-[769px]:w-auto min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] whitespace-nowrap",
 							className,
 						)}
 					>
@@ -196,22 +197,18 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 					align={isRTL ? "start" : "end"}
 					sideOffset={8}
 					collisionPadding={12}
-					className="w-[min(280px,calc(100vw-24px))] rounded-[20px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_20px_48px_-12px_rgba(0,0,0,0.45)]"
+					className="z-[2500] w-[min(252px,calc(100vw-24px))] rounded-[18px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_20px_48px_-12px_rgba(0,0,0,0.44)]"
 				>
-					<div className="border-b border-panel-border! px-3 py-2.5">
-						<p className="text-[12px] font-bold tracking-[-0.01em] text-panel-text">
-							{t("dashboard.backup.title")}
-						</p>
-					</div>
-					<div className="flex flex-col gap-1 p-1.5">
+					<p className="px-2.5 pt-2 pb-1.5 text-[11px] font-semibold text-panel-text-muted">
+						{t("dashboard.backup.title")}
+					</p>
+					<div className="flex flex-col gap-0.5">
 						<button
 							type="button"
 							onClick={() => openDialog("export")}
-							className="flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-start transition-[background-color,transform] duration-150 active:scale-[0.98] active:bg-panel-elevated focus-visible:outline-2 focus-visible:outline-panel-accent min-[769px]:hover:bg-panel-elevated"
+							className="flex w-full items-center gap-2.5 rounded-[12px] px-2.5 py-2 text-start transition-[background-color,transform] duration-150 active:scale-[0.98] active:bg-panel-elevated focus-visible:outline-2 focus-visible:outline-panel-accent min-[769px]:hover:bg-panel-elevated"
 						>
-							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-accent">
-								<Download className="size-4" />
-							</span>
+							<Download className="size-4 shrink-0 text-panel-text-secondary" />
 							<span className="min-w-0 flex-1 text-[13px] font-semibold text-panel-text">
 								{t("dashboard.backup.exportTitle")}
 							</span>
@@ -219,11 +216,9 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 						<button
 							type="button"
 							onClick={() => openDialog("import")}
-							className="flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-start transition-[background-color,transform] duration-150 active:scale-[0.98] active:bg-panel-elevated focus-visible:outline-2 focus-visible:outline-panel-accent min-[769px]:hover:bg-panel-elevated"
+							className="flex w-full items-center gap-2.5 rounded-[12px] px-2.5 py-2 text-start transition-[background-color,transform] duration-150 active:scale-[0.98] active:bg-panel-elevated focus-visible:outline-2 focus-visible:outline-panel-accent min-[769px]:hover:bg-panel-elevated"
 						>
-							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-text-secondary">
-								<Upload className="size-4" />
-							</span>
+							<Upload className="size-4 shrink-0 text-panel-text-secondary" />
 							<span className="min-w-0 flex-1 text-[13px] font-semibold text-panel-text">
 								{t("dashboard.backup.import")}
 							</span>
@@ -241,13 +236,11 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 				<DialogContent
 					dir={isRTL ? "rtl" : "ltr"}
 					showCloseButton={false}
-					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[480px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[480px]"
+					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[460px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[460px]"
 				>
-					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border! px-5 py-3.5 text-start">
-						<div className="flex min-w-0 items-center gap-3">
-							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-accent">
-								<Upload className="size-4" />
-							</span>
+					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border/70! px-5 py-3.5 text-start">
+						<div className="flex min-w-0 items-center gap-2.5">
+							<Upload className="size-4 shrink-0 text-panel-text-secondary" />
 							<DialogTitle className="truncate text-[14px] font-bold tracking-[-0.01em] text-panel-text">
 								{t("dashboard.backup.import")}
 							</DialogTitle>
@@ -269,11 +262,11 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 					</DialogHeader>
 
 					<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-						<div className="flex flex-col gap-4">
+						<div className="flex flex-col gap-3.5">
 							<p className="text-[13px] leading-relaxed text-panel-text-muted">
 								{t("dashboard.backup.importHint")}
 							</p>
-							<Alert className="rounded-[14px] border border-amber-500/25 bg-amber-500/8 text-[12px]">
+							<Alert className="rounded-[12px] border border-amber-500/20 bg-amber-500/8 px-3.5 py-2.5 text-[12px]">
 								<TriangleAlert
 									className="size-4 text-amber-600 dark:text-amber-400"
 									aria-hidden="true"
@@ -302,7 +295,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 							</p>
 
 							{selectedFiles.length > 0 && (
-								<div className="flex flex-col gap-2 rounded-[14px] border border-panel-border! bg-panel-elevated/60 p-3">
+								<div className="flex flex-col gap-2 rounded-[14px] border border-panel-border/80! bg-panel-elevated/50 p-3">
 									<div className="flex flex-col divide-y divide-panel-border/60">
 										{displayFiles.map((file) => (
 											<div
@@ -310,7 +303,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 												className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
 											>
 												<div className="flex min-w-0 items-center gap-2">
-													<FileArchive className="size-4 shrink-0 text-panel-accent" />
+													<FileArchive className="size-4 shrink-0 text-panel-text-secondary" />
 													<p
 														dir="ltr"
 														className="truncate text-[12px] font-semibold text-panel-text [unicode-bidi:isolate]"
@@ -363,7 +356,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 							{importMutation.isPending && uploadProgress !== null && (
 								<div
 									aria-live="polite"
-									className="flex flex-col gap-2 rounded-[14px] border border-panel-border! bg-panel-elevated/50 p-3"
+									className="flex flex-col gap-2 rounded-[14px] border border-panel-border/80! bg-panel-elevated/50 p-3"
 								>
 									<div className="flex items-center justify-between gap-2 text-[12px] font-semibold text-panel-text">
 										<span>
@@ -373,7 +366,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 													})
 												: t("dashboard.backup.processing")}
 										</span>
-										<span dir="ltr" className="text-panel-accent tabular-nums">
+										<span dir="ltr" className="text-panel-text-secondary tabular-nums">
 											{uploadProgress}%
 										</span>
 									</div>
@@ -383,7 +376,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 						</div>
 					</div>
 
-					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border! bg-panel-surface px-5 py-3.5">
+					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border/70! px-5 py-3.5">
 						<Button
 							type="button"
 							onClick={() => setDialog(null)}
@@ -419,13 +412,11 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 				<DialogContent
 					dir={isRTL ? "rtl" : "ltr"}
 					showCloseButton={false}
-					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[440px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[440px]"
+					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[420px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[420px]"
 				>
-					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border! px-5 py-3.5 text-start">
-						<div className="flex min-w-0 items-center gap-3">
-							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-accent">
-								<Download className="size-4" />
-							</span>
+					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border/70! px-5 py-3.5 text-start">
+						<div className="flex min-w-0 items-center gap-2.5">
+							<Download className="size-4 shrink-0 text-panel-text-secondary" />
 							<DialogTitle className="truncate text-[14px] font-bold tracking-[-0.01em] text-panel-text">
 								{t("dashboard.backup.exportTitle")}
 							</DialogTitle>
@@ -447,7 +438,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 					</DialogHeader>
 
 					<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-						<div className="flex flex-col gap-4">
+						<div className="flex flex-col gap-3.5">
 							<p className="text-[13px] leading-relaxed text-panel-text-muted">
 								{t("dashboard.backup.exportHint")}
 							</p>
@@ -455,7 +446,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 								<FieldLabel className="text-[12px] font-semibold text-panel-text-secondary">
 									{t("dashboard.backup.scope")}
 								</FieldLabel>
-								<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+								<div className="flex flex-col gap-2">
 									{(
 										[
 											{
@@ -478,24 +469,36 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 												type="button"
 												onClick={() => setExportScope(option.scope)}
 												className={cn(
-													"flex items-center gap-3 rounded-[14px] border p-3.5 text-start transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-panel-accent",
+													"flex w-full items-center justify-between gap-3 rounded-[14px] border px-3.5 py-3 text-start transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-panel-accent",
 													active
 														? "border-panel-accent! bg-panel-accent/10 text-panel-text"
-														: "border-panel-border! bg-panel-elevated/50 text-panel-text-secondary min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated",
+														: "border-panel-border/80! bg-panel-elevated/45 text-panel-text-secondary min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated/80",
 												)}
 											>
+												<div className="flex min-w-0 items-center gap-3">
+													<span
+														className={cn(
+															"flex size-8 shrink-0 items-center justify-center rounded-[10px] transition-colors",
+															active
+																? "bg-panel-accent text-white"
+																: "bg-panel-surface text-panel-text-secondary",
+														)}
+													>
+														<Icon className="size-4" />
+													</span>
+													<span className="min-w-0 truncate text-[13px] font-semibold leading-snug">
+														{option.label}
+													</span>
+												</div>
 												<span
 													className={cn(
-														"flex size-9 shrink-0 items-center justify-center rounded-[10px] transition-colors",
+														"flex size-[18px] shrink-0 items-center justify-center rounded-full border transition-colors",
 														active
-															? "bg-panel-accent text-white"
-															: "bg-panel-surface text-panel-text-muted",
+															? "border-panel-accent! bg-panel-accent text-white"
+															: "border-panel-border-strong! bg-transparent",
 													)}
 												>
-													<Icon className="size-4" />
-												</span>
-												<span className="min-w-0 flex-1 text-[13px] font-semibold leading-snug">
-													{option.label}
+													{active ? <Check className="size-3 stroke-[2.5]" /> : null}
 												</span>
 											</button>
 										);
@@ -505,7 +508,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 						</div>
 					</div>
 
-					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border! bg-panel-surface px-5 py-3.5">
+					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border/70! px-5 py-3.5">
 						<Button
 							type="button"
 							onClick={() => setDialog(null)}

@@ -190,7 +190,37 @@ function AppLayoutContent() {
 	const accountMenu = useDisclosure();
 	const settingsMenu = useDisclosure();
 	const dockSettingsScrollRef = useRef<HTMLDivElement | null>(null);
-	const dockSettingsScrollAnimRef = useRef<number | null>(null);
+	const dockAnchorStateRef = useRef<{
+		groupId: string;
+		anchorEl: HTMLElement;
+		edge: "top" | "bottom";
+		initialPos: number;
+	} | null>(null);
+
+	const syncDockAnchorScroll = useCallback((groupId: string) => {
+		const state = dockAnchorStateRef.current;
+		const scrollEl = dockSettingsScrollRef.current;
+		if (!state || state.groupId !== groupId || !scrollEl) return;
+		const currentPos =
+			state.edge === "top"
+				? state.anchorEl.getBoundingClientRect().top
+				: state.anchorEl.getBoundingClientRect().bottom;
+		const delta = currentPos - state.initialPos;
+		if (Math.abs(delta) >= 0.5) {
+			scrollEl.scrollTop += delta;
+		}
+	}, []);
+
+	const finishDockAnchorScroll = useCallback(
+		(groupId: string) => {
+			syncDockAnchorScroll(groupId);
+			if (dockAnchorStateRef.current?.groupId === groupId) {
+				dockAnchorStateRef.current = null;
+			}
+		},
+		[syncDockAnchorScroll],
+	);
+
 	const [activeProfileSubmenu, setActiveProfileSubmenu] = useState<
 		"notifications" | "language" | "theme" | "calendar" | null
 	>(null);
@@ -203,9 +233,6 @@ function AppLayoutContent() {
 		return () => {
 			if (profileSubmenuTimerRef.current) {
 				window.clearTimeout(profileSubmenuTimerRef.current);
-			}
-			if (dockSettingsScrollAnimRef.current !== null) {
-				cancelAnimationFrame(dockSettingsScrollAnimRef.current);
 			}
 		};
 	}, []);
@@ -1346,7 +1373,7 @@ function AppLayoutContent() {
 										if (isMobile) sidebarDrawer.onOpen();
 										else setSidebarCollapsed(!sidebarCollapsed);
 									}}
-									className="inline-flex size-[34px] min-w-[34px] shrink-0 items-center justify-center rounded-full border border-panel-border! bg-panel-surface text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-panel-accent/50 min-[769px]:rounded-[12px] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
+									className="inline-flex size-[34px] min-w-[34px] shrink-0 items-center justify-center rounded-full border border-panel-border! bg-panel-surface dark:bg-input/30 text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-panel-accent/50 min-[769px]:rounded-[12px] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 								>
 									<AnimatedHamburger
 										isOpen={isMobile ? sidebarDrawer.isOpen : !sidebarCollapsed}
@@ -1814,7 +1841,7 @@ function AppLayoutContent() {
 												variant="outline"
 												size="sm"
 												aria-label={t("a11y.userMenu")}
-												className="h-[34px] w-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] active:bg-panel-elevated min-[769px]:w-auto min-[769px]:min-w-0 min-[769px]:rounded-[12px] min-[769px]:px-3 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+												className="h-[34px] w-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-panel-surface dark:hover:bg-input/30 active:scale-[0.97] active:bg-panel-elevated min-[769px]:w-auto min-[769px]:min-w-0 min-[769px]:rounded-[12px] min-[769px]:px-3 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
 											>
 												<span className="flex items-center justify-center gap-2">
 													<span className="relative inline-flex shrink-0 items-center justify-center">
@@ -2259,325 +2286,287 @@ function AppLayoutContent() {
 														</Button>
 													</PopoverTrigger>
 													<PopoverContent
-														ref={dockSettingsScrollRef}
+														data-dock-settings-popover="true"
 														dir={isRTL ? "rtl" : "ltr"}
 														side="top"
 														align="center"
 														sideOffset={12}
 														collisionPadding={12}
-														className={cn(
-															"z-[1600] w-[min(272px,calc(100vw-24px))] max-w-[calc(100vw-24px)] max-h-[min(66dvh,calc(100dvh-148px))] overflow-y-auto overscroll-contain [overflow-anchor:none] rounded-[22px] border p-2.5 text-panel-text",
-															DOCK_SURFACE_CLASS,
-														)}
+														className="pointer-events-none z-[1600] flex h-[min(66dvh,calc(100dvh-148px))] w-[min(272px,calc(100vw-24px))] max-w-[calc(100vw-24px)] origin-bottom flex-col justify-end overflow-visible! border-0! bg-transparent! p-0! shadow-none! data-[state=open]:animate-rb-fade-in data-[state=closed]:animate-rb-fade-out"
 													>
-														<div className="flex flex-col gap-3">
-															{dockSettingsSections.map((section, secIdx) => (
-																<div
-																	key={section.id}
-																	data-dock-section={section.id}
-																	className={cn(
-																		"flex flex-col gap-0.5",
-																		secIdx > 0 &&
-																			"border-t border-panel-border/75 pt-2.5",
-																	)}
-																>
-																	<span className="px-2.5 pb-1 text-[10.5px] font-bold tracking-[0.06em] uppercase text-panel-text-muted">
-																		{section.title}
-																	</span>
+														<div
+															ref={dockSettingsScrollRef}
+															className={cn(
+																"pointer-events-auto max-h-full w-full origin-bottom overflow-y-auto overscroll-contain [overflow-anchor:none] rounded-[22px] border p-2.5 text-panel-text",
+																DOCK_SURFACE_CLASS,
+															)}
+														>
+															<div className="flex flex-col gap-3.5">
+																{dockSettingsSections.map((section) => (
+																	<div
+																		key={section.id}
+																		data-dock-section={section.id}
+																		className="flex flex-col gap-0.5"
+																	>
+																		<span className="px-2.5 pb-1 text-[10.5px] font-bold tracking-[0.06em] uppercase text-panel-text-muted">
+																			{section.title}
+																		</span>
 
-																	<div className="flex flex-col gap-0.5">
-																		{section.items.map((navEntry) => {
-																			if (navEntry.type === "direct") {
-																				const EntryIcon = navEntry.icon;
-																				const entrySelected =
-																					activeSettingsId === navEntry.id;
-																				const showBadge = Boolean(
-																					navEntry.badge,
+																		<div className="flex flex-col gap-0.5">
+																			{section.items.map((navEntry) => {
+																				if (navEntry.type === "direct") {
+																					const EntryIcon = navEntry.icon;
+																					const entrySelected =
+																						activeSettingsId === navEntry.id;
+																					const showBadge = Boolean(
+																						navEntry.badge,
+																					);
+
+																					return (
+																						<button
+																							key={navEntry.id}
+																							type="button"
+																							aria-current={
+																								entrySelected
+																									? "page"
+																									: undefined
+																							}
+																							onClick={() =>
+																								navigateToSettingsItem(
+																									navEntry.url,
+																								)
+																							}
+																							className={cn(
+																								"relative flex min-h-[38px] w-full items-center gap-2.5 overflow-hidden rounded-[12px] px-2.5 text-start text-[13px] transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
+																								entrySelected
+																									? "bg-panel-elevated font-bold text-panel-accent"
+																									: "bg-transparent font-medium text-panel-text-secondary",
+																							)}
+																						>
+																							{entrySelected ? (
+																								<span className="pointer-events-none absolute inset-s-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-panel-accent" />
+																							) : null}
+																							<EntryIcon className="size-[18px] shrink-0" />
+																							<span className="min-w-0 flex-1 truncate">
+																								{navEntry.title}
+																							</span>
+																							{showBadge ? (
+																								<span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-panel-accent text-white">
+																									<BellRing className="size-2.5" />
+																								</span>
+																							) : null}
+																						</button>
+																					);
+																				}
+
+																				const isGroupActive =
+																					navEntry.subItems.some((sub) =>
+																						isDockItemActive(sub.url),
+																					);
+																				const isGroupOpen = Boolean(
+																					openDockGroups[navEntry.id],
 																				);
+																				const GroupIcon = navEntry.icon;
 
 																				return (
-																					<button
+																					<div
 																						key={navEntry.id}
-																						type="button"
-																						aria-current={
-																							entrySelected ? "page" : undefined
-																						}
-																						onClick={() =>
-																							navigateToSettingsItem(
-																								navEntry.url,
-																							)
-																						}
-																						className={cn(
-																							"relative flex min-h-[38px] w-full items-center gap-2.5 overflow-hidden rounded-[12px] px-2.5 text-start text-[13px] transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
-																							entrySelected
-																								? "bg-panel-elevated font-bold text-panel-accent"
-																								: "bg-transparent font-medium text-panel-text-secondary",
-																						)}
+																						data-dock-group={navEntry.id}
 																					>
-																						{entrySelected ? (
-																							<span className="pointer-events-none absolute inset-s-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-panel-accent" />
-																						) : null}
-																						<EntryIcon className="size-[18px] shrink-0" />
-																						<span className="min-w-0 flex-1 truncate">
-																							{navEntry.title}
-																						</span>
-																						{showBadge ? (
-																							<span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-panel-accent text-white">
-																								<BellRing className="size-2.5" />
-																							</span>
-																						) : null}
-																					</button>
-																				);
-																			}
-
-																			const isGroupActive =
-																				navEntry.subItems.some((sub) =>
-																					isDockItemActive(sub.url),
-																				);
-																			const isGroupOpen = Boolean(
-																				openDockGroups[navEntry.id],
-																			);
-																			const GroupIcon = navEntry.icon;
-
-																			return (
-																				<div
-																					key={navEntry.id}
-																					data-dock-group={navEntry.id}
-																				>
-																					<button
-																						type="button"
-																						aria-expanded={isGroupOpen}
-																						onClick={(e) => {
-																							const willOpen = !isGroupOpen;
-																							if (
-																								dockSettingsScrollAnimRef.current !==
-																								null
-																							) {
-																								cancelAnimationFrame(
-																									dockSettingsScrollAnimRef.current,
-																								);
-																								dockSettingsScrollAnimRef.current =
-																									null;
-																							}
-																							if (
-																								willOpen &&
-																								dockSettingsScrollRef.current
-																							) {
-																								const triggerEl =
-																									e.currentTarget;
-																								const groupWrapper =
-																									triggerEl.closest(
-																										"[data-dock-group]",
-																									) as HTMLElement | null;
-																								let anchorEl: HTMLElement | null =
-																									null;
-																								let anchorEdge:
-																									| "top"
-																									| "bottom" = "top";
-																								if (groupWrapper) {
-																									const nextSibling =
-																										groupWrapper.nextElementSibling as HTMLElement | null;
-																									if (nextSibling) {
-																										anchorEl = nextSibling;
-																									} else {
-																										const sectionEl =
-																											groupWrapper.closest(
-																												"[data-dock-section]",
-																											);
-																										const nextSection =
-																											sectionEl?.nextElementSibling as HTMLElement | null;
-																										if (nextSection) {
-																											anchorEl = nextSection;
+																						<button
+																							type="button"
+																							aria-expanded={isGroupOpen}
+																							onClick={(e) => {
+																								const willOpen = !isGroupOpen;
+																								if (dockSettingsScrollRef.current) {
+																									const triggerEl =
+																										e.currentTarget;
+																									const groupWrapper =
+																										triggerEl.closest(
+																											"[data-dock-group]",
+																										) as HTMLElement | null;
+																									let anchorEl: HTMLElement | null =
+																										null;
+																									let anchorEdge:
+																										| "top"
+																										| "bottom" = "top";
+																									if (groupWrapper) {
+																										const nextSibling =
+																											groupWrapper.nextElementSibling as HTMLElement | null;
+																										if (nextSibling) {
+																											anchorEl = nextSibling;
 																										} else {
-																											anchorEl = groupWrapper;
-																											anchorEdge = "bottom";
+																											const sectionEl =
+																												groupWrapper.closest(
+																													"[data-dock-section]",
+																												);
+																											const nextSection =
+																												sectionEl?.nextElementSibling as HTMLElement | null;
+																											if (nextSection) {
+																												anchorEl = nextSection;
+																											} else {
+																												anchorEl = groupWrapper;
+																												anchorEdge = "bottom";
+																											}
 																										}
 																									}
-																								}
-																								if (anchorEl) {
-																									const scrollEl =
-																										dockSettingsScrollRef.current;
-																									const initialPos =
-																										anchorEdge === "top"
-																											? anchorEl.getBoundingClientRect()
-																													.top
-																											: anchorEl.getBoundingClientRect()
-																													.bottom;
-																									const startTime =
-																										performance.now();
-																									setOpenDockGroups((prev) => ({
-																										...prev,
-																										[navEntry.id]: true,
-																									}));
-																									const adjustScroll = (
-																										now: number,
-																									) => {
-																										if (
-																											!dockSettingsScrollRef.current ||
-																											!anchorEl
-																										) {
-																											return;
-																										}
-																										const currentPos =
-																											anchorEdge === "top"
-																												? anchorEl.getBoundingClientRect()
-																														.top
-																												: anchorEl.getBoundingClientRect()
-																														.bottom;
-																										const delta =
-																											currentPos - initialPos;
-																										if (
-																											Math.abs(delta) >= 0.5
-																										) {
-																											scrollEl.scrollTop +=
-																												delta;
-																										}
-																										if (now - startTime < 300) {
-																											dockSettingsScrollAnimRef.current =
-																												requestAnimationFrame(
-																													adjustScroll,
-																												);
-																										} else {
-																											const finalPos =
+																									if (anchorEl) {
+																										dockAnchorStateRef.current = {
+																											groupId: navEntry.id,
+																											anchorEl,
+																											edge: anchorEdge,
+																											initialPos:
 																												anchorEdge === "top"
 																													? anchorEl.getBoundingClientRect()
 																															.top
 																													: anchorEl.getBoundingClientRect()
-																															.bottom;
-																											const finalDelta =
-																												finalPos - initialPos;
-																											if (
-																												Math.abs(finalDelta) >=
-																												0.5
-																											) {
-																												scrollEl.scrollTop +=
-																													finalDelta;
-																											}
-																											dockSettingsScrollAnimRef.current =
-																												null;
-																										}
-																									};
-																									dockSettingsScrollAnimRef.current =
-																										requestAnimationFrame(
-																											adjustScroll,
-																										);
-																									return;
+																															.bottom,
+																										};
+																									} else {
+																										dockAnchorStateRef.current = null;
+																									}
+																								} else {
+																									dockAnchorStateRef.current = null;
 																								}
-																							}
-																							setOpenDockGroups((prev) => ({
-																								...prev,
-																								[navEntry.id]: willOpen,
-																							}));
-																						}}
-																						className={cn(
-																							"relative flex min-h-[38px] w-full items-center justify-between gap-2.5 overflow-hidden rounded-[12px] px-2.5 text-start text-[13px] transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
-																							isGroupActive && !isGroupOpen
-																								? "bg-panel-elevated font-bold text-panel-accent"
-																								: isGroupActive
-																									? "bg-transparent font-bold text-panel-text"
-																									: "bg-transparent font-medium text-panel-text-secondary",
-																						)}
-																					>
-																						{isGroupActive && !isGroupOpen ? (
-																							<span className="pointer-events-none absolute inset-s-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-panel-accent" />
-																						) : null}
+																								setOpenDockGroups((prev) => ({
+																									...prev,
+																									[navEntry.id]: willOpen,
+																								}));
+																							}}
+																							className={cn(
+																								"relative flex min-h-[38px] w-full items-center justify-between gap-2.5 overflow-hidden rounded-[12px] px-2.5 text-start text-[13px] transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
+																								isGroupActive && !isGroupOpen
+																									? "bg-panel-elevated font-bold text-panel-accent"
+																									: isGroupActive
+																										? "bg-transparent font-bold text-panel-text"
+																										: "bg-transparent font-medium text-panel-text-secondary",
+																							)}
+																						>
+																							{isGroupActive && !isGroupOpen ? (
+																								<span className="pointer-events-none absolute inset-s-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-panel-accent" />
+																							) : null}
 
-																						<span className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
-																							<GroupIcon
+																							<span className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+																								<GroupIcon
+																									className={cn(
+																										"size-[18px] shrink-0",
+																										isGroupActive &&
+																											"text-panel-accent",
+																									)}
+																								/>
+																								<span className="truncate">
+																									{navEntry.title}
+																								</span>
+																							</span>
+
+																							<ChevronDown
 																								className={cn(
-																									"size-[18px] shrink-0",
-																									isGroupActive &&
-																										"text-panel-accent",
+																									"size-3.5 shrink-0 text-panel-text-muted transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+																									isGroupOpen
+																										? "rotate-0"
+																										: isRTL
+																											? "rotate-90"
+																											: "-rotate-90",
 																								)}
 																							/>
-																							<span className="truncate">
-																								{navEntry.title}
-																							</span>
-																						</span>
+																						</button>
 
-																						<ChevronDown
-																							className={cn(
-																								"size-3.5 shrink-0 text-panel-text-muted transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
-																								isGroupOpen
-																									? "rotate-0"
-																									: isRTL
-																										? "rotate-90"
-																										: "-rotate-90",
-																							)}
-																						/>
-																					</button>
-
-																					<AnimatePresence initial={false}>
-																						{isGroupOpen ? (
-																							<motion.div
-																								key="dock-subitems"
-																								initial={{
-																									height: 0,
-																									opacity: 0,
-																								}}
-																								animate={{
-																									height: "auto",
-																									opacity: 1,
-																								}}
-																								exit={{
-																									height: 0,
-																									opacity: 0,
-																								}}
-																								transition={{
-																									duration: 0.2,
-																									ease: [0.16, 1, 0.3, 1],
-																								}}
-																								className="overflow-hidden"
-																							>
-																								<div className="ms-[19px] mt-1 mb-0.5 flex flex-col gap-0.5 border-s border-panel-border! ps-2.5">
-																									{navEntry.subItems.map(
-																										(sub) => {
-																											const SubIcon = sub.icon;
-																											const subSelected =
-																												activeSettingsId ===
-																												sub.id;
-																											return (
-																												<button
-																													key={sub.id}
-																													type="button"
-																													aria-current={
-																														subSelected
-																															? "page"
-																															: undefined
-																													}
-																													onClick={() =>
-																														navigateToSettingsItem(
-																															sub.url,
-																														)
-																													}
-																													className={cn(
-																														"relative flex min-h-[34px] w-full items-center gap-2.5 rounded-[10px] px-2.5 text-start text-xs transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
-																														subSelected
-																															? "bg-panel-elevated font-bold text-panel-accent"
-																															: "bg-transparent font-medium text-panel-text-secondary",
-																													)}
-																												>
-																													{subSelected ? (
-																														<span className="pointer-events-none absolute -inset-s-[11.5px] top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-panel-accent" />
-																													) : null}
-																													<SubIcon className="size-4 shrink-0" />
-																													<span className="truncate">
-																														{sub.title}
-																													</span>
-																												</button>
-																											);
+																						<AnimatePresence
+																							initial={false}
+																							onExitComplete={() =>
+																								finishDockAnchorScroll(
+																									navEntry.id,
+																								)
+																							}
+																						>
+																							{isGroupOpen ? (
+																								<motion.div
+																									key="dock-subitems"
+																									initial={{
+																										height: 0,
+																										opacity: 0,
+																									}}
+																									animate={{
+																										height: "auto",
+																										opacity: 1,
+																									}}
+																									exit={{
+																										height: 0,
+																										opacity: 0,
+																									}}
+																									transition={{
+																										height: {
+																											duration: 0.24,
+																											ease: [0.32, 0.72, 0, 1],
 																										},
-																									)}
-																								</div>
-																							</motion.div>
-																						) : null}
-																					</AnimatePresence>
-																				</div>
-																			);
-																		})}
+																										opacity: {
+																											duration: 0.16,
+																											ease: "easeOut",
+																										},
+																									}}
+																									onUpdate={() =>
+																										syncDockAnchorScroll(
+																											navEntry.id,
+																										)
+																									}
+																									onAnimationComplete={() =>
+																										finishDockAnchorScroll(
+																											navEntry.id,
+																										)
+																									}
+																									className="overflow-hidden"
+																								>
+																									<div className="ms-[19px] flex flex-col gap-0.5 border-s border-panel-border! ps-2.5 pt-1 pb-0.5">
+																										{navEntry.subItems.map(
+																											(sub) => {
+																												const SubIcon =
+																													sub.icon;
+																												const subSelected =
+																													activeSettingsId ===
+																													sub.id;
+																												return (
+																													<button
+																														key={sub.id}
+																														type="button"
+																														aria-current={
+																															subSelected
+																																? "page"
+																																: undefined
+																														}
+																														onClick={() =>
+																															navigateToSettingsItem(
+																																sub.url,
+																															)
+																														}
+																														className={cn(
+																															"relative flex min-h-[34px] w-full items-center gap-2.5 rounded-[10px] px-2.5 text-start text-xs transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
+																															subSelected
+																																? "bg-panel-elevated font-bold text-panel-accent"
+																																: "bg-transparent font-medium text-panel-text-secondary",
+																														)}
+																													>
+																														{subSelected ? (
+																															<span className="pointer-events-none absolute -inset-s-[11.5px] top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-panel-accent" />
+																														) : null}
+																														<SubIcon className="size-4 shrink-0" />
+																														<span className="truncate">
+																															{sub.title}
+																														</span>
+																													</button>
+																												);
+																											},
+																										)}
+																									</div>
+																								</motion.div>
+																							) : null}
+																						</AnimatePresence>
+																					</div>
+																				);
+																			})}
+																		</div>
 																	</div>
-																</div>
-															))}
+																))}
+															</div>
 														</div>
 													</PopoverContent>
 												</Popover>

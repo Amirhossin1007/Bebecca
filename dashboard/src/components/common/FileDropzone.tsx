@@ -169,8 +169,8 @@ export const FileDropzone = ({
 					className={cn(
 						"shrink-0 whitespace-nowrap rounded-[8px] border px-2.5 py-1 text-[11px] font-semibold",
 						isDisabled
-							? "border-panel-border text-panel-text-muted"
-							: "border-panel-border bg-panel-surface text-panel-accent",
+							? "border-panel-border! text-panel-text-muted"
+							: "border-panel-border! bg-panel-surface text-panel-text",
 					)}
 				>
 					{emptyText}

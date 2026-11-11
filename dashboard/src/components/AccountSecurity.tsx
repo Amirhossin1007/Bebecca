@@ -250,7 +250,7 @@ export const AccountSecurity = ({
 						{canChangePassword && (
 							<div className="flex-col sm:flex-row flex items-stretch sm:items-center justify-between gap-3 py-2">
 								<div className="flex flex-row min-w-0! gap-3 items-start">
-									<div aria-hidden="true" className="flex items-center justify-center w-9 h-9 shrink-0 rounded-[6px] bg-panel-elevated text-panel-accent">
+									<div aria-hidden="true" className="flex items-center justify-center w-9 h-9 shrink-0 rounded-[6px] bg-panel-elevated text-panel-text-secondary">
 										<Key className="w-[18px]" />
 									</div>
 									<div className="min-w-0!">

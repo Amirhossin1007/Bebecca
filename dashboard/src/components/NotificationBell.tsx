@@ -291,7 +291,7 @@ const NotificationListPanel: FC<NotificationListPanelProps> = ({
 						}}
 						className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 text-[11px] font-semibold text-panel-text-secondary transition-[background-color,color,transform] duration-150 active:scale-[0.96] disabled:opacity-50 min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 					>
-						<CheckCheck className="size-3.5 text-panel-accent" />
+						<CheckCheck className="size-3.5 text-panel-text-secondary" />
 						<span>{t("notifications.inbox.markAllRead")}</span>
 					</button>
 				) : null}
@@ -513,7 +513,7 @@ export const NotificationBell: FC = () => {
 					size="sm"
 					data-header-notifications="true"
 					aria-label={t("notifications.bell.label")}
-					className="relative size-[34px] min-w-[34px] rounded-[12px] border-panel-border! bg-panel-surface p-0 text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.96] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
+					className="relative size-[34px] min-w-[34px] rounded-[12px] border-panel-border! bg-panel-surface p-0 text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-panel-surface dark:hover:bg-input/30 active:scale-[0.96] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 				>
 					<Bell className="size-4" />
 					{unread > 0 ? (

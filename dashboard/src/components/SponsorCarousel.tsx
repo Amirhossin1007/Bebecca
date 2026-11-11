@@ -154,9 +154,9 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = memo(
 				className={cn(
 					"relative overflow-hidden transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]",
 					isBanner
-						? "inline-flex h-auto max-h-[38px] min-w-[40px] max-w-full shrink items-center justify-start rounded-[12px] border border-panel-border! bg-panel-surface shadow-[0_1px_4px_rgba(0,0,0,0.06)] md:hover:border-panel-border-strong! md:hover:shadow-[0_4px_14px_rgba(0,0,0,0.12)]"
+						? "inline-flex h-auto max-h-[38px] min-w-[40px] max-w-full shrink items-center justify-start rounded-[12px] border border-panel-border! bg-panel-surface shadow-[0_1px_4px_rgba(0,0,0,0.06)] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:shadow-[0_4px_14px_rgba(0,0,0,0.12)]"
 						: isSidebarBanner
-							? "block w-full max-w-full rounded-[12px] border border-panel-border! bg-panel-surface shadow-[0_2px_8px_rgba(0,0,0,0.06)] md:hover:border-panel-border-strong!"
+							? "block w-full max-w-full rounded-[12px] border border-panel-border! bg-panel-surface shadow-[0_2px_8px_rgba(0,0,0,0.06)] min-[769px]:hover:border-panel-border-strong!"
 							: "block h-full w-full rounded-[10px] border-0 bg-transparent",
 				)}
 			>
@@ -167,7 +167,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = memo(
 							: `translate3d(-${index * 100}%, 0, 0)`,
 					}}
 					className={cn(
-						"flex h-full w-full transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none [&_img]:border-0 [&_img]:outline-none",
+						"flex h-full w-full transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none [&_img]:border-0 [&_img]:outline-none",
 						isVertical ? "flex-col" : "flex-row",
 					)}
 				>

@@ -884,11 +884,9 @@ const HistoryModal: FC<{
 				showCloseButton={false}
 				className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[780px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[780px]"
 			>
-				<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border! px-4 py-3.5 text-start min-[769px]:px-6">
-					<div className="flex min-w-0 items-center gap-3">
-						<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-accent">
-							<MetricIcon className="size-4" />
-						</span>
+				<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border/75! px-4 py-3.5 text-start min-[769px]:px-6">
+					<div className="flex min-w-0 items-center gap-2.5">
+						<MetricIcon className="size-4 shrink-0 text-panel-text-secondary" />
 						<div className="min-w-0">
 							<DialogTitle className="truncate text-[14px] font-bold tracking-[-0.01em] text-panel-text">
 								{t("dashboard.history.modalTitle", {
@@ -1637,8 +1635,8 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				<SystemDiagnostics issues={criticalIssues} criticalOnly />
 			)}
 
-			<div className="rb-dashboard-header flex flex-wrap items-start justify-between gap-3 px-1 min-[1220px]:flex-nowrap min-[1220px]:items-center">
-				<div className="rb-dashboard-header-meta flex w-full flex-col items-start gap-1.5 min-[600px]:flex-row min-[600px]:items-center min-[600px]:gap-3 min-[1220px]:w-auto min-[1220px]:flex-col min-[1220px]:items-start min-[1220px]:gap-1.5">
+			<div className="rb-dashboard-header flex flex-wrap items-center justify-between gap-3 px-1">
+				<div className="rb-dashboard-header-meta flex min-w-0 flex-col items-start gap-1.5">
 					<h1 className="shrink-0 text-[18px] font-bold tracking-[-0.02em] whitespace-nowrap text-panel-text min-[769px]:text-[20px]">
 						{t("dashboard.system.overview")}
 					</h1>

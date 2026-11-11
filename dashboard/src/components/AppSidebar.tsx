@@ -203,7 +203,7 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(
 						initial={{ transform: `translate3d(${slideOffset}, 0, 0)` }}
 						animate={{ transform: "translate3d(0%, 0, 0)" }}
 						exit={{ transform: `translate3d(${slideOffset}, 0, 0)` }}
-						transition={{ duration: 0.32, ease: [0.32, 0.72, 0, 1] }}
+						transition={{ duration: 0.56, ease: [0.22, 1, 0.36, 1] }}
 						className={cn(
 							"flex h-[34px] w-full items-center justify-start gap-2.5 ps-[18px] transition-[padding] duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform",
 							collapsed ? "pe-0" : "pe-2.5",
@@ -249,6 +249,8 @@ interface GroupNavRowProps {
 	isRTL: boolean;
 	isItemActive: (url: string) => boolean;
 	onToggleOpen: (triggerEl: HTMLElement | null) => void;
+	onSubmenuStep: (groupId: string) => void;
+	onSubmenuDone: (groupId: string) => void;
 	onNavigate: (url: string, event?: ReactMouseEvent) => void;
 }
 
@@ -260,6 +262,8 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 	isRTL,
 	isItemActive,
 	onToggleOpen,
+	onSubmenuStep,
+	onSubmenuDone,
 	onNavigate,
 }) => {
 	const [flyoutOpen, setFlyoutOpen] = useState(false);
@@ -458,7 +462,10 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 				</PopoverContent>
 			</Popover>
 
-			<AnimatePresence initial={false}>
+			<AnimatePresence
+				initial={false}
+				onExitComplete={() => onSubmenuDone(group.id)}
+			>
 				{isOpen && !collapsed ? (
 					<motion.div
 						key="subitems"
@@ -466,12 +473,14 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 						animate={{ height: "auto", opacity: 1 }}
 						exit={{ height: 0, opacity: 0 }}
 						transition={{
-							duration: 0.22,
-							ease: [0.16, 1, 0.3, 1],
+							height: { duration: 0.24, ease: [0.32, 0.72, 0, 1] },
+							opacity: { duration: 0.16, ease: "easeOut" },
 						}}
+						onUpdate={() => onSubmenuStep(group.id)}
+						onAnimationComplete={() => onSubmenuDone(group.id)}
 						className="overflow-hidden"
 					>
-						<div className="ms-[21px] mt-1 mb-0.5 flex flex-col gap-0.5 border-s border-panel-border! ps-2.5">
+						<div className="ms-[21px] flex flex-col gap-0.5 border-s border-panel-border! ps-2.5 pt-1 pb-0.5">
 							{visibleSubs.map((sub) => {
 								const subActive = isItemActive(sub.url);
 								const SubIcon = sub.icon;
@@ -631,25 +640,41 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 	}, [dynamicSidebarWidth]);
 
 	const navScrollRef = useRef<HTMLDivElement | null>(null);
-	const scrollAnimRef = useRef<number | null>(null);
+	const anchorStateRef = useRef<{
+		groupId: string;
+		anchorEl: HTMLElement;
+		edge: "top" | "bottom";
+		initialPos: number;
+	} | null>(null);
 
-	useEffect(() => {
-		return () => {
-			if (scrollAnimRef.current !== null) {
-				cancelAnimationFrame(scrollAnimRef.current);
-			}
-		};
+	const syncAnchorScroll = useCallback((groupId: string) => {
+		const state = anchorStateRef.current;
+		const scrollEl = navScrollRef.current;
+		if (!state || state.groupId !== groupId || !scrollEl) return;
+		const currentPos =
+			state.edge === "top"
+				? state.anchorEl.getBoundingClientRect().top
+				: state.anchorEl.getBoundingClientRect().bottom;
+		const delta = currentPos - state.initialPos;
+		if (Math.abs(delta) >= 0.5) {
+			scrollEl.scrollTop += delta;
+		}
 	}, []);
+
+	const finishAnchorScroll = useCallback(
+		(groupId: string) => {
+			syncAnchorScroll(groupId);
+			if (anchorStateRef.current?.groupId === groupId) {
+				anchorStateRef.current = null;
+			}
+		},
+		[syncAnchorScroll],
+	);
 
 	const handleGroupClick = useCallback(
 		(groupId: string, triggerEl: HTMLElement | null) => {
-			if (scrollAnimRef.current !== null) {
-				cancelAnimationFrame(scrollAnimRef.current);
-				scrollAnimRef.current = null;
-			}
-
 			const isCurrentlyOpen = Boolean(openGroups[groupId]);
-			if (!isCurrentlyOpen && navScrollRef.current && triggerEl) {
+			if (navScrollRef.current && triggerEl) {
 				const groupWrapper = triggerEl.closest(
 					"[data-nav-group]",
 				) as HTMLElement | null;
@@ -672,43 +697,21 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 						}
 					}
 				}
-
 				if (anchorEl) {
-					const scrollEl = navScrollRef.current;
-					const initialPos =
-						anchorEdge === "top"
-							? anchorEl.getBoundingClientRect().top
-							: anchorEl.getBoundingClientRect().bottom;
-					const startTime = performance.now();
-					setOpenGroups((prev) => ({ ...prev, [groupId]: true }));
-
-					const adjustScroll = (now: number) => {
-						if (!navScrollRef.current || !anchorEl) return;
-						const currentPos =
+					anchorStateRef.current = {
+						groupId,
+						anchorEl,
+						edge: anchorEdge,
+						initialPos:
 							anchorEdge === "top"
 								? anchorEl.getBoundingClientRect().top
-								: anchorEl.getBoundingClientRect().bottom;
-						const delta = currentPos - initialPos;
-						if (Math.abs(delta) >= 0.5) {
-							scrollEl.scrollTop += delta;
-						}
-						if (now - startTime < 320) {
-							scrollAnimRef.current = requestAnimationFrame(adjustScroll);
-						} else {
-							const finalPos =
-								anchorEdge === "top"
-									? anchorEl.getBoundingClientRect().top
-									: anchorEl.getBoundingClientRect().bottom;
-							const finalDelta = finalPos - initialPos;
-							if (Math.abs(finalDelta) >= 0.5) {
-								scrollEl.scrollTop += finalDelta;
-							}
-							scrollAnimRef.current = null;
-						}
+								: anchorEl.getBoundingClientRect().bottom,
 					};
-					scrollAnimRef.current = requestAnimationFrame(adjustScroll);
-					return;
+				} else {
+					anchorStateRef.current = null;
 				}
+			} else {
+				anchorStateRef.current = null;
 			}
 
 			setOpenGroups((prev) => ({ ...prev, [groupId]: !isCurrentlyOpen }));
@@ -779,8 +782,13 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 						dir={isRTL ? "rtl" : "ltr"}
 						className="rb-sidebar-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [overflow-anchor:none] px-0"
 					>
-						<div className="flex flex-col gap-3.5 py-1.5">
-							{navSections.map((section, secIdx) => {
+						<div
+							className={cn(
+								"flex flex-col py-1.5",
+								collapsed ? "gap-3" : "gap-4",
+							)}
+						>
+							{navSections.map((section) => {
 								const visibleItems = section.items.filter(
 									(item) => item.visible,
 								);
@@ -788,14 +796,6 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 
 								return (
 									<div key={section.id} data-nav-section={section.id}>
-										{secIdx > 0 ? (
-											<div
-												className={cn(
-													"h-px bg-panel-border/75 transition-[margin,opacity] duration-200",
-													collapsed ? "mx-2 my-1.5" : "mx-2 mb-2.5",
-												)}
-											/>
-										) : null}
 
 										<div
 											className={cn(
@@ -898,6 +898,8 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 														onToggleOpen={(triggerEl) =>
 															handleGroupClick(item.id, triggerEl)
 														}
+														onSubmenuStep={syncAnchorScroll}
+														onSubmenuDone={finishAnchorScroll}
 														onNavigate={handleNavigate}
 													/>
 												);

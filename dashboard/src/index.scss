@@ -2774,7 +2774,7 @@ input[type="number"] {
   transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   background: radial-gradient(
     var(--rb-spotlight-size, 420px) circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
-    color-mix(in srgb, var(--rb-panel-accent) 12%, rgba(255, 255, 255, 0.06)),
+    rgba(255, 255, 255, 0.075),
     transparent 75%
   );
 }
@@ -2783,7 +2783,7 @@ input[type="number"] {
 .chakra-ui-light .rb-stat-spotlight {
   background: radial-gradient(
     var(--rb-spotlight-size, 420px) circle at var(--mouse-x, -999px) var(--mouse-y, -999px),
-    color-mix(in srgb, var(--rb-panel-accent) 10%, rgba(0, 0, 0, 0.045)),
+    rgba(0, 0, 0, 0.065),
     transparent 75%
   );
 }
@@ -2873,16 +2873,6 @@ input[type="number"] {
   }
 }
 
-@media screen and (min-width: 1040px) and (max-width: 1240px) {
-  body:not([data-sidebar-collapsed='true']):not(:has([data-sidebar-collapsed='true'])) .rb-dashboard-header {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-  }
-
-  body:not([data-sidebar-collapsed='true']):not(:has([data-sidebar-collapsed='true'])) .rb-dashboard-header-meta {
-    flex-direction: row !important;
-    align-items: center !important;
-    width: 100% !important;
-    justify-content: space-between !important;
-  }
+[data-radix-popper-content-wrapper]:has([data-dock-settings-popover]) {
+  pointer-events: none !important;
 }

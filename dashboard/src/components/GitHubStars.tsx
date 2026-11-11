@@ -135,7 +135,7 @@ export const GitHubStars: FC<GitHubStarsProps> = memo(function GitHubStars({
 			aria-label={hasCount ? `${label} (${stars})` : label}
 			title={hasCount ? `${label} · ${stars.toLocaleString("en-US")} ★` : label}
 			className={cn(
-				"inline-flex h-[34px] shrink-0 items-center justify-center border border-panel-border! bg-panel-surface text-panel-text no-underline shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:ring-2 focus-visible:ring-panel-accent/50 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
+				"inline-flex h-[34px] shrink-0 items-center justify-center border border-panel-border! bg-panel-surface dark:bg-input/30 text-panel-text no-underline shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:ring-2 focus-visible:ring-panel-accent/50 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
 				isIconOnly
 					? "size-[34px] min-w-[34px] rounded-full px-0"
 					: "gap-2 rounded-[12px] px-3",
@@ -146,13 +146,13 @@ export const GitHubStars: FC<GitHubStarsProps> = memo(function GitHubStars({
 			{!isIconOnly ? (
 				<>
 					<span aria-hidden="true" className="h-3 w-px shrink-0 bg-panel-border" />
-					<span className="inline-flex shrink-0 items-center gap-1">
+					<span className="inline-flex shrink-0 items-center gap-1.5">
 						<Star className="size-[13px] shrink-0 fill-[#f59e0b] text-[#f59e0b]" />
 						{hasCount ? (
 							<span
 								dir="ltr"
 								style={{ unicodeBidi: "isolate" }}
-								className="text-xs font-semibold leading-none text-panel-text tabular-nums"
+								className="translate-y-[1.5px] text-xs font-semibold leading-none text-panel-text tabular-nums"
 							>
 								{formatStarCount(stars)}
 							</span>
