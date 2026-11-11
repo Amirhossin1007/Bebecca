@@ -1,9 +1,29 @@
 {
   "schema_version": 1,
   "project": "Rebecca",
-  "latest": "dev-c79160a",
-  "updated_at": "2026-11-11T16:08:17Z",
+  "latest": "dev-18520da",
+  "updated_at": "2026-11-11T16:41:44Z",
   "builds": [
+    {
+      "tag": "dev-18520da",
+      "sha": "18520da087f24eae67e1c10337e685ee47ddef0a",
+      "branch": "dev",
+      "workflow": "Binary Build",
+      "run_id": "43060494799",
+      "run_number": "512",
+      "created_at": "2026-11-11T16:41:44Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-dev-18520da.tar.gz",
+          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-amd64-dev-18520da.tar.gz"
+        },
+        "linux-arm64": {
+          "name": "rebecca-linux-arm64-dev-18520da.tar.gz",
+          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-arm64-dev-18520da.tar.gz"
+        }
+      }
+    },
     {
       "tag": "dev-c79160a",
       "sha": "c79160ace661bc4e92effeb0f1a47ee3e32fec58",
@@ -845,22 +865,6 @@
         "linux-amd64": {
           "name": "rebecca-linux-amd64-dev-54810f9.tar.gz",
           "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-amd64-dev-54810f9.tar.gz"
-        }
-      }
-    },
-    {
-      "tag": "dev-eac2022",
-      "sha": "eac202299b1c1d059185ac1a6e6a6011a3573724",
-      "branch": "dev",
-      "workflow": "Binary Build",
-      "run_id": "38191837324",
-      "run_number": "451",
-      "created_at": "2026-10-12T01:28:53Z",
-      "release_tag": "dev-builds",
-      "assets": {
-        "linux-amd64": {
-          "name": "rebecca-linux-amd64-dev-eac2022.tar.gz",
-          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-amd64-dev-eac2022.tar.gz"
         }
       }
     }
