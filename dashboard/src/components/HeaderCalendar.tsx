@@ -229,7 +229,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 							type="button"
 							aria-label={t("dateTimePicker.previousMonth")}
 							onClick={handlePrevMonth}
-							className="inline-flex size-6 items-center justify-center rounded-[7px] border border-panel-border! bg-panel-surface text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.92] md:hover:border-panel-border-strong! md:hover:bg-panel-elevated md:hover:text-panel-text"
+							className="inline-flex size-6 items-center justify-center rounded-[7px] border border-panel-border! bg-panel-surface text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.92] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 						>
 							<PrevIcon className="size-3.5" />
 						</button>
@@ -237,7 +237,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 							type="button"
 							aria-label={t("dateTimePicker.nextMonth")}
 							onClick={handleNextMonth}
-							className="inline-flex size-6 items-center justify-center rounded-[7px] border border-panel-border! bg-panel-surface text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.92] md:hover:border-panel-border-strong! md:hover:bg-panel-elevated md:hover:text-panel-text"
+							className="inline-flex size-6 items-center justify-center rounded-[7px] border border-panel-border! bg-panel-surface text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.92] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 						>
 							<NextIcon className="size-3.5" />
 						</button>
@@ -259,7 +259,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 						type="button"
 						onClick={handleResetToday}
 						className={cn(
-							"inline-flex h-6 items-center justify-center rounded-[7px] border px-2 text-[11px] font-semibold transition-[background-color,border-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.94] md:hover:border-panel-border-strong! md:hover:bg-panel-elevated",
+							"inline-flex h-6 items-center justify-center rounded-[7px] border px-2 text-[11px] font-semibold transition-[background-color,border-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.94] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated",
 							isCurrentMonth
 								? "border-transparent! bg-transparent text-panel-text-secondary opacity-75"
 								: "border-panel-border-strong! bg-panel-elevated text-panel-text opacity-100",
@@ -313,7 +313,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 												day.isToday
 													? "bg-panel-accent font-bold text-white shadow-[0_2px_8px_color-mix(in_srgb,var(--rb-panel-accent)_40%,transparent)]"
 													: cn(
-															"bg-transparent md:hover:bg-panel-elevated",
+															"bg-transparent min-[769px]:hover:bg-panel-elevated",
 															isHoliday
 																? "font-semibold text-red-400"
 																: "font-medium text-panel-text",
@@ -351,7 +351,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 								else handleOpenChange(!isOpen);
 							}}
 							className={cn(
-								"flex h-[38px] w-full items-center justify-between gap-2.5 rounded-[12px] px-3 text-[13px] font-medium text-panel-text transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:bg-panel-elevated md:hover:bg-panel-elevated",
+								"flex h-[38px] w-full items-center justify-between gap-2.5 rounded-[12px] px-3 text-[13px] font-medium text-panel-text transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:bg-panel-elevated min-[769px]:hover:bg-panel-elevated",
 								isPressing || isOpen ? "bg-panel-elevated" : "bg-transparent",
 								isPressing && "scale-[0.97]",
 							)}
@@ -368,14 +368,15 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 						</button>
 					</PopoverTrigger>
 					<PopoverContent
+						dir={isRTL ? "rtl" : "ltr"}
 						data-profile-window="true"
 						data-profile-submenu="true"
 						data-calendar-menu-list="true"
 						side={isDesktop ? (isRTL ? "left" : "right") : "bottom"}
-						align="start"
+						align={isDesktop ? "start" : "center"}
 						sideOffset={8}
 						collisionPadding={12}
-						className="z-[10005] w-fit min-w-[296px]! rounded-[20px] border border-panel-border! bg-panel-surface p-3.5 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.35)]"
+						className="z-[10005] w-[min(308px,calc(100vw-24px))] max-w-[calc(100vw-16px)] max-h-[min(calc(var(--radix-popover-content-available-height,72dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-3.5 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.35)]"
 					>
 						{calendarContent}
 					</PopoverContent>
@@ -394,10 +395,10 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 						title={formattedDate}
 						aria-label={formattedDate}
 						className={cn(
-							"h-[34px] border-panel-border! bg-panel-surface text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] active:bg-panel-elevated md:hover:border-panel-border-strong! md:hover:bg-panel-elevated md:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
+							"h-[34px] border-panel-border! bg-panel-surface text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] active:bg-panel-elevated min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
 							showText
 								? "w-auto min-w-0 rounded-[12px] px-3 gap-2"
-								: "size-[34px] min-w-[34px] rounded-full px-0 md:rounded-[12px]",
+								: "size-[34px] min-w-[34px] rounded-full px-0 min-[769px]:rounded-[12px]",
 						)}
 					>
 						<CalendarDays className="size-[15px] shrink-0 text-panel-text" />
@@ -409,11 +410,12 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent
+					dir={isRTL ? "rtl" : "ltr"}
 					data-header-calendar-content="true"
 					align={isRTL ? "start" : "end"}
 					sideOffset={8}
 					collisionPadding={12}
-					className="z-[9999] w-fit min-w-[296px]! rounded-[20px] border border-panel-border! bg-panel-surface p-3.5 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.32)]"
+					className="z-[9999] w-[min(308px,calc(100vw-24px))] max-w-[calc(100vw-16px)] max-h-[min(calc(var(--radix-popover-content-available-height,76dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-3.5 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.32)] sm:w-fit sm:min-w-[296px]!"
 				>
 					{calendarContent}
 				</PopoverContent>
