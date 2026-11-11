@@ -197,7 +197,7 @@ export const NotificationProvider: FC<{ children: ReactNode }> = ({
 															type="button"
 															aria-label={t("cancel")}
 															onClick={dismissIncomingNotification}
-															className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-panel-text-muted transition-colors active:scale-[0.94] md:hover:bg-panel-elevated md:hover:text-panel-text"
+															className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-panel-text-muted transition-colors active:scale-[0.94] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 														>
 															<X className="size-3.5" />
 														</button>
@@ -211,7 +211,7 @@ export const NotificationProvider: FC<{ children: ReactNode }> = ({
 															openItem(incomingNotification);
 															dismissIncomingNotification();
 														}}
-														className="mt-1 self-start text-xs font-semibold text-panel-accent transition-opacity active:opacity-80 md:hover:underline"
+														className="mt-1 self-start text-xs font-semibold text-panel-accent transition-opacity active:opacity-80 min-[769px]:hover:underline"
 													>
 														{t("notifications.bell.label")}
 													</button>
@@ -289,7 +289,7 @@ const NotificationListPanel: FC<NotificationListPanelProps> = ({
 							e.stopPropagation();
 							onMarkAll();
 						}}
-						className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 text-[11px] font-semibold text-panel-text-secondary transition-[background-color,color,transform] duration-150 active:scale-[0.96] disabled:opacity-50 md:hover:bg-panel-elevated md:hover:text-panel-text"
+						className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 text-[11px] font-semibold text-panel-text-secondary transition-[background-color,color,transform] duration-150 active:scale-[0.96] disabled:opacity-50 min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 					>
 						<CheckCheck className="size-3.5 text-panel-accent" />
 						<span>{t("notifications.inbox.markAllRead")}</span>
@@ -320,7 +320,7 @@ const NotificationListPanel: FC<NotificationListPanelProps> = ({
 										onSelectItem(item);
 									}}
 									className={cn(
-										"flex w-full flex-col gap-1 rounded-[12px] border p-2.5 text-start transition-[background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.99] md:hover:border-panel-border-strong! md:hover:bg-panel-elevated",
+										"flex w-full flex-col gap-1 rounded-[12px] border p-2.5 text-start transition-[background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.99] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated",
 										isUnread
 											? "border-panel-border! border-s-[3px] border-s-panel-accent! bg-panel-elevated"
 											: "border-panel-border! bg-panel-surface opacity-85",
@@ -367,7 +367,7 @@ const NotificationListPanel: FC<NotificationListPanelProps> = ({
 						e.stopPropagation();
 						onViewAll();
 					}}
-					className="h-8 w-full justify-center gap-1.5 rounded-[10px] border-panel-border! bg-panel-surface text-xs font-semibold text-panel-text transition-[background-color,border-color,transform] duration-150 active:scale-[0.98] md:hover:border-panel-border-strong! md:hover:bg-panel-elevated"
+					className="h-8 w-full justify-center gap-1.5 rounded-[10px] border-panel-border! bg-panel-surface text-xs font-semibold text-panel-text transition-[background-color,border-color,transform] duration-150 active:scale-[0.98] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated"
 				>
 					<span>{t("notifications.bell.viewAll")}</span>
 					<ArrowIcon className="size-3.5" />
@@ -424,7 +424,7 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 						else handleOpenChange(!isOpen);
 					}}
 					className={cn(
-						"flex h-[38px] w-full items-center justify-between gap-2.5 rounded-[12px] px-3 text-[13px] font-medium text-panel-text transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:bg-panel-elevated md:hover:bg-panel-elevated",
+						"flex h-[38px] w-full items-center justify-between gap-2.5 rounded-[12px] px-3 text-[13px] font-medium text-panel-text transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:bg-panel-elevated min-[769px]:hover:bg-panel-elevated",
 						isPressing || isOpen ? "bg-panel-elevated" : "bg-transparent",
 						isPressing && "scale-[0.97]",
 					)}
@@ -445,14 +445,15 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 				</button>
 			</PopoverTrigger>
 			<PopoverContent
+				dir={isRTL ? "rtl" : "ltr"}
 				data-profile-window="true"
 				data-profile-submenu="true"
 				data-notification-menu-list="true"
 				side={isDesktop ? (isRTL ? "left" : "right") : "bottom"}
-				align="start"
+				align={isDesktop ? "start" : "center"}
 				sideOffset={8}
 				collisionPadding={12}
-				className="z-[10005] w-[min(360px,calc(100vw-24px))] max-w-[380px] overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-2 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.35)]"
+				className="z-[10005] w-[min(360px,calc(100vw-24px))] max-w-[380px] max-h-[min(calc(var(--radix-popover-content-available-height,72dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-2 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.35)]"
 			>
 				<NotificationListPanel
 					items={items}
@@ -521,10 +522,11 @@ export const NotificationBell: FC = () => {
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent
+				dir={isRTL ? "rtl" : "ltr"}
 				align={isRTL ? "start" : "end"}
 				sideOffset={8}
 				collisionPadding={12}
-				className="z-[9999] w-[min(360px,calc(100vw-24px))] max-w-[380px] overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-2 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.32)]"
+				className="z-[9999] w-[min(360px,calc(100vw-24px))] max-w-[380px] max-h-[min(calc(var(--radix-popover-content-available-height,76dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-2 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.32)]"
 			>
 				<NotificationListPanel
 					items={items}
