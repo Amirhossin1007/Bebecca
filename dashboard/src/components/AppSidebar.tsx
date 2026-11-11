@@ -1,8 +1,8 @@
 import logoUrl from "assets/logo.svg";
 import {
 	Popover,
+	PopoverAnchor,
 	PopoverContent,
-	PopoverTrigger,
 } from "components/ui/popover";
 import {
 	Tooltip,
@@ -18,6 +18,7 @@ import { BellRing, ChevronDown, X } from "lucide-react";
 import {
 	type FC,
 	type MouseEvent as ReactMouseEvent,
+	type PointerEvent as ReactPointerEvent,
 	memo,
 	useCallback,
 	useEffect,
@@ -247,7 +248,7 @@ interface GroupNavRowProps {
 	isOpen: boolean;
 	isRTL: boolean;
 	isItemActive: (url: string) => boolean;
-	onToggleOpen: () => void;
+	onToggleOpen: (triggerEl: HTMLElement | null) => void;
 	onNavigate: (url: string, event?: ReactMouseEvent) => void;
 }
 
@@ -263,36 +264,62 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 }) => {
 	const [flyoutOpen, setFlyoutOpen] = useState(false);
 	const isDesktop = useMediaQuery("(min-width: 769px)");
+	const triggerRef = useRef<HTMLButtonElement | null>(null);
+	const triggerHoveredRef = useRef(false);
+	const contentHoveredRef = useRef(false);
 	const closeTimeoutRef = useRef<number | null>(null);
 	const GroupIcon = group.icon;
 	const visibleSubs = group.subItems.filter((sub) => sub.visible);
 
-	const clearCloseTimer = () => {
+	const clearCloseTimer = useCallback(() => {
 		if (closeTimeoutRef.current !== null) {
 			window.clearTimeout(closeTimeoutRef.current);
 			closeTimeoutRef.current = null;
 		}
+	}, []);
+
+	const scheduleClose = () => {
+		clearCloseTimer();
+		closeTimeoutRef.current = window.setTimeout(() => {
+			if (!triggerHoveredRef.current && !contentHoveredRef.current) {
+				setFlyoutOpen(false);
+			}
+		}, 300);
 	};
 
-	const handleMouseEnter = () => {
-		if (!collapsed || !isDesktop) return;
+	const handleTriggerPointerEnter = (e: ReactPointerEvent<HTMLButtonElement>) => {
+		if (!collapsed || !isDesktop || e.pointerType !== "mouse") return;
 		clearCloseTimer();
+		triggerHoveredRef.current = true;
 		setFlyoutOpen(true);
 	};
 
-	const handleMouseLeave = () => {
-		if (!collapsed || !isDesktop) return;
+	const handleTriggerPointerLeave = (e: ReactPointerEvent<HTMLButtonElement>) => {
+		if (!collapsed || !isDesktop || e.pointerType !== "mouse") return;
+		triggerHoveredRef.current = false;
+		scheduleClose();
+	};
+
+	const handleContentPointerEnter = (e: ReactPointerEvent<HTMLDivElement>) => {
+		if (!collapsed || !isDesktop || e.pointerType !== "mouse") return;
 		clearCloseTimer();
-		closeTimeoutRef.current = window.setTimeout(() => {
-			setFlyoutOpen(false);
-		}, 110);
+		contentHoveredRef.current = true;
+	};
+
+	const handleContentPointerLeave = (e: ReactPointerEvent<HTMLDivElement>) => {
+		if (!collapsed || !isDesktop || e.pointerType !== "mouse") return;
+		contentHoveredRef.current = false;
+		scheduleClose();
 	};
 
 	useEffect(() => {
 		if (!collapsed) {
+			triggerHoveredRef.current = false;
+			contentHoveredRef.current = false;
+			clearCloseTimer();
 			setFlyoutOpen(false);
 		}
-	}, [collapsed]);
+	}, [collapsed, clearCloseTimer]);
 
 	useEffect(() => {
 		return () => {
@@ -309,22 +336,28 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 			<Popover
 				open={collapsed ? flyoutOpen : false}
 				onOpenChange={(next) => {
-					if (collapsed) setFlyoutOpen(next);
+					if (!collapsed) return;
+					if (!next && (triggerHoveredRef.current || contentHoveredRef.current)) {
+						return;
+					}
+					setFlyoutOpen(next);
 				}}
 			>
-				<PopoverTrigger asChild>
+				<PopoverAnchor asChild>
 					<button
+						ref={triggerRef}
 						type="button"
 						aria-label={group.title}
 						aria-expanded={collapsed ? flyoutOpen : isOpen}
-						onMouseEnter={handleMouseEnter}
-						onMouseLeave={handleMouseLeave}
-						onClick={() => {
+						onPointerEnter={handleTriggerPointerEnter}
+						onPointerLeave={handleTriggerPointerLeave}
+						onClick={(e) => {
 							if (!collapsed) {
-								onToggleOpen();
+								onToggleOpen(e.currentTarget);
 							} else if (!isDesktop) {
 								setFlyoutOpen((prev) => !prev);
 							} else if (visibleSubs[0]?.url) {
+								setFlyoutOpen(false);
 								onNavigate(visibleSubs[0].url);
 							}
 						}}
@@ -373,16 +406,26 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 							/>
 						</span>
 					</button>
-				</PopoverTrigger>
+				</PopoverAnchor>
 				<PopoverContent
 					dir={isRTL ? "rtl" : "ltr"}
 					side={isRTL ? "left" : "right"}
 					align="start"
-					sideOffset={10}
-					onMouseEnter={handleMouseEnter}
-					onMouseLeave={handleMouseLeave}
+					sideOffset={6}
+					collisionPadding={12}
+					onPointerEnter={handleContentPointerEnter}
+					onPointerLeave={handleContentPointerLeave}
+					onPointerDownOutside={(e) => {
+						if (
+							triggerRef.current &&
+							e.target instanceof Node &&
+							triggerRef.current.contains(e.target)
+						) {
+							e.preventDefault();
+						}
+					}}
 					onOpenAutoFocus={(e) => e.preventDefault()}
-					className="z-[2200] w-auto min-w-[196px]! rounded-[16px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_14px_34px_rgba(0,0,0,0.28)] select-none"
+					className="relative z-[2200] w-auto min-w-[196px]! rounded-[16px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_14px_34px_rgba(0,0,0,0.28)] select-none before:pointer-events-auto before:absolute before:inset-y-0 before:w-4 before:content-[''] data-[side=right]:before:-left-4 data-[side=left]:before:-right-4"
 				>
 					<div className="mb-1 border-b border-panel-border! px-2.5 pt-1 pb-1.5 text-[11px] font-bold tracking-wider uppercase text-panel-text-muted">
 						{group.title}
@@ -587,6 +630,92 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 		}
 	}, [dynamicSidebarWidth]);
 
+	const navScrollRef = useRef<HTMLDivElement | null>(null);
+	const scrollAnimRef = useRef<number | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (scrollAnimRef.current !== null) {
+				cancelAnimationFrame(scrollAnimRef.current);
+			}
+		};
+	}, []);
+
+	const handleGroupClick = useCallback(
+		(groupId: string, triggerEl: HTMLElement | null) => {
+			if (scrollAnimRef.current !== null) {
+				cancelAnimationFrame(scrollAnimRef.current);
+				scrollAnimRef.current = null;
+			}
+
+			const isCurrentlyOpen = Boolean(openGroups[groupId]);
+			if (!isCurrentlyOpen && navScrollRef.current && triggerEl) {
+				const groupWrapper = triggerEl.closest(
+					"[data-nav-group]",
+				) as HTMLElement | null;
+				let anchorEl: HTMLElement | null = null;
+				let anchorEdge: "top" | "bottom" = "top";
+				if (groupWrapper) {
+					const nextSibling =
+						groupWrapper.nextElementSibling as HTMLElement | null;
+					if (nextSibling) {
+						anchorEl = nextSibling;
+					} else {
+						const section = groupWrapper.closest("[data-nav-section]");
+						const nextSection =
+							section?.nextElementSibling as HTMLElement | null;
+						if (nextSection) {
+							anchorEl = nextSection;
+						} else {
+							anchorEl = groupWrapper;
+							anchorEdge = "bottom";
+						}
+					}
+				}
+
+				if (anchorEl) {
+					const scrollEl = navScrollRef.current;
+					const initialPos =
+						anchorEdge === "top"
+							? anchorEl.getBoundingClientRect().top
+							: anchorEl.getBoundingClientRect().bottom;
+					const startTime = performance.now();
+					setOpenGroups((prev) => ({ ...prev, [groupId]: true }));
+
+					const adjustScroll = (now: number) => {
+						if (!navScrollRef.current || !anchorEl) return;
+						const currentPos =
+							anchorEdge === "top"
+								? anchorEl.getBoundingClientRect().top
+								: anchorEl.getBoundingClientRect().bottom;
+						const delta = currentPos - initialPos;
+						if (Math.abs(delta) >= 0.5) {
+							scrollEl.scrollTop += delta;
+						}
+						if (now - startTime < 320) {
+							scrollAnimRef.current = requestAnimationFrame(adjustScroll);
+						} else {
+							const finalPos =
+								anchorEdge === "top"
+									? anchorEl.getBoundingClientRect().top
+									: anchorEl.getBoundingClientRect().bottom;
+							const finalDelta = finalPos - initialPos;
+							if (Math.abs(finalDelta) >= 0.5) {
+								scrollEl.scrollTop += finalDelta;
+							}
+							scrollAnimRef.current = null;
+						}
+					};
+					scrollAnimRef.current = requestAnimationFrame(adjustScroll);
+					return;
+				}
+			}
+
+			setOpenGroups((prev) => ({ ...prev, [groupId]: !isCurrentlyOpen }));
+		},
+		[openGroups],
+	);
+
 	const isItemActive = useCallback(
 		(url: string) =>
 			location.pathname === url ||
@@ -646,10 +775,11 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 					</div>
 
 					<div
+						ref={navScrollRef}
 						dir={isRTL ? "rtl" : "ltr"}
-						className="rb-sidebar-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-0"
+						className="rb-sidebar-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [overflow-anchor:none] px-0"
 					>
-						<div className="flex flex-col gap-2 py-1">
+						<div className="flex flex-col gap-3.5 py-1.5">
 							{navSections.map((section, secIdx) => {
 								const visibleItems = section.items.filter(
 									(item) => item.visible,
@@ -658,8 +788,13 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 
 								return (
 									<div key={section.id} data-nav-section={section.id}>
-										{secIdx > 0 && collapsed ? (
-											<div className="mx-2 my-1.5 h-px bg-panel-border opacity-60 transition-opacity duration-200" />
+										{secIdx > 0 ? (
+											<div
+												className={cn(
+													"h-px bg-panel-border/75 transition-[margin,opacity] duration-200",
+													collapsed ? "mx-2 my-1.5" : "mx-2 mb-2.5",
+												)}
+											/>
 										) : null}
 
 										<div
@@ -667,10 +802,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 												"pointer-events-none overflow-hidden whitespace-nowrap transition-[max-height,opacity,margin] duration-[260ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
 												collapsed
 													? "mb-0 mt-0 max-h-0 opacity-0"
-													: cn(
-															"mb-1 max-h-[26px] opacity-100",
-															secIdx === 0 ? "mt-0" : "mt-1.5",
-														),
+													: "mb-1.5 mt-0 max-h-[26px] opacity-100",
 											)}
 										>
 											<span className="block truncate px-3 text-[10.5px] font-bold tracking-[0.06em] uppercase text-panel-text-muted">
@@ -763,11 +895,8 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 														isOpen={isOpen}
 														isRTL={isRTL}
 														isItemActive={isItemActive}
-														onToggleOpen={() =>
-															setOpenGroups((prev) => ({
-																...prev,
-																[item.id]: !isOpen,
-															}))
+														onToggleOpen={(triggerEl) =>
+															handleGroupClick(item.id, triggerEl)
 														}
 														onNavigate={handleNavigate}
 													/>
