@@ -4184,5 +4184,18 @@
 	"bulkActions.labels.remove_tags": "Remove tags",
 	"bulkActions.labels.groupRequired": "Choose a group first",
 	"bulkActions.labels.tagsRequired": "Add at least one tag first",
-	"bulkActions.labels.success": "{{count}} users updated"
+	"bulkActions.labels.success": "{{count}} users updated",
+	"sidebar.sections.dashboard": "Overview",
+	"sidebar.sections.users": "Users & Groups",
+	"sidebar.sections.infrastructure": "Infrastructure",
+	"sidebar.sections.trafficAndAdmins": "Traffic & Admins",
+	"sidebar.sections.system": "System & Operations",
+	"sidebar.sections.docs": "Resources",
+	"sidebar.groups.userHub": "User Management",
+	"sidebar.groups.coreRouting": "Core & Routing",
+	"sidebar.groups.observability": "Monitoring & Logs",
+	"sidebar.usersList": "Users List",
+	"sidebar.tutorialsAndFaq": "Tutorials & FAQ",
+	"calendar.today": "Today",
+	"header.calendar": "Calendar"
 }

@@ -928,5 +928,18 @@
 	"notifications.push.iosInstall": "На iPhone и iPad сначала добавьте панель на экран «Домой» (Поделиться, затем На экран «Домой»), откройте её оттуда и включите уведомления.",
 	"notifications.push.install": "Установить приложение",
 	"notifications.push.failed": "Не удалось изменить уведомления. Повторите попытку.",
-	"notifications.rules.mandatory": "Всегда включено"
+	"notifications.rules.mandatory": "Всегда включено",
+	"sidebar.sections.dashboard": "Обзор",
+	"sidebar.sections.users": "Пользователи и группы",
+	"sidebar.sections.infrastructure": "Инфраструктура",
+	"sidebar.sections.trafficAndAdmins": "Трафик и админы",
+	"sidebar.sections.system": "Система и операции",
+	"sidebar.sections.docs": "Ресурсы",
+	"sidebar.groups.userHub": "Управление пользователями",
+	"sidebar.groups.coreRouting": "Ядро и маршрутизация",
+	"sidebar.groups.observability": "Мониторинг и логи",
+	"sidebar.usersList": "Список пользователей",
+	"sidebar.tutorialsAndFaq": "Обучение и FAQ",
+	"calendar.today": "Сегодня",
+	"header.calendar": "Календарь"
 }

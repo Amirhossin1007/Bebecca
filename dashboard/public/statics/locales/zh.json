@@ -929,5 +929,18 @@
 	"notifications.push.iosInstall": "在 iPhone 和 iPad 上，请先把仪表板添加到主屏幕（分享，然后添加到主屏幕），从主屏幕打开后再开启通知。",
 	"notifications.push.install": "安装应用",
 	"notifications.push.failed": "无法更改通知设置，请重试。",
-	"notifications.rules.mandatory": "始终开启"
+	"notifications.rules.mandatory": "始终开启",
+	"sidebar.sections.dashboard": "概览",
+	"sidebar.sections.users": "用户与分组",
+	"sidebar.sections.infrastructure": "基础设施",
+	"sidebar.sections.trafficAndAdmins": "流量与管理员",
+	"sidebar.sections.system": "系统与运维",
+	"sidebar.sections.docs": "资源与文档",
+	"sidebar.groups.userHub": "用户管理",
+	"sidebar.groups.coreRouting": "核心与路由",
+	"sidebar.groups.observability": "监控与日志",
+	"sidebar.usersList": "用户列表",
+	"sidebar.tutorialsAndFaq": "教程与常见问题",
+	"calendar.today": "今天",
+	"header.calendar": "日历"
 }

@@ -4183,5 +4183,18 @@
 	"bulkActions.labels.remove_tags": "حذف تگ",
 	"bulkActions.labels.groupRequired": "ابتدا یک گروه انتخاب کنید",
 	"bulkActions.labels.tagsRequired": "ابتدا دست‌کم یک تگ اضافه کنید",
-	"bulkActions.labels.success": "{{count}} کاربر به‌روزرسانی شد"
+	"bulkActions.labels.success": "{{count}} کاربر به‌روزرسانی شد",
+	"sidebar.sections.dashboard": "نمای کلی",
+	"sidebar.sections.users": "کاربران و گروه‌ها",
+	"sidebar.sections.infrastructure": "شبکه و زیرساخت",
+	"sidebar.sections.trafficAndAdmins": "ترافیک و مدیران",
+	"sidebar.sections.system": "سیستم و عملیات",
+	"sidebar.sections.docs": "منابع و مستندات",
+	"sidebar.groups.userHub": "مدیریت کاربران",
+	"sidebar.groups.coreRouting": "هسته و مسیریابی",
+	"sidebar.groups.observability": "مانیتورینگ و لاگ‌ها",
+	"sidebar.usersList": "لیست کاربران",
+	"sidebar.tutorialsAndFaq": "آموزش و سوالات",
+	"calendar.today": "امروز",
+	"header.calendar": "تقویم"
 }
