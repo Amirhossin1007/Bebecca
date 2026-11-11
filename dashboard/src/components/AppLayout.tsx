@@ -189,8 +189,6 @@ function AppLayoutContent() {
 	const userMenu = useDisclosure();
 	const accountMenu = useDisclosure();
 	const settingsMenu = useDisclosure();
-	const dockSettingsScrollRef = useRef<HTMLDivElement | null>(null);
-	const dockSettingsScrollAnimRef = useRef<number | null>(null);
 	const [activeProfileSubmenu, setActiveProfileSubmenu] = useState<
 		"notifications" | "language" | "theme" | "calendar" | null
 	>(null);
@@ -203,9 +201,6 @@ function AppLayoutContent() {
 		return () => {
 			if (profileSubmenuTimerRef.current) {
 				window.clearTimeout(profileSubmenuTimerRef.current);
-			}
-			if (dockSettingsScrollAnimRef.current !== null) {
-				cancelAnimationFrame(dockSettingsScrollAnimRef.current);
 			}
 		};
 	}, []);
@@ -1789,11 +1784,11 @@ function AppLayoutContent() {
 								data-header-controls="true"
 								className="flex h-full shrink-0 items-center gap-1.5 sm:gap-2"
 							>
+								<GitHubStars compact={isMobile} />
+
 								{!isMobile ? (
 									<HeaderCalendar isCompact={calendarCompact} />
 								) : null}
-
-								<GitHubStars compact={isMobile} />
 
 								{!isMobile && getUserIsSuccess && userData.username ? (
 									<NotificationBell />
@@ -1842,24 +1837,21 @@ function AppLayoutContent() {
 											data-profile-window="true"
 											data-profile-menu="true"
 											onOpenAutoFocus={(e) => e.preventDefault()}
-											className="z-[9999] w-[240px] min-w-[240px]! max-w-[240px] max-h-[min(calc(var(--radix-popover-content-available-height,76dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-2 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.34)] select-none"
+											className="z-[9999] w-[240px] min-w-[240px]! max-w-[240px] rounded-[20px] border border-panel-border! bg-panel-surface p-2 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.34)] select-none"
 										>
-											<div
-												dir={isRTL ? "rtl" : "ltr"}
-												className="mb-1.5 flex w-full items-center justify-start gap-3 rounded-[14px] border border-panel-border! bg-panel-elevated p-2.5 text-start"
-											>
+											<div className="mb-1.5 flex items-center gap-3 rounded-[14px] border border-panel-border! bg-panel-elevated p-2.5">
 												<div className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-surface text-panel-text">
 													<CircleUser className="size-[18px]" />
 												</div>
-												<div className="flex min-w-0 flex-1 flex-col items-start text-start">
+												<div className="flex min-w-0 flex-col">
 													<span
 														dir="ltr"
 														style={{ unicodeBidi: "isolate" }}
-														className="max-w-full truncate text-[13px] font-bold text-panel-text"
+														className="truncate text-[13px] font-bold text-panel-text"
 													>
 														{userData.username}
 													</span>
-													<span className="max-w-full truncate text-[11px] font-medium text-panel-text-muted">
+													<span className="truncate text-[11px] font-medium text-panel-text-muted">
 														{roleLabel}
 													</span>
 												</div>
@@ -1919,7 +1911,7 @@ function AppLayoutContent() {
 																toggleProfileSubmenu("language");
 															}}
 															className={cn(
-																"flex h-[38px] w-full items-center justify-between gap-2.5 rounded-[12px] px-3 text-[13px] font-medium text-panel-text transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:bg-panel-elevated min-[769px]:hover:bg-panel-elevated",
+																"flex h-[38px] w-full items-center justify-between gap-2.5 rounded-[12px] px-3 text-[13px] font-medium text-panel-text transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:bg-panel-elevated md:hover:bg-panel-elevated",
 																pressingProfileSubmenu === "language" ||
 																	activeProfileSubmenu === "language"
 																	? "bg-panel-elevated"
@@ -1944,13 +1936,13 @@ function AppLayoutContent() {
 													<PopoverContent
 														dir={isRTL ? "rtl" : "ltr"}
 														side={isMobile ? "bottom" : isRTL ? "left" : "right"}
-														align={isMobile ? "center" : "start"}
+														align="start"
 														sideOffset={8}
 														collisionPadding={12}
 														data-profile-window="true"
 														data-profile-submenu="true"
 														data-language-menu-list="true"
-														className="z-[10005] w-[min(220px,calc(100vw-24px))] min-w-[176px]! max-h-[min(calc(var(--radix-popover-content-available-height,72dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.35)] select-none"
+														className="z-[10005] w-auto min-w-[176px]! rounded-[20px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.35)] select-none"
 													>
 														<div className="flex flex-col gap-0.5">
 															{languageItems.map(({ code, label, flag }) => {
@@ -1966,10 +1958,10 @@ function AppLayoutContent() {
 																			setActiveProfileSubmenu(null);
 																		}}
 																		className={cn(
-																			"flex h-9 w-full items-center justify-between gap-3 rounded-[10px] px-2.5 text-xs transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.98] focus-visible:bg-panel-elevated min-[769px]:hover:bg-panel-elevated",
+																			"flex h-9 w-full items-center justify-between gap-3 rounded-[10px] px-2.5 text-xs transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.98] focus-visible:bg-panel-elevated md:hover:bg-panel-elevated",
 																			isActiveLang
 																				? "bg-panel-elevated font-bold text-panel-text"
-																				: "font-medium text-panel-text-secondary min-[769px]:hover:text-panel-text",
+																				: "font-medium text-panel-text-secondary md:hover:text-panel-text",
 																		)}
 																	>
 																		<span className="flex items-center gap-2.5">
@@ -2030,7 +2022,7 @@ function AppLayoutContent() {
 															navigate("/login");
 														}
 													}}
-													className="flex h-[38px] w-full items-center gap-2.5 rounded-[12px] px-3 text-[13px] font-semibold text-red-600 transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.98] active:bg-red-500/20 focus-visible:bg-red-500/14 min-[769px]:hover:bg-red-500/14 dark:text-red-400"
+													className="flex h-[38px] w-full items-center gap-2.5 rounded-[12px] px-3 text-[13px] font-semibold text-red-400 transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.98] active:bg-red-500/20 focus-visible:bg-red-500/14 md:hover:bg-red-500/14"
 												>
 													<LogOut className="size-4 shrink-0" />
 													<span>{t("header.logout")}</span>
@@ -2259,29 +2251,29 @@ function AppLayoutContent() {
 														</Button>
 													</PopoverTrigger>
 													<PopoverContent
-														ref={dockSettingsScrollRef}
 														dir={isRTL ? "rtl" : "ltr"}
 														side="top"
 														align="center"
 														sideOffset={12}
 														collisionPadding={12}
 														className={cn(
-															"z-[1600] w-[min(272px,calc(100vw-24px))] max-w-[calc(100vw-24px)] max-h-[min(66dvh,calc(100dvh-148px))] overflow-y-auto overscroll-contain [overflow-anchor:none] rounded-[22px] border p-2.5 text-panel-text",
+															"z-[1600] w-[min(272px,calc(100vw-24px))] max-w-[calc(100vw-24px)] max-h-[min(66dvh,calc(100dvh-148px))] overflow-y-auto overscroll-contain rounded-[22px] border p-2.5 text-panel-text",
 															DOCK_SURFACE_CLASS,
 														)}
 													>
-														<div className="flex flex-col gap-3">
+														<div className="flex flex-col gap-2">
 															{dockSettingsSections.map((section, secIdx) => (
 																<div
 																	key={section.id}
 																	data-dock-section={section.id}
-																	className={cn(
-																		"flex flex-col gap-0.5",
-																		secIdx > 0 &&
-																			"border-t border-panel-border/75 pt-2.5",
-																	)}
+																	className="flex flex-col gap-0.5"
 																>
-																	<span className="px-2.5 pb-1 text-[10.5px] font-bold tracking-[0.06em] uppercase text-panel-text-muted">
+																	<span
+																		className={cn(
+																			"px-2.5 pb-1 text-[10.5px] font-bold tracking-[0.06em] uppercase text-panel-text-muted",
+																			secIdx > 0 && "pt-1",
+																		)}
+																	>
 																		{section.title}
 																	</span>
 
@@ -2347,128 +2339,12 @@ function AppLayoutContent() {
 																					<button
 																						type="button"
 																						aria-expanded={isGroupOpen}
-																						onClick={(e) => {
-																							const willOpen = !isGroupOpen;
-																							if (
-																								dockSettingsScrollAnimRef.current !==
-																								null
-																							) {
-																								cancelAnimationFrame(
-																									dockSettingsScrollAnimRef.current,
-																								);
-																								dockSettingsScrollAnimRef.current =
-																									null;
-																							}
-																							if (
-																								willOpen &&
-																								dockSettingsScrollRef.current
-																							) {
-																								const triggerEl =
-																									e.currentTarget;
-																								const groupWrapper =
-																									triggerEl.closest(
-																										"[data-dock-group]",
-																									) as HTMLElement | null;
-																								let anchorEl: HTMLElement | null =
-																									null;
-																								let anchorEdge:
-																									| "top"
-																									| "bottom" = "top";
-																								if (groupWrapper) {
-																									const nextSibling =
-																										groupWrapper.nextElementSibling as HTMLElement | null;
-																									if (nextSibling) {
-																										anchorEl = nextSibling;
-																									} else {
-																										const sectionEl =
-																											groupWrapper.closest(
-																												"[data-dock-section]",
-																											);
-																										const nextSection =
-																											sectionEl?.nextElementSibling as HTMLElement | null;
-																										if (nextSection) {
-																											anchorEl = nextSection;
-																										} else {
-																											anchorEl = groupWrapper;
-																											anchorEdge = "bottom";
-																										}
-																									}
-																								}
-																								if (anchorEl) {
-																									const scrollEl =
-																										dockSettingsScrollRef.current;
-																									const initialPos =
-																										anchorEdge === "top"
-																											? anchorEl.getBoundingClientRect()
-																													.top
-																											: anchorEl.getBoundingClientRect()
-																													.bottom;
-																									const startTime =
-																										performance.now();
-																									setOpenDockGroups((prev) => ({
-																										...prev,
-																										[navEntry.id]: true,
-																									}));
-																									const adjustScroll = (
-																										now: number,
-																									) => {
-																										if (
-																											!dockSettingsScrollRef.current ||
-																											!anchorEl
-																										) {
-																											return;
-																										}
-																										const currentPos =
-																											anchorEdge === "top"
-																												? anchorEl.getBoundingClientRect()
-																														.top
-																												: anchorEl.getBoundingClientRect()
-																														.bottom;
-																										const delta =
-																											currentPos - initialPos;
-																										if (
-																											Math.abs(delta) >= 0.5
-																										) {
-																											scrollEl.scrollTop +=
-																												delta;
-																										}
-																										if (now - startTime < 300) {
-																											dockSettingsScrollAnimRef.current =
-																												requestAnimationFrame(
-																													adjustScroll,
-																												);
-																										} else {
-																											const finalPos =
-																												anchorEdge === "top"
-																													? anchorEl.getBoundingClientRect()
-																															.top
-																													: anchorEl.getBoundingClientRect()
-																															.bottom;
-																											const finalDelta =
-																												finalPos - initialPos;
-																											if (
-																												Math.abs(finalDelta) >=
-																												0.5
-																											) {
-																												scrollEl.scrollTop +=
-																													finalDelta;
-																											}
-																											dockSettingsScrollAnimRef.current =
-																												null;
-																										}
-																									};
-																									dockSettingsScrollAnimRef.current =
-																										requestAnimationFrame(
-																											adjustScroll,
-																										);
-																									return;
-																								}
-																							}
+																						onClick={() =>
 																							setOpenDockGroups((prev) => ({
 																								...prev,
-																								[navEntry.id]: willOpen,
-																							}));
-																						}}
+																								[navEntry.id]: !isGroupOpen,
+																							}))
+																						}
 																						className={cn(
 																							"relative flex min-h-[38px] w-full items-center justify-between gap-2.5 overflow-hidden rounded-[12px] px-2.5 text-start text-[13px] transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
 																							isGroupActive && !isGroupOpen
@@ -2655,7 +2531,7 @@ function AppLayoutContent() {
 																	navigate("/login");
 																}
 															}}
-															className="flex min-h-[38px] w-full items-center gap-2.5 rounded-[12px] px-3 text-[13px] font-semibold text-red-600 transition-[background-color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-red-500/20 dark:text-red-400"
+															className="flex min-h-[38px] w-full items-center gap-2.5 rounded-[12px] px-3 text-[13px] font-semibold text-red-400 transition-[background-color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-red-500/20"
 														>
 															<LogOut className="size-4 shrink-0" />
 															<span>{t("header.logout")}</span>

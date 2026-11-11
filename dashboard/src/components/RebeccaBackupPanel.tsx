@@ -4,10 +4,8 @@ import { Button } from "components/ui/button";
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
-	DialogTitle,
 } from "components/ui/dialog";
 import { Field, FieldLabel } from "components/ui/field";
 import {
@@ -28,7 +26,6 @@ import {
 	Trash2,
 	TriangleAlert,
 	Upload,
-	X,
 } from "lucide-react";
 import { type FC, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -63,8 +60,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 	runtimeLoading,
 	className,
 }) => {
-	const { t, i18n } = useTranslation();
-	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const { t } = useTranslation();
 	const [isMenuOpen, setMenuOpen] = useState(false);
 	const [dialog, setDialog] = useState<BackupDialogMode>(null);
 	const [exportScope, setExportScope] = useState<RebeccaBackupScope>("database");
@@ -174,17 +170,16 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 			<Popover open={isMenuOpen} onOpenChange={setMenuOpen}>
 				<PopoverTrigger asChild>
 					<Button
-						type="button"
 						disabled={!backupActionsAvailable || runtimeLoading}
 						variant="outline"
 						size="xs"
 						className={cn(
-							"h-9 w-full rounded-[12px] border border-panel-border! bg-panel-surface px-3.5 text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] min-[769px]:h-8 min-[769px]:w-auto min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] whitespace-nowrap",
+							"h-9 w-full min-[769px]:w-auto px-3.5 rounded-[12px] border border-panel-border bg-panel-surface/80 text-panel-text shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-[background-color,border-color,color,transform] duration-200 ease-out min-[769px]:hover:bg-panel-elevated min-[769px]:hover:border-panel-border-strong active:scale-[0.98] whitespace-nowrap",
 							className,
 						)}
 					>
 						<span className="inline-flex items-center justify-center gap-2">
-							<Archive className="size-3.5 shrink-0 text-panel-text-secondary" />
+							<Archive className="size-4 shrink-0 text-panel-text-secondary" />
 							<span className="text-[12px] font-semibold leading-none">
 								{t("dashboard.backup.tabTitle")}
 							</span>
@@ -192,13 +187,11 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 					</Button>
 				</PopoverTrigger>
 				<PopoverContent
-					dir={isRTL ? "rtl" : "ltr"}
-					align={isRTL ? "start" : "end"}
+					align="end"
 					sideOffset={8}
-					collisionPadding={12}
-					className="w-[min(280px,calc(100vw-24px))] rounded-[20px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_20px_48px_-12px_rgba(0,0,0,0.45)]"
+					className="w-[min(280px,calc(100vw-24px))] rounded-[18px] border border-panel-border bg-panel-surface p-1.5 shadow-[0_20px_48px_-12px_rgba(0,0,0,0.45)]"
 				>
-					<div className="border-b border-panel-border! px-3 py-2.5">
+					<div className="border-b border-panel-border px-3 py-2.5">
 						<p className="text-[12px] font-bold tracking-[-0.01em] text-panel-text">
 							{t("dashboard.backup.title")}
 						</p>
@@ -207,9 +200,9 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 						<button
 							type="button"
 							onClick={() => openDialog("export")}
-							className="flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-start transition-[background-color,transform] duration-150 active:scale-[0.98] active:bg-panel-elevated focus-visible:outline-2 focus-visible:outline-panel-accent min-[769px]:hover:bg-panel-elevated"
+							className="flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-start transition-colors duration-150 min-[769px]:hover:bg-panel-elevated active:bg-panel-elevated focus-visible:outline-2 focus-visible:outline-panel-accent"
 						>
-							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-accent">
+							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-panel-elevated text-panel-accent">
 								<Download className="size-4" />
 							</span>
 							<span className="min-w-0 flex-1 text-[13px] font-semibold text-panel-text">
@@ -219,9 +212,9 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 						<button
 							type="button"
 							onClick={() => openDialog("import")}
-							className="flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-start transition-[background-color,transform] duration-150 active:scale-[0.98] active:bg-panel-elevated focus-visible:outline-2 focus-visible:outline-panel-accent min-[769px]:hover:bg-panel-elevated"
+							className="flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-start transition-colors duration-150 min-[769px]:hover:bg-panel-elevated active:bg-panel-elevated focus-visible:outline-2 focus-visible:outline-panel-accent"
 						>
-							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-text-secondary">
+							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-panel-elevated text-panel-text-secondary">
 								<Upload className="size-4" />
 							</span>
 							<span className="min-w-0 flex-1 text-[13px] font-semibold text-panel-text">
@@ -238,172 +231,144 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 					if (!open && !importMutation.isPending) setDialog(null);
 				}}
 			>
-				<DialogContent
-					dir={isRTL ? "rtl" : "ltr"}
-					showCloseButton={false}
-					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[480px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[480px]"
-				>
-					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border! px-5 py-3.5 text-start">
-						<div className="flex min-w-0 items-center gap-3">
-							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-accent">
+				<DialogContent className="mx-4 sm:mx-0 max-w-[480px] rounded-[20px] border border-panel-border bg-panel-surface p-0 shadow-[0_28px_70px_-12px_rgba(0,0,0,0.55)] overflow-hidden">
+					<DialogHeader className="border-b border-panel-border px-5 py-4 text-[15px] font-bold text-panel-text">
+						<div className="flex items-center gap-2.5">
+							<span className="flex size-8 items-center justify-center rounded-[10px] bg-panel-elevated text-panel-accent">
 								<Upload className="size-4" />
 							</span>
-							<DialogTitle className="truncate text-[14px] font-bold tracking-[-0.01em] text-panel-text">
-								{t("dashboard.backup.import")}
-							</DialogTitle>
-							<DialogDescription className="sr-only">
-								{t("dashboard.backup.importHint")}
-							</DialogDescription>
+							<span>{t("dashboard.backup.import")}</span>
 						</div>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-sm"
-							disabled={importMutation.isPending}
-							onClick={() => setDialog(null)}
-							aria-label={t("close")}
-							className="size-8 shrink-0 rounded-[10px] text-panel-text-muted transition-[background-color,color,transform] duration-150 active:scale-[0.95] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
-						>
-							<X className="size-4" />
-						</Button>
 					</DialogHeader>
 
-					<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-						<div className="flex flex-col gap-4">
-							<p className="text-[13px] leading-relaxed text-panel-text-muted">
-								{t("dashboard.backup.importHint")}
+					<div className="flex max-h-[calc(100dvh-11rem)] flex-col gap-4 overflow-y-auto px-5 py-4">
+						<p className="text-[13px] leading-relaxed text-panel-text-muted">
+							{t("dashboard.backup.importHint")}
+						</p>
+						<Alert className="rounded-[14px] border border-amber-500/25 bg-amber-500/8 text-[12px]">
+							<TriangleAlert className="size-4 text-amber-400" aria-hidden="true" />
+							<p className="text-[12px] leading-relaxed text-panel-text-secondary">
+								{t("dashboard.backup.autoDetectImportWarning")}
 							</p>
-							<Alert className="rounded-[14px] border border-amber-500/25 bg-amber-500/8 text-[12px]">
-								<TriangleAlert
-									className="size-4 text-amber-600 dark:text-amber-400"
-									aria-hidden="true"
-								/>
-								<p className="text-[12px] leading-relaxed text-panel-text-secondary">
-									{t("dashboard.backup.autoDetectImportWarning")}
-								</p>
-							</Alert>
-							<Field className="flex flex-col gap-2">
-								<FieldLabel className="text-[12px] font-semibold text-panel-text-secondary">
-									{t("dashboard.backup.file")}
-								</FieldLabel>
-								<FileDropzone
-									accept=".rbbackup,.tar.gz,.tgz,.zip,application/vnd.rebecca.backup,application/gzip,application/x-gzip,application/zip,application/x-tar,application/octet-stream"
-									disabled={!backupActionsAvailable || importMutation.isPending}
-									multiple
-									selectedFiles={selectedFiles}
-									title={t("dashboard.backup.dropTitle")}
-									description={t("dashboard.backup.dropHint")}
-									emptyText={t("dashboard.backup.selectFile")}
-									onFilesSelect={addFiles}
-								/>
-							</Field>
-							<p className="text-[11px] leading-relaxed text-panel-text-muted">
-								{t("dashboard.backup.multiPartHint")}
-							</p>
+						</Alert>
+						<Field className="flex flex-col gap-2">
+							<FieldLabel className="text-[12px] font-semibold text-panel-text-secondary">
+								{t("dashboard.backup.file")}
+							</FieldLabel>
+							<FileDropzone
+								accept=".rbbackup,.tar.gz,.tgz,.zip,application/vnd.rebecca.backup,application/gzip,application/x-gzip,application/zip,application/x-tar,application/octet-stream"
+								disabled={!backupActionsAvailable || importMutation.isPending}
+								multiple
+								selectedFiles={selectedFiles}
+								title={t("dashboard.backup.dropTitle")}
+								description={t("dashboard.backup.dropHint")}
+								emptyText={t("dashboard.backup.selectFile")}
+								onFilesSelect={addFiles}
+							/>
+						</Field>
+						<p className="text-[11px] leading-relaxed text-panel-text-muted">
+							{t("dashboard.backup.multiPartHint")}
+						</p>
 
-							{selectedFiles.length > 0 && (
-								<div className="flex flex-col gap-2 rounded-[14px] border border-panel-border! bg-panel-elevated/60 p-3">
-									<div className="flex flex-col divide-y divide-panel-border/60">
-										{displayFiles.map((file) => (
-											<div
-												key={`${file.name}-${file.size}`}
-												className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
-											>
-												<div className="flex min-w-0 items-center gap-2">
-													<FileArchive className="size-4 shrink-0 text-panel-accent" />
-													<p
-														dir="ltr"
-														className="truncate text-[12px] font-semibold text-panel-text [unicode-bidi:isolate]"
-													>
-														{file.name}
-													</p>
-												</div>
+						{selectedFiles.length > 0 && (
+							<div className="flex flex-col gap-2 rounded-[14px] border border-panel-border bg-panel-elevated/60 p-3">
+								<div className="flex flex-col divide-y divide-panel-border/60">
+									{displayFiles.map((file) => (
+										<div
+											key={`${file.name}-${file.size}`}
+											className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
+										>
+											<div className="flex min-w-0 items-center gap-2">
+												<FileArchive className="size-4 shrink-0 text-panel-accent" />
 												<p
 													dir="ltr"
-													className="shrink-0 whitespace-nowrap text-[11px] font-medium text-panel-text-muted tabular-nums [unicode-bidi:isolate]"
+													className="truncate text-[12px] font-semibold text-panel-text [unicode-bidi:isolate]"
 												>
-													{formatBytes(file.size, 2)}
+													{file.name}
 												</p>
 											</div>
-										))}
-									</div>
-									{partStatusText && (
-										<div
-											className={cn(
-												"mt-1 flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-[11px] font-semibold",
-												canImport
-													? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-													: "bg-red-500/10 text-red-600 dark:text-red-400",
-											)}
-										>
-											{canImport ? (
-												<CircleCheck className="size-3.5 shrink-0" />
-											) : (
-												<TriangleAlert className="size-3.5 shrink-0" />
-											)}
-											<span>{partStatusText}</span>
+											<p
+												dir="ltr"
+												className="shrink-0 whitespace-nowrap text-[11px] font-medium text-panel-text-muted tabular-nums [unicode-bidi:isolate]"
+											>
+												{formatBytes(file.size, 2)}
+											</p>
 										</div>
-									)}
-									<div className="flex justify-end pt-1">
-										<Button
-											type="button"
-											onClick={() => setSelectedFiles([])}
-											disabled={importMutation.isPending}
-											variant="ghost"
-											size="xs"
-											className="h-7 rounded-[8px] px-2.5 text-[11px] text-panel-text-muted active:scale-[0.97] min-[769px]:hover:text-red-500"
-										>
-											<Trash2 className="size-3.5" />
-											<span>{t("dashboard.backup.clearFiles")}</span>
-										</Button>
-									</div>
+									))}
 								</div>
-							)}
+								{partStatusText && (
+									<div
+										className={cn(
+											"mt-1 flex items-center gap-2 rounded-[10px] px-2.5 py-1.5 text-[11px] font-semibold",
+											canImport
+												? "bg-emerald-500/10 text-emerald-400"
+												: "bg-red-500/10 text-red-400",
+										)}
+									>
+										{canImport ? (
+											<CircleCheck className="size-3.5 shrink-0" />
+										) : (
+											<TriangleAlert className="size-3.5 shrink-0" />
+										)}
+										<span>{partStatusText}</span>
+									</div>
+								)}
+								<div className="flex justify-end pt-1">
+									<Button
+										onClick={() => setSelectedFiles([])}
+										disabled={importMutation.isPending}
+										variant="ghost"
+										size="xs"
+										className="h-7 rounded-[8px] px-2.5 text-[11px] text-panel-text-muted min-[769px]:hover:text-red-400"
+									>
+										<Trash2 className="size-3.5" />
+										<span>{t("dashboard.backup.clearFiles")}</span>
+									</Button>
+								</div>
+							</div>
+						)}
 
-							{importMutation.isPending && uploadProgress !== null && (
-								<div
-									aria-live="polite"
-									className="flex flex-col gap-2 rounded-[14px] border border-panel-border! bg-panel-elevated/50 p-3"
-								>
-									<div className="flex items-center justify-between gap-2 text-[12px] font-semibold text-panel-text">
-										<span>
-											{uploadProgress < 100
-												? t("dashboard.backup.uploadProgress", {
-														percent: uploadProgress,
-													})
-												: t("dashboard.backup.processing")}
-										</span>
-										<span dir="ltr" className="text-panel-accent tabular-nums">
-											{uploadProgress}%
-										</span>
-									</div>
-									<Progress value={uploadProgress} className="h-1.5 rounded-full" />
+						{importMutation.isPending && uploadProgress !== null && (
+							<div
+								aria-live="polite"
+								className="flex flex-col gap-2 rounded-[14px] border border-panel-border bg-panel-elevated/50 p-3"
+							>
+								<div className="flex items-center justify-between gap-2 text-[12px] font-semibold text-panel-text">
+									<span>
+										{uploadProgress < 100
+											? t("dashboard.backup.uploadProgress", {
+													percent: uploadProgress,
+												})
+											: t("dashboard.backup.processing")}
+									</span>
+									<span dir="ltr" className="tabular-nums text-panel-accent">
+										{uploadProgress}%
+									</span>
 								</div>
-							)}
-						</div>
+								<Progress value={uploadProgress} className="h-1.5 rounded-full" />
+							</div>
+						)}
 					</div>
 
-					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border! bg-panel-surface px-5 py-3.5">
+					<DialogFooter className="gap-2 border-t border-panel-border bg-panel-surface px-5 py-3.5">
 						<Button
-							type="button"
 							onClick={() => setDialog(null)}
 							disabled={importMutation.isPending}
 							variant="ghost"
 							size="sm"
-							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted active:scale-[0.97]"
+							className="rounded-[12px]"
 						>
 							{t("cancel")}
 						</Button>
 						<Button
-							type="button"
 							onClick={handleImport}
 							disabled={!canImport || importMutation.isPending}
 							variant="destructive"
 							size="sm"
 							loading={importMutation.isPending}
-							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold active:scale-[0.97]"
+							className="rounded-[12px] px-4"
 						>
-							<Upload className="size-3.5" />
+							<Upload className="size-4" />
 							<span>{t("dashboard.backup.import")}</span>
 						</Button>
 					</DialogFooter>
@@ -416,114 +381,90 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 					if (!open && !exportMutation.isPending) setDialog(null);
 				}}
 			>
-				<DialogContent
-					dir={isRTL ? "rtl" : "ltr"}
-					showCloseButton={false}
-					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[440px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[440px]"
-				>
-					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border! px-5 py-3.5 text-start">
-						<div className="flex min-w-0 items-center gap-3">
-							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-accent">
+				<DialogContent className="mx-4 sm:mx-0 max-w-[440px] rounded-[20px] border border-panel-border bg-panel-surface p-0 shadow-[0_28px_70px_-12px_rgba(0,0,0,0.55)] overflow-hidden">
+					<DialogHeader className="border-b border-panel-border px-5 py-4 text-[15px] font-bold text-panel-text">
+						<div className="flex items-center gap-2.5">
+							<span className="flex size-8 items-center justify-center rounded-[10px] bg-panel-elevated text-panel-accent">
 								<Download className="size-4" />
 							</span>
-							<DialogTitle className="truncate text-[14px] font-bold tracking-[-0.01em] text-panel-text">
-								{t("dashboard.backup.exportTitle")}
-							</DialogTitle>
-							<DialogDescription className="sr-only">
-								{t("dashboard.backup.exportHint")}
-							</DialogDescription>
+							<span>{t("dashboard.backup.exportTitle")}</span>
 						</div>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-sm"
-							disabled={exportMutation.isPending}
-							onClick={() => setDialog(null)}
-							aria-label={t("close")}
-							className="size-8 shrink-0 rounded-[10px] text-panel-text-muted transition-[background-color,color,transform] duration-150 active:scale-[0.95] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
-						>
-							<X className="size-4" />
-						</Button>
 					</DialogHeader>
 
-					<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-						<div className="flex flex-col gap-4">
-							<p className="text-[13px] leading-relaxed text-panel-text-muted">
-								{t("dashboard.backup.exportHint")}
-							</p>
-							<Field className="flex flex-col gap-2">
-								<FieldLabel className="text-[12px] font-semibold text-panel-text-secondary">
-									{t("dashboard.backup.scope")}
-								</FieldLabel>
-								<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-									{(
-										[
-											{
-												scope: "database" as const,
-												label: t("dashboard.backup.databaseOnly"),
-												icon: Database,
-											},
-											{
-												scope: "full" as const,
-												label: t("dashboard.backup.full"),
-												icon: HardDrive,
-											},
-										] as const
-									).map((option) => {
-										const Icon = option.icon;
-										const active = exportScope === option.scope;
-										return (
-											<button
-												key={option.scope}
-												type="button"
-												onClick={() => setExportScope(option.scope)}
+					<div className="flex flex-col gap-4 px-5 py-4">
+						<p className="text-[13px] leading-relaxed text-panel-text-muted">
+							{t("dashboard.backup.exportHint")}
+						</p>
+						<Field className="flex flex-col gap-2">
+							<FieldLabel className="text-[12px] font-semibold text-panel-text-secondary">
+								{t("dashboard.backup.scope")}
+							</FieldLabel>
+							<div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+								{(
+									[
+										{
+											scope: "database" as const,
+											label: t("dashboard.backup.databaseOnly"),
+											icon: Database,
+										},
+										{
+											scope: "full" as const,
+											label: t("dashboard.backup.full"),
+											icon: HardDrive,
+										},
+									] as const
+								).map((option) => {
+									const Icon = option.icon;
+									const active = exportScope === option.scope;
+									return (
+										<button
+											key={option.scope}
+											type="button"
+											onClick={() => setExportScope(option.scope)}
+											className={cn(
+												"flex items-center gap-3 rounded-[14px] border p-3.5 text-start transition-all duration-200 focus-visible:outline-2 focus-visible:outline-panel-accent",
+												active
+													? "border-panel-accent bg-panel-accent/10 text-panel-text shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+													: "border-panel-border bg-panel-elevated/45 text-panel-text-secondary min-[769px]:hover:border-panel-border-strong min-[769px]:hover:bg-panel-elevated",
+											)}
+										>
+											<span
 												className={cn(
-													"flex items-center gap-3 rounded-[14px] border p-3.5 text-start transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-panel-accent",
+													"flex size-9 shrink-0 items-center justify-center rounded-[10px] transition-colors",
 													active
-														? "border-panel-accent! bg-panel-accent/10 text-panel-text"
-														: "border-panel-border! bg-panel-elevated/50 text-panel-text-secondary min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated",
+														? "bg-panel-accent text-white"
+														: "bg-panel-surface text-panel-text-muted",
 												)}
 											>
-												<span
-													className={cn(
-														"flex size-9 shrink-0 items-center justify-center rounded-[10px] transition-colors",
-														active
-															? "bg-panel-accent text-white"
-															: "bg-panel-surface text-panel-text-muted",
-													)}
-												>
-													<Icon className="size-4" />
-												</span>
-												<span className="min-w-0 flex-1 text-[13px] font-semibold leading-snug">
-													{option.label}
-												</span>
-											</button>
-										);
-									})}
-								</div>
-							</Field>
-						</div>
+												<Icon className="size-4" />
+											</span>
+											<span className="min-w-0 flex-1 text-[13px] font-semibold leading-snug">
+												{option.label}
+											</span>
+										</button>
+									);
+								})}
+							</div>
+						</Field>
 					</div>
 
-					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border! bg-panel-surface px-5 py-3.5">
+					<DialogFooter className="gap-2 border-t border-panel-border bg-panel-surface px-5 py-3.5">
 						<Button
-							type="button"
 							onClick={() => setDialog(null)}
 							disabled={exportMutation.isPending}
 							variant="ghost"
 							size="sm"
-							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted active:scale-[0.97]"
+							className="rounded-[12px]"
 						>
 							{t("cancel")}
 						</Button>
 						<Button
-							type="button"
 							onClick={() => exportMutation.mutate(exportScope)}
 							size="sm"
 							loading={exportMutation.isPending}
-							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold active:scale-[0.97]"
+							className="rounded-[12px] px-4"
 						>
-							<Download className="size-3.5" />
+							<Download className="size-4" />
 							<span>{t("dashboard.backup.download")}</span>
 						</Button>
 					</DialogFooter>

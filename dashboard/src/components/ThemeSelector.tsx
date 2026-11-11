@@ -318,10 +318,10 @@ const ThemePanel: FC<ThemePanelProps> = ({
 									type="button"
 									onClick={() => onSelectTheme(theme.key)}
 									className={cn(
-										"relative flex h-[64px] flex-col items-center justify-center gap-1.5 rounded-[12px] px-3 text-panel-text transition-[background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.97] min-[769px]:hover:bg-panel-elevated",
+										"relative flex h-[64px] flex-col items-center justify-center gap-1.5 rounded-[12px] px-3 text-panel-text transition-[background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.97] md:hover:bg-panel-elevated",
 										selected
 											? "border-2 border-panel-accent! bg-panel-elevated"
-											: "border border-panel-border! bg-panel-surface min-[769px]:hover:border-panel-border-strong!",
+											: "border border-panel-border! bg-panel-surface md:hover:border-panel-border-strong!",
 									)}
 								>
 									<Icon className="size-4 text-panel-text" />
@@ -365,7 +365,7 @@ const ThemePanel: FC<ThemePanelProps> = ({
 												} as CSSProperties
 											}
 											className={cn(
-												"inline-flex h-[34px] min-w-[34px]! items-center justify-center rounded-[10px] bg-[var(--swatch)] text-white transition-[background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.94] focus-visible:ring-2 focus-visible:ring-panel-accent min-[769px]:hover:border-panel-text! min-[769px]:hover:bg-[var(--swatch-hover)]",
+												"inline-flex h-[34px] min-w-[34px]! items-center justify-center rounded-[10px] bg-[var(--swatch)] text-white transition-[background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.94] focus-visible:ring-2 focus-visible:ring-panel-accent md:hover:border-panel-text! md:hover:bg-[var(--swatch-hover)]",
 												selected
 													? "border-2 border-panel-text! shadow-[0_2px_8px_rgba(0,0,0,0.22)]"
 													: "border border-panel-border!",
@@ -452,7 +452,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	);
 
 	const panelSurfaceClass =
-		"z-[10005] w-[min(312px,calc(100vw-24px))] max-w-[calc(100vw-16px)] max-h-[min(calc(var(--radix-popover-content-available-height,72dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-3.5 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.35)]";
+		"z-[10005] w-[min(312px,calc(100vw-24px))] max-w-[calc(100vw-16px)] rounded-[20px] border border-panel-border! bg-panel-surface p-3.5 text-panel-text shadow-[0_20px_48px_rgba(0,0,0,0.35)]";
 
 	if (trigger === "menuItem") {
 		return (
@@ -468,7 +468,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 							else handleOpenChange(!isOpen);
 						}}
 						className={cn(
-							"flex h-[38px] w-full items-center justify-between gap-2.5 rounded-[12px] px-3 text-[13px] font-medium text-panel-text transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:bg-panel-elevated min-[769px]:hover:bg-panel-elevated",
+							"flex h-[38px] w-full items-center justify-between gap-2.5 rounded-[12px] px-3 text-[13px] font-medium text-panel-text transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:bg-panel-elevated md:hover:bg-panel-elevated",
 							isPressing || isOpen ? "bg-panel-elevated" : "bg-transparent",
 							isPressing && "scale-[0.97]",
 						)}
@@ -485,12 +485,11 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 					</button>
 				</PopoverTrigger>
 				<PopoverContent
-					dir={isRTL ? "rtl" : "ltr"}
 					data-profile-window="true"
 					data-profile-submenu="true"
 					data-theme-menu-list="true"
 					side={isDesktop ? (isRTL ? "left" : "right") : "bottom"}
-					align={isDesktop ? "start" : "center"}
+					align="start"
 					sideOffset={8}
 					collisionPadding={12}
 					className={panelSurfaceClass}

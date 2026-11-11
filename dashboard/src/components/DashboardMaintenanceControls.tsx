@@ -1,13 +1,12 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { AppDialog } from "components/dialogs/AppDialog";
 import { Alert } from "components/ui/alert";
 import { Button } from "components/ui/button";
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
-	DialogTitle,
 } from "components/ui/dialog";
 import { Field, FieldDescription, FieldLabel } from "components/ui/field";
 import {
@@ -37,7 +36,6 @@ import {
 	Terminal,
 	TriangleAlert,
 	Upload,
-	X,
 } from "lucide-react";
 import { type FC, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -122,8 +120,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 	channel,
 	version,
 }) => {
-	const { t, i18n } = useTranslation();
-	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const { t } = useTranslation();
 	const { userData, getUserIsSuccess } = useGetUser();
 
 	const canMaintain =
@@ -142,7 +139,6 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 	const [selectedVersion, setSelectedVersion] = useState("");
 	const [operation, setOperation] = useState<MaintenanceOperation | null>(null);
 	const [waitingForAPI, setWaitingForAPI] = useState(false);
-	const [isUpdatePopoverOpen, setUpdatePopoverOpen] = useState(false);
 	const [isUpdateDialogOpen, setUpdateDialogOpen] = useState(false);
 	const [confirmAction, setConfirmAction] = useState<
 		"restart" | "soft-reload" | "update" | null
@@ -381,31 +377,25 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 		return null;
 	}
 
-	const openConfirmFromPopover = (action: "soft-reload" | "update") => {
-		setUpdatePopoverOpen(false);
-		setConfirmAction(action);
-	};
-
 	const renderUpdatePopover = () => (
-		<Popover open={isUpdatePopoverOpen} onOpenChange={setUpdatePopoverOpen}>
+		<Popover>
 			<PopoverTrigger asChild>
 				<Button
-					type="button"
 					disabled={!canMaintain || !hostActionsAvailable || info.isLoading}
 					size="xs"
 					variant={update?.available ? "default" : "outline"}
 					className={cn(
-						"h-9 w-full rounded-[12px] px-3.5 transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] min-[769px]:h-8 min-[769px]:w-auto whitespace-nowrap",
+						"h-9 w-full min-[769px]:w-auto px-3.5 rounded-[12px] whitespace-nowrap transition-[background-color,border-color,color,transform,box-shadow] duration-200 ease-out active:scale-[0.98]",
 						update?.available
-							? "border border-panel-accent! bg-panel-accent text-white shadow-[0_2px_10px_color-mix(in_srgb,var(--rb-panel-accent)_28%,transparent)] min-[769px]:hover:bg-panel-accent-hover"
-							: "border border-panel-border! bg-panel-surface text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
+							? "bg-panel-accent text-white border border-panel-accent shadow-[0_4px_14px_-2px_rgba(37,99,235,0.45)] min-[769px]:hover:bg-panel-accent-hover"
+							: "border border-panel-border bg-panel-surface/80 text-panel-text shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:border-panel-border-strong",
 					)}
 				>
 					<span className="inline-flex items-center justify-center gap-2">
 						{update?.available ? (
-							<Sparkles className="size-3.5 shrink-0 text-white" />
+							<Sparkles className="size-4 shrink-0 text-white" />
 						) : (
-							<Upload className="size-3.5 shrink-0 text-panel-text-secondary" />
+							<Upload className="size-4 shrink-0 text-panel-text-secondary" />
 						)}
 						<span className="text-[12px] font-semibold leading-none">
 							{update?.available
@@ -416,24 +406,22 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent
-				dir={isRTL ? "rtl" : "ltr"}
-				align={isRTL ? "start" : "end"}
+				align="end"
 				sideOffset={8}
 				collisionPadding={12}
 				onClick={(e) => e.stopPropagation()}
-				className="w-[min(440px,calc(100vw-24px))] max-w-[440px] max-h-[min(calc(var(--radix-popover-content-available-height,76dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_60px_-12px_rgba(0,0,0,0.48)]"
+				className="w-[min(460px,calc(100vw-24px))] max-w-[460px] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border bg-panel-surface p-0 shadow-[0_24px_60px_-12px_rgba(0,0,0,0.5)]"
 			>
-				<div className="flex items-center justify-between gap-3 border-b border-panel-border! px-4 py-3">
+				<div className="flex items-center justify-between gap-3 border-b border-panel-border px-4 py-3">
 					<p className="text-[13px] font-bold tracking-[-0.01em] text-panel-text">
 						{t("dashboard.maintenance.title")}
 					</p>
 					<Button
-						type="button"
 						onClick={() => info.refetch()}
 						variant="ghost"
 						size="xs"
 						loading={info.isFetching}
-						className="h-7 rounded-[10px] px-2.5 text-[11px] text-panel-text-muted active:scale-[0.97] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
+						className="h-7 rounded-[10px] px-2.5 text-[11px] text-panel-text-muted min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 					>
 						<RefreshCw className="size-3.5" />
 						<span>{t("refresh")}</span>
@@ -463,8 +451,8 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 						</Alert>
 					)}
 
-					<div className="flex items-center justify-between gap-3 rounded-[14px] border border-panel-border! bg-panel-elevated/65 px-3.5 py-3">
-						<div className="flex min-w-0 flex-col gap-0.5">
+					<div className="flex items-center justify-between gap-3 rounded-[14px] border border-panel-border bg-panel-elevated/65 px-3.5 py-3">
+						<div className="flex flex-col gap-0.5 min-w-0">
 							<p className="text-[11px] font-semibold text-panel-text-muted">
 								{t("dashboard.maintenance.panelVersion")}
 							</p>
@@ -480,7 +468,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 						{panel?.channel && (
 							<span
 								dir="ltr"
-								className="shrink-0 rounded-full border border-panel-border! bg-panel-surface px-2.5 py-0.5 text-[11px] font-semibold text-panel-text-secondary [unicode-bidi:isolate]"
+								className="shrink-0 rounded-full border border-panel-border bg-panel-surface px-2.5 py-0.5 text-[11px] font-semibold text-panel-text-secondary [unicode-bidi:isolate]"
 							>
 								{panel.channel}
 							</span>
@@ -499,7 +487,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 					{update?.available && (
 						<Alert className="rounded-[14px] border border-emerald-500/25 bg-emerald-500/8 text-[12px]">
 							<CircleCheck
-								className="size-4 text-emerald-600 dark:text-emerald-400"
+								className="size-4 text-emerald-400"
 								aria-hidden="true"
 							/>
 							<p className="text-[12px] leading-relaxed text-panel-text">
@@ -567,7 +555,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 					{selectedChannel === "dev" && hostActionsAvailable && (
 						<Alert className="rounded-[14px] border border-amber-500/25 bg-amber-500/8 text-[12px]">
 							<TriangleAlert
-								className="size-4 text-amber-600 dark:text-amber-400"
+								className="size-4 text-amber-400"
 								aria-hidden="true"
 							/>
 							<p className="text-[12px] leading-relaxed text-panel-text-secondary">
@@ -576,26 +564,24 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 						</Alert>
 					)}
 
-					<div className="flex flex-wrap items-center justify-end gap-2 border-t border-panel-border! pt-3">
+					<div className="flex flex-wrap items-center justify-end gap-2 border-t border-panel-border pt-3">
 						<Button
-							type="button"
-							onClick={() => openConfirmFromPopover("soft-reload")}
+							onClick={() => setConfirmAction("soft-reload")}
 							disabled={!hostActionsAvailable}
 							variant="outline"
 							size="xs"
 							loading={reloadMutation.isPending}
-							className="h-8 rounded-[10px] border-panel-border! px-3 text-[12px] font-semibold text-panel-text active:scale-[0.97] min-[769px]:hover:bg-panel-elevated"
+							className="h-8 rounded-[10px] border-panel-border px-3 text-[12px] font-semibold text-panel-text min-[769px]:hover:bg-panel-elevated"
 						>
 							<RotateCcw className="size-3.5" />
 							<span>{t("dashboard.maintenance.softReloadAction")}</span>
 						</Button>
 						<Button
-							type="button"
-							onClick={() => openConfirmFromPopover("update")}
+							onClick={() => setConfirmAction("update")}
 							disabled={!hostActionsAvailable}
 							size="xs"
 							loading={updateMutation.isPending}
-							className="h-8 rounded-[10px] px-4 text-[12px] font-semibold active:scale-[0.97]"
+							className="h-8 rounded-[10px] px-4 text-[12px] font-semibold"
 						>
 							<Upload className="size-3.5" />
 							<span>{t("dashboard.maintenance.updateAction")}</span>
@@ -608,19 +594,18 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 
 	const renderRestartButton = (extraClassName?: string) => (
 		<Button
-			type="button"
 			onClick={() => setConfirmAction("restart")}
 			disabled={info.isPending || !hostActionsAvailable}
 			variant="outline"
 			size="xs"
 			loading={restartMutation.isPending}
 			className={cn(
-				"h-9 rounded-[12px] border border-red-500/30 bg-red-500/8 px-3.5 text-red-600 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] min-[769px]:h-8 min-[769px]:hover:border-red-500/50 min-[769px]:hover:bg-red-500/14 dark:text-red-400 whitespace-nowrap",
+				"h-9 px-3.5 rounded-[12px] border border-red-500/30 bg-red-500/6 text-red-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-[background-color,border-color,color,transform] duration-200 ease-out min-[769px]:hover:bg-red-500/14 min-[769px]:hover:border-red-500/50 active:scale-[0.98] whitespace-nowrap",
 				extraClassName,
 			)}
 		>
 			<span className="inline-flex items-center justify-center gap-2">
-				<Power className="size-3.5 shrink-0" />
+				<Power className="size-4 shrink-0" />
 				<span className="text-[12px] font-semibold leading-none">
 					{t("dashboard.maintenance.restartAction")}
 				</span>
@@ -657,182 +642,148 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 				</div>
 			</div>
 
-			<Dialog
+			<AppDialog
 				open={isUpdateDialogOpen}
-				onOpenChange={(open) => {
-					if (!open) setUpdateDialogOpen(false);
-				}}
-			>
-				<DialogContent
-					dir={isRTL ? "rtl" : "ltr"}
-					showCloseButton={false}
-					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[680px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[680px]"
-				>
-					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border! px-5 py-3.5 text-start">
-						<div className="flex min-w-0 items-center gap-3">
-							<span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-elevated text-panel-accent">
-								<Upload className="size-4" />
-							</span>
-							<DialogTitle className="truncate text-[14px] font-bold tracking-[-0.01em] text-panel-text">
-								{t("dashboard.maintenance.updateProgressTitle")}
-							</DialogTitle>
-							<DialogDescription className="sr-only">
-								{t("dashboard.maintenance.updateProgressTitle")}
-							</DialogDescription>
-						</div>
+				onClose={() => setUpdateDialogOpen(false)}
+				size="lg"
+				title={t("dashboard.maintenance.updateProgressTitle")}
+				footer={
+					<>
 						<Button
-							type="button"
-							variant="ghost"
-							size="icon-sm"
-							onClick={() => setUpdateDialogOpen(false)}
-							aria-label={t("close")}
-							className="size-8 shrink-0 rounded-[10px] text-panel-text-muted transition-[background-color,color,transform] duration-150 active:scale-[0.95] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
-						>
-							<X className="size-4" />
-						</Button>
-					</DialogHeader>
-
-					<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
-						<div className="flex flex-col gap-4">
-							<div className="flex items-center justify-between gap-3 rounded-[14px] border border-panel-border! bg-panel-elevated/55 px-3.5 py-2.5 text-[13px]">
-								<p
-									dir="ltr"
-									className="font-semibold text-panel-text-secondary tabular-nums [unicode-bidi:isolate]"
-								>
-									{selectedTarget
-										? `${currentVersion} → ${selectedTarget}`
-										: currentVersion}
-								</p>
-								{typeof operation?.progress === "number" && (
-									<p
-										dir="ltr"
-										className="font-bold text-panel-accent tabular-nums [unicode-bidi:isolate]"
-									>
-										{Math.round(operation.progress)}%
-									</p>
-								)}
-							</div>
-
-							<div className="flex flex-col gap-2.5">
-								<div className="flex items-center gap-2">
-									{operation?.error ? (
-										<CircleAlert
-											className="size-4 text-red-600 dark:text-red-400"
-											aria-hidden="true"
-										/>
-									) : operation?.phase === "completed" ? (
-										<CircleCheck
-											className="size-4 text-emerald-600 dark:text-emerald-400"
-											aria-hidden="true"
-										/>
-									) : (
-										<Spinner className="text-panel-accent" />
-									)}
-									<p className="text-[13px] font-bold text-panel-text">
-										{operation?.phase
-											? t(
-													`dashboard.maintenance.phase.${operation.phase}`,
-													operation.phase,
-												)
-											: t("dashboard.maintenance.phase.queued")}
-									</p>
-								</div>
-								<Progress
-									value={
-										typeof operation?.progress === "number"
-											? operation.progress
-											: undefined
-									}
-									className="h-1.5 rounded-full"
-								/>
-								<p className="text-[12px] leading-relaxed text-panel-text-secondary">
-									{operation?.error
-										? operation.error
-										: operation?.message
-											? t(
-													`dashboard.maintenance.message.${operation.message.replace(/[^a-zA-Z]/g, "")}`,
-													operation.message,
-												)
-											: t("dashboard.maintenance.message.preparingUpdate")}
-								</p>
-								{waitingForAPI && !operation?.error && (
-									<p className="text-[12px] text-panel-text-muted">
-										{t("dashboard.maintenance.autoRefreshAfterRestart")}
-									</p>
-								)}
-							</div>
-
-							<div className="flex flex-col gap-2">
-								<div className="flex items-center justify-between gap-2">
-									<div className="flex items-center gap-2 text-[12px] font-bold text-panel-text">
-										<Terminal className="size-3.5 text-panel-text-muted" />
-										<span>{t("dashboard.maintenance.liveLogs")}</span>
-									</div>
-									<Tooltip>
-										<TooltipTrigger asChild>
-											<Button
-												type="button"
-												aria-label={t("dashboard.maintenance.copyLogs")}
-												onClick={() => {
-													const logs = cleanTerminalOutput(operation?.logs);
-													if (!logs) return;
-													navigator.clipboard.writeText(logs);
-													setLogsCopied(true);
-													window.setTimeout(() => setLogsCopied(false), 2000);
-												}}
-												variant="ghost"
-												size="xs"
-												className="h-7 rounded-[8px] px-2 active:scale-[0.96]"
-											>
-												{logsCopied ? (
-													<Check className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-												) : (
-													<Clipboard className="size-3.5" />
-												)}
-											</Button>
-										</TooltipTrigger>
-										<TooltipContent>
-											{logsCopied
-												? t("dashboard.maintenance.logsCopied")
-												: t("dashboard.maintenance.copyLogs")}
-										</TooltipContent>
-									</Tooltip>
-								</div>
-								<pre
-									ref={logsContainerRef}
-									dir="ltr"
-									className="max-h-[260px] min-h-[130px] overflow-auto rounded-[14px] border border-panel-border! bg-panel-elevated p-3.5 font-mono text-[12px] leading-[1.65] whitespace-pre-wrap break-all text-panel-text"
-								>
-									{cleanTerminalOutput(operation?.logs) ||
-										t("dashboard.maintenance.waitingForOutput")}
-								</pre>
-							</div>
-						</div>
-					</div>
-
-					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border! bg-panel-surface px-5 py-3.5">
-						<Button
-							type="button"
 							onClick={() => setUpdateDialogOpen(false)}
 							variant="ghost"
 							size="sm"
-							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted active:scale-[0.97]"
+							className="rounded-[12px]"
 						>
 							{t("close")}
 						</Button>
 						{(operation?.error || operation?.phase === "completed") && (
 							<Button
-								type="button"
 								onClick={() => window.location.reload()}
 								size="sm"
-								className="h-9 rounded-[12px] px-4 text-[12px] font-semibold active:scale-[0.97]"
+								className="rounded-[12px]"
 							>
 								{t("refresh")}
 							</Button>
 						)}
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+					</>
+				}
+			>
+				<div className="flex flex-col gap-4">
+					<div className="flex items-center justify-between gap-3 rounded-[14px] border border-panel-border bg-panel-elevated/55 px-3.5 py-2.5 text-[13px]">
+						<p
+							dir="ltr"
+							className="font-semibold text-panel-text-secondary tabular-nums [unicode-bidi:isolate]"
+						>
+							{selectedTarget
+								? `${currentVersion} → ${selectedTarget}`
+								: currentVersion}
+						</p>
+						{typeof operation?.progress === "number" && (
+							<p
+								dir="ltr"
+								className="font-bold text-panel-accent tabular-nums [unicode-bidi:isolate]"
+							>
+								{Math.round(operation.progress)}%
+							</p>
+						)}
+					</div>
+
+					<div className="flex flex-col gap-2.5">
+						<div className="flex items-center gap-2">
+							{operation?.error ? (
+								<CircleAlert
+									className="size-4 text-destructive"
+									aria-hidden="true"
+								/>
+							) : operation?.phase === "completed" ? (
+								<CircleCheck
+									className="size-4 text-emerald-400"
+									aria-hidden="true"
+								/>
+							) : (
+								<Spinner className="text-panel-accent" />
+							)}
+							<p className="text-[13px] font-bold text-panel-text">
+								{operation?.phase
+									? t(
+											`dashboard.maintenance.phase.${operation.phase}`,
+											operation.phase,
+										)
+									: t("dashboard.maintenance.phase.queued")}
+							</p>
+						</div>
+						<Progress
+							value={
+								typeof operation?.progress === "number"
+									? operation.progress
+									: undefined
+							}
+							className="h-1.5 rounded-full"
+						/>
+						<p className="text-[12px] leading-relaxed text-panel-text-secondary">
+							{operation?.error
+								? operation.error
+								: operation?.message
+									? t(
+											`dashboard.maintenance.message.${operation.message.replace(/[^a-zA-Z]/g, "")}`,
+											operation.message,
+										)
+									: t("dashboard.maintenance.message.preparingUpdate")}
+						</p>
+						{waitingForAPI && !operation?.error && (
+							<p className="text-[12px] text-panel-text-muted">
+								{t("dashboard.maintenance.autoRefreshAfterRestart")}
+							</p>
+						)}
+					</div>
+
+					<div className="flex flex-col gap-2">
+						<div className="flex items-center justify-between gap-2">
+							<div className="flex items-center gap-2 text-[12px] font-bold text-panel-text">
+								<Terminal className="size-3.5 text-panel-text-muted" />
+								<span>{t("dashboard.maintenance.liveLogs")}</span>
+							</div>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										aria-label={t("dashboard.maintenance.copyLogs")}
+										onClick={() => {
+											const logs = cleanTerminalOutput(operation?.logs);
+											if (!logs) return;
+											navigator.clipboard.writeText(logs);
+											setLogsCopied(true);
+											window.setTimeout(() => setLogsCopied(false), 2000);
+										}}
+										variant="ghost"
+										size="xs"
+										className="h-7 rounded-[8px] px-2"
+									>
+										{logsCopied ? (
+											<Check className="size-3.5 text-emerald-400" />
+										) : (
+											<Clipboard className="size-3.5" />
+										)}
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>
+									{logsCopied
+										? t("dashboard.maintenance.logsCopied")
+										: t("dashboard.maintenance.copyLogs")}
+								</TooltipContent>
+							</Tooltip>
+						</div>
+						<pre
+							ref={logsContainerRef}
+							dir="ltr"
+							className="max-h-[260px] min-h-[130px] overflow-auto rounded-[14px] border border-panel-border bg-panel-elevated p-3.5 font-mono text-[12px] leading-[1.65] whitespace-pre-wrap break-all text-panel-text"
+						>
+							{cleanTerminalOutput(operation?.logs) ||
+								t("dashboard.maintenance.waitingForOutput")}
+						</pre>
+					</div>
+				</div>
+			</AppDialog>
 
 			<Dialog
 				open={confirmAction !== null}
@@ -840,18 +791,14 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 					if (!open) setConfirmAction(null);
 				}}
 			>
-				<DialogContent
-					dir={isRTL ? "rtl" : "ltr"}
-					showCloseButton={false}
-					className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[440px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[440px]"
-				>
-					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border! px-5 py-3.5 text-start">
-						<div className="flex min-w-0 items-center gap-3">
+				<DialogContent className="mx-4 sm:mx-0 max-w-[440px] rounded-[20px] border border-panel-border bg-panel-surface p-0 shadow-[0_28px_70px_-12px_rgba(0,0,0,0.55)] overflow-hidden">
+					<DialogHeader className="border-b border-panel-border px-5 py-4 text-[15px] font-bold text-panel-text">
+						<div className="flex items-center gap-2.5">
 							<span
 								className={cn(
-									"flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border!",
+									"flex size-8 items-center justify-center rounded-[10px]",
 									confirmAction === "restart"
-										? "border-red-500/25! bg-red-500/12 text-red-600 dark:text-red-400"
+										? "bg-red-500/12 text-red-400"
 										: "bg-panel-elevated text-panel-accent",
 								)}
 							>
@@ -863,33 +810,14 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 									<Upload className="size-4" />
 								)}
 							</span>
-							<DialogTitle className="truncate text-[14px] font-bold tracking-[-0.01em] text-panel-text">
+							<span>
 								{confirmAction === "restart"
 									? t("dashboard.maintenance.restartConfirmTitle")
 									: confirmAction === "soft-reload"
 										? t("dashboard.maintenance.softReloadConfirmTitle")
 										: t("dashboard.maintenance.updateConfirmTitle")}
-							</DialogTitle>
-							<DialogDescription className="sr-only">
-								{confirmAction === "restart"
-									? t("dashboard.maintenance.restartConfirmDescription")
-									: confirmAction === "soft-reload"
-										? t("dashboard.maintenance.softReloadConfirmDescription")
-										: t("dashboard.maintenance.updateConfirmDescription", {
-												target: selectedTarget || update?.target || "-",
-											})}
-							</DialogDescription>
+							</span>
 						</div>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon-sm"
-							onClick={() => setConfirmAction(null)}
-							aria-label={t("close")}
-							className="size-8 shrink-0 rounded-[10px] text-panel-text-muted transition-[background-color,color,transform] duration-150 active:scale-[0.95] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
-						>
-							<X className="size-4" />
-						</Button>
 					</DialogHeader>
 
 					<div className="flex flex-col gap-3 px-5 py-4">
@@ -904,25 +832,10 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 												target: selectedTarget || update?.target || "-",
 											})}
 						</p>
-						{confirmAction === "update" && (
-							<div className="flex items-center justify-between gap-3 rounded-[14px] border border-panel-border! bg-panel-elevated/55 px-3.5 py-2.5 text-[12px]">
-								<span className="font-semibold text-panel-text-muted">
-									{t("dashboard.maintenance.panelVersion")}
-								</span>
-								<span
-									dir="ltr"
-									className="font-bold text-panel-text tabular-nums [unicode-bidi:isolate]"
-								>
-									{selectedTarget
-										? `${currentVersion} → ${selectedTarget}`
-										: currentVersion}
-								</span>
-							</div>
-						)}
 						{confirmAction === "update" && selectedVersion && (
 							<Alert className="rounded-[14px] border border-amber-500/25 bg-amber-500/8 text-[12px]">
 								<TriangleAlert
-									className="size-4 text-amber-600 dark:text-amber-400"
+									className="size-4 text-amber-400"
 									aria-hidden="true"
 								/>
 								<p className="text-[12px] leading-relaxed text-panel-text-secondary">
@@ -932,18 +845,16 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 						)}
 					</div>
 
-					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border! bg-panel-surface px-5 py-3.5">
+					<DialogFooter className="gap-2 border-t border-panel-border bg-panel-surface px-5 py-3.5">
 						<Button
-							type="button"
 							onClick={() => setConfirmAction(null)}
 							variant="ghost"
 							size="sm"
-							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted active:scale-[0.97]"
+							className="rounded-[12px] text-panel-text-muted"
 						>
 							{t("cancel")}
 						</Button>
 						<Button
-							type="button"
 							onClick={() => {
 								const act = confirmAction;
 								setConfirmAction(null);
@@ -958,7 +869,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 								reloadMutation.isPending ||
 								updateMutation.isPending
 							}
-							className="h-9 rounded-[12px] px-5 text-[12px] font-semibold active:scale-[0.97]"
+							className="rounded-[12px] px-5"
 						>
 							{t("confirm")}
 						</Button>
