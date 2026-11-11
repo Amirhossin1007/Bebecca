@@ -400,7 +400,7 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 	const { t, i18n } = useTranslation();
 	const { colorMode, setColorMode } = useColorMode();
 	const localDisclosure = useDisclosure();
-	const isDesktop = useMediaQuery("(min-width: 48em)");
+	const isDesktop = useMediaQuery("(min-width: 769px)");
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const activeTheme = normalizeTheme(colorMode);
 	const [activeAccent, setActiveAccent] = useState(getStoredAccent);

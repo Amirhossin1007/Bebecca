@@ -15,7 +15,7 @@ import {
 	PopoverTrigger,
 } from "components/ui/popover";
 import { Sheet, SheetContent, SheetTitle } from "components/ui/sheet";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useDisclosure } from "hooks/useDisclosure";
 import useGetUser from "hooks/useGetUser";
 import { useMediaQuery } from "hooks/useMediaQuery";
@@ -23,33 +23,18 @@ import { useSheetSwipeToClose } from "hooks/useSheetSwipeToClose";
 import { cn } from "lib/cn";
 import { EDITOR_PAGE_ID, useActiveEntityPage } from "lib/entityPages";
 import {
-	ArrowLeftRight,
 	Bell,
-	BookOpen,
+	BellRing,
 	Briefcase,
 	Check,
+	ChevronDown,
 	CircleUser,
-	Clock,
-	Copy,
-	Database,
-	Eye,
-	FileText,
-	FolderTree,
 	House,
 	Languages,
-	LayoutGrid,
-	Link,
 	LogOut,
-	Server,
 	Settings,
-	Settings2,
 	Share,
-	SquareCode,
-	Terminal,
-	TriangleAlert,
 	Users,
-	Wrench,
-	Zap,
 } from "lucide-react";
 import {
 	type CSSProperties,
@@ -68,12 +53,20 @@ import { useTranslation } from "react-i18next";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { logout as logoutSession } from "service/auth";
 import { getSponsors, type SponsorAsset } from "service/sponsors";
-import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
+import { AdminRole, AdminSection } from "types/Admin";
 import { clearClientSession } from "utils/session";
 import ImperialIranFlag from "../assets/imperial-iran-flag.svg?react";
 import { AppSidebar } from "./AppSidebar";
 import { HeaderCalendar } from "./HeaderCalendar";
 import {
+	DEFAULT_TAB_BY_PATH,
+	type DirectNavItem,
+	filterNavSectionsExcluding,
+	type GroupSubItem,
+	useNavSections,
+} from "./layout/navConfig";
+import {
+	NotificationBell,
 	NotificationMenuItem,
 	NotificationProvider,
 	useNotificationCenter,
@@ -95,14 +88,6 @@ const TINT_CLASS =
 
 const DOCK_SURFACE_CLASS =
 	"border-panel-border! bg-panel-surface/95 shadow-[0_12px_32px_rgba(15,23,42,0.16)] dark:bg-panel-surface/95 dark:shadow-[0_12px_32px_rgba(0,0,0,0.48)]";
-
-type SettingsMenuItem = {
-	key: string;
-	label: string;
-	to: string;
-	icon?: ElementType;
-	section: "infrastructure" | "observability" | "system" | "docs";
-};
 
 type BottomNavItem = {
 	key: string;
@@ -180,7 +165,7 @@ function AppLayoutContent() {
 
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 	const handleSidebarExpand = useCallback(() => setSidebarCollapsed(false), []);
-	const isMobile = !useMediaQuery("(min-width: 48em)");
+	const isMobile = !useMediaQuery("(min-width: 769px)");
 	const sidebarDrawer = useDisclosure();
 	const handleDrawerClose = useCallback(
 		() => sidebarDrawer.onClose(),
@@ -334,7 +319,7 @@ function AppLayoutContent() {
 		() => window.location.hash,
 	);
 	const isRTL = i18n.dir(i18n.language) === "rtl";
-	const tutorialsUrl = "/tutorials";
+	const { navSections } = useNavSections();
 	const sectionAccess = userData.permissions?.sections;
 	const headerRef = useRef<HTMLElement | null>(null);
 	const contentRef = useRef<HTMLDivElement | null>(null);
@@ -443,213 +428,75 @@ function AppLayoutContent() {
 		{ code: "ru", label: "Русский", flag: "RU" },
 	];
 
-	const isPrivilegedAdmin =
-		userData.role === AdminRole.FullAccess || userData.role === AdminRole.Sudo;
-	const canViewRecentActions =
-		userData.role === AdminRole.FullAccess ||
-		(userData.role === AdminRole.Sudo &&
-			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray]));
-	const canManagePlaceholders =
-		userData.role === AdminRole.FullAccess ||
-		(userData.role === AdminRole.Sudo &&
-			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
-		Boolean(userData.permissions?.self_permissions?.self_placeholders);
+	const [openDockGroups, setOpenDockGroups] = useState<Record<string, boolean>>({
+		users_hub: true,
+	});
+	const canSeeAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
+	const includeNotificationsInDock = !canSeeAdmins;
 
-	const settingsMenuItems = useMemo(() => {
-		const items: Array<SettingsMenuItem | null> = [
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Nodes]
-				? {
-						key: "node-settings",
-						label: t("header.nodeSettings"),
-						to: "/node-settings",
-						icon: Server,
-						section: "infrastructure",
-					}
-				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Hosts]
-				? {
-						key: "hosts",
-						label: t("header.hostSettings"),
-						to: "/hosts",
-						icon: Link,
-						section: "infrastructure",
-					}
-				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Services]
-				? {
-						key: "services",
-						label: t("services.title"),
-						to: "/services",
-						icon: LayoutGrid,
-						section: "infrastructure",
-					}
-				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Xray]
-				? {
-						key: "xray-settings",
-						label: t("header.xraySettings"),
-						to: "/xray-settings",
-						icon: Wrench,
-						section: "infrastructure",
-					}
-				: null,
-			isPrivilegedAdmin
-				? {
-						key: "haproxy",
-						label: t("haproxy.title"),
-						to: "/haproxy",
-						icon: ArrowLeftRight,
-						section: "infrastructure",
-					}
-				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Xray]
-				? {
-						key: "xray-logs",
-						label: t("pages.xray.logs"),
-						to: "/xray-logs",
-						icon: FileText,
-						section: "observability",
-					}
-				: null,
-			isPrivilegedAdmin
-				? {
-						key: "errors",
-						label: t("diagnostics.menu"),
-						to: "/errors",
-						icon: TriangleAlert,
-						section: "observability",
-					}
-				: null,
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Xray]
-				? {
-						key: "access-insights",
-						label: t("header.accessInsights"),
-						to: "/access-insights",
-						icon: Eye,
-						section: "observability",
-					}
-				: null,
-			canViewRecentActions
-				? {
-						key: "recent-actions",
-						label: t("recentActions.title"),
-						to: "/recent-actions",
-						icon: Clock,
-						section: "observability",
-					}
-				: null,
-			{
-				key: "groups",
-				label: t("groups.title"),
-				to: "/groups",
-				icon: FolderTree,
-				section: "system",
-			},
-			{
-				key: "bulk-actions",
-				label: t("bulkActions.menu"),
-				to: "/bulk-actions",
-				icon: Zap,
-				section: "system",
-			},
-			isPrivilegedAdmin && sectionAccess?.[AdminSection.Integrations]
-				? {
-						key: "settings",
-						label: t("header.integrationSettings"),
-						to: "/settings",
-						icon: Settings2,
-						section: "system",
-					}
-				: null,
-			canManagePlaceholders
-				? {
-						key: "placeholders",
-						label: isPrivilegedAdmin
-							? t("placeholders.menu")
-							: t("placeholders.settingsMenu"),
-						to: "/placeholders",
-						icon: Copy,
-						section: "system",
-					}
-				: null,
-			isPrivilegedAdmin
-				? {
-						key: "phpmyadmin",
-						label: t("phpmyadmin.menu"),
-						to: "/phpmyadmin",
-						icon: Database,
-						section: "system",
-					}
-				: null,
-			isPrivilegedAdmin
-				? {
-						key: "external-apps",
-						label: t("externalApps.menu"),
-						to: "/external-apps",
-						icon: Terminal,
-						section: "system",
-					}
-				: null,
-			isPrivilegedAdmin
-				? {
-						key: "api-docs",
-						label: t("apiDocs.menu"),
-						to: "/api-docs",
-						icon: SquareCode,
-						section: "docs",
-					}
-				: null,
-			{
-				key: "tutorials",
-				label: t("sidebar.tutorialsAndFaq", t("tutorials.menu")),
-				to: tutorialsUrl,
-				icon: BookOpen,
-				section: "docs",
-			},
-		];
-		return items.filter(Boolean) as SettingsMenuItem[];
-	}, [
-		canManagePlaceholders,
-		canViewRecentActions,
-		isPrivilegedAdmin,
-		sectionAccess,
-		t,
-	]);
+	const dockExcludedRoutes = useMemo(() => {
+		const routes = new Set<string>(["/", "/users", "/myaccount"]);
+		if (canSeeAdmins) routes.add("/admins");
+		if (includeNotificationsInDock) routes.add("/notifications");
+		return routes;
+	}, [canSeeAdmins, includeNotificationsInDock]);
 
-	const groupedSettingsMenu = useMemo(() => {
-		const groups: Array<{
-			id: SettingsMenuItem["section"];
-			title: string;
-			items: SettingsMenuItem[];
-		}> = [
-			{
-				id: "infrastructure",
-				title: t("sidebar.sections.infrastructure", "Infrastructure"),
-				items: [],
-			},
-			{
-				id: "observability",
-				title: t("sidebar.groups.observability", "Monitoring & Logs"),
-				items: [],
-			},
-			{
-				id: "system",
-				title: t("sidebar.groups.system", "System"),
-				items: [],
-			},
-			{
-				id: "docs",
-				title: t("sidebar.sections.docs", "Resources"),
-				items: [],
-			},
-		];
-		for (const item of settingsMenuItems) {
-			groups.find((g) => g.id === item.section)?.items.push(item);
+	const dockSettingsSections = useMemo(
+		() => filterNavSectionsExcluding(navSections, dockExcludedRoutes),
+		[navSections, dockExcludedRoutes],
+	);
+
+	const flatDockSettingsItems = useMemo(() => {
+		const items: Array<DirectNavItem | GroupSubItem> = [];
+		for (const section of dockSettingsSections) {
+			for (const item of section.items) {
+				if (!item.visible) continue;
+				if (item.type === "direct") {
+					items.push(item);
+				} else {
+					for (const sub of item.subItems) {
+						if (sub.visible) items.push(sub);
+					}
+				}
+			}
 		}
-		return groups.filter((g) => g.items.length > 0);
-	}, [settingsMenuItems, t]);
+		return items;
+	}, [dockSettingsSections]);
 
-	const hasSettingsMenu = settingsMenuItems.length > 0;
+	const hasSettingsMenu = flatDockSettingsItems.length > 0;
+
+	useEffect(() => {
+		const path = location.pathname;
+		const matchingGroupIds: string[] = [];
+		for (const section of dockSettingsSections) {
+			for (const item of section.items) {
+				if (
+					item.type === "group" &&
+					item.subItems.some(
+						(sub) =>
+							sub.visible &&
+							(path === sub.url ||
+								(sub.url !== "/" && path.startsWith(sub.url))),
+					)
+				) {
+					matchingGroupIds.push(item.id);
+				}
+			}
+		}
+		if (matchingGroupIds.length > 0) {
+			setOpenDockGroups((prev) => {
+				const next = { ...prev };
+				let changed = false;
+				for (const id of matchingGroupIds) {
+					if (!next[id]) {
+						next[id] = true;
+						changed = true;
+					}
+				}
+				return changed ? next : prev;
+			});
+		}
+	}, [dockSettingsSections, location.pathname]);
 
 	const closeUserMenu = useCallback(() => {
 		userMenu.onClose();
@@ -738,14 +585,13 @@ function AppLayoutContent() {
 	}, [isMobile, isRTL, sidebarDrawer]);
 
 	const bottomNavItems = useMemo<BottomNavItem[]>(() => {
-		const canSeeAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
 		const items: BottomNavItem[] = [
 			{ key: "users", label: t("users"), to: "/users" },
 		];
 		if (canSeeAdmins) {
 			items.push({ key: "admins", label: t("admins"), to: "/admins" });
 		}
-		if (items.length + 3 + (hasSettingsMenu ? 1 : 0) <= 5) {
+		if (includeNotificationsInDock) {
 			items.push({
 				key: "notifications",
 				label: t("notifications.menu"),
@@ -766,18 +612,21 @@ function AppLayoutContent() {
 			to: "/",
 		});
 		return items;
-	}, [t, sectionAccess, hasSettingsMenu]);
+	}, [t, canSeeAdmins, includeNotificationsInDock, hasSettingsMenu]);
+
+	const isDockItemActive = useCallback(
+		(url: string) =>
+			location.pathname === url ||
+			(url !== "/" && location.pathname.startsWith(url)),
+		[location.pathname],
+	);
 
 	const activeSettingsItem = useMemo(
-		() =>
-			settingsMenuItems.find((item) => {
-				if (item.to === "/") return location.pathname === "/";
-				return location.pathname.startsWith(item.to);
-			}),
-		[settingsMenuItems, location.pathname],
+		() => flatDockSettingsItems.find((item) => isDockItemActive(item.url)),
+		[flatDockSettingsItems, isDockItemActive],
 	);
 	const isSettingsRoute = Boolean(activeSettingsItem);
-	const activeSettingsKey = activeSettingsItem?.key ?? null;
+	const activeSettingsId = activeSettingsItem?.id ?? null;
 
 	const resolveActive = useCallback(
 		(item: BottomNavItem) => {
@@ -1016,13 +865,6 @@ function AppLayoutContent() {
 		openSettingsMenu();
 	};
 
-	const settingsDefaultTabByPath: Record<string, string> = {
-		"/settings": "panel",
-		"/hosts": "inbounds",
-		"/usage": "services",
-		"/xray-settings": "basic",
-	};
-
 	const breadcrumbItems = useMemo(() => {
 		const path = location.pathname;
 		const hashKey = (activeLocationHash || "")
@@ -1222,7 +1064,7 @@ function AppLayoutContent() {
 	const navigateToSettingsItem = (target: string) => {
 		handleSettingsMenuClose();
 		setPreviewTabKeySafe("settings");
-		const defaultTab = settingsDefaultTabByPath[target];
+		const defaultTab = DEFAULT_TAB_BY_PATH[target];
 		if (defaultTab) {
 			navigate(`${target}#${defaultTab}`);
 			return;
@@ -1280,15 +1122,23 @@ function AppLayoutContent() {
 			const profileEl = headerRef.current.querySelector<HTMLElement>(
 				"[data-header-profile]",
 			);
+			const notifEl = headerRef.current.querySelector<HTMLElement>(
+				"[data-header-notifications]",
+			);
 			const profileWidth = profileEl ? profileEl.offsetWidth : 90;
+			const notifWidth =
+				!isMobile && getUserIsSuccess && notifEl ? notifEl.offsetWidth : 0;
+			const rightControlsWidth =
+				profileWidth + (notifWidth > 0 ? notifWidth + 8 : 0);
 			const isFa = i18n.language?.startsWith("fa");
 			const fullCalendarWidth = isFa ? 184 : 200;
 			const compactCalendarWidth = 34;
-			const compactControlsWidth = compactCalendarWidth + 8 + profileWidth;
-			const fullControlsWidth = fullCalendarWidth + 8 + profileWidth;
+			const compactControlsWidth =
+				compactCalendarWidth + 8 + rightControlsWidth;
+			const fullControlsWidth = fullCalendarWidth + 8 + rightControlsWidth;
 
 			const navButtonWidth = 34;
-			const isDesktop = window.innerWidth >= 768;
+			const isDesktop = !isMobile && window.innerWidth >= 769;
 			const headerPadding = isDesktop ? 40 : 24;
 			const hstackGap = 12;
 			const navDividerGaps = 25;
@@ -1418,6 +1268,8 @@ function AppLayoutContent() {
 		breadcrumbItems,
 		i18n.language,
 		bannerDimensions.natural,
+		isMobile,
+		getUserIsSuccess,
 	]);
 
 	return (
@@ -1428,7 +1280,7 @@ function AppLayoutContent() {
 			<div
 				dir={isRTL ? "rtl" : "ltr"}
 				className={cn(
-					"flex h-[100dvh] max-h-[100dvh] min-h-[100dvh] overflow-hidden bg-panel-app md:h-[100vh] md:max-h-[100vh] md:min-h-[100vh]",
+					"flex h-[100dvh] max-h-[100dvh] min-h-[100dvh] overflow-hidden bg-panel-app min-[769px]:h-[100vh] min-[769px]:max-h-[100vh] min-[769px]:min-h-[100vh]",
 					isRTL ? "flex-row-reverse" : "flex-row",
 				)}
 				style={
@@ -1472,7 +1324,7 @@ function AppLayoutContent() {
 						<header
 							ref={headerRef}
 							dir={isRTL ? "rtl" : "ltr"}
-							className="mx-3 mt-3 flex h-[52px] min-h-[52px] items-center justify-between gap-3 overflow-hidden rounded-[18px] border border-panel-border! bg-panel-surface px-3 shadow-[0_1px_2px_rgba(0,0,0,0.03),inset_0_1px_0_0_rgba(255,255,255,0.75)] select-none md:mx-4 md:px-5 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
+							className="mx-3 mt-3 flex h-[52px] min-h-[52px] items-center justify-between gap-3 overflow-hidden rounded-[18px] border border-panel-border! bg-panel-surface px-3 shadow-[0_1px_2px_rgba(0,0,0,0.03),inset_0_1px_0_0_rgba(255,255,255,0.75)] select-none min-[769px]:mx-4 min-[769px]:px-5 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
 						>
 							<div className="flex h-full min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
 								<button
@@ -1482,7 +1334,7 @@ function AppLayoutContent() {
 										if (isMobile) sidebarDrawer.onOpen();
 										else setSidebarCollapsed(!sidebarCollapsed);
 									}}
-									className="inline-flex size-[34px] min-w-[34px] shrink-0 items-center justify-center rounded-full border border-panel-border! bg-panel-surface text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-panel-accent/50 md:rounded-[12px] md:hover:border-panel-border-strong! md:hover:bg-panel-elevated md:hover:text-panel-text"
+									className="inline-flex size-[34px] min-w-[34px] shrink-0 items-center justify-center rounded-full border border-panel-border! bg-panel-surface text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-panel-accent/50 min-[769px]:rounded-[12px] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 								>
 									<AnimatedHamburger
 										isOpen={isMobile ? sidebarDrawer.isOpen : !sidebarCollapsed}
@@ -1492,14 +1344,14 @@ function AppLayoutContent() {
 
 								<span
 									aria-hidden="true"
-									className="mx-0.5 hidden h-4 w-px shrink-0 bg-panel-border md:block"
+									className="mx-0.5 hidden h-4 w-px shrink-0 bg-panel-border min-[769px]:block"
 								/>
 
 								<Breadcrumb
 									data-header-breadcrumb="true"
 									dir={isRTL ? "rtl" : "ltr"}
 									className={cn(
-										"hidden md:flex",
+										"hidden min-[769px]:flex",
 										canTruncateLastCrumb
 											? "min-w-0 shrink overflow-hidden"
 											: "min-w-fit shrink-0 overflow-visible",
@@ -1925,9 +1777,13 @@ function AppLayoutContent() {
 								data-header-controls="true"
 								className="flex h-full shrink-0 items-center gap-1.5 sm:gap-2"
 							>
-								<div className="hidden md:inline-flex">
+								{!isMobile ? (
 									<HeaderCalendar isCompact={calendarCompact} />
-								</div>
+								) : null}
+
+								{!isMobile && getUserIsSuccess && userData.username ? (
+									<NotificationBell />
+								) : null}
 
 								{getUserIsSuccess && userData.username ? (
 									<Popover
@@ -1944,19 +1800,19 @@ function AppLayoutContent() {
 												variant="outline"
 												size="sm"
 												aria-label={t("a11y.userMenu")}
-												className="h-[34px] w-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] active:bg-panel-elevated md:w-auto md:min-w-0 md:rounded-[12px] md:px-3 md:hover:border-panel-border-strong! md:hover:bg-panel-elevated md:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+												className="h-[34px] w-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] active:bg-panel-elevated min-[769px]:w-auto min-[769px]:min-w-0 min-[769px]:rounded-[12px] min-[769px]:px-3 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
 											>
 												<span className="flex items-center justify-center gap-2">
 													<span className="relative inline-flex shrink-0 items-center justify-center">
 														<CircleUser className="size-[18px] text-panel-text" />
-														{unread > 0 ? (
+														{isMobile && unread > 0 ? (
 															<span className="absolute -top-0.5 -end-0.5 size-2 rounded-full border-[1.5px] border-panel-surface bg-panel-accent" />
 														) : null}
 													</span>
 													<span
 														dir="ltr"
 														style={{ unicodeBidi: "isolate" }}
-														className="hidden max-w-[140px] truncate text-xs font-semibold leading-normal text-panel-text md:inline"
+														className="hidden max-w-[140px] truncate text-xs font-semibold leading-normal text-panel-text min-[769px]:inline"
 													>
 														{userData.username}
 													</span>
@@ -2008,20 +1864,24 @@ function AppLayoutContent() {
 													/>
 												) : null}
 
-												<NotificationMenuItem
-													key={`notif-menu-${isRTL ? "rtl" : "ltr"}`}
-													onNavigate={closeUserMenu}
-													isOpen={activeProfileSubmenu === "notifications"}
-													isPressing={
-														pressingProfileSubmenu === "notifications"
-													}
-													onToggle={() => toggleProfileSubmenu("notifications")}
-													onClose={() => {
-														if (activeProfileSubmenu === "notifications") {
-															setActiveProfileSubmenu(null);
+												{isMobile ? (
+													<NotificationMenuItem
+														key={`notif-menu-${isRTL ? "rtl" : "ltr"}`}
+														onNavigate={closeUserMenu}
+														isOpen={activeProfileSubmenu === "notifications"}
+														isPressing={
+															pressingProfileSubmenu === "notifications"
 														}
-													}}
-												/>
+														onToggle={() =>
+															toggleProfileSubmenu("notifications")
+														}
+														onClose={() => {
+															if (activeProfileSubmenu === "notifications") {
+																setActiveProfileSubmenu(null);
+															}
+														}}
+													/>
+												) : null}
 
 												<Popover
 													open={activeProfileSubmenu === "language"}
@@ -2178,7 +2038,7 @@ function AppLayoutContent() {
 								listScrollTop.current = event.currentTarget.scrollTop;
 							}
 						}}
-						className="min-h-0 flex-1 overflow-auto overscroll-contain bg-transparent p-3 pt-2.5 pb-40 md:p-4 md:pt-3 md:pb-4"
+						className="min-h-0 flex-1 overflow-auto overscroll-contain bg-transparent p-3 pt-2.5 pb-40 min-[769px]:p-4 min-[769px]:pt-3 min-[769px]:pb-4"
 					>
 						<div className={cn(editorPageSection && "hidden")}>
 							<Outlet />
@@ -2199,9 +2059,15 @@ function AppLayoutContent() {
 					>
 						<SheetContent
 							side={isRTL ? "right" : "left"}
+							dir={isRTL ? "rtl" : "ltr"}
 							showCloseButton={false}
 							data-side={isRTL ? "right" : "left"}
-							className="rb-sidebar-drawer h-[100dvh] max-h-[100dvh] w-full max-w-[100vw]! gap-0 rounded-none border-0 bg-panel-surface p-0 shadow-none sm:max-w-[100vw]!"
+							className={cn(
+								"rb-sidebar-drawer h-[100dvh] max-h-[100dvh] w-[min(320px,86vw)]! max-w-[min(320px,86vw)]! gap-0 bg-panel-surface p-0 shadow-[0_24px_64px_rgba(0,0,0,0.48)] will-change-transform",
+								isRTL
+									? "rounded-s-[24px] border-s border-e-0 border-panel-border!"
+									: "rounded-e-[24px] border-e border-s-0 border-panel-border!",
+							)}
 						>
 							<SheetTitle className="sr-only">
 								{t("a11y.toggleSidebar")}
@@ -2250,12 +2116,7 @@ function AppLayoutContent() {
 							</div>
 						) : null}
 
-						<div
-							className={cn(
-								"rb-mobile-dock pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)] z-[1500] px-3 md:hidden",
-								sidebarDrawer.isOpen && "hidden",
-							)}
-						>
+						<div className="rb-mobile-dock pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom,0px)+12px)] z-[1500] px-3 min-[769px]:hidden">
 							<div
 								className={cn(
 									"pointer-events-auto mx-auto max-w-[min(440px,calc(100vw-20px))] rounded-[24px] border px-2 py-1.5",
@@ -2275,8 +2136,8 @@ function AppLayoutContent() {
 										const isActive = resolveActive(item);
 										const isSelected = selectedTabKey === item.key;
 										const settingsLabel =
-											item.key === "settings" && activeSettingsItem?.label
-												? activeSettingsItem.label
+											item.key === "settings" && activeSettingsItem?.title
+												? activeSettingsItem.title
 												: item.label;
 										const customIcon =
 											item.key === "settings"
@@ -2387,45 +2248,198 @@ function AppLayoutContent() {
 														sideOffset={12}
 														collisionPadding={12}
 														className={cn(
-															"w-[min(248px,calc(100vw-24px))] max-w-[calc(100vw-24px)] max-h-[min(62dvh,calc(100dvh-160px))] overflow-y-auto overscroll-contain rounded-[22px] border p-2.5 text-panel-text",
+															"z-[1600] w-[min(272px,calc(100vw-24px))] max-w-[calc(100vw-24px)] max-h-[min(66dvh,calc(100dvh-148px))] overflow-y-auto overscroll-contain rounded-[22px] border p-2.5 text-panel-text",
 															DOCK_SURFACE_CLASS,
 														)}
 													>
-														<div className="flex flex-col gap-3">
-															{groupedSettingsMenu.map((group) => (
-																<div key={group.id} className="flex flex-col gap-1">
-																	<span className="px-2.5 text-[10.5px] font-bold tracking-wider uppercase text-panel-text-muted">
-																		{group.title}
+														<div className="flex flex-col gap-2">
+															{dockSettingsSections.map((section, secIdx) => (
+																<div
+																	key={section.id}
+																	data-dock-section={section.id}
+																	className="flex flex-col gap-0.5"
+																>
+																	<span
+																		className={cn(
+																			"px-2.5 pb-1 text-[10.5px] font-bold tracking-[0.06em] uppercase text-panel-text-muted",
+																			secIdx > 0 && "pt-1",
+																		)}
+																	>
+																		{section.title}
 																	</span>
+
 																	<div className="flex flex-col gap-0.5">
-																		{group.items.map((entry) => {
-																			const ItemIcon = entry.icon;
-																			const entrySelected =
-																				activeSettingsKey === entry.key;
+																		{section.items.map((navEntry) => {
+																			if (navEntry.type === "direct") {
+																				const EntryIcon = navEntry.icon;
+																				const entrySelected =
+																					activeSettingsId === navEntry.id;
+																				const showBadge = Boolean(
+																					navEntry.badge,
+																				);
+
+																				return (
+																					<button
+																						key={navEntry.id}
+																						type="button"
+																						aria-current={
+																							entrySelected ? "page" : undefined
+																						}
+																						onClick={() =>
+																							navigateToSettingsItem(
+																								navEntry.url,
+																							)
+																						}
+																						className={cn(
+																							"relative flex min-h-[38px] w-full items-center gap-2.5 overflow-hidden rounded-[12px] px-2.5 text-start text-[13px] transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
+																							entrySelected
+																								? "bg-panel-elevated font-bold text-panel-accent"
+																								: "bg-transparent font-medium text-panel-text-secondary",
+																						)}
+																					>
+																						{entrySelected ? (
+																							<span className="pointer-events-none absolute inset-s-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-panel-accent" />
+																						) : null}
+																						<EntryIcon className="size-[18px] shrink-0" />
+																						<span className="min-w-0 flex-1 truncate">
+																							{navEntry.title}
+																						</span>
+																						{showBadge ? (
+																							<span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-panel-accent text-white">
+																								<BellRing className="size-2.5" />
+																							</span>
+																						) : null}
+																					</button>
+																				);
+																			}
+
+																			const isGroupActive =
+																				navEntry.subItems.some((sub) =>
+																					isDockItemActive(sub.url),
+																				);
+																			const isGroupOpen = Boolean(
+																				openDockGroups[navEntry.id],
+																			);
+																			const GroupIcon = navEntry.icon;
+
 																			return (
-																				<button
-																					key={entry.key}
-																					type="button"
-																					aria-current={
-																						entrySelected ? "page" : undefined
-																					}
-																					onClick={() =>
-																						navigateToSettingsItem(entry.to)
-																					}
-																					className={cn(
-																						"flex min-h-[38px] w-full items-center gap-2.5 rounded-[12px] px-2.5 text-start text-[13px] transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
-																						entrySelected
-																							? "bg-panel-elevated font-bold text-panel-accent"
-																							: "bg-transparent font-medium text-panel-text-secondary",
-																					)}
+																				<div
+																					key={navEntry.id}
+																					data-dock-group={navEntry.id}
 																				>
-																					{ItemIcon ? (
-																						<ItemIcon className="size-4 shrink-0" />
-																					) : null}
-																					<span className="truncate">
-																						{entry.label}
-																					</span>
-																				</button>
+																					<button
+																						type="button"
+																						aria-expanded={isGroupOpen}
+																						onClick={() =>
+																							setOpenDockGroups((prev) => ({
+																								...prev,
+																								[navEntry.id]: !isGroupOpen,
+																							}))
+																						}
+																						className={cn(
+																							"relative flex min-h-[38px] w-full items-center justify-between gap-2.5 overflow-hidden rounded-[12px] px-2.5 text-start text-[13px] transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
+																							isGroupActive && !isGroupOpen
+																								? "bg-panel-elevated font-bold text-panel-accent"
+																								: isGroupActive
+																									? "bg-transparent font-bold text-panel-text"
+																									: "bg-transparent font-medium text-panel-text-secondary",
+																						)}
+																					>
+																						{isGroupActive && !isGroupOpen ? (
+																							<span className="pointer-events-none absolute inset-s-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-panel-accent" />
+																						) : null}
+
+																						<span className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+																							<GroupIcon
+																								className={cn(
+																									"size-[18px] shrink-0",
+																									isGroupActive &&
+																										"text-panel-accent",
+																								)}
+																							/>
+																							<span className="truncate">
+																								{navEntry.title}
+																							</span>
+																						</span>
+
+																						<ChevronDown
+																							className={cn(
+																								"size-3.5 shrink-0 text-panel-text-muted transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+																								isGroupOpen
+																									? "rotate-0"
+																									: isRTL
+																										? "rotate-90"
+																										: "-rotate-90",
+																							)}
+																						/>
+																					</button>
+
+																					<AnimatePresence initial={false}>
+																						{isGroupOpen ? (
+																							<motion.div
+																								key="dock-subitems"
+																								initial={{
+																									height: 0,
+																									opacity: 0,
+																								}}
+																								animate={{
+																									height: "auto",
+																									opacity: 1,
+																								}}
+																								exit={{
+																									height: 0,
+																									opacity: 0,
+																								}}
+																								transition={{
+																									duration: 0.2,
+																									ease: [0.16, 1, 0.3, 1],
+																								}}
+																								className="overflow-hidden"
+																							>
+																								<div className="ms-[19px] mt-1 mb-0.5 flex flex-col gap-0.5 border-s border-panel-border! ps-2.5">
+																									{navEntry.subItems.map(
+																										(sub) => {
+																											const SubIcon = sub.icon;
+																											const subSelected =
+																												activeSettingsId ===
+																												sub.id;
+																											return (
+																												<button
+																													key={sub.id}
+																													type="button"
+																													aria-current={
+																														subSelected
+																															? "page"
+																															: undefined
+																													}
+																													onClick={() =>
+																														navigateToSettingsItem(
+																															sub.url,
+																														)
+																													}
+																													className={cn(
+																														"relative flex min-h-[34px] w-full items-center gap-2.5 rounded-[10px] px-2.5 text-start text-xs transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
+																														subSelected
+																															? "bg-panel-elevated font-bold text-panel-accent"
+																															: "bg-transparent font-medium text-panel-text-secondary",
+																													)}
+																												>
+																													{subSelected ? (
+																														<span className="pointer-events-none absolute -inset-s-[11.5px] top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-panel-accent" />
+																													) : null}
+																													<SubIcon className="size-4 shrink-0" />
+																													<span className="truncate">
+																														{sub.title}
+																													</span>
+																												</button>
+																											);
+																										},
+																									)}
+																								</div>
+																							</motion.div>
+																						) : null}
+																					</AnimatePresence>
+																				</div>
 																			);
 																		})}
 																	</div>
@@ -2493,7 +2507,7 @@ function AppLayoutContent() {
 														collisionPadding={12}
 														onOpenAutoFocus={(event) => event.preventDefault()}
 														className={cn(
-															"w-[min(188px,calc(100vw-24px))] max-w-[calc(100vw-24px)] rounded-[20px] border p-2",
+															"z-[1600] w-[min(188px,calc(100vw-24px))] max-w-[calc(100vw-24px)] rounded-[20px] border p-2",
 															DOCK_SURFACE_CLASS,
 														)}
 													>

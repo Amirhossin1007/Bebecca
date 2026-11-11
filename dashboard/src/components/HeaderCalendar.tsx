@@ -111,7 +111,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 		const [displayDate, setDisplayDate] = useState(() => new Date());
 		const [monthDirection, setMonthDirection] = useState<1 | -1>(1);
 		const { isChristmas, window: seasonWindow } = useSeasonal();
-		const isDesktop = useMediaQuery("(min-width: 48em)");
+		const isDesktop = useMediaQuery("(min-width: 769px)");
 		const isPersian = Boolean(i18n.language?.startsWith("fa"));
 		const isRTL = i18n.dir(i18n.language) === "rtl";
 		const showText = isDesktop && !isCompact;

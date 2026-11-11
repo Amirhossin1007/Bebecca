@@ -33,7 +33,7 @@ export const useSheetSwipeToClose = () => {
 
 		const onTouchStart = (event: TouchEvent) => {
 			if (event.touches.length !== 1) return;
-			if (!window.matchMedia("(max-width: 47.99em)").matches) return;
+			if (!window.matchMedia("(max-width: 768px)").matches) return;
 
 			const target = event.target as HTMLElement | null;
 			if (!target) return;
@@ -94,6 +94,7 @@ export const useSheetSwipeToClose = () => {
 					axisLocked = Math.abs(dx) >= Math.abs(dy) ? "primary" : "cross";
 				}
 				if (axisLocked === "primary") {
+					activeSurface.style.animation = "none";
 					activeSurface.style.transition = "none";
 				}
 			}
@@ -126,17 +127,21 @@ export const useSheetSwipeToClose = () => {
 
 			if (!wasPrimary) return;
 
+			if (delta > CLOSE_DISTANCE_PX || velocity > FLICK_VELOCITY_PX_PER_MS) {
+				surface.style.animation = "";
+				surface.style.transition = "";
+				triggerClose(surface);
+				return;
+			}
+
 			surface.style.transition =
-				"transform 220ms cubic-bezier(0.32, 0.72, 0, 1)";
+				"transform 240ms cubic-bezier(0.32, 0.72, 0, 1)";
 			surface.style.transform = "";
 
 			window.setTimeout(() => {
 				surface.style.transition = "";
-			}, 230);
-
-			if (delta > CLOSE_DISTANCE_PX || velocity > FLICK_VELOCITY_PX_PER_MS) {
-				triggerClose(surface);
-			}
+				surface.style.animation = "";
+			}, 250);
 		};
 
 		document.addEventListener("touchstart", onTouchStart, { passive: true });

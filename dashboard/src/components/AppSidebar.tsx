@@ -11,42 +11,11 @@ import {
 	TooltipTrigger,
 } from "components/ui/tooltip";
 import { AnimatePresence, motion } from "framer-motion";
-import useGetUser from "hooks/useGetUser";
 import { useMediaQuery } from "hooks/useMediaQuery";
 import { cn } from "lib/cn";
 import { useColorMode } from "lib/color-mode";
+import { BellRing, ChevronDown, X } from "lucide-react";
 import {
-	ArrowLeftRight,
-	Bell,
-	BellRing,
-	BookOpen,
-	Briefcase,
-	ChartColumn,
-	ChevronDown,
-	CircleUser,
-	Clock,
-	Copy,
-	Database,
-	Eye,
-	FileText,
-	FolderTree,
-	House,
-	LayoutGrid,
-	Link,
-	Server,
-	Settings,
-	Settings2,
-	ShieldCheck,
-	SquareCode,
-	Terminal,
-	TriangleAlert,
-	Users,
-	Wrench,
-	X,
-	Zap,
-} from "lucide-react";
-import {
-	type ElementType,
 	type FC,
 	type MouseEvent as ReactMouseEvent,
 	memo,
@@ -57,23 +26,15 @@ import {
 	useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { NavLink, useHref, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { apiBaseURL } from "service/http";
 import type { SponsorAsset } from "service/sponsors";
-import { AdminRole, AdminSection, AdminSudoScope } from "types/Admin";
 import {
-	getTutorialManifestUrl,
-	getTutorialSeenKey,
-	normalizeTutorialLang,
-} from "utils/tutorials";
+	DEFAULT_TAB_BY_PATH,
+	type GroupNavItem,
+	useNavSections,
+} from "./layout/navConfig";
 import { SponsorCarousel } from "./SponsorCarousel";
-
-const DEFAULT_TAB_BY_PATH: Record<string, string> = {
-	"/settings": "panel",
-	"/hosts": "inbounds",
-	"/usage": "services",
-	"/xray-settings": "basic",
-};
 
 export interface AppSidebarProps {
 	collapsed: boolean;
@@ -82,41 +43,6 @@ export interface AppSidebarProps {
 	inDrawer?: boolean;
 	onRequestExpand?: () => void;
 }
-
-type DirectNavItem = {
-	type: "direct";
-	id: string;
-	title: string;
-	url: string;
-	icon: ElementType<{ className?: string }>;
-	visible: boolean;
-	badge?: boolean;
-};
-
-type GroupSubItem = {
-	id: string;
-	title: string;
-	url: string;
-	icon: ElementType<{ className?: string }>;
-	visible: boolean;
-};
-
-type GroupNavItem = {
-	type: "group";
-	id: string;
-	title: string;
-	icon: ElementType<{ className?: string }>;
-	subItems: GroupSubItem[];
-	visible: boolean;
-};
-
-type NavItem = DirectNavItem | GroupNavItem;
-
-type NavSection = {
-	id: string;
-	title: string;
-	items: NavItem[];
-};
 
 const resolveAssetUrl = (rawUrl?: string): string => {
 	if (!rawUrl) return "";
@@ -325,7 +251,7 @@ const CollapsedGroupPopover: FC<CollapsedGroupPopoverProps> = ({
 	onNavigate,
 }) => {
 	const [open, setOpen] = useState(false);
-	const isDesktop = useMediaQuery("(min-width: 48em)");
+	const isDesktop = useMediaQuery("(min-width: 769px)");
 	const closeTimeoutRef = useRef<number | null>(null);
 	const GroupIcon = group.icon;
 	const visibleSubs = group.subItems.filter((sub) => sub.visible);
@@ -478,80 +404,12 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 	const { t, i18n } = useTranslation();
 	const location = useLocation();
 	const navigate = useNavigate();
-	const dashboardRoot = useHref("/");
 	const { colorMode } = useColorMode();
-	const { userData } = useGetUser();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
-	const tutorialsUrl = "/tutorials";
-
-	const isFullAccess = userData.role === AdminRole.FullAccess;
-	const isPrivilegedAdmin = isFullAccess || userData.role === AdminRole.Sudo;
-	const sectionAccess = userData.permissions?.sections;
-
-	const defaultSelfPermissions = {
-		self_myaccount: false,
-		self_change_password: false,
-		self_api_keys: false,
-		self_placeholders: false,
-	};
-	const baseSelf =
-		userData.permissions?.self_permissions ?? defaultSelfPermissions;
-	const selfAccess = isFullAccess
-		? { self_myaccount: true, self_change_password: true, self_api_keys: true }
-		: baseSelf;
-
-	const canViewUsage = Boolean(sectionAccess?.[AdminSection.Usage]);
-	const canViewAdmins = Boolean(sectionAccess?.[AdminSection.Admins]);
-	const canViewServicesSection = Boolean(
-		sectionAccess?.[AdminSection.Services],
-	);
-	const canViewHosts =
-		isPrivilegedAdmin && Boolean(sectionAccess?.[AdminSection.Hosts]);
-	const canViewNodes = Boolean(sectionAccess?.[AdminSection.Nodes]);
-	const canViewRecentActions =
-		isFullAccess ||
-		(userData.role === AdminRole.Sudo &&
-			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Xray]));
-	const canManagePlaceholders =
-		isFullAccess ||
-		(userData.role === AdminRole.Sudo &&
-			Boolean(userData.permissions?.sudo?.[AdminSudoScope.Subscriptions])) ||
-		Boolean(baseSelf.self_placeholders);
-
-	const [hasNewTutorials, setHasNewTutorials] = useState(false);
+	const { navSections } = useNavSections();
 	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
 		users_hub: true,
 	});
-
-	const checkTutorialUpdates = useCallback(async () => {
-		const langKey = normalizeTutorialLang(i18n.language);
-		try {
-			const response = await fetch(getTutorialManifestUrl(dashboardRoot), {
-				headers: { "Cache-Control": "no-cache" },
-			});
-			if (!response.ok) return;
-			const manifest = (await response.json()) as Record<string, string>;
-			const version = manifest[langKey]?.toString().trim();
-			if (!version) {
-				setHasNewTutorials(false);
-				return;
-			}
-			const seenKey = getTutorialSeenKey(langKey);
-			const seenVersion = window.localStorage.getItem(seenKey);
-			if (seenVersion === null) {
-				window.localStorage.setItem(seenKey, version);
-				setHasNewTutorials(false);
-				return;
-			}
-			setHasNewTutorials(seenVersion !== version);
-		} catch {
-			setHasNewTutorials(false);
-		}
-	}, [dashboardRoot, i18n.language]);
-
-	useEffect(() => {
-		void checkTutorialUpdates();
-	}, [checkTutorialUpdates]);
 
 	const handleNavigate = useCallback(
 		(url: string, event?: ReactMouseEvent) => {
@@ -564,276 +422,6 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 			}
 		},
 		[inDrawer, navigate, onRequestExpand],
-	);
-
-	const navSections: NavSection[] = useMemo(
-		() => [
-			{
-				id: "sec_dashboard",
-				title: t("sidebar.sections.dashboard", "Overview"),
-				items: [
-					{
-						type: "direct",
-						id: "dashboard",
-						title: t("dashboard"),
-						url: "/",
-						icon: House,
-						visible: true,
-					},
-				],
-			},
-			{
-				id: "sec_users",
-				title: t("sidebar.sections.users", "Users & Groups"),
-				items: [
-					{
-						type: "group",
-						id: "users_hub",
-						title: t("sidebar.groups.userHub", "User Management"),
-						icon: Users,
-						visible: true,
-						subItems: [
-							{
-								id: "users_list",
-								title: t("sidebar.usersList", t("users")),
-								url: "/users",
-								icon: Users,
-								visible: true,
-							},
-							{
-								id: "groups",
-								title: t("groups.title"),
-								url: "/groups",
-								icon: FolderTree,
-								visible: true,
-							},
-							{
-								id: "bulk_actions",
-								title: t("bulkActions.menu"),
-								url: "/bulk-actions",
-								icon: Zap,
-								visible: true,
-							},
-						],
-					},
-				],
-			},
-			{
-				id: "sec_infrastructure",
-				title: t("sidebar.sections.infrastructure", "Infrastructure"),
-				items: [
-					{
-						type: "direct",
-						id: "nodes",
-						title: t("header.nodeSettings"),
-						url: "/node-settings",
-						icon: Server,
-						visible: canViewNodes,
-					},
-					{
-						type: "direct",
-						id: "hosts",
-						title: t("header.hostSettings"),
-						url: "/hosts",
-						icon: Link,
-						visible: canViewHosts,
-					},
-					{
-						type: "direct",
-						id: "services",
-						title: t("services.title"),
-						url: "/services",
-						icon: LayoutGrid,
-						visible: canViewServicesSection,
-					},
-				],
-			},
-			{
-				id: "sec_traffic_admins",
-				title: t("sidebar.sections.trafficAndAdmins", "Traffic & Admins"),
-				items: [
-					{
-						type: "direct",
-						id: "myaccount",
-						title: t("myaccount.menu"),
-						url: "/myaccount",
-						icon: CircleUser,
-						visible: Boolean(selfAccess.self_myaccount),
-					},
-					{
-						type: "direct",
-						id: "usage",
-						title: t("usage.menu"),
-						url: "/usage",
-						icon: ChartColumn,
-						visible: canViewUsage,
-					},
-					{
-						type: "direct",
-						id: "admins",
-						title: t("admins"),
-						url: "/admins",
-						icon: Briefcase,
-						visible: canViewAdmins,
-					},
-				],
-			},
-			{
-				id: "sec_system",
-				title: t("sidebar.sections.system", "System & Operations"),
-				items: [
-					{
-						type: "group",
-						id: "core_routing",
-						title: t("sidebar.groups.coreRouting", "Core & Routing"),
-						icon: Wrench,
-						visible:
-							Boolean(sectionAccess?.[AdminSection.Xray]) || isPrivilegedAdmin,
-						subItems: [
-							{
-								id: "xray_settings",
-								title: t("header.xraySettings"),
-								url: "/xray-settings",
-								icon: Wrench,
-								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
-							},
-							{
-								id: "haproxy",
-								title: t("haproxy.title"),
-								url: "/haproxy",
-								icon: ArrowLeftRight,
-								visible: isPrivilegedAdmin,
-							},
-						],
-					},
-					{
-						type: "group",
-						id: "system_tools",
-						title: t("sidebar.groups.system", "System"),
-						icon: Settings,
-						visible: true,
-						subItems: [
-							{
-								id: "settings_panel",
-								title: t("header.integrationSettings"),
-								url: "/settings",
-								icon: Settings2,
-								visible: Boolean(sectionAccess?.[AdminSection.Integrations]),
-							},
-							{
-								id: "notifications",
-								title: t("notifications.menu"),
-								url: "/notifications",
-								icon: Bell,
-								visible: true,
-							},
-							{
-								id: "placeholders",
-								title: isPrivilegedAdmin
-									? t("placeholders.menu")
-									: t("placeholders.settingsMenu"),
-								url: "/placeholders",
-								icon: Copy,
-								visible: canManagePlaceholders,
-							},
-							{
-								id: "phpmyadmin",
-								title: t("phpmyadmin.menu"),
-								url: "/phpmyadmin",
-								icon: Database,
-								visible: isPrivilegedAdmin,
-							},
-							{
-								id: "external_apps",
-								title: t("externalApps.menu"),
-								url: "/external-apps",
-								icon: Terminal,
-								visible: isPrivilegedAdmin,
-							},
-						],
-					},
-					{
-						type: "group",
-						id: "observability",
-						title: t("sidebar.groups.observability", "Monitoring & Logs"),
-						icon: ShieldCheck,
-						visible:
-							Boolean(sectionAccess?.[AdminSection.Xray]) ||
-							canViewRecentActions ||
-							isPrivilegedAdmin,
-						subItems: [
-							{
-								id: "xray_logs",
-								title: t("pages.xray.logs"),
-								url: "/xray-logs",
-								icon: FileText,
-								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
-							},
-							{
-								id: "system_errors",
-								title: t("diagnostics.menu"),
-								url: "/errors",
-								icon: TriangleAlert,
-								visible:
-									Boolean(sectionAccess?.[AdminSection.Xray]) ||
-									isPrivilegedAdmin,
-							},
-							{
-								id: "access_insights",
-								title: t("header.accessInsights"),
-								url: "/access-insights",
-								icon: Eye,
-								visible: Boolean(sectionAccess?.[AdminSection.Xray]),
-							},
-							{
-								id: "recent_actions",
-								title: t("recentActions.title"),
-								url: "/recent-actions",
-								icon: Clock,
-								visible: canViewRecentActions,
-							},
-						],
-					},
-				],
-			},
-			{
-				id: "sec_docs",
-				title: t("sidebar.sections.docs", "Resources"),
-				items: [
-					{
-						type: "direct",
-						id: "tutorials",
-						title: t("sidebar.tutorialsAndFaq", t("tutorials.menu")),
-						url: tutorialsUrl,
-						icon: BookOpen,
-						badge: hasNewTutorials,
-						visible: true,
-					},
-					{
-						type: "direct",
-						id: "api_docs",
-						title: t("apiDocs.menu"),
-						url: "/api-docs",
-						icon: SquareCode,
-						visible: isPrivilegedAdmin,
-					},
-				],
-			},
-		],
-		[
-			t,
-			canViewAdmins,
-			selfAccess.self_myaccount,
-			canViewUsage,
-			canViewHosts,
-			canViewNodes,
-			canViewServicesSection,
-			sectionAccess,
-			canViewRecentActions,
-			isPrivilegedAdmin,
-			canManagePlaceholders,
-			hasNewTutorials,
-		],
 	);
 
 	useEffect(() => {
@@ -943,9 +531,9 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 							<button
 								type="button"
 								data-drawer-close="true"
-								aria-label="Close sidebar"
+								aria-label={t("cancel", "Close")}
 								onClick={onRequestExpand}
-								className="inline-flex size-[34px] min-w-[34px] items-center justify-center rounded-full text-panel-text-secondary transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.94] md:hover:bg-panel-elevated md:hover:text-panel-text"
+								className="inline-flex size-9 min-w-9 items-center justify-center rounded-full border border-panel-border! bg-panel-elevated/60 text-panel-text-secondary transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.92] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 							>
 								<X className="size-4" />
 							</button>

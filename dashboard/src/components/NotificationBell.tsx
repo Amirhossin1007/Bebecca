@@ -395,7 +395,7 @@ export const NotificationMenuItem: FC<NotificationMenuItemProps> = ({
 	const { t, i18n } = useTranslation();
 	const navigate = useNavigate();
 	const localDisclosure = useDisclosure();
-	const isDesktop = useMediaQuery("(min-width: 48em)");
+	const isDesktop = useMediaQuery("(min-width: 769px)");
 	const isControlled = controlledIsOpen !== undefined;
 	const isOpen = isControlled ? controlledIsOpen : localDisclosure.isOpen;
 	const { unread, items, openItem, markAll, isMarkingAll } =
@@ -510,8 +510,9 @@ export const NotificationBell: FC = () => {
 					type="button"
 					variant="outline"
 					size="sm"
+					data-header-notifications="true"
 					aria-label={t("notifications.bell.label")}
-					className="relative size-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-surface p-0 text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.96] md:rounded-[12px] md:hover:border-panel-border-strong! md:hover:bg-panel-elevated md:hover:text-panel-text"
+					className="relative size-[34px] min-w-[34px] rounded-[12px] border-panel-border! bg-panel-surface p-0 text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.96] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 				>
 					<Bell className="size-4" />
 					{unread > 0 ? (
