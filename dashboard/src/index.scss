@@ -2836,15 +2836,6 @@ input[type="number"] {
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), inset 0 0 0 1px color-mix(in srgb, var(--rb-panel-border) calc(var(--proximity, 0) * 100%), transparent) !important;
   }
 
-  .rb-stat-card button[data-rb-swap]:hover {
-    background-color: var(--rb-panel-border) !important;
-    color: var(--rb-panel-text) !important;
-  }
-
-  .rb-stat-card button[data-rb-swap]:active {
-    background-color: var(--rb-panel-border-strong) !important;
-  }
-
   .rb-stat-card [data-rb-swap][data-rb-swap-text] {
     color: color-mix(in srgb, var(--rb-panel-text) calc(var(--proximity, 0) * 100%), var(--rb-panel-text-secondary)) !important;
   }

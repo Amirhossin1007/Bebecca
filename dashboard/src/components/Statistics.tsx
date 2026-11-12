@@ -1143,17 +1143,13 @@ const ResourceCard: FC<{
 						</p>
 					</div>
 					{onHistory && (
-						<Button
+						<button
 							type="button"
 							onClick={onHistory}
-							variant="ghost"
-							size="xs"
-							data-rb-swap=""
-							data-rb-swap-text=""
-							className="relative h-[22px] shrink-0 rounded-full bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary active:scale-[0.97] after:absolute after:-inset-2.5 after:content-['']"
+							className="relative inline-flex h-[22px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary select-none outline-none transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-panel-accent/50 active:scale-[0.97] after:absolute after:-inset-2.5 after:content-['']"
 						>
 							{historyLabel}
-						</Button>
+						</button>
 					)}
 				</div>
 
@@ -1703,7 +1699,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					className={cn(
 						"rb-dashboard-header-meta flex min-w-0",
 						inlineStatusWithTitle
-							? "w-full flex-row items-center justify-between gap-3"
+							? "w-full flex-row items-center justify-start gap-3"
 							: "flex-col items-start gap-1.5",
 					)}
 				>
@@ -1718,7 +1714,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						className={cn(
 							"flex items-center gap-2",
 							inlineStatusWithTitle
-								? "shrink-0 whitespace-nowrap"
+								? "shrink-0 pt-[2px] whitespace-nowrap"
 								: "flex-wrap",
 						)}
 					>
@@ -1904,17 +1900,13 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 									})}
 								</div>
 							)}
-							<Button
+							<button
 								type="button"
 								onClick={() => openHistory("network")}
-								variant="ghost"
-								size="xs"
-								data-rb-swap=""
-								data-rb-swap-text=""
-								className="relative h-[22px] shrink-0 rounded-full bg-panel-elevated px-2 text-[10.5px] font-semibold text-panel-text-secondary active:scale-[0.97] sm:px-2.5 sm:text-[11px] after:absolute after:-inset-2.5 after:content-['']"
+								className="relative inline-flex h-[22px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-panel-elevated px-2 text-[10.5px] font-semibold text-panel-text-secondary select-none outline-none transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-panel-accent/50 active:scale-[0.97] sm:px-2.5 sm:text-[11px] after:absolute after:-inset-2.5 after:content-['']"
 							>
 								{t("dashboard.system.viewHistory")}
-							</Button>
+							</button>
 						</div>
 					}
 				>
@@ -1996,15 +1988,13 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					</div>
 				}
 				action={
-					<Button
+					<button
 						type="button"
 						onClick={() => openHistory("panel")}
-						variant="ghost"
-						size="xs"
-						className="relative h-[22px] shrink-0 rounded-full bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary transition-colors active:scale-[0.97] min-[769px]:hover:bg-panel-border min-[769px]:hover:text-panel-text after:absolute after:-inset-2.5 after:content-['']"
+						className="relative inline-flex h-[22px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary select-none outline-none transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-panel-accent/50 active:scale-[0.97] after:absolute after:-inset-2.5 after:content-['']"
 					>
 						{t("dashboard.system.viewHistory")}
-					</Button>
+					</button>
 				}
 			>
 				<div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 min-[769px]:gap-4">

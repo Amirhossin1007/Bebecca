@@ -22,6 +22,7 @@ import { useMediaQuery } from "hooks/useMediaQuery";
 import { useSheetSwipeToClose } from "hooks/useSheetSwipeToClose";
 import { cn } from "lib/cn";
 import { EDITOR_PAGE_ID, useActiveEntityPage } from "lib/entityPages";
+import { resolveAppLanguageCode } from "lib/language";
 import {
 	Bell,
 	BellRing,
@@ -444,6 +445,9 @@ function AppLayoutContent() {
 		{ code: "zh-cn", label: "中文", flag: "CN" },
 		{ code: "ru", label: "Русский", flag: "RU" },
 	];
+	const activeLanguage = resolveAppLanguageCode(
+		i18n.language || i18n.resolvedLanguage,
+	);
 
 	const [openDockGroups, setOpenDockGroups] = useState<Record<string, boolean>>({
 		users_hub: true,
@@ -1254,29 +1258,29 @@ function AppLayoutContent() {
 				nextBreadcrumbMode = "full";
 				nextBannerShrinkable = false;
 				nextTruncate = false;
-			} else if (spaceCompactCalFullStars >= stage3Needed) {
+			} else if (spaceCompactCalCompactStars >= stage2Needed) {
 				nextCalendarCompact = true;
-				nextStarsCompact = false;
+				nextStarsCompact = true;
+				nextBreadcrumbMode = "full";
+				nextBannerShrinkable = false;
+				nextTruncate = false;
+			} else if (spaceCompactCalCompactStars >= stage3Needed) {
+				nextCalendarCompact = true;
+				nextStarsCompact = true;
 				nextBreadcrumbMode = "compact";
 				nextBannerShrinkable = false;
 				nextTruncate = false;
-			} else if (spaceCompactCalFullStars >= stage4Needed) {
-				nextCalendarCompact = true;
-				nextStarsCompact = false;
-				nextBreadcrumbMode = "minimal";
-				nextBannerShrinkable = false;
-				nextTruncate = false;
-			} else if (hasBanner && spaceCompactCalFullStars >= stage5Needed) {
-				nextCalendarCompact = true;
-				nextStarsCompact = false;
-				nextBreadcrumbMode = "minimal";
-				nextBannerShrinkable = true;
-				nextTruncate = false;
-			} else if (spaceCompactCalCompactStars >= stage5Needed) {
+			} else if (spaceCompactCalCompactStars >= stage4Needed) {
 				nextCalendarCompact = true;
 				nextStarsCompact = true;
 				nextBreadcrumbMode = "minimal";
-				nextBannerShrinkable = hasBanner;
+				nextBannerShrinkable = false;
+				nextTruncate = false;
+			} else if (hasBanner && spaceCompactCalCompactStars >= stage5Needed) {
+				nextCalendarCompact = true;
+				nextStarsCompact = true;
+				nextBreadcrumbMode = "minimal";
+				nextBannerShrinkable = true;
 				nextTruncate = false;
 			} else {
 				nextCalendarCompact = true;
@@ -1977,7 +1981,7 @@ function AppLayoutContent() {
 															</span>
 															<span className="shrink-0 text-[11px] font-semibold text-panel-text-muted">
 																{languageItems.find(
-																	(item) => item.code === i18n.language,
+																	(item) => item.code === activeLanguage,
 																)?.label || "English"}
 															</span>
 														</button>
@@ -1995,7 +1999,7 @@ function AppLayoutContent() {
 													>
 														<div className="flex flex-col gap-0.5">
 															{languageItems.map(({ code, label, flag }) => {
-																const isActiveLang = i18n.language === code;
+																const isActiveLang = activeLanguage === code;
 																return (
 																	<button
 																		key={code}

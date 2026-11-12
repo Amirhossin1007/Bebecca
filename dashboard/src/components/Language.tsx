@@ -11,6 +11,7 @@ import type { FC, MutableRefObject, ReactNode } from "react";
 import ReactCountryFlag from "react-country-flag";
 import { useTranslation } from "react-i18next";
 import ImperialIranFlag from "../assets/imperial-iran-flag.svg?react";
+import { resolveAppLanguageCode } from "lib/language";
 
 type LanguageProps = {
 	actions?: ReactNode;
@@ -30,6 +31,9 @@ export const Language: FC<LanguageProps> = ({
 }) => {
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const activeLanguage = resolveAppLanguageCode(
+		i18n.language || i18n.resolvedLanguage,
+	);
 
 	return (
 		<DropdownMenu dir={isRTL ? "rtl" : "ltr"}>
@@ -50,7 +54,7 @@ export const Language: FC<LanguageProps> = ({
 				className="z-[9999] min-w-[180px]! rounded-[14px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_12px_32px_rgba(0,0,0,0.24)] select-none"
 			>
 				{LANGUAGE_OPTIONS.map(({ code, label, flag }) => {
-					const isActive = i18n.language === code;
+					const isActive = activeLanguage === code;
 					return (
 						<DropdownMenuItem
 							key={code}

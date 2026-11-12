@@ -584,6 +584,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 		>
 			<span className="inline-flex items-center justify-center gap-2">
 				<ArrowUpCircle
+					strokeWidth={1.95}
 					className={cn(
 						"size-3.5 shrink-0",
 						update?.available ? "text-white" : "text-panel-text-secondary",
@@ -683,7 +684,10 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 			)}
 		>
 			<span className="inline-flex items-center justify-center gap-2">
-				<RotateCw className="size-3.5 shrink-0 text-panel-text-secondary" />
+				<RotateCw
+					strokeWidth={1.8}
+					className="size-[15.5px] shrink-0 text-panel-text-secondary"
+				/>
 				<span className="text-[12px] font-semibold leading-none">
 					{t("dashboard.maintenance.restartAction")}
 				</span>
