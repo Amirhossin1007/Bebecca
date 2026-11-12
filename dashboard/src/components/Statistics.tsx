@@ -1146,6 +1146,8 @@ const ResourceCard: FC<{
 						<button
 							type="button"
 							onClick={onHistory}
+							data-rb-swap=""
+							data-rb-swap-text=""
 							className="relative inline-flex h-[22px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary select-none outline-none transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-panel-accent/50 active:scale-[0.97] after:absolute after:-inset-2.5 after:content-['']"
 						>
 							{historyLabel}
@@ -1903,6 +1905,8 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 							<button
 								type="button"
 								onClick={() => openHistory("network")}
+								data-rb-swap=""
+								data-rb-swap-text=""
 								className="relative inline-flex h-[22px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-panel-elevated px-2 text-[10.5px] font-semibold text-panel-text-secondary select-none outline-none transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-panel-accent/50 active:scale-[0.97] sm:px-2.5 sm:text-[11px] after:absolute after:-inset-2.5 after:content-['']"
 							>
 								{t("dashboard.system.viewHistory")}
@@ -1991,6 +1995,8 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					<button
 						type="button"
 						onClick={() => openHistory("panel")}
+						data-rb-swap=""
+						data-rb-swap-text=""
 						className="relative inline-flex h-[22px] shrink-0 cursor-pointer items-center justify-center rounded-full bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary select-none outline-none transition-transform duration-150 focus-visible:ring-2 focus-visible:ring-panel-accent/50 active:scale-[0.97] after:absolute after:-inset-2.5 after:content-['']"
 					>
 						{t("dashboard.system.viewHistory")}
