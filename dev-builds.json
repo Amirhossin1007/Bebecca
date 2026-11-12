@@ -1,9 +1,29 @@
 {
   "schema_version": 1,
   "project": "Rebecca",
-  "latest": "dev-b350db7",
-  "updated_at": "2026-11-12T02:03:11Z",
+  "latest": "dev-c7e9cda",
+  "updated_at": "2026-11-12T02:08:50Z",
   "builds": [
+    {
+      "tag": "dev-c7e9cda",
+      "sha": "c7e9cda3c126e99b765141bf026c2dc0fb2aeba4",
+      "branch": "dev",
+      "workflow": "Binary Build",
+      "run_id": "43139151109",
+      "run_number": "522",
+      "created_at": "2026-11-12T02:08:50Z",
+      "release_tag": "dev-builds",
+      "assets": {
+        "linux-amd64": {
+          "name": "rebecca-linux-amd64-dev-c7e9cda.tar.gz",
+          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-amd64-dev-c7e9cda.tar.gz"
+        },
+        "linux-arm64": {
+          "name": "rebecca-linux-arm64-dev-c7e9cda.tar.gz",
+          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-arm64-dev-c7e9cda.tar.gz"
+        }
+      }
+    },
     {
       "tag": "dev-b350db7",
       "sha": "b350db7944c0aa757198ae548f16ebaff6e79bbd",
@@ -873,22 +893,6 @@
         "linux-amd64": {
           "name": "rebecca-linux-amd64-dev-a0e99b8.tar.gz",
           "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-amd64-dev-a0e99b8.tar.gz"
-        }
-      }
-    },
-    {
-      "tag": "dev-e39c710",
-      "sha": "e39c710f19db20af2455234a46f8ec84b94b14d3",
-      "branch": "dev",
-      "workflow": "Binary Build",
-      "run_id": "38269440950",
-      "run_number": "458",
-      "created_at": "2026-10-12T15:23:24Z",
-      "release_tag": "dev-builds",
-      "assets": {
-        "linux-amd64": {
-          "name": "rebecca-linux-amd64-dev-e39c710.tar.gz",
-          "url": "https://github.com/Amirhossin1007/Bebecca/releases/download/dev-builds/rebecca-linux-amd64-dev-e39c710.tar.gz"
         }
       }
     }
