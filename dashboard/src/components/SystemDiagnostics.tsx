@@ -79,7 +79,7 @@ export const SystemDiagnostics = ({
 							to={diagnosticHref(issue)}
 							aria-label={`${issue.resource}: ${issue.message}`}
 							className={cn(
-								"group block rounded-[14px] border border-panel-border bg-panel-surface/90 p-3.5 no-underline transition-[border-color,background-color] duration-200 min-[769px]:hover:border-panel-border-strong min-[769px]:hover:bg-panel-elevated focus-visible:outline-2 focus-visible:outline-panel-accent",
+								"group block rounded-[14px] border border-panel-border! bg-panel-surface/90 p-3.5 no-underline transition-[border-color,background-color] duration-200 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated focus-visible:outline-2 focus-visible:outline-panel-accent",
 							)}
 						>
 							<div className="flex flex-wrap items-center justify-between gap-2 mb-2">

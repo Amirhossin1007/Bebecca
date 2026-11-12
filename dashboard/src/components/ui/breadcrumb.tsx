@@ -179,7 +179,7 @@ function BreadcrumbEllipsisDropdown({
 			<DropdownMenuContent
 				align={isRTL ? "end" : "start"}
 				sideOffset={6}
-				className="z-[2500] min-w-[164px]! rounded-[14px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_12px_32px_rgba(0,0,0,0.24)]"
+				className="z-[2500] min-w-[164px]! rounded-[16px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_12px_32px_rgba(0,0,0,0.24)]"
 			>
 				{items.map((item, idx) => {
 					if (!item.path) {

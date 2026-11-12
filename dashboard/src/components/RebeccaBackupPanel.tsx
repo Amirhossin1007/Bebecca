@@ -429,7 +429,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 											disabled={importMutation.isPending}
 											variant="ghost"
 											size="xs"
-											className="h-7 rounded-[8px] px-2.5 text-[11px] text-panel-text-muted active:scale-[0.97] min-[769px]:hover:text-red-500"
+											className="h-7 rounded-[8px] px-2.5 text-[11px] text-panel-text-muted hover:bg-transparent dark:hover:bg-transparent active:scale-[0.97] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-red-600 min-[769px]:dark:hover:text-red-400"
 										>
 											<Trash2 className="size-3.5" />
 											<span>{t("dashboard.backup.clearFiles")}</span>
@@ -539,7 +539,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 							disabled={importMutation.isPending}
 							variant="ghost"
 							size="sm"
-							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted active:scale-[0.97]"
+							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted hover:bg-transparent dark:hover:bg-transparent active:scale-[0.97] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 						>
 							{importStage === "completed" ? t("close") : t("cancel")}
 						</Button>
@@ -788,7 +788,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 							disabled={exportMutation.isPending}
 							variant="ghost"
 							size="sm"
-							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted active:scale-[0.97]"
+							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted hover:bg-transparent dark:hover:bg-transparent active:scale-[0.97] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 						>
 							{exportDone ? t("close") : t("cancel")}
 						</Button>

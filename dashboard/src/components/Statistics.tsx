@@ -1228,7 +1228,7 @@ const ResourceCard: FC<{
 				{(footerLeft || footerRight) && (
 					<div
 						dir={isRTL ? "rtl" : "ltr"}
-						className="mt-2.5 flex items-center justify-between gap-2 border-t border-panel-border/70 pt-2 text-[11px] font-medium text-panel-text-muted tabular-nums [unicode-bidi:isolate]"
+						className="mt-2.5 flex items-center justify-between gap-2 border-t border-panel-border/70! pt-2 text-[11px] font-medium text-panel-text-muted tabular-nums [unicode-bidi:isolate]"
 					>
 						<p className="truncate">{footerLeft}</p>
 						<p className="truncate">{footerRight}</p>
@@ -1248,7 +1248,7 @@ const StatRow: FC<{
 	tagColor?: string;
 	helper?: string;
 }> = ({ label, value, dimLabel, accent, tag, tagColor, helper }) => (
-	<div className="flex items-center justify-between gap-3 border-b border-panel-border/80 py-2.5 last:border-b-0">
+	<div className="flex items-center justify-between gap-3 border-b border-panel-border/80! py-2.5 last:border-b-0">
 		<div className="flex min-w-0 flex-nowrap items-center gap-2.5">
 			{tagColor && (
 				<span
@@ -1331,7 +1331,7 @@ const SectionCard: FC<{
 			{(title || action) && (
 				<div
 					className={cn(
-						"relative z-[1] flex flex-wrap items-center justify-between gap-2.5 border-b border-panel-border px-4 py-3.5 sm:px-5 min-[769px]:px-6",
+						"relative z-[1] flex flex-wrap items-center justify-between gap-2.5 border-b border-panel-border! px-4 py-3.5 sm:px-5 min-[769px]:px-6",
 						headerClassName,
 					)}
 				>
@@ -1847,7 +1847,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						<div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
 							<span
 								data-rb-icon=""
-								className="flex size-6 shrink-0 items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary sm:size-[26px]"
+								className="flex size-6 shrink-0 items-center justify-center rounded-[8px] bg-panel-elevated text-panel-text-secondary sm:size-7 sm:rounded-[9px]"
 							>
 								<Signal className="size-3.5" />
 							</span>
@@ -1933,7 +1933,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						<div className="flex items-center gap-2.5">
 							<span
 								data-rb-icon=""
-								className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary"
+								className="flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-panel-elevated text-panel-text-secondary"
 							>
 								<Clock className="size-3.5" />
 							</span>
@@ -1946,7 +1946,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 							<div className="flex min-w-0 items-center gap-2.5">
 								<span
 									data-rb-icon=""
-									className="flex size-7 shrink-0 items-center justify-center rounded-[8px] bg-panel-elevated text-panel-text-secondary"
+									className="flex size-7 shrink-0 items-center justify-center rounded-[10px] bg-panel-elevated text-panel-text-secondary"
 								>
 									<Server className="size-3.5" />
 								</span>
@@ -1960,7 +1960,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 							<div className="flex min-w-0 items-center gap-2.5">
 								<span
 									data-rb-icon=""
-									className="flex size-7 shrink-0 items-center justify-center rounded-[8px] bg-panel-elevated text-panel-text-secondary"
+									className="flex size-7 shrink-0 items-center justify-center rounded-[10px] bg-panel-elevated text-panel-text-secondary"
 								>
 									<Database className="size-3.5" />
 								</span>
@@ -1984,7 +1984,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					<div className="flex items-center gap-2.5">
 						<span
 							data-rb-icon=""
-							className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary"
+							className="flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-panel-elevated text-panel-text-secondary"
 						>
 							<Cpu className="size-3.5" />
 						</span>
@@ -2033,7 +2033,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					<div className="flex items-center gap-2.5">
 						<span
 							data-rb-icon=""
-							className="flex size-7 shrink-0 items-center justify-center rounded-[10px] bg-panel-elevated text-panel-text-secondary"
+							className="flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-panel-elevated text-panel-text-secondary"
 						>
 							<Users className="size-3.5" />
 						</span>
@@ -2191,7 +2191,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						<div className="flex items-center gap-2.5">
 							<span
 								data-rb-icon=""
-								className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary"
+								className="flex size-7 shrink-0 items-center justify-center rounded-[9px] bg-panel-elevated text-panel-text-secondary"
 							>
 								<ShieldCheck className="size-3.5" />
 							</span>

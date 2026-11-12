@@ -216,7 +216,7 @@ const SidebarLogoCarousel: FC<SidebarLogoCarouselProps> = memo(
 								<TooltipContent
 									side={isRTL ? "left" : "right"}
 									sideOffset={10}
-									className="z-[2200] rounded-[10px] border border-panel-border! bg-panel-surface px-3 py-1.5 text-xs font-semibold text-panel-text shadow-lg"
+									className="z-[2200] rounded-[10px] border border-panel-border! bg-panel-elevated px-3 py-1.5 text-xs font-semibold text-panel-text shadow-lg"
 								>
 									{currentItem.label}
 								</TooltipContent>
@@ -458,7 +458,7 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 									{isNotif && unreadCount > 0 ? (
 										<span
 											dir="ltr"
-											className="inline-flex h-[17px] min-w-[17px] shrink-0 items-center justify-center rounded-full bg-panel-accent px-1 text-[10px] font-bold text-white tabular-nums [unicode-bidi:isolate]"
+											className="inline-flex h-[17px] min-w-[17px]! shrink-0 items-center justify-center rounded-full bg-panel-accent px-1 text-[10px] font-bold text-white tabular-nums [unicode-bidi:isolate]"
 										>
 											{unreadCount > 99 ? "99+" : unreadCount}
 										</span>
@@ -508,7 +508,7 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 										{isNotif && unreadCount > 0 ? (
 											<span
 												dir="ltr"
-												className="inline-flex h-[17px] min-w-[17px] shrink-0 items-center justify-center rounded-full bg-panel-accent px-1 text-[10px] font-bold text-white tabular-nums [unicode-bidi:isolate]"
+												className="inline-flex h-[17px] min-w-[17px]! shrink-0 items-center justify-center rounded-full bg-panel-accent px-1 text-[10px] font-bold text-white tabular-nums [unicode-bidi:isolate]"
 											>
 												{unreadCount > 99 ? "99+" : unreadCount}
 											</span>
@@ -809,7 +809,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 															<TooltipContent
 																side={isRTL ? "left" : "right"}
 																sideOffset={10}
-																className="z-[2200] rounded-[10px] border border-panel-border! bg-panel-surface px-3 py-1.5 text-xs font-semibold text-panel-text shadow-lg"
+																className="z-[2200] rounded-[10px] border border-panel-border! bg-panel-elevated px-3 py-1.5 text-xs font-semibold text-panel-text shadow-lg"
 															>
 																{item.title}
 															</TooltipContent>

@@ -137,7 +137,7 @@ export const GitHubStars: FC<GitHubStarsProps> = memo(function GitHubStars({
 			className={cn(
 				"inline-flex h-[34px] shrink-0 items-center justify-center border border-panel-border! bg-panel-surface dark:bg-input/30 text-panel-text no-underline shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.97] active:bg-panel-elevated focus-visible:ring-2 focus-visible:ring-panel-accent/50 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
 				isIconOnly
-					? "size-[34px] min-w-[34px] rounded-full px-0 min-[769px]:rounded-[12px]"
+					? "size-[34px] min-w-[34px]! rounded-full px-0 min-[769px]:rounded-[12px]"
 					: "gap-2 rounded-[12px] px-3",
 				className,
 			)}

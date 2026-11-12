@@ -1309,6 +1309,12 @@ function AppLayoutContent() {
 		const timer = window.setTimeout(checkFit, 20);
 		const ro = new ResizeObserver(checkFit);
 		ro.observe(headerEl);
+		const controlsEl = headerEl.querySelector<HTMLElement>(
+			"[data-header-controls]",
+		);
+		if (controlsEl) {
+			ro.observe(controlsEl);
+		}
 		return () => {
 			window.clearTimeout(timer);
 			ro.disconnect();
@@ -1385,7 +1391,7 @@ function AppLayoutContent() {
 										if (isMobile) sidebarDrawer.onOpen();
 										else setSidebarCollapsed(!sidebarCollapsed);
 									}}
-									className="inline-flex size-[34px] min-w-[34px] shrink-0 items-center justify-center rounded-full border border-panel-border! bg-panel-surface dark:bg-input/30 text-panel-text-secondary transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-panel-accent/50 min-[769px]:rounded-[12px] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
+									className="inline-flex size-[34px] min-w-[34px]! shrink-0 items-center justify-center rounded-full border border-panel-border! bg-panel-surface dark:bg-input/30 text-panel-text-secondary shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.95] focus-visible:ring-2 focus-visible:ring-panel-accent/50 min-[769px]:rounded-[12px] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:text-panel-text min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
 								>
 									<AnimatedHamburger
 										isOpen={isMobile ? sidebarDrawer.isOpen : !sidebarCollapsed}
@@ -1853,7 +1859,7 @@ function AppLayoutContent() {
 												variant="outline"
 												size="sm"
 												aria-label={t("a11y.userMenu")}
-												className="h-[34px] w-[34px] min-w-[34px] rounded-full border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-panel-surface dark:hover:bg-input/30 active:scale-[0.97] active:bg-panel-elevated min-[769px]:w-auto min-[769px]:min-w-0 min-[769px]:rounded-[12px] min-[769px]:px-3 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+												className="h-[34px] w-[34px] min-w-[34px]! rounded-full border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-panel-surface dark:hover:bg-input/30 active:scale-[0.97] active:bg-panel-elevated min-[769px]:w-auto min-[769px]:min-w-0 min-[769px]:rounded-[12px] min-[769px]:px-3 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
 											>
 												<span className="flex items-center justify-center gap-2">
 													<span className="relative inline-flex shrink-0 items-center justify-center">
@@ -2170,7 +2176,7 @@ function AppLayoutContent() {
 										}}
 										variant="ghost"
 										size="xs"
-										className="text-sm"
+										className="min-h-9 rounded-[10px] px-3 text-sm hover:bg-transparent dark:hover:bg-transparent active:scale-[0.96]"
 									>
 										{t("pwa.ios.dismiss")}
 									</Button>
@@ -2208,7 +2214,7 @@ function AppLayoutContent() {
 										const TabIcon = customIcon ?? TAB_ICONS[item.key] ?? CircleUser;
 
 										const tabButtonClass = cn(
-											"relative z-[1] h-auto min-h-12 min-w-0 flex-1 select-none rounded-[16px] px-0 hover:bg-transparent focus:bg-transparent active:bg-transparent",
+											"relative z-[1] h-auto min-h-12 min-w-0 flex-1 select-none rounded-[16px] px-0 hover:bg-transparent focus:bg-transparent active:bg-transparent dark:hover:bg-transparent dark:focus:bg-transparent dark:active:bg-transparent",
 											isActive
 												? "text-panel-accent"
 												: "text-panel-text-secondary",

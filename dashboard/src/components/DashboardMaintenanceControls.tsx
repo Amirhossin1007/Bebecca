@@ -546,7 +546,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 				disabled={!hostActionsAvailable}
 				size="sm"
 				loading={updateMutation.isPending}
-				className="h-8 min-h-8 rounded-[10px] border border-transparent px-3.5 has-[>svg]:px-3.5 text-[12px] font-semibold leading-none shadow-none active:scale-[0.97] whitespace-nowrap"
+				className="h-8 min-h-8 rounded-[10px] border border-transparent bg-panel-accent px-3.5 has-[>svg]:px-3.5 text-[12px] font-semibold leading-none text-white shadow-none hover:bg-panel-accent active:scale-[0.97] min-[769px]:hover:bg-panel-accent-hover whitespace-nowrap"
 			>
 				<ArrowUpCircle className="size-3.5" />
 				<span>{t("dashboard.maintenance.updateAction")}</span>
@@ -879,7 +879,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 							onClick={() => setUpdateDialogOpen(false)}
 							variant="ghost"
 							size="sm"
-							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted active:scale-[0.97]"
+							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted hover:bg-transparent dark:hover:bg-transparent active:scale-[0.97] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 						>
 							{t("close")}
 						</Button>
@@ -992,7 +992,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 							onClick={() => setConfirmAction(null)}
 							variant="ghost"
 							size="sm"
-							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted active:scale-[0.97]"
+							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted hover:bg-transparent dark:hover:bg-transparent active:scale-[0.97] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 						>
 							{t("cancel")}
 						</Button>

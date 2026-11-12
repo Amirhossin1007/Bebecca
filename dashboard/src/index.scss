@@ -2740,13 +2740,35 @@ input[type="number"] {
   border-top: 0;
 }
 
-.toaster ol,
-.toaster [data-sonner-toast] {
-  pointer-events: none;
+[data-sonner-toaster].toaster {
+  --width: 380px;
 }
 
-.toaster [data-sonner-toast] [data-close-button] {
-  pointer-events: auto;
+[data-sonner-toaster].toaster [data-sonner-toast] {
+  transition: transform 360ms cubic-bezier(0.23, 1, 0.32, 1), opacity 320ms cubic-bezier(0.23, 1, 0.32, 1), height 360ms cubic-bezier(0.23, 1, 0.32, 1), scale 150ms cubic-bezier(0.23, 1, 0.32, 1), border-color 180ms ease, box-shadow 200ms ease;
+}
+
+[data-sonner-toaster].toaster [data-sonner-toast][data-swiping="true"] {
+  transition: none;
+}
+
+[data-sonner-toaster].toaster [data-sonner-toast][data-expanded="false"][data-front="false"] > * {
+  opacity: 0;
+}
+
+@media (max-width: 600px) {
+  [data-sonner-toaster].toaster[data-x-position="center"] {
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    transform: none !important;
+  }
+
+  [data-sonner-toaster].toaster [data-sonner-toast] {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+  }
 }
 
 .rb-stat-card {

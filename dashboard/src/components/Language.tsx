@@ -43,15 +43,15 @@ export const Language: FC<LanguageProps> = ({
 					size="sm"
 					variant={triggerVariant}
 					aria-label={t("header.language")}
-					className="relative h-[34px] min-w-[34px] rounded-[12px] border-panel-border! bg-panel-surface px-2.5 text-panel-text transition-[background-color,border-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] md:hover:border-panel-border-strong! md:hover:bg-panel-elevated"
+					className="relative h-[34px] min-w-[34px]! rounded-[12px] border-panel-border! bg-panel-surface px-2.5 text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-panel-surface dark:hover:bg-input/30 active:scale-[0.97] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
 				>
-					<Languages className="size-4" />
+					<Languages className="size-4" strokeWidth={1.75} />
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				align={isRTL ? "start" : "end"}
 				sideOffset={8}
-				className="z-[9999] min-w-[180px]! rounded-[14px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_12px_32px_rgba(0,0,0,0.24)] select-none"
+				className="z-[9999] min-w-[180px]! rounded-[16px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_12px_32px_rgba(0,0,0,0.24)] select-none"
 			>
 				{LANGUAGE_OPTIONS.map(({ code, label, flag }) => {
 					const isActive = activeLanguage === code;
@@ -60,7 +60,7 @@ export const Language: FC<LanguageProps> = ({
 							key={code}
 							onSelect={() => i18n.changeLanguage(code)}
 							className={cn(
-								"flex cursor-pointer items-center justify-between gap-3 rounded-[10px] px-3 py-2 text-[13px] transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus:bg-panel-elevated md:hover:bg-panel-elevated",
+								"flex cursor-pointer items-center justify-between gap-3 rounded-[10px] px-3 py-2 text-[13px] transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus:bg-panel-elevated min-[769px]:hover:bg-panel-elevated",
 								isActive
 									? "bg-panel-elevated/60 font-semibold text-panel-text"
 									: "font-medium text-panel-text-secondary",

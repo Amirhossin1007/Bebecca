@@ -401,7 +401,7 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 							"h-[34px] border-panel-border! bg-panel-surface text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-panel-surface dark:hover:bg-input/30 active:scale-[0.97] active:bg-panel-elevated min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
 							showText
 								? "w-auto min-w-0 rounded-[12px] px-3 gap-2"
-								: "size-[34px] min-w-[34px] rounded-full px-0 min-[769px]:rounded-[12px]",
+								: "size-[34px] min-w-[34px]! rounded-full px-0 min-[769px]:rounded-[12px]",
 						)}
 					>
 						<CalendarDays
