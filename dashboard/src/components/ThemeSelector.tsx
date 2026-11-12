@@ -474,7 +474,10 @@ export const ThemeSelector: FC<ThemeSelectorProps> = ({
 						)}
 					>
 						<span className="flex min-w-0 items-center gap-2.5">
-							<SwatchBook className="size-4 shrink-0 text-panel-text" />
+							<SwatchBook
+								className="size-4 shrink-0 text-panel-text"
+								strokeWidth={1.75}
+							/>
 							<span className="truncate">
 								{triggerLabel || t("header.theme")}
 							</span>

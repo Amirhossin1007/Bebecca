@@ -4214,5 +4214,19 @@
 	"a11y.more": "بیشتر",
 	"a11y.toggleBreadcrumbMenu": "باز و بسته‌کردن منوی مسیر",
 	"a11y.sponsor": "حامی مالی",
-	"login.loading": "در حال ورود..."
+	"login.loading": "در حال ورود...",
+	"dashboard.system.panelCpuUsage": "مصرف پردازنده‌ی پنل",
+	"dashboard.system.panelMemoryUsage": "مصرف حافظه‌ی پنل",
+	"dashboard.backup.exportPreparingDatabase": "در حال آماده‌سازی پشتیبان‌گیری پایگاه داده...",
+	"dashboard.backup.exportPreparingFull": "در حال آماده‌سازی پشتیبان‌گیری کلی...",
+	"dashboard.backup.exportDownloading": "در حال دریافت فایل پشتیبان...",
+	"dashboard.backup.exportCompleted": "پشتیبان‌گیری تکمیل شد و فایل آماده و دانلود شد.",
+	"dashboard.backup.stepPrepare": "آماده‌سازی",
+	"dashboard.backup.stepDownload": "دریافت فایل",
+	"dashboard.backup.stepDone": "تکمیل شد",
+	"dashboard.backup.importUploading": "در حال ارسال فایل پشتیبان...",
+	"dashboard.backup.importRestoring": "در حال بازیابی پشتیبان...",
+	"dashboard.backup.importCompleted": "بازیابی پشتیبان با موفقیت انجام شد.",
+	"dashboard.backup.stepUpload": "ارسال فایل",
+	"dashboard.backup.stepRestore": "بازیابی"
 }

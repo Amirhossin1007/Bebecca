@@ -1129,5 +1129,19 @@
 	"theme.accent.crimson": "Красный / малиновый",
 	"theme.accent.green": "Зелёный",
 	"theme.accent.purple": "Фиолетовый",
-	"theme.accent.orange": "Оранжевый"
+	"theme.accent.orange": "Оранжевый",
+	"dashboard.system.panelCpuUsage": "Загрузка ЦП панели",
+	"dashboard.system.panelMemoryUsage": "Потребление памяти панели",
+	"dashboard.backup.exportPreparingDatabase": "Подготовка резервной копии базы данных...",
+	"dashboard.backup.exportPreparingFull": "Подготовка полной резервной копии...",
+	"dashboard.backup.exportDownloading": "Загрузка архива резервной копии...",
+	"dashboard.backup.exportCompleted": "Резервное копирование завершено, файл загружен.",
+	"dashboard.backup.stepPrepare": "Подготовка",
+	"dashboard.backup.stepDownload": "Загрузка",
+	"dashboard.backup.stepDone": "Готово",
+	"dashboard.backup.importUploading": "Отправка архива резервной копии...",
+	"dashboard.backup.importRestoring": "Восстановление из резервной копии...",
+	"dashboard.backup.importCompleted": "Восстановление завершено.",
+	"dashboard.backup.stepUpload": "Отправка",
+	"dashboard.backup.stepRestore": "Восстановление"
 }

@@ -24,6 +24,7 @@ import {
 	TooltipTrigger,
 } from "components/ui/tooltip";
 import useGetUser from "hooks/useGetUser";
+import { useMediaQuery } from "hooks/useMediaQuery";
 import { cn } from "lib/cn";
 import {
 	ArrowUpCircle,
@@ -123,6 +124,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 }) => {
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
+	const isDesktop = useMediaQuery("(min-width: 769px)");
 	const { userData, getUserIsSuccess } = useGetUser();
 
 	const canMaintain =
@@ -385,229 +387,287 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 		setConfirmAction(action);
 	};
 
-	const renderUpdatePopover = () => (
-		<Popover open={isUpdatePopoverOpen} onOpenChange={setUpdatePopoverOpen}>
-			<PopoverTrigger asChild>
-				<Button
-					type="button"
-					disabled={!canMaintain || !hostActionsAvailable || info.isLoading}
-					size="xs"
-					variant={update?.available ? "default" : "outline"}
-					className={cn(
-						"h-9 w-full rounded-[12px] px-3.5 transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] min-[769px]:h-8 min-[769px]:w-auto whitespace-nowrap",
-						update?.available
-							? "border border-panel-accent! bg-panel-accent text-white shadow-[0_2px_10px_color-mix(in_srgb,var(--rb-panel-accent)_28%,transparent)] hover:bg-panel-accent min-[769px]:hover:bg-panel-accent-hover"
-							: "border border-panel-border! bg-panel-surface text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-panel-surface dark:hover:bg-input/30 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
-					)}
+	const maintenanceBody = (
+		<div className="flex flex-col gap-3.5 p-4">
+			{info.isLoading && (
+				<div className="flex items-center justify-center py-5">
+					<Spinner className="text-panel-text-secondary" />
+				</div>
+			)}
+
+			{info.isError && (
+				<Alert
+					variant="destructive"
+					className="rounded-[12px] text-[12px]"
 				>
-					<span className="inline-flex items-center justify-center gap-2">
-						<ArrowUpCircle
-							className={cn(
-								"size-3.5 shrink-0",
-								update?.available ? "text-white" : "text-panel-text-secondary",
-							)}
-						/>
-						<span className="text-[12px] font-semibold leading-none">
-							{update?.available
-								? t("dashboard.maintenance.updateAvailable")
-								: t("dashboard.maintenance.updateAction")}
-						</span>
-					</span>
-				</Button>
-			</PopoverTrigger>
-			<PopoverContent
-				dir={isRTL ? "rtl" : "ltr"}
-				align={isRTL ? "start" : "end"}
-				sideOffset={8}
-				collisionPadding={12}
-				onClick={(e) => e.stopPropagation()}
-				className="z-[2500] w-[min(400px,calc(100vw-24px))] max-w-[400px] max-h-[min(calc(var(--radix-popover-content-available-height,76dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_20px_52px_-12px_rgba(0,0,0,0.46)]"
-			>
-				<div className="flex items-center justify-between gap-3 border-b border-panel-border/70! px-4 py-3">
-					<div className="flex min-w-0 items-center gap-2">
-						<ArrowUpCircle className="size-4 shrink-0 text-panel-text-secondary" />
-						<p className="truncate text-[13px] font-bold tracking-[-0.01em] text-panel-text">
-							{t("dashboard.maintenance.title")}
-						</p>
-					</div>
-					<Button
-						type="button"
-						onClick={() => info.refetch()}
-						variant="ghost"
-						size="sm"
-						loading={info.isFetching}
-						className="h-8 min-h-8 rounded-[10px] px-2.5 has-[>svg]:px-2.5 text-[12px] text-panel-text-muted active:scale-[0.97] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
+					<CircleAlert className="size-4" aria-hidden="true" />
+					<p className="text-[12px] leading-relaxed">
+						{t("dashboard.maintenance.updateCheckFailed", {
+							error:
+								(info.error as Error)?.message ||
+								t("dashboard.system.genericError"),
+						})}
+					</p>
+				</Alert>
+			)}
+
+			<div className="flex items-center justify-between gap-3 rounded-[12px] bg-panel-elevated/60 px-3.5 py-2.5">
+				<div className="flex min-w-0 flex-col gap-0.5">
+					<p className="text-[11px] font-semibold text-panel-text-muted">
+						{t("dashboard.maintenance.panelVersion")}
+					</p>
+					<p
+						dir="ltr"
+						className="truncate text-[13px] font-bold text-panel-text tabular-nums [unicode-bidi:isolate]"
 					>
-						<RefreshCw className="size-3.5" />
-						<span>{t("refresh")}</span>
-					</Button>
+						{panel?.image
+							? `${panel.image} (${currentVersion})`
+							: currentVersion}
+					</p>
 				</div>
+				{panel?.channel && (
+					<span
+						dir="ltr"
+						className="shrink-0 rounded-full bg-panel-surface px-2.5 py-0.5 text-[11px] font-semibold text-panel-text-secondary [unicode-bidi:isolate]"
+					>
+						{panel.channel}
+					</span>
+				)}
+			</div>
 
-				<div className="flex flex-col gap-3.5 p-4">
-					{info.isLoading && (
-						<div className="flex items-center justify-center py-5">
-							<Spinner className="text-panel-text-secondary" />
-						</div>
-					)}
+			{info.isSuccess && !hostActionsAvailable && (
+				<Alert className="rounded-[12px] text-[12px]">
+					<TriangleAlert className="size-4" aria-hidden="true" />
+					<p className="text-[12px] leading-relaxed">
+						{t("dashboard.maintenance.binaryMigrationRequired")}
+					</p>
+				</Alert>
+			)}
 
-					{info.isError && (
-						<Alert
-							variant="destructive"
-							className="rounded-[12px] text-[12px]"
-						>
-							<CircleAlert className="size-4" aria-hidden="true" />
-							<p className="text-[12px] leading-relaxed">
-								{t("dashboard.maintenance.updateCheckFailed", {
-									error:
-										(info.error as Error)?.message ||
-										t("dashboard.system.genericError"),
-								})}
-							</p>
-						</Alert>
-					)}
+			{update?.available && (
+				<Alert className="rounded-[12px] border border-emerald-500/20 bg-emerald-500/8 px-3.5 py-2.5 text-[12px]">
+					<CircleCheck
+						className="size-4 text-emerald-600 dark:text-emerald-400"
+						aria-hidden="true"
+					/>
+					<p className="text-[12px] leading-relaxed text-panel-text">
+						{t("dashboard.maintenance.updateAvailableNotice", {
+							current: update.current || currentVersion,
+							target: selectedTarget || update.target || "-",
+						})}
+					</p>
+				</Alert>
+			)}
 
-					<div className="flex items-center justify-between gap-3 rounded-[12px] bg-panel-elevated/60 px-3.5 py-2.5">
-						<div className="flex min-w-0 flex-col gap-0.5">
-							<p className="text-[11px] font-semibold text-panel-text-muted">
-								{t("dashboard.maintenance.panelVersion")}
-							</p>
-							<p
-								dir="ltr"
-								className="truncate text-[13px] font-bold text-panel-text tabular-nums [unicode-bidi:isolate]"
-							>
-								{panel?.image
-									? `${panel.image} (${currentVersion})`
-									: currentVersion}
-							</p>
-						</div>
-						{panel?.channel && (
-							<span
-								dir="ltr"
-								className="shrink-0 rounded-full bg-panel-surface px-2.5 py-0.5 text-[11px] font-semibold text-panel-text-secondary [unicode-bidi:isolate]"
-							>
-								{panel.channel}
-							</span>
-						)}
-					</div>
+			{update?.error && (
+				<Alert className="rounded-[12px] text-[12px]">
+					<TriangleAlert className="size-4" aria-hidden="true" />
+					<p className="text-[12px] leading-relaxed">
+						{t("dashboard.maintenance.updateCheckFailed", {
+							error: update.error,
+						})}
+					</p>
+				</Alert>
+			)}
 
-					{info.isSuccess && !hostActionsAvailable && (
-						<Alert className="rounded-[12px] text-[12px]">
-							<TriangleAlert className="size-4" aria-hidden="true" />
-							<p className="text-[12px] leading-relaxed">
-								{t("dashboard.maintenance.binaryMigrationRequired")}
-							</p>
-						</Alert>
-					)}
+			{hostActionsAvailable && (
+				<Field className="flex flex-col gap-1.5">
+					<FieldLabel className="text-[12px] font-semibold text-panel-text-secondary">
+						{t("dashboard.maintenance.updateChannel")}
+					</FieldLabel>
+					<Select
+						size="sm"
+						portalled={false}
+						value={selectedChannel}
+						onChange={(event) => {
+							setSelectedChannel(event.target.value as UpdateChannel);
+							setSelectedVersion("");
+						}}
+					>
+						<option value="current">
+							{t("dashboard.maintenance.updateChannelCurrent")}
+						</option>
+						<option value="latest">
+							{t("dashboard.maintenance.updateChannelLatest")}
+						</option>
+						<option value="dev">
+							{t("dashboard.maintenance.updateChannelDev")}
+						</option>
+					</Select>
+					<FieldDescription className="text-[11px] leading-relaxed text-panel-text-muted">
+						{selectedTarget
+							? t("dashboard.maintenance.updateTargetHint", {
+									version: selectedTarget,
+								})
+							: t("dashboard.maintenance.updateTargetUnknown")}
+					</FieldDescription>
+				</Field>
+			)}
 
-					{update?.available && (
-						<Alert className="rounded-[12px] border border-emerald-500/20 bg-emerald-500/8 px-3.5 py-2.5 text-[12px]">
-							<CircleCheck
-								className="size-4 text-emerald-600 dark:text-emerald-400"
-								aria-hidden="true"
-							/>
-							<p className="text-[12px] leading-relaxed text-panel-text">
-								{t("dashboard.maintenance.updateAvailableNotice", {
-									current: update.current || currentVersion,
-									target: selectedTarget || update.target || "-",
-								})}
-							</p>
-						</Alert>
-					)}
+			{hostActionsAvailable && (
+				<BuildVersionSelect
+					catalog={builds.data}
+					value={selectedVersion}
+					onChange={selectBuildVersion}
+				/>
+			)}
 
-					{update?.error && (
-						<Alert className="rounded-[12px] text-[12px]">
-							<TriangleAlert className="size-4" aria-hidden="true" />
-							<p className="text-[12px] leading-relaxed">
-								{t("dashboard.maintenance.updateCheckFailed", {
-									error: update.error,
-								})}
-							</p>
-						</Alert>
-					)}
-
-					{hostActionsAvailable && (
-						<Field className="flex flex-col gap-1.5">
-							<FieldLabel className="text-[12px] font-semibold text-panel-text-secondary">
-								{t("dashboard.maintenance.updateChannel")}
-							</FieldLabel>
-							<Select
-								size="sm"
-								portalled={false}
-								value={selectedChannel}
-								onChange={(event) => {
-									setSelectedChannel(event.target.value as UpdateChannel);
-									setSelectedVersion("");
-								}}
-							>
-								<option value="current">
-									{t("dashboard.maintenance.updateChannelCurrent")}
-								</option>
-								<option value="latest">
-									{t("dashboard.maintenance.updateChannelLatest")}
-								</option>
-								<option value="dev">
-									{t("dashboard.maintenance.updateChannelDev")}
-								</option>
-							</Select>
-							<FieldDescription className="text-[11px] leading-relaxed text-panel-text-muted">
-								{selectedTarget
-									? t("dashboard.maintenance.updateTargetHint", {
-											version: selectedTarget,
-										})
-									: t("dashboard.maintenance.updateTargetUnknown")}
-							</FieldDescription>
-						</Field>
-					)}
-
-					{hostActionsAvailable && (
-						<BuildVersionSelect
-							catalog={builds.data}
-							value={selectedVersion}
-							onChange={selectBuildVersion}
-						/>
-					)}
-
-					{selectedChannel === "dev" && hostActionsAvailable && (
-						<Alert className="rounded-[12px] border border-amber-500/20 bg-amber-500/8 px-3.5 py-2.5 text-[12px]">
-							<TriangleAlert
-								className="size-4 text-amber-600 dark:text-amber-400"
-								aria-hidden="true"
-							/>
-							<p className="text-[12px] leading-relaxed text-panel-text-secondary">
-								{t("dashboard.maintenance.devChannelWarning")}
-							</p>
-						</Alert>
-					)}
-
-					<div className="flex flex-wrap items-center justify-end gap-2 border-t border-panel-border/70! pt-3">
-						<Button
-							type="button"
-							onClick={() => openConfirmFromPopover("soft-reload")}
-							disabled={!hostActionsAvailable}
-							variant="outline"
-							size="sm"
-							loading={reloadMutation.isPending}
-							className="h-8 min-h-8 rounded-[10px] border border-panel-border! bg-panel-elevated/70 px-3.5 has-[>svg]:px-3.5 text-[12px] font-semibold leading-none text-panel-text shadow-none hover:bg-panel-elevated/70 dark:bg-panel-elevated/70 dark:hover:bg-panel-elevated/70 active:scale-[0.97] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated whitespace-nowrap"
-						>
-							<RotateCcw className="size-3.5 text-panel-text-secondary" />
-							<span>{t("dashboard.maintenance.softReloadAction")}</span>
-						</Button>
-						<Button
-							type="button"
-							onClick={() => openConfirmFromPopover("update")}
-							disabled={!hostActionsAvailable}
-							size="sm"
-							loading={updateMutation.isPending}
-							className="h-8 min-h-8 rounded-[10px] border border-transparent px-3.5 has-[>svg]:px-3.5 text-[12px] font-semibold leading-none shadow-none active:scale-[0.97] whitespace-nowrap"
-						>
-							<ArrowUpCircle className="size-3.5" />
-							<span>{t("dashboard.maintenance.updateAction")}</span>
-						</Button>
-					</div>
-				</div>
-			</PopoverContent>
-		</Popover>
+			{selectedChannel === "dev" && hostActionsAvailable && (
+				<Alert className="rounded-[12px] border border-amber-500/20 bg-amber-500/8 px-3.5 py-2.5 text-[12px]">
+					<TriangleAlert
+						className="size-4 text-amber-600 dark:text-amber-400"
+						aria-hidden="true"
+					/>
+					<p className="text-[12px] leading-relaxed text-panel-text-secondary">
+						{t("dashboard.maintenance.devChannelWarning")}
+					</p>
+				</Alert>
+			)}
+		</div>
 	);
+
+	const maintenanceFooterButtons = (
+		<>
+			<Button
+				type="button"
+				onClick={() => openConfirmFromPopover("soft-reload")}
+				disabled={!hostActionsAvailable}
+				variant="outline"
+				size="sm"
+				loading={reloadMutation.isPending}
+				className="h-8 min-h-8 rounded-[10px] border border-panel-border! bg-panel-elevated/70 px-3.5 has-[>svg]:px-3.5 text-[12px] font-semibold leading-none text-panel-text shadow-none hover:bg-panel-elevated/70 dark:bg-panel-elevated/70 dark:hover:bg-panel-elevated/70 active:scale-[0.97] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated whitespace-nowrap"
+			>
+				<RotateCcw className="size-3.5 text-panel-text-secondary" />
+				<span>{t("dashboard.maintenance.softReloadAction")}</span>
+			</Button>
+			<Button
+				type="button"
+				onClick={() => openConfirmFromPopover("update")}
+				disabled={!hostActionsAvailable}
+				size="sm"
+				loading={updateMutation.isPending}
+				className="h-8 min-h-8 rounded-[10px] border border-transparent px-3.5 has-[>svg]:px-3.5 text-[12px] font-semibold leading-none shadow-none active:scale-[0.97] whitespace-nowrap"
+			>
+				<ArrowUpCircle className="size-3.5" />
+				<span>{t("dashboard.maintenance.updateAction")}</span>
+			</Button>
+		</>
+	);
+
+	const maintenanceRefreshButton = (
+		<Button
+			type="button"
+			onClick={() => info.refetch()}
+			variant="ghost"
+			size="sm"
+			loading={info.isFetching}
+			className="h-8 min-h-8 rounded-[10px] px-2.5 has-[>svg]:px-2.5 text-[12px] text-panel-text-muted active:scale-[0.97] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
+		>
+			<RefreshCw className="size-3.5" />
+			<span>{t("refresh")}</span>
+		</Button>
+	);
+
+	const renderUpdateTrigger = (onClick?: () => void) => (
+		<Button
+			type="button"
+			onClick={onClick}
+			disabled={!canMaintain || !hostActionsAvailable || info.isLoading}
+			size="xs"
+			variant={update?.available ? "default" : "outline"}
+			className={cn(
+				"h-9 w-full rounded-[12px] px-3.5 transition-[background-color,border-color,color,transform,box-shadow] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] min-[769px]:h-8 min-[769px]:w-auto whitespace-nowrap",
+				update?.available
+					? "border border-panel-accent! bg-panel-accent text-white shadow-[0_2px_10px_color-mix(in_srgb,var(--rb-panel-accent)_28%,transparent)] hover:bg-panel-accent min-[769px]:hover:bg-panel-accent-hover"
+					: "border border-panel-border! bg-panel-surface text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-panel-surface dark:hover:bg-input/30 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)]",
+			)}
+		>
+			<span className="inline-flex items-center justify-center gap-2">
+				<ArrowUpCircle
+					className={cn(
+						"size-3.5 shrink-0",
+						update?.available ? "text-white" : "text-panel-text-secondary",
+					)}
+				/>
+				<span className="text-[12px] font-semibold leading-none">
+					{update?.available
+						? t("dashboard.maintenance.updateAvailable")
+						: t("dashboard.maintenance.updateAction")}
+				</span>
+			</span>
+		</Button>
+	);
+
+	const renderUpdatePopover = () =>
+		isDesktop ? (
+			<Popover open={isUpdatePopoverOpen} onOpenChange={setUpdatePopoverOpen}>
+				<PopoverTrigger asChild>{renderUpdateTrigger()}</PopoverTrigger>
+				<PopoverContent
+					dir={isRTL ? "rtl" : "ltr"}
+					align={isRTL ? "start" : "end"}
+					sideOffset={8}
+					collisionPadding={12}
+					onClick={(e) => e.stopPropagation()}
+					className="z-[2500] w-[min(400px,calc(100vw-24px))] max-w-[400px] max-h-[min(calc(var(--radix-popover-content-available-height,76dvh)-8px),calc(100dvh-24px))] overflow-y-auto overscroll-contain rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_20px_52px_-12px_rgba(0,0,0,0.46)]"
+				>
+					<div className="flex items-center justify-between gap-3 border-b border-panel-border/70! px-4 py-3">
+						<div className="flex min-w-0 items-center gap-2">
+							<ArrowUpCircle className="size-4 shrink-0 text-panel-text-secondary" />
+							<p className="truncate text-[13px] font-bold tracking-[-0.01em] text-panel-text">
+								{t("dashboard.maintenance.title")}
+							</p>
+						</div>
+						{maintenanceRefreshButton}
+					</div>
+					{maintenanceBody}
+					<div className="flex flex-wrap items-center justify-end gap-2 border-t border-panel-border/70! px-4 py-3">
+						{maintenanceFooterButtons}
+					</div>
+				</PopoverContent>
+			</Popover>
+		) : (
+			<>
+				{renderUpdateTrigger(() => setUpdatePopoverOpen(true))}
+				<Dialog open={isUpdatePopoverOpen} onOpenChange={setUpdatePopoverOpen}>
+					<DialogContent
+						dir={isRTL ? "rtl" : "ltr"}
+						showCloseButton={false}
+						className="flex max-h-[calc(100dvh-2rem)] w-[calc(100vw-1.5rem)] max-w-[420px] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-[0_24px_64px_-12px_rgba(0,0,0,0.48)] sm:w-full sm:max-w-[420px]"
+					>
+						<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border/70! px-5 py-3.5 text-start">
+							<div className="flex min-w-0 items-center gap-2.5">
+								<ArrowUpCircle className="size-4 shrink-0 text-panel-text-secondary" />
+								<DialogTitle className="truncate text-[14px] font-bold tracking-[-0.01em] text-panel-text">
+									{t("dashboard.maintenance.title")}
+								</DialogTitle>
+								<DialogDescription className="sr-only">
+									{t("dashboard.maintenance.title")}
+								</DialogDescription>
+							</div>
+							<div className="flex shrink-0 items-center gap-1">
+								{maintenanceRefreshButton}
+								<Button
+									type="button"
+									variant="ghost"
+									size="icon-sm"
+									onClick={() => setUpdatePopoverOpen(false)}
+									aria-label={t("close")}
+									className="size-8 shrink-0 rounded-[10px] text-panel-text-muted transition-[background-color,color,transform] duration-150 active:scale-[0.95] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
+								>
+									<X className="size-4" />
+								</Button>
+							</div>
+						</DialogHeader>
+						<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+							{maintenanceBody}
+						</div>
+						<DialogFooter className="flex flex-row flex-wrap items-center justify-end gap-2 border-t border-panel-border/70! px-5 py-3.5">
+							{maintenanceFooterButtons}
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
+			</>
+		);
 
 	const renderRestartButton = (extraClassName?: string) => (
 		<Button

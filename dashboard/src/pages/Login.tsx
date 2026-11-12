@@ -461,7 +461,7 @@ export const Login = () => {
 									</div>
 								) : null}
 
-								<Button onClick={step === "otp" ? submitOTP : confirmSetup} disabled={otp.length !== 6 || challengeLoading} className="h-11 w-full rounded-lg text-sm">
+								<Button onClick={step === "otp" ? submitOTP : confirmSetup} disabled={otp.length !== 6} loading={challengeLoading} className="h-11 w-full rounded-lg text-sm">
 									{t("continue")}
 								</Button>
 								<Button onClick={cancelChallenge} variant="ghost" className="w-full rounded-lg">

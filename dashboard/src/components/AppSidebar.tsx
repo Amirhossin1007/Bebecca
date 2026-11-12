@@ -35,6 +35,7 @@ import {
 	type GroupNavItem,
 	useNavSections,
 } from "./layout/navConfig";
+import { useUnreadNotifications } from "./NotificationBell";
 import { SponsorCarousel } from "./SponsorCarousel";
 
 export interface AppSidebarProps {
@@ -247,10 +248,9 @@ interface GroupNavRowProps {
 	isGroupActive: boolean;
 	isOpen: boolean;
 	isRTL: boolean;
+	unreadCount: number;
 	isItemActive: (url: string) => boolean;
-	onToggleOpen: (triggerEl: HTMLElement | null) => void;
-	onSubmenuStep: (groupId: string) => void;
-	onSubmenuDone: (groupId: string) => void;
+	onToggleOpen: () => void;
 	onNavigate: (url: string, event?: ReactMouseEvent) => void;
 }
 
@@ -260,10 +260,9 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 	isGroupActive,
 	isOpen,
 	isRTL,
+	unreadCount,
 	isItemActive,
 	onToggleOpen,
-	onSubmenuStep,
-	onSubmenuDone,
 	onNavigate,
 }) => {
 	const [flyoutOpen, setFlyoutOpen] = useState(false);
@@ -355,9 +354,9 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 						aria-expanded={collapsed ? flyoutOpen : isOpen}
 						onPointerEnter={handleTriggerPointerEnter}
 						onPointerLeave={handleTriggerPointerLeave}
-						onClick={(e) => {
+						onClick={() => {
 							if (!collapsed) {
-								onToggleOpen(e.currentTarget);
+								onToggleOpen();
 							} else if (!isDesktop) {
 								setFlyoutOpen((prev) => !prev);
 							} else if (visibleSubs[0]?.url) {
@@ -438,6 +437,7 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 						{visibleSubs.map((sub) => {
 							const subActive = isItemActive(sub.url);
 							const SubIcon = sub.icon;
+							const isNotif = sub.url === "/notifications";
 							return (
 								<NavLink
 									key={sub.id}
@@ -454,7 +454,15 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 									)}
 								>
 									<SubIcon className="size-4 shrink-0" />
-									<span className="truncate">{sub.title}</span>
+									<span className="min-w-0 flex-1 truncate">{sub.title}</span>
+									{isNotif && unreadCount > 0 ? (
+										<span
+											dir="ltr"
+											className="inline-flex h-[17px] min-w-[17px] shrink-0 items-center justify-center rounded-full bg-panel-accent px-1 text-[10px] font-bold text-white tabular-nums [unicode-bidi:isolate]"
+										>
+											{unreadCount > 99 ? "99+" : unreadCount}
+										</span>
+									) : null}
 								</NavLink>
 							);
 						})}
@@ -462,28 +470,23 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 				</PopoverContent>
 			</Popover>
 
-			<AnimatePresence
-				initial={false}
-				onExitComplete={() => onSubmenuDone(group.id)}
-			>
-				{isOpen && !collapsed ? (
-					<motion.div
-						key="subitems"
-						initial={{ height: 0, opacity: 0 }}
-						animate={{ height: "auto", opacity: 1 }}
-						exit={{ height: 0, opacity: 0 }}
-						transition={{
-							height: { duration: 0.24, ease: [0.32, 0.72, 0, 1] },
-							opacity: { duration: 0.16, ease: "easeOut" },
-						}}
-						onUpdate={() => onSubmenuStep(group.id)}
-						onAnimationComplete={() => onSubmenuDone(group.id)}
-						className="overflow-hidden"
-					>
+			{!collapsed ? (
+				<div
+					aria-hidden={!isOpen}
+					inert={!isOpen ? true : undefined}
+					className={cn(
+						"grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]",
+						isOpen
+							? "grid-rows-[1fr] opacity-100"
+							: "grid-rows-[0fr] opacity-0",
+					)}
+				>
+					<div className="min-h-0 overflow-hidden">
 						<div className="ms-[21px] flex flex-col gap-0.5 border-s border-panel-border! ps-2.5 pt-1 pb-0.5">
 							{visibleSubs.map((sub) => {
 								const subActive = isItemActive(sub.url);
 								const SubIcon = sub.icon;
+								const isNotif = sub.url === "/notifications";
 
 								return (
 									<NavLink
@@ -501,14 +504,22 @@ const GroupNavRow: FC<GroupNavRowProps> = ({
 											<span className="pointer-events-none absolute -inset-s-[11.5px] top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-panel-accent" />
 										) : null}
 										<SubIcon className="size-4 shrink-0" />
-										<span className="truncate">{sub.title}</span>
+										<span className="min-w-0 flex-1 truncate">{sub.title}</span>
+										{isNotif && unreadCount > 0 ? (
+											<span
+												dir="ltr"
+												className="inline-flex h-[17px] min-w-[17px] shrink-0 items-center justify-center rounded-full bg-panel-accent px-1 text-[10px] font-bold text-white tabular-nums [unicode-bidi:isolate]"
+											>
+												{unreadCount > 99 ? "99+" : unreadCount}
+											</span>
+										) : null}
 									</NavLink>
 								);
 							})}
 						</div>
-					</motion.div>
-				) : null}
-			</AnimatePresence>
+					</div>
+				</div>
+			) : null}
 		</div>
 	);
 };
@@ -531,7 +542,7 @@ const SidebarBannerSection: FC<SidebarBannerSectionProps> = ({
 			className={cn(
 				"w-full shrink-0 border-t border-panel-border! pt-2.5",
 				inDrawer
-					? "mx-auto max-w-[min(220px,calc(100%-48px))] pb-[calc(env(safe-area-inset-bottom,0px)+8px)]"
+					? "mx-auto max-w-[min(154px,calc(100%-84px))] pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+8px)]"
 					: "pb-0",
 			)}
 		>
@@ -564,6 +575,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 	const { colorMode } = useColorMode();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const { navSections } = useNavSections();
+	const unreadNotifications = useUnreadNotifications();
 	const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
 		users_hub: true,
 	});
@@ -640,83 +652,12 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 	}, [dynamicSidebarWidth]);
 
 	const navScrollRef = useRef<HTMLDivElement | null>(null);
-	const anchorStateRef = useRef<{
-		groupId: string;
-		anchorEl: HTMLElement;
-		edge: "top" | "bottom";
-		initialPos: number;
-	} | null>(null);
-
-	const syncAnchorScroll = useCallback((groupId: string) => {
-		const state = anchorStateRef.current;
-		const scrollEl = navScrollRef.current;
-		if (!state || state.groupId !== groupId || !scrollEl) return;
-		const currentPos =
-			state.edge === "top"
-				? state.anchorEl.getBoundingClientRect().top
-				: state.anchorEl.getBoundingClientRect().bottom;
-		const delta = currentPos - state.initialPos;
-		if (Math.abs(delta) >= 0.5) {
-			scrollEl.scrollTop += delta;
-		}
-	}, []);
-
-	const finishAnchorScroll = useCallback(
-		(groupId: string) => {
-			syncAnchorScroll(groupId);
-			if (anchorStateRef.current?.groupId === groupId) {
-				anchorStateRef.current = null;
-			}
-		},
-		[syncAnchorScroll],
-	);
 
 	const handleGroupClick = useCallback(
-		(groupId: string, triggerEl: HTMLElement | null) => {
-			const isCurrentlyOpen = Boolean(openGroups[groupId]);
-			if (navScrollRef.current && triggerEl) {
-				const groupWrapper = triggerEl.closest(
-					"[data-nav-group]",
-				) as HTMLElement | null;
-				let anchorEl: HTMLElement | null = null;
-				let anchorEdge: "top" | "bottom" = "top";
-				if (groupWrapper) {
-					const nextSibling =
-						groupWrapper.nextElementSibling as HTMLElement | null;
-					if (nextSibling) {
-						anchorEl = nextSibling;
-					} else {
-						const section = groupWrapper.closest("[data-nav-section]");
-						const nextSection =
-							section?.nextElementSibling as HTMLElement | null;
-						if (nextSection) {
-							anchorEl = nextSection;
-						} else {
-							anchorEl = groupWrapper;
-							anchorEdge = "bottom";
-						}
-					}
-				}
-				if (anchorEl) {
-					anchorStateRef.current = {
-						groupId,
-						anchorEl,
-						edge: anchorEdge,
-						initialPos:
-							anchorEdge === "top"
-								? anchorEl.getBoundingClientRect().top
-								: anchorEl.getBoundingClientRect().bottom,
-					};
-				} else {
-					anchorStateRef.current = null;
-				}
-			} else {
-				anchorStateRef.current = null;
-			}
-
-			setOpenGroups((prev) => ({ ...prev, [groupId]: !isCurrentlyOpen }));
+		(groupId: string) => {
+			setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
 		},
-		[openGroups],
+		[],
 	);
 
 	const isItemActive = useCallback(
@@ -894,12 +835,9 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 														isGroupActive={isGroupActive}
 														isOpen={isOpen}
 														isRTL={isRTL}
+														unreadCount={unreadNotifications}
 														isItemActive={isItemActive}
-														onToggleOpen={(triggerEl) =>
-															handleGroupClick(item.id, triggerEl)
-														}
-														onSubmenuStep={syncAnchorScroll}
-														onSubmenuDone={finishAnchorScroll}
+														onToggleOpen={() => handleGroupClick(item.id)}
 														onNavigate={handleNavigate}
 													/>
 												);

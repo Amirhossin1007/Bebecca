@@ -357,7 +357,10 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 							)}
 						>
 							<span className="flex min-w-0 items-center gap-2.5">
-								<CalendarDays className="size-4 shrink-0 text-panel-text" />
+								<CalendarDays
+									className="size-4 shrink-0 text-panel-text"
+									strokeWidth={1.75}
+								/>
 								<span className="truncate">
 									{t("header.calendar", "Calendar")}
 								</span>
@@ -401,7 +404,10 @@ export const HeaderCalendar: FC<HeaderCalendarProps> = memo(
 								: "size-[34px] min-w-[34px] rounded-full px-0 min-[769px]:rounded-[12px]",
 						)}
 					>
-						<CalendarDays className="size-[15px] shrink-0 text-panel-text" />
+						<CalendarDays
+							className="size-4 shrink-0 text-panel-text"
+							strokeWidth={1.75}
+						/>
 						{showText ? (
 							<span className="max-w-[300px] truncate text-xs font-semibold leading-normal text-panel-text">
 								{formattedDate}

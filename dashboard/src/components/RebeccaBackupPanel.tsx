@@ -26,16 +26,19 @@ import {
 	Download,
 	FileArchive,
 	HardDrive,
+	LoaderCircle,
 	Trash2,
 	TriangleAlert,
 	Upload,
 	X,
 } from "lucide-react";
-import { type FC, useState } from "react";
+import { type FC, useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+	type BackupExportProgress,
 	exportRebeccaBackup,
 	importRebeccaBackup,
+	type RebeccaBackupImportResponse,
 	type RebeccaBackupScope,
 } from "service/settings";
 import { checkBackupParts, parseBackupPartName } from "utils/backupParts";
@@ -59,6 +62,8 @@ export interface DashboardBackupControlsProps {
 	className?: string;
 }
 
+type BackupImportStage = "idle" | "uploading" | "restoring" | "completed";
+
 export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 	isBinaryRuntime,
 	runtimeLoading,
@@ -69,34 +74,91 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 	const [isMenuOpen, setMenuOpen] = useState(false);
 	const [dialog, setDialog] = useState<BackupDialogMode>(null);
 	const [exportScope, setExportScope] = useState<RebeccaBackupScope>("database");
+	const [exportProgress, setExportProgress] = useState<BackupExportProgress | null>(null);
+	const [exportDone, setExportDone] = useState<{
+		filename: string;
+		size: number;
+		scope: RebeccaBackupScope;
+	} | null>(null);
 	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-	const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+	const [importStage, setImportStage] = useState<BackupImportStage>("idle");
+	const [importPercent, setImportPercent] = useState<number>(0);
+	const [importResult, setImportResult] = useState<RebeccaBackupImportResponse | null>(null);
+	const restoreTimerRef = useRef<number | null>(null);
+
+	const stopRestoreTimer = useCallback(() => {
+		if (restoreTimerRef.current !== null) {
+			window.clearInterval(restoreTimerRef.current);
+			restoreTimerRef.current = null;
+		}
+	}, []);
+
+	useEffect(() => () => stopRestoreTimer(), [stopRestoreTimer]);
 
 	const backupActionsAvailable = isBinaryRuntime && !runtimeLoading;
 
 	const exportMutation = useMutation({
-		mutationFn: exportRebeccaBackup,
+		mutationFn: (scope: RebeccaBackupScope) =>
+			exportRebeccaBackup(scope, (progress) => setExportProgress(progress)),
+		onMutate: () => {
+			setExportDone(null);
+			setExportProgress({ phase: "preparing", percent: 8 });
+		},
 		onSuccess: (blob, scope) => {
+			const filename = buildBackupFilename(scope);
 			const url = URL.createObjectURL(blob);
 			const anchor = document.createElement("a");
 			anchor.href = url;
-			anchor.download = buildBackupFilename(scope);
+			anchor.download = filename;
 			document.body.appendChild(anchor);
 			anchor.click();
 			anchor.remove();
 			URL.revokeObjectURL(url);
-			setDialog(null);
+			setExportProgress({
+				phase: "completed",
+				percent: 100,
+				loaded: blob.size,
+				total: blob.size,
+			});
+			setExportDone({ filename, size: blob.size, scope });
 			generateSuccessMessage(t("dashboard.backup.exportReady"), toast);
 		},
 		onError: (error) => {
+			setExportProgress(null);
 			generateErrorMessage(error, toast);
 		},
 	});
 
 	const importMutation = useMutation({
-		mutationFn: (files: File[]) => importRebeccaBackup(files, setUploadProgress),
-		onMutate: () => setUploadProgress(0),
+		mutationFn: (files: File[]) =>
+			importRebeccaBackup(files, (uploadPercent) => {
+				if (uploadPercent < 100) {
+					setImportStage("uploading");
+					setImportPercent(Math.max(2, Math.round(uploadPercent * 0.65)));
+					return;
+				}
+				setImportStage("restoring");
+				setImportPercent((prev) => Math.max(prev, 68));
+				if (restoreTimerRef.current === null) {
+					restoreTimerRef.current = window.setInterval(() => {
+						setImportPercent((prev) => {
+							if (prev >= 94) return prev;
+							return Math.min(94, prev + (prev < 82 ? 4 : 2));
+						});
+					}, 500);
+				}
+			}),
+		onMutate: () => {
+			stopRestoreTimer();
+			setImportResult(null);
+			setImportStage("uploading");
+			setImportPercent(0);
+		},
 		onSuccess: (result) => {
+			stopRestoreTimer();
+			setImportStage("completed");
+			setImportPercent(100);
+			setImportResult(result);
 			generateSuccessMessage(
 				t("dashboard.backup.importDone", {
 					tables: result.tables_restored,
@@ -111,17 +173,34 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 				});
 			}
 			setSelectedFiles([]);
-			setDialog(null);
 		},
 		onError: (error) => {
+			stopRestoreTimer();
+			setImportStage("idle");
+			setImportPercent(0);
 			generateErrorMessage(error, toast);
 		},
-		onSettled: () => setUploadProgress(null),
 	});
 
 	const openDialog = (nextDialog: Exclude<BackupDialogMode, null>) => {
 		setMenuOpen(false);
+		setExportProgress(null);
+		setExportDone(null);
+		stopRestoreTimer();
+		setImportStage("idle");
+		setImportPercent(0);
+		setImportResult(null);
 		setDialog(nextDialog);
+	};
+
+	const closeDialog = () => {
+		stopRestoreTimer();
+		setDialog(null);
+		setExportProgress(null);
+		setExportDone(null);
+		setImportStage("idle");
+		setImportPercent(0);
+		setImportResult(null);
 	};
 
 	const partCheck = checkBackupParts(selectedFiles.map((file) => file.name));
@@ -146,6 +225,9 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 	);
 
 	const addFiles = (files: File[]) => {
+		setImportStage("idle");
+		setImportPercent(0);
+		setImportResult(null);
 		setSelectedFiles((current) => {
 			const next = [...current];
 			for (const file of files) {
@@ -230,7 +312,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 			<Dialog
 				open={dialog === "import"}
 				onOpenChange={(open) => {
-					if (!open && !importMutation.isPending) setDialog(null);
+					if (!open && !importMutation.isPending) closeDialog();
 				}}
 			>
 				<DialogContent
@@ -253,7 +335,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 							variant="ghost"
 							size="icon-sm"
 							disabled={importMutation.isPending}
-							onClick={() => setDialog(null)}
+							onClick={closeDialog}
 							aria-label={t("close")}
 							className="size-8 shrink-0 rounded-[10px] text-panel-text-muted transition-[background-color,color,transform] duration-150 active:scale-[0.95] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 						>
@@ -353,24 +435,95 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 								</div>
 							)}
 
-							{importMutation.isPending && uploadProgress !== null && (
+							{importStage !== "idle" && (
 								<div
 									aria-live="polite"
-									className="flex flex-col gap-2 rounded-[14px] border border-panel-border/80! bg-panel-elevated/50 p-3"
+									className={cn(
+										"flex flex-col gap-2.5 rounded-[14px] border p-3.5",
+										importStage === "completed"
+											? "border-emerald-500/30! bg-emerald-500/8"
+											: "border-panel-border/80! bg-panel-elevated/50",
+									)}
 								>
 									<div className="flex items-center justify-between gap-2 text-[12px] font-semibold text-panel-text">
-										<span>
-											{uploadProgress < 100
-												? t("dashboard.backup.uploadProgress", {
-														percent: uploadProgress,
-													})
-												: t("dashboard.backup.processing")}
-										</span>
-										<span dir="ltr" className="text-panel-text-secondary tabular-nums">
-											{uploadProgress}%
+										<div className="flex min-w-0 items-center gap-2">
+											{importStage === "completed" ? (
+												<CircleCheck
+													className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+													aria-hidden="true"
+												/>
+											) : (
+												<LoaderCircle
+													className="size-4 shrink-0 animate-spin text-panel-accent"
+													aria-hidden="true"
+												/>
+											)}
+											<span className="truncate">
+												{importStage === "completed"
+													? t("dashboard.backup.importCompleted")
+													: importStage === "restoring"
+														? t("dashboard.backup.importRestoring")
+														: t("dashboard.backup.importUploading")}
+											</span>
+										</div>
+										<span dir="ltr" className="shrink-0 text-panel-text-secondary tabular-nums [unicode-bidi:isolate]">
+											{importPercent}%
 										</span>
 									</div>
-									<Progress value={uploadProgress} className="h-1.5 rounded-full" />
+									<Progress
+										value={importPercent}
+										indicatorClassName={
+											importStage === "completed" ? "bg-emerald-500" : undefined
+										}
+										className="h-1.5 rounded-full"
+									/>
+									<div className="flex flex-wrap items-center gap-2 text-[11px] font-medium">
+										{(
+											[
+												{
+													key: "uploading",
+													label: t("dashboard.backup.stepUpload"),
+													done: importStage === "restoring" || importStage === "completed",
+													active: importStage === "uploading",
+												},
+												{
+													key: "restoring",
+													label: t("dashboard.backup.stepRestore"),
+													done: importStage === "completed",
+													active: importStage === "restoring",
+												},
+												{
+													key: "completed",
+													label: t("dashboard.backup.stepDone"),
+													done: importStage === "completed",
+													active: importStage === "completed",
+												},
+											] as const
+										).map((step) => (
+											<span
+												key={step.key}
+												className={cn(
+													"inline-flex items-center gap-1 rounded-full px-2 py-0.5",
+													step.done
+														? "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400"
+														: step.active
+															? "bg-panel-accent/14 text-panel-accent"
+															: "bg-panel-surface text-panel-text-muted",
+												)}
+											>
+												{step.done ? <Check className="size-3" /> : null}
+												<span>{step.label}</span>
+											</span>
+										))}
+									</div>
+									{importStage === "completed" && importResult ? (
+										<p className="text-[11.5px] leading-relaxed text-panel-text-secondary">
+											{t("dashboard.backup.importDone", {
+												tables: importResult.tables_restored,
+												rows: importResult.rows_restored,
+											})}
+										</p>
+									) : null}
 								</div>
 							)}
 						</div>
@@ -379,26 +532,28 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border/70! px-5 py-3.5">
 						<Button
 							type="button"
-							onClick={() => setDialog(null)}
+							onClick={closeDialog}
 							disabled={importMutation.isPending}
 							variant="ghost"
 							size="sm"
 							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted active:scale-[0.97]"
 						>
-							{t("cancel")}
+							{importStage === "completed" ? t("close") : t("cancel")}
 						</Button>
-						<Button
-							type="button"
-							onClick={handleImport}
-							disabled={!canImport || importMutation.isPending}
-							variant="destructive"
-							size="sm"
-							loading={importMutation.isPending}
-							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold active:scale-[0.97]"
-						>
-							<Upload className="size-3.5" />
-							<span>{t("dashboard.backup.import")}</span>
-						</Button>
+						{importStage !== "completed" ? (
+							<Button
+								type="button"
+								onClick={handleImport}
+								disabled={!canImport || importMutation.isPending}
+								variant="destructive"
+								size="sm"
+								loading={importMutation.isPending}
+								className="h-9 rounded-[12px] px-4 text-[12px] font-semibold active:scale-[0.97]"
+							>
+								<Upload className="size-3.5" />
+								<span>{t("dashboard.backup.import")}</span>
+							</Button>
+						) : null}
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
@@ -406,7 +561,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 			<Dialog
 				open={dialog === "export"}
 				onOpenChange={(open) => {
-					if (!open && !exportMutation.isPending) setDialog(null);
+					if (!open && !exportMutation.isPending) closeDialog();
 				}}
 			>
 				<DialogContent
@@ -429,7 +584,7 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 							variant="ghost"
 							size="icon-sm"
 							disabled={exportMutation.isPending}
-							onClick={() => setDialog(null)}
+							onClick={closeDialog}
 							aria-label={t("close")}
 							className="size-8 shrink-0 rounded-[10px] text-panel-text-muted transition-[background-color,color,transform] duration-150 active:scale-[0.95] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 						>
@@ -467,9 +622,16 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 											<button
 												key={option.scope}
 												type="button"
-												onClick={() => setExportScope(option.scope)}
+												disabled={exportMutation.isPending}
+												onClick={() => {
+													setExportScope(option.scope);
+													if (exportDone) {
+														setExportDone(null);
+														setExportProgress(null);
+													}
+												}}
 												className={cn(
-													"flex w-full items-center justify-between gap-3 rounded-[14px] border px-3.5 py-3 text-start transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-panel-accent",
+													"flex w-full items-center justify-between gap-3 rounded-[14px] border px-3.5 py-3 text-start transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-panel-accent disabled:pointer-events-none disabled:opacity-70",
 													active
 														? "border-panel-accent! bg-panel-accent/10 text-panel-text"
 														: "border-panel-border/80! bg-panel-elevated/45 text-panel-text-secondary min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated/80",
@@ -505,19 +667,127 @@ export const DashboardBackupControls: FC<DashboardBackupControlsProps> = ({
 									})}
 								</div>
 							</Field>
+
+							{exportProgress !== null && (
+								<div
+									aria-live="polite"
+									className={cn(
+										"flex flex-col gap-2.5 rounded-[14px] border p-3.5",
+										exportProgress.phase === "completed"
+											? "border-emerald-500/30! bg-emerald-500/8"
+											: "border-panel-border/80! bg-panel-elevated/50",
+									)}
+								>
+									<div className="flex items-center justify-between gap-2 text-[12px] font-semibold text-panel-text">
+										<div className="flex min-w-0 items-center gap-2">
+											{exportProgress.phase === "completed" ? (
+												<CircleCheck
+													className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400"
+													aria-hidden="true"
+												/>
+											) : (
+												<LoaderCircle
+													className="size-4 shrink-0 animate-spin text-panel-accent"
+													aria-hidden="true"
+												/>
+											)}
+											<span className="truncate">
+												{exportProgress.phase === "completed"
+													? t("dashboard.backup.exportCompleted")
+													: exportProgress.phase === "downloading"
+														? t("dashboard.backup.exportDownloading")
+														: exportScope === "full"
+															? t("dashboard.backup.exportPreparingFull")
+															: t("dashboard.backup.exportPreparingDatabase")}
+											</span>
+										</div>
+										<span dir="ltr" className="shrink-0 text-panel-text-secondary tabular-nums [unicode-bidi:isolate]">
+											{exportProgress.percent}%
+										</span>
+									</div>
+									<Progress
+										value={exportProgress.percent}
+										indicatorClassName={
+											exportProgress.phase === "completed" ? "bg-emerald-500" : undefined
+										}
+										className="h-1.5 rounded-full"
+									/>
+									<div className="flex flex-wrap items-center justify-between gap-2">
+										<div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium">
+											{(
+												[
+													{
+														key: "preparing",
+														label: t("dashboard.backup.stepPrepare"),
+														done:
+															exportProgress.phase === "downloading" ||
+															exportProgress.phase === "completed",
+														active: exportProgress.phase === "preparing",
+													},
+													{
+														key: "downloading",
+														label: t("dashboard.backup.stepDownload"),
+														done: exportProgress.phase === "completed",
+														active: exportProgress.phase === "downloading",
+													},
+													{
+														key: "completed",
+														label: t("dashboard.backup.stepDone"),
+														done: exportProgress.phase === "completed",
+														active: exportProgress.phase === "completed",
+													},
+												] as const
+											).map((step) => (
+												<span
+													key={step.key}
+													className={cn(
+														"inline-flex items-center gap-1 rounded-full px-2 py-0.5",
+														step.done
+															? "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400"
+															: step.active
+																? "bg-panel-accent/14 text-panel-accent"
+																: "bg-panel-surface text-panel-text-muted",
+													)}
+												>
+													{step.done ? <Check className="size-3" /> : null}
+													<span>{step.label}</span>
+												</span>
+											))}
+										</div>
+										{typeof exportProgress.loaded === "number" && exportProgress.loaded > 0 ? (
+											<span
+												dir="ltr"
+												className="text-[11px] font-medium text-panel-text-muted tabular-nums [unicode-bidi:isolate]"
+											>
+												{exportProgress.total
+													? `${formatBytes(exportProgress.loaded, 1)} / ${formatBytes(exportProgress.total, 1)}`
+													: formatBytes(exportProgress.loaded, 1)}
+											</span>
+										) : null}
+									</div>
+									{exportDone ? (
+										<p
+											dir="ltr"
+											className="truncate text-[11px] font-medium text-panel-text-secondary [unicode-bidi:isolate]"
+										>
+											{exportDone.filename} ({formatBytes(exportDone.size, 2)})
+										</p>
+									) : null}
+								</div>
+							)}
 						</div>
 					</div>
 
 					<DialogFooter className="flex flex-row items-center justify-end gap-2 border-t border-panel-border/70! px-5 py-3.5">
 						<Button
 							type="button"
-							onClick={() => setDialog(null)}
+							onClick={closeDialog}
 							disabled={exportMutation.isPending}
 							variant="ghost"
 							size="sm"
 							className="h-9 rounded-[12px] px-4 text-[12px] font-semibold text-panel-text-muted active:scale-[0.97]"
 						>
-							{t("cancel")}
+							{exportDone ? t("close") : t("cancel")}
 						</Button>
 						<Button
 							type="button"

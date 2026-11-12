@@ -1130,5 +1130,19 @@
 	"theme.accent.crimson": "红色 / 深红",
 	"theme.accent.green": "绿色",
 	"theme.accent.purple": "紫色",
-	"theme.accent.orange": "橙色"
+	"theme.accent.orange": "橙色",
+	"dashboard.system.panelCpuUsage": "面板 CPU 使用率",
+	"dashboard.system.panelMemoryUsage": "面板内存使用率",
+	"dashboard.backup.exportPreparingDatabase": "正在准备数据库备份...",
+	"dashboard.backup.exportPreparingFull": "正在准备完整备份...",
+	"dashboard.backup.exportDownloading": "正在下载备份文件...",
+	"dashboard.backup.exportCompleted": "备份已完成并开始下载。",
+	"dashboard.backup.stepPrepare": "准备",
+	"dashboard.backup.stepDownload": "下载",
+	"dashboard.backup.stepDone": "完成",
+	"dashboard.backup.importUploading": "正在上传备份文件...",
+	"dashboard.backup.importRestoring": "正在恢复备份...",
+	"dashboard.backup.importCompleted": "备份恢复已完成。",
+	"dashboard.backup.stepUpload": "上传",
+	"dashboard.backup.stepRestore": "恢复"
 }

@@ -24,7 +24,6 @@ import {
 	Cpu,
 	Database,
 	HardDrive,
-	History,
 	Server,
 	ShieldCheck,
 	Signal,
@@ -41,6 +40,7 @@ import {
 	Suspense,
 	useCallback,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -649,11 +649,11 @@ const HistoryModal: FC<{
 			];
 			seriesList = [
 				{
-					name: `${t("dashboard.system.cpuUsage")} (Panel CPU %)`,
+					name: t("dashboard.system.panelCpuUsage"),
 					data: finalCpu.map((e) => [e.timestamp * 1000, e.value]),
 				},
 				{
-					name: `${t("dashboard.system.memoryUsage")} (Panel RAM %)`,
+					name: t("dashboard.system.panelMemoryUsage"),
 					data: finalMem.map((e) => [e.timestamp * 1000, e.value]),
 				},
 			];
@@ -1152,8 +1152,7 @@ const ResourceCard: FC<{
 							data-rb-swap-text=""
 							className="relative h-[22px] shrink-0 rounded-full bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary active:scale-[0.97] after:absolute after:-inset-2.5 after:content-['']"
 						>
-							<span className="hidden min-[380px]:inline">{historyLabel}</span>
-							<History className="size-3.5 min-[380px]:hidden" aria-hidden="true" />
+							{historyLabel}
 						</Button>
 					)}
 				</div>
@@ -1308,8 +1307,16 @@ const SectionCard: FC<{
 	title?: ReactNode;
 	action?: ReactNode;
 	noHover?: boolean;
+	headerClassName?: string;
 	contentClassName?: string;
-}> = ({ children, title, action, noHover = false, contentClassName }) => {
+}> = ({
+	children,
+	title,
+	action,
+	noHover = false,
+	headerClassName,
+	contentClassName,
+}) => {
 	const { handleMouseMove, handleMouseLeave } = useCardProximity();
 
 	return (
@@ -1324,7 +1331,12 @@ const SectionCard: FC<{
 		>
 			{!noHover && <div aria-hidden="true" className="rb-stat-spotlight" />}
 			{(title || action) && (
-				<div className="relative z-[1] flex flex-wrap items-center justify-between gap-2.5 border-b border-panel-border px-4 py-3.5 sm:px-5 min-[769px]:px-6">
+				<div
+					className={cn(
+						"relative z-[1] flex flex-wrap items-center justify-between gap-2.5 border-b border-panel-border px-4 py-3.5 sm:px-5 min-[769px]:px-6",
+						headerClassName,
+					)}
+				>
 					{title && (
 						<div className="min-w-0 text-[13px] font-bold tracking-[-0.01em] text-panel-text">
 							{title}
@@ -1486,6 +1498,11 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 	);
 	const [userTab, setUserTab] = useState<"all" | "mine">("all");
 	const [bandwidthScope, setBandwidthScope] = useState<BandwidthScope>("total");
+	const [inlineStatusWithTitle, setInlineStatusWithTitle] = useState(false);
+	const overviewHeaderRef = useRef<HTMLDivElement | null>(null);
+	const overviewTitleRef = useRef<HTMLHeadingElement | null>(null);
+	const overviewStatusRef = useRef<HTMLDivElement | null>(null);
+	const overviewControlsRef = useRef<HTMLDivElement | null>(null);
 
 	const canSeeGlobal =
 		userData.role === AdminRole.Sudo || userData.role === AdminRole.FullAccess;
@@ -1500,6 +1517,49 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 			issue.resource_type === "node" ||
 			(issue.resource_type === "node_service" && issue.resource === "xray"),
 	);
+
+	const checkOverviewHeaderFit = useCallback(() => {
+		const rowEl = overviewHeaderRef.current;
+		const titleEl = overviewTitleRef.current;
+		const statusEl = overviewStatusRef.current;
+		const controlsEl = overviewControlsRef.current;
+		if (!rowEl || !titleEl || !statusEl) return;
+		const innerWidth = Math.max(0, rowEl.clientWidth - 8);
+		const titleWidth = Math.ceil(titleEl.scrollWidth);
+		const statusWrapped = statusEl.offsetHeight > 24;
+		const statusWidth = Math.ceil(statusEl.scrollWidth);
+		const controlsWidth = controlsEl ? controlsEl.offsetWidth : 0;
+		const isMobileViewport =
+			typeof window !== "undefined" && window.innerWidth <= 768;
+		const buttonsWrapped =
+			controlsWidth > 0 &&
+			(isMobileViewport ||
+				Math.max(titleWidth, statusWidth) + 12 + controlsWidth > innerWidth);
+		const canShareTopRow =
+			!statusWrapped && titleWidth + 16 + statusWidth <= innerWidth;
+		const nextInline = buttonsWrapped && canShareTopRow;
+		setInlineStatusWithTitle((prev) =>
+			prev !== nextInline ? nextInline : prev,
+		);
+	}, []);
+
+	useLayoutEffect(() => {
+		checkOverviewHeaderFit();
+		const rowEl = overviewHeaderRef.current;
+		if (!rowEl || typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(checkOverviewHeaderFit);
+		observer.observe(rowEl);
+		if (overviewTitleRef.current) {
+			observer.observe(overviewTitleRef.current);
+		}
+		if (overviewStatusRef.current) {
+			observer.observe(overviewStatusRef.current);
+		}
+		if (overviewControlsRef.current) {
+			observer.observe(overviewControlsRef.current);
+		}
+		return () => observer.disconnect();
+	}, [checkOverviewHeaderFit]);
 
 	const openHistory = (type: HistoryMetricType) => {
 		setHistoryInterval(HISTORY_INTERVALS[0].seconds);
@@ -1635,12 +1695,33 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 				<SystemDiagnostics issues={criticalIssues} criticalOnly />
 			)}
 
-			<div className="rb-dashboard-header flex flex-wrap items-center justify-between gap-3 px-1">
-				<div className="rb-dashboard-header-meta flex min-w-0 flex-col items-start gap-1.5">
-					<h1 className="shrink-0 text-[18px] font-bold tracking-[-0.02em] whitespace-nowrap text-panel-text min-[769px]:text-[20px]">
+			<div
+				ref={overviewHeaderRef}
+				className="rb-dashboard-header flex flex-wrap items-center justify-between gap-3 px-1"
+			>
+				<div
+					className={cn(
+						"rb-dashboard-header-meta flex min-w-0",
+						inlineStatusWithTitle
+							? "w-full flex-row items-center justify-between gap-3"
+							: "flex-col items-start gap-1.5",
+					)}
+				>
+					<h1
+						ref={overviewTitleRef}
+						className="shrink-0 text-[18px] font-bold tracking-[-0.02em] whitespace-nowrap text-panel-text min-[769px]:text-[20px]"
+					>
 						{t("dashboard.system.overview")}
 					</h1>
-					<div className="flex flex-wrap items-center gap-2">
+					<div
+						ref={overviewStatusRef}
+						className={cn(
+							"flex items-center gap-2",
+							inlineStatusWithTitle
+								? "shrink-0 whitespace-nowrap"
+								: "flex-wrap",
+						)}
+					>
 						<span
 							style={{
 								animation: isHealthy
@@ -1683,10 +1764,15 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 					</div>
 				</div>
 
-				<DashboardMaintenanceControls
-					channel={systemData.channel}
-					version={systemData.version}
-				/>
+				<div
+					ref={overviewControlsRef}
+					className="w-full min-[769px]:w-auto shrink-0"
+				>
+					<DashboardMaintenanceControls
+						channel={systemData.channel}
+						version={systemData.version}
+					/>
+				</div>
 			</div>
 
 			<div className="rb-dashboard-grid-guard grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4 min-[769px]:gap-4">
@@ -1758,23 +1844,26 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 
 			<div className="rb-dashboard-grid-guard grid grid-cols-1 gap-3 min-[769px]:grid-cols-2 min-[769px]:gap-4">
 				<SectionCard
+					headerClassName="flex-nowrap items-center justify-between gap-2 px-3.5 sm:px-5 min-[769px]:px-6"
 					title={
-						<div className="flex items-center gap-2.5">
+						<div className="flex min-w-0 items-center gap-2 sm:gap-2.5">
 							<span
 								data-rb-icon=""
-								className="flex size-[26px] shrink-0 items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary"
+								className="flex size-6 shrink-0 items-center justify-center rounded-[7px] bg-panel-elevated text-panel-text-secondary sm:size-[26px]"
 							>
 								<Signal className="size-3.5" />
 							</span>
-							<span>{t("dashboard.system.bandwidthSpeed")}</span>
+							<span className="truncate text-[12px] sm:text-[13px]">
+								{t("dashboard.system.bandwidthSpeed")}
+							</span>
 						</div>
 					}
 					action={
-						<div className="flex flex-wrap items-center gap-2">
+						<div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
 							{canSeeGlobal && (
 								<div
 									data-rb-swap=""
-									className="relative flex items-center gap-0.5 rounded-[10px] bg-panel-elevated p-0.5"
+									className="relative flex shrink-0 items-center gap-0.5 rounded-[10px] bg-panel-elevated p-0.5"
 								>
 									{(["master", "total"] as const).map((scope) => {
 										const active = bandwidthScope === scope;
@@ -1802,7 +1891,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 													variant="ghost"
 													size="xs"
 													className={cn(
-														"relative z-[2] h-[22px] rounded-[8px] bg-transparent! px-2.5 text-[11px] font-semibold transition-colors active:scale-[0.97]",
+														"relative z-[2] h-[22px] rounded-[8px] bg-transparent! px-2 text-[10.5px] font-semibold transition-colors active:scale-[0.97] sm:px-2.5 sm:text-[11px]",
 														active
 															? "text-white! min-[769px]:hover:text-white!"
 															: "text-panel-text-secondary min-[769px]:hover:text-panel-text",
@@ -1822,7 +1911,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 								size="xs"
 								data-rb-swap=""
 								data-rb-swap-text=""
-								className="relative h-[22px] shrink-0 rounded-full bg-panel-elevated px-2.5 text-[11px] font-semibold text-panel-text-secondary active:scale-[0.97] after:absolute after:-inset-2.5 after:content-['']"
+								className="relative h-[22px] shrink-0 rounded-full bg-panel-elevated px-2 text-[10.5px] font-semibold text-panel-text-secondary active:scale-[0.97] sm:px-2.5 sm:text-[11px] after:absolute after:-inset-2.5 after:content-['']"
 							>
 								{t("dashboard.system.viewHistory")}
 							</Button>
@@ -1920,7 +2009,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 			>
 				<div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 min-[769px]:gap-4">
 					<ResourceCard
-						label={`${t("dashboard.system.cpuUsage")} (Panel)`}
+						label={t("dashboard.system.panelCpuUsage")}
 						icon={<Cpu className="size-4" />}
 						value={formatPercent(systemData.panel_cpu_percent)}
 						percent={systemData.panel_cpu_percent}
@@ -1931,7 +2020,7 @@ export const Statistics: FC<ComponentPropsWithoutRef<"div">> = (props) => {
 						isRTL={isRTL}
 					/>
 					<ResourceCard
-						label={`${t("dashboard.system.memoryUsage")} (Panel)`}
+						label={t("dashboard.system.panelMemoryUsage")}
 						icon={<Server className="size-4" />}
 						value={formatBytes(systemData.app_memory, 1)}
 						totalValue={formatBytes(systemData.memory.total, 1)}

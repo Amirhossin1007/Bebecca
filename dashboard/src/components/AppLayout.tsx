@@ -15,7 +15,7 @@ import {
 	PopoverTrigger,
 } from "components/ui/popover";
 import { Sheet, SheetContent, SheetTitle } from "components/ui/sheet";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useDisclosure } from "hooks/useDisclosure";
 import useGetUser from "hooks/useGetUser";
 import { useMediaQuery } from "hooks/useMediaQuery";
@@ -105,33 +105,42 @@ const AnimatedHamburger = ({
 	isRTL?: boolean;
 }) => (
 	<svg
-		width="15"
-		height="15"
+		width="16"
+		height="16"
 		viewBox="0 0 18 18"
 		fill="none"
 		stroke="currentColor"
-		strokeWidth="1.65"
+		strokeWidth="1.75"
 		strokeLinecap="round"
 		aria-hidden="true"
 		style={{ transform: isRTL ? "scaleX(-1)" : undefined }}
 	>
 		<motion.line
 			x1="3"
-			y1="6.5"
+			y1="5"
 			x2="15"
-			y2="6.5"
+			y2="5"
 			initial={false}
 			animate={{ x2: isOpen ? 10 : 15 }}
-			transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+			transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
 		/>
 		<motion.line
 			x1="3"
-			y1="11.5"
+			y1="9"
 			x2="15"
-			y2="11.5"
+			y2="9"
 			initial={false}
-			animate={{ x2: isOpen ? 15 : 11 }}
-			transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+			animate={{ x2: 15 }}
+			transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+		/>
+		<motion.line
+			x1="3"
+			y1="13"
+			x2="15"
+			y2="13"
+			initial={false}
+			animate={{ x2: isOpen ? 12 : 15 }}
+			transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
 		/>
 	</svg>
 );
@@ -190,36 +199,6 @@ function AppLayoutContent() {
 	const accountMenu = useDisclosure();
 	const settingsMenu = useDisclosure();
 	const dockSettingsScrollRef = useRef<HTMLDivElement | null>(null);
-	const dockAnchorStateRef = useRef<{
-		groupId: string;
-		anchorEl: HTMLElement;
-		edge: "top" | "bottom";
-		initialPos: number;
-	} | null>(null);
-
-	const syncDockAnchorScroll = useCallback((groupId: string) => {
-		const state = dockAnchorStateRef.current;
-		const scrollEl = dockSettingsScrollRef.current;
-		if (!state || state.groupId !== groupId || !scrollEl) return;
-		const currentPos =
-			state.edge === "top"
-				? state.anchorEl.getBoundingClientRect().top
-				: state.anchorEl.getBoundingClientRect().bottom;
-		const delta = currentPos - state.initialPos;
-		if (Math.abs(delta) >= 0.5) {
-			scrollEl.scrollTop += delta;
-		}
-	}, []);
-
-	const finishDockAnchorScroll = useCallback(
-		(groupId: string) => {
-			syncDockAnchorScroll(groupId);
-			if (dockAnchorStateRef.current?.groupId === groupId) {
-				dockAnchorStateRef.current = null;
-			}
-		},
-		[syncDockAnchorScroll],
-	);
 
 	const [activeProfileSubmenu, setActiveProfileSubmenu] = useState<
 		"notifications" | "language" | "theme" | "calendar" | null
@@ -394,6 +373,8 @@ function AppLayoutContent() {
 		: { type: "spring" as const, stiffness: 520, damping: 32, mass: 0.6 };
 
 	const [calendarCompact, setCalendarCompact] = useState(false);
+	const [starsCompact, setStarsCompact] = useState(false);
+	const starsExpandedWidthRef = useRef(88);
 	const [breadcrumbMode, setBreadcrumbMode] = useState<
 		"full" | "compact" | "minimal"
 	>("full");
@@ -405,7 +386,10 @@ function AppLayoutContent() {
 		half: 110,
 	});
 	const canTruncateLastCrumb =
-		canTruncateLastCrumbState && calendarCompact && breadcrumbMode === "minimal";
+		canTruncateLastCrumbState &&
+		calendarCompact &&
+		starsCompact &&
+		breadcrumbMode === "minimal";
 
 	useEffect(() => {
 		const syncHash = () => setActiveLocationHash(window.location.hash);
@@ -1164,18 +1148,14 @@ function AppLayoutContent() {
 			const profileWidth = profileEl ? profileEl.offsetWidth : 90;
 			const notifWidth =
 				!isMobile && getUserIsSuccess && notifEl ? notifEl.offsetWidth : 0;
-			const starsWidth = starsEl ? starsEl.offsetWidth : 34;
-			const rightControlsWidth =
-				profileWidth +
-				(notifWidth > 0 ? notifWidth + 8 : 0) +
-				(starsWidth > 0 ? starsWidth + 8 : 0);
+			if (!starsCompact && starsEl && starsEl.offsetWidth > 44) {
+				starsExpandedWidthRef.current = starsEl.offsetWidth;
+			}
+			const fullStarsWidth = starsEl ? starsExpandedWidthRef.current : 0;
+			const compactStarsWidth = starsEl ? 34 : 0;
 			const isFa = i18n.language?.startsWith("fa");
 			const fullCalendarWidth = isFa ? 184 : 200;
 			const compactCalendarWidth = 34;
-			const compactControlsWidth =
-				compactCalendarWidth + 8 + rightControlsWidth;
-			const fullControlsWidth = fullCalendarWidth + 8 + rightControlsWidth;
-
 			const navButtonWidth = 34;
 			const isDesktop = !isMobile && window.innerWidth >= 769;
 			const headerPadding = isDesktop ? 40 : 24;
@@ -1183,23 +1163,34 @@ function AppLayoutContent() {
 			const navDividerGaps = 25;
 			const bannerGap = hasBanner ? 10 : 0;
 
-			const fixedOverheadFull =
-				headerPadding +
-				hstackGap +
-				navButtonWidth +
-				navDividerGaps +
-				bannerGap +
-				fullControlsWidth;
-			const fixedOverheadCompact =
-				headerPadding +
-				hstackGap +
-				navButtonWidth +
-				navDividerGaps +
-				bannerGap +
-				compactControlsWidth;
+			const getAvailableSpace = (calWidth: number, strWidth: number) => {
+				const rightControlsWidth =
+					profileWidth +
+					(notifWidth > 0 ? notifWidth + 8 : 0) +
+					(strWidth > 0 ? strWidth + 8 : 0);
+				const controlsWidth = calWidth + 8 + rightControlsWidth;
+				const fixedOverhead =
+					headerPadding +
+					hstackGap +
+					navButtonWidth +
+					navDividerGaps +
+					bannerGap +
+					controlsWidth;
+				return totalWidth - fixedOverhead;
+			};
 
-			const spaceFullCalendar = totalWidth - fixedOverheadFull;
-			const spaceCompactCalendar = totalWidth - fixedOverheadCompact;
+			const spaceFullCalFullStars = getAvailableSpace(
+				fullCalendarWidth,
+				fullStarsWidth,
+			);
+			const spaceCompactCalFullStars = getAvailableSpace(
+				compactCalendarWidth,
+				fullStarsWidth,
+			);
+			const spaceCompactCalCompactStars = getAvailableSpace(
+				compactCalendarWidth,
+				compactStarsWidth,
+			);
 
 			const crumbCount = breadcrumbItems.length;
 			const fullBreadcrumbWidth =
@@ -1246,37 +1237,50 @@ function AppLayoutContent() {
 			const stage5Needed = minimalBreadcrumbWidth + minBannerWidth + buffer;
 
 			let nextCalendarCompact = true;
+			let nextStarsCompact = false;
 			let nextBreadcrumbMode: "full" | "compact" | "minimal" = "minimal";
 			let nextBannerShrinkable = false;
 			let nextTruncate = true;
 
-			if (spaceFullCalendar >= stage1Needed) {
+			if (spaceFullCalFullStars >= stage1Needed) {
 				nextCalendarCompact = false;
+				nextStarsCompact = false;
 				nextBreadcrumbMode = "full";
 				nextBannerShrinkable = false;
 				nextTruncate = false;
-			} else if (spaceCompactCalendar >= stage2Needed) {
+			} else if (spaceCompactCalFullStars >= stage2Needed) {
 				nextCalendarCompact = true;
+				nextStarsCompact = false;
 				nextBreadcrumbMode = "full";
 				nextBannerShrinkable = false;
 				nextTruncate = false;
-			} else if (spaceCompactCalendar >= stage3Needed) {
+			} else if (spaceCompactCalFullStars >= stage3Needed) {
 				nextCalendarCompact = true;
+				nextStarsCompact = false;
 				nextBreadcrumbMode = "compact";
 				nextBannerShrinkable = false;
 				nextTruncate = false;
-			} else if (spaceCompactCalendar >= stage4Needed) {
+			} else if (spaceCompactCalFullStars >= stage4Needed) {
 				nextCalendarCompact = true;
+				nextStarsCompact = false;
 				nextBreadcrumbMode = "minimal";
 				nextBannerShrinkable = false;
 				nextTruncate = false;
-			} else if (hasBanner && spaceCompactCalendar >= stage5Needed) {
+			} else if (hasBanner && spaceCompactCalFullStars >= stage5Needed) {
 				nextCalendarCompact = true;
+				nextStarsCompact = false;
 				nextBreadcrumbMode = "minimal";
 				nextBannerShrinkable = true;
 				nextTruncate = false;
+			} else if (spaceCompactCalCompactStars >= stage5Needed) {
+				nextCalendarCompact = true;
+				nextStarsCompact = true;
+				nextBreadcrumbMode = "minimal";
+				nextBannerShrinkable = hasBanner;
+				nextTruncate = false;
 			} else {
 				nextCalendarCompact = true;
+				nextStarsCompact = true;
 				nextBreadcrumbMode = "minimal";
 				nextBannerShrinkable = hasBanner;
 				nextTruncate = true;
@@ -1284,6 +1288,9 @@ function AppLayoutContent() {
 
 			setCalendarCompact((prev) =>
 				prev !== nextCalendarCompact ? nextCalendarCompact : prev,
+			);
+			setStarsCompact((prev) =>
+				prev !== nextStarsCompact ? nextStarsCompact : prev,
 			);
 			setBreadcrumbMode((prev) =>
 				prev !== nextBreadcrumbMode ? nextBreadcrumbMode : prev,
@@ -1309,6 +1316,7 @@ function AppLayoutContent() {
 		bannerDimensions.natural,
 		isMobile,
 		getUserIsSuccess,
+		starsCompact,
 	]);
 
 	return (
@@ -1820,7 +1828,7 @@ function AppLayoutContent() {
 									<HeaderCalendar isCompact={calendarCompact} />
 								) : null}
 
-								<GitHubStars compact={isMobile} />
+								<GitHubStars compact={isMobile || starsCompact} />
 
 								{!isMobile && getUserIsSuccess && userData.username ? (
 									<NotificationBell />
@@ -1845,7 +1853,10 @@ function AppLayoutContent() {
 											>
 												<span className="flex items-center justify-center gap-2">
 													<span className="relative inline-flex shrink-0 items-center justify-center">
-														<CircleUser className="size-[18px] text-panel-text" />
+														<CircleUser
+															className="size-4 text-panel-text"
+															strokeWidth={1.75}
+														/>
 														{isMobile && unread > 0 ? (
 															<span className="absolute -top-0.5 -end-0.5 size-2 rounded-full border-[1.5px] border-panel-surface bg-panel-accent" />
 														) : null}
@@ -1876,7 +1887,7 @@ function AppLayoutContent() {
 												className="mb-1.5 flex w-full items-center justify-start gap-3 rounded-[14px] border border-panel-border! bg-panel-elevated p-2.5 text-start"
 											>
 												<div className="flex size-8 shrink-0 items-center justify-center rounded-[10px] border border-panel-border! bg-panel-surface text-panel-text">
-													<CircleUser className="size-[18px]" />
+													<CircleUser className="size-4" strokeWidth={1.75} />
 												</div>
 												<div className="flex min-w-0 flex-1 flex-col items-start text-start">
 													<span
@@ -1956,7 +1967,10 @@ function AppLayoutContent() {
 															)}
 														>
 															<span className="flex min-w-0 items-center gap-2.5">
-																<Languages className="size-4 shrink-0 text-panel-text" />
+																<Languages
+																	className="size-4 shrink-0 text-panel-text"
+																	strokeWidth={1.75}
+																/>
 																<span className="truncate">
 																	{t("header.language")}
 																</span>
@@ -2221,7 +2235,11 @@ function AppLayoutContent() {
 																	? "text-panel-accent"
 																	: "text-panel-text-secondary",
 															)}
+															strokeWidth={1.75}
 														/>
+														{item.key === "notifications" && unread > 0 ? (
+															<span className="absolute top-0.5 end-2 z-[2] size-2 rounded-full border border-panel-surface bg-panel-accent" />
+														) : null}
 													</div>
 													<span
 														className={cn(
@@ -2292,12 +2310,12 @@ function AppLayoutContent() {
 														align="center"
 														sideOffset={12}
 														collisionPadding={12}
-														className="pointer-events-none z-[1600] flex h-[min(66dvh,calc(100dvh-148px))] w-[min(272px,calc(100vw-24px))] max-w-[calc(100vw-24px)] origin-bottom flex-col justify-end overflow-visible! border-0! bg-transparent! p-0! shadow-none! data-[state=open]:animate-rb-fade-in data-[state=closed]:animate-rb-fade-out"
+														className="pointer-events-none z-[1600] flex h-[min(66dvh,calc(100dvh-148px))] w-[min(272px,calc(100vw-24px))] max-w-[calc(100vw-24px)] origin-bottom flex-col justify-end overflow-visible! border-0! bg-transparent! p-0! shadow-none! data-[state=open]:animate-rb-dock-in data-[state=closed]:animate-rb-dock-out"
 													>
 														<div
 															ref={dockSettingsScrollRef}
 															className={cn(
-																"pointer-events-auto max-h-full w-full origin-bottom overflow-y-auto overscroll-contain [overflow-anchor:none] rounded-[22px] border p-2.5 text-panel-text",
+																"pointer-events-auto max-h-full w-full origin-bottom overflow-y-auto overscroll-contain rounded-[22px] border p-2.5 text-panel-text",
 																DOCK_SURFACE_CLASS,
 															)}
 														>
@@ -2318,9 +2336,11 @@ function AppLayoutContent() {
 																					const EntryIcon = navEntry.icon;
 																					const entrySelected =
 																						activeSettingsId === navEntry.id;
-																					const showBadge = Boolean(
-																						navEntry.badge,
-																					);
+																					const isNotifEntry =
+																						navEntry.url === "/notifications";
+																					const showBadge =
+																						Boolean(navEntry.badge) ||
+																						(isNotifEntry && unread > 0);
 
 																					return (
 																						<button
@@ -2350,7 +2370,14 @@ function AppLayoutContent() {
 																							<span className="min-w-0 flex-1 truncate">
 																								{navEntry.title}
 																							</span>
-																							{showBadge ? (
+																							{isNotifEntry && unread > 0 ? (
+																								<span
+																									dir="ltr"
+																									className="inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-panel-accent px-1.5 text-[10px] font-bold text-white tabular-nums [unicode-bidi:isolate]"
+																								>
+																									{unread > 99 ? "99+" : unread}
+																								</span>
+																							) : showBadge ? (
 																								<span className="inline-flex size-4 shrink-0 items-center justify-center rounded-full bg-panel-accent text-white">
 																									<BellRing className="size-2.5" />
 																								</span>
@@ -2378,60 +2405,21 @@ function AppLayoutContent() {
 																							aria-expanded={isGroupOpen}
 																							onClick={(e) => {
 																								const willOpen = !isGroupOpen;
-																								if (dockSettingsScrollRef.current) {
-																									const triggerEl =
-																										e.currentTarget;
-																									const groupWrapper =
-																										triggerEl.closest(
-																											"[data-dock-group]",
-																										) as HTMLElement | null;
-																									let anchorEl: HTMLElement | null =
-																										null;
-																									let anchorEdge:
-																										| "top"
-																										| "bottom" = "top";
-																									if (groupWrapper) {
-																										const nextSibling =
-																											groupWrapper.nextElementSibling as HTMLElement | null;
-																										if (nextSibling) {
-																											anchorEl = nextSibling;
-																										} else {
-																											const sectionEl =
-																												groupWrapper.closest(
-																													"[data-dock-section]",
-																												);
-																											const nextSection =
-																												sectionEl?.nextElementSibling as HTMLElement | null;
-																											if (nextSection) {
-																												anchorEl = nextSection;
-																											} else {
-																												anchorEl = groupWrapper;
-																												anchorEdge = "bottom";
-																											}
-																										}
-																									}
-																									if (anchorEl) {
-																										dockAnchorStateRef.current = {
-																											groupId: navEntry.id,
-																											anchorEl,
-																											edge: anchorEdge,
-																											initialPos:
-																												anchorEdge === "top"
-																													? anchorEl.getBoundingClientRect()
-																															.top
-																													: anchorEl.getBoundingClientRect()
-																															.bottom,
-																										};
-																									} else {
-																										dockAnchorStateRef.current = null;
-																									}
-																								} else {
-																									dockAnchorStateRef.current = null;
-																								}
+																								const groupEl = e.currentTarget.closest(
+																									"[data-dock-group]",
+																								) as HTMLElement | null;
 																								setOpenDockGroups((prev) => ({
 																									...prev,
 																									[navEntry.id]: willOpen,
 																								}));
+																								if (willOpen && groupEl) {
+																									window.setTimeout(() => {
+																										groupEl.scrollIntoView({
+																											block: "nearest",
+																											behavior: "smooth",
+																										});
+																									}, 220);
+																								}
 																							}}
 																							className={cn(
 																								"relative flex min-h-[38px] w-full items-center justify-between gap-2.5 overflow-hidden rounded-[12px] px-2.5 text-start text-[13px] transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
@@ -2461,7 +2449,7 @@ function AppLayoutContent() {
 
 																							<ChevronDown
 																								className={cn(
-																									"size-3.5 shrink-0 text-panel-text-muted transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+																									"size-3.5 shrink-0 text-panel-text-muted transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]",
 																									isGroupOpen
 																										? "rotate-0"
 																										: isRTL
@@ -2471,95 +2459,80 @@ function AppLayoutContent() {
 																							/>
 																						</button>
 
-																						<AnimatePresence
-																							initial={false}
-																							onExitComplete={() =>
-																								finishDockAnchorScroll(
-																									navEntry.id,
-																								)
-																							}
+																						<div
+																							aria-hidden={!isGroupOpen}
+																							inert={!isGroupOpen ? true : undefined}
+																							className={cn(
+																								"grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]",
+																								isGroupOpen
+																									? "grid-rows-[1fr] opacity-100"
+																									: "grid-rows-[0fr] opacity-0",
+																							)}
 																						>
-																							{isGroupOpen ? (
-																								<motion.div
-																									key="dock-subitems"
-																									initial={{
-																										height: 0,
-																										opacity: 0,
-																									}}
-																									animate={{
-																										height: "auto",
-																										opacity: 1,
-																									}}
-																									exit={{
-																										height: 0,
-																										opacity: 0,
-																									}}
-																									transition={{
-																										height: {
-																											duration: 0.24,
-																											ease: [0.32, 0.72, 0, 1],
-																										},
-																										opacity: {
-																											duration: 0.16,
-																											ease: "easeOut",
-																										},
-																									}}
-																									onUpdate={() =>
-																										syncDockAnchorScroll(
-																											navEntry.id,
-																										)
-																									}
-																									onAnimationComplete={() =>
-																										finishDockAnchorScroll(
-																											navEntry.id,
-																										)
-																									}
-																									className="overflow-hidden"
+																							<div className="min-h-0 overflow-hidden">
+																								<div
+																									className={cn(
+																										"ms-[19px] flex flex-col gap-0.5 border-s border-panel-border! ps-2.5 pt-1 pb-0.5 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)]",
+																										isGroupOpen
+																											? "translate-y-0"
+																											: "translate-y-1.5",
+																									)}
 																								>
-																									<div className="ms-[19px] flex flex-col gap-0.5 border-s border-panel-border! ps-2.5 pt-1 pb-0.5">
-																										{navEntry.subItems.map(
-																											(sub) => {
-																												const SubIcon =
-																													sub.icon;
-																												const subSelected =
-																													activeSettingsId ===
-																													sub.id;
-																												return (
-																													<button
-																														key={sub.id}
-																														type="button"
-																														aria-current={
-																															subSelected
-																																? "page"
-																																: undefined
-																														}
-																														onClick={() =>
-																															navigateToSettingsItem(
-																																sub.url,
-																															)
-																														}
-																														className={cn(
-																															"relative flex min-h-[34px] w-full items-center gap-2.5 rounded-[10px] px-2.5 text-start text-xs transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
-																															subSelected
-																																? "bg-panel-elevated font-bold text-panel-accent"
-																																: "bg-transparent font-medium text-panel-text-secondary",
-																														)}
-																													>
-																														{subSelected ? (
-																															<span className="pointer-events-none absolute -inset-s-[11.5px] top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-panel-accent" />
-																														) : null}
-																														<SubIcon className="size-4 shrink-0" />
-																														<span className="truncate">
-																															{sub.title}
+																									{navEntry.subItems.map(
+																										(sub) => {
+																											const SubIcon = sub.icon;
+																											const subSelected =
+																												activeSettingsId ===
+																												sub.id;
+																											const isSubNotif =
+																												sub.url ===
+																												"/notifications";
+																											return (
+																												<button
+																													key={sub.id}
+																													type="button"
+																													aria-current={
+																														subSelected
+																															? "page"
+																															: undefined
+																													}
+																													onClick={() =>
+																														navigateToSettingsItem(
+																															sub.url,
+																														)
+																													}
+																													className={cn(
+																														"relative flex min-h-[34px] w-full items-center gap-2.5 rounded-[10px] px-2.5 text-start text-xs transition-[background-color,color,transform] duration-150 outline-none select-none active:scale-[0.98] active:bg-panel-elevated",
+																														subSelected
+																															? "bg-panel-elevated font-bold text-panel-accent"
+																															: "bg-transparent font-medium text-panel-text-secondary",
+																													)}
+																												>
+																													{subSelected ? (
+																														<span className="pointer-events-none absolute -inset-s-[11.5px] top-1/2 h-3.5 w-[2px] -translate-y-1/2 rounded-full bg-panel-accent" />
+																													) : null}
+																													<SubIcon className="size-4 shrink-0" />
+																													<span className="min-w-0 flex-1 truncate">
+																														{sub.title}
+																													</span>
+																													{isSubNotif &&
+																													unread > 0 ? (
+																														<span
+																															dir="ltr"
+																															className="inline-flex h-[17px] min-w-[17px] shrink-0 items-center justify-center rounded-full bg-panel-accent px-1 text-[10px] font-bold text-white tabular-nums [unicode-bidi:isolate]"
+																														>
+																															{unread > 99
+																																? "99+"
+																																: unread}
 																														</span>
-																													</button>
-																												);
-																											},
-																										)}
-																									</div>
-																								</motion.div>
-																							) : null}
-																						</AnimatePresence>
+																													) : null}
+																												</button>
+																											);
+																										},
+																									)}
+																								</div>
+																							</div>
+																						</div>
 																					</div>
 																				);
 																			})}

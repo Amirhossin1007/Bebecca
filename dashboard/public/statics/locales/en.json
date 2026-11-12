@@ -4215,5 +4215,19 @@
 	"a11y.more": "More",
 	"a11y.toggleBreadcrumbMenu": "Toggle breadcrumb menu",
 	"a11y.sponsor": "Sponsor",
-	"login.loading": "Signing in..."
+	"login.loading": "Signing in...",
+	"dashboard.system.panelCpuUsage": "Panel CPU Usage",
+	"dashboard.system.panelMemoryUsage": "Panel Memory Usage",
+	"dashboard.backup.exportPreparingDatabase": "Preparing database backup...",
+	"dashboard.backup.exportPreparingFull": "Preparing full system backup...",
+	"dashboard.backup.exportDownloading": "Downloading backup archive...",
+	"dashboard.backup.exportCompleted": "Backup finished and downloaded.",
+	"dashboard.backup.stepPrepare": "Prepare",
+	"dashboard.backup.stepDownload": "Download",
+	"dashboard.backup.stepDone": "Done",
+	"dashboard.backup.importUploading": "Uploading backup archive...",
+	"dashboard.backup.importRestoring": "Restoring backup...",
+	"dashboard.backup.importCompleted": "Restore completed.",
+	"dashboard.backup.stepUpload": "Upload",
+	"dashboard.backup.stepRestore": "Restore"
 }
