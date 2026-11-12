@@ -291,7 +291,7 @@ const NotificationListPanel: FC<NotificationListPanelProps> = ({
 						}}
 						className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 text-[11px] font-semibold text-panel-text-secondary transition-[background-color,color,transform] duration-150 active:scale-[0.96] disabled:opacity-50 min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 					>
-						<CheckCheck className="size-3.5 text-panel-text-secondary" />
+						<CheckCheck className="size-3.5 text-panel-accent" />
 						<span>{t("notifications.inbox.markAllRead")}</span>
 					</button>
 				) : null}

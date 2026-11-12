@@ -11,9 +11,11 @@ import type * as React from "react";
 import { useTranslation } from "react-i18next";
 
 function Breadcrumb({ className, ...props }: React.ComponentProps<"nav">) {
+	const { t } = useTranslation();
+
 	return (
 		<nav
-			aria-label="breadcrumb"
+			aria-label={t("a11y.breadcrumb")}
 			data-slot="breadcrumb"
 			className={cn("min-w-0", className)}
 			{...props}
@@ -72,7 +74,7 @@ function BreadcrumbLink({
 		<Comp
 			data-slot="breadcrumb-link"
 			className={cn(
-				"inline-flex cursor-pointer items-center whitespace-nowrap text-xs font-medium text-panel-text-secondary transition-[color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] select-none active:scale-[0.98] md:text-[12.5px] md:hover:text-panel-text",
+				"inline-flex cursor-pointer items-center whitespace-nowrap text-xs font-medium text-panel-text-secondary transition-[color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] select-none active:scale-[0.98] md:text-[12.5px] min-[769px]:hover:text-panel-text",
 				className,
 			)}
 			{...props}
@@ -133,6 +135,8 @@ function BreadcrumbEllipsis({
 	children,
 	...props
 }: React.ComponentProps<"span">) {
+	const { t } = useTranslation();
+
 	return (
 		<span
 			data-slot="breadcrumb-ellipsis"
@@ -142,7 +146,7 @@ function BreadcrumbEllipsis({
 			{...props}
 		>
 			{children ?? <MoreHorizontal className="size-3.5" />}
-			<span className="sr-only">More</span>
+			<span className="sr-only">{t("a11y.more")}</span>
 		</span>
 	);
 }
@@ -156,7 +160,7 @@ function BreadcrumbEllipsisDropdown({
 	items,
 	onNavigate,
 }: BreadcrumbEllipsisDropdownProps) {
-	const { i18n } = useTranslation();
+	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 
 	if (items.length === 0) return null;
@@ -166,8 +170,8 @@ function BreadcrumbEllipsisDropdown({
 			<DropdownMenuTrigger asChild>
 				<button
 					type="button"
-					aria-label="Toggle breadcrumb menu"
-					className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-panel-text-muted transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.94] focus-visible:ring-2 focus-visible:ring-panel-accent/50 md:hover:bg-panel-elevated md:hover:text-panel-text"
+					aria-label={t("a11y.toggleBreadcrumbMenu")}
+					className="inline-flex size-[22px] shrink-0 items-center justify-center rounded-[6px] text-panel-text-muted transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none select-none active:scale-[0.94] focus-visible:ring-2 focus-visible:ring-panel-accent/50 min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 				>
 					<BreadcrumbEllipsis />
 				</button>
@@ -193,7 +197,7 @@ function BreadcrumbEllipsisDropdown({
 						<DropdownMenuItem
 							key={`${item.label}-${idx}`}
 							onSelect={() => onNavigate?.(targetPath)}
-							className="cursor-pointer rounded-[8px] px-2.5 py-1.5 text-xs font-medium text-panel-text transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus:bg-panel-elevated md:hover:bg-panel-elevated"
+							className="cursor-pointer rounded-[8px] px-2.5 py-1.5 text-xs font-medium text-panel-text transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus:bg-panel-elevated min-[769px]:hover:bg-panel-elevated"
 						>
 							{item.label}
 						</DropdownMenuItem>

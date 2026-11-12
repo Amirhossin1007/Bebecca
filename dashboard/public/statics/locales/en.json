@@ -4205,5 +4205,15 @@
 	"dashboard.system.panelMemory": "Panel memory",
 	"dashboard.system.loadAverage": "Load average",
 	"dashboard.system.xrayCore": "Xray core",
-	"dashboard.system.coreUptime": "Core uptime"
+	"dashboard.system.coreUptime": "Core uptime",
+	"theme.accent.blue": "Blue",
+	"theme.accent.crimson": "Red / Crimson",
+	"theme.accent.green": "Green",
+	"theme.accent.purple": "Purple",
+	"theme.accent.orange": "Orange",
+	"a11y.breadcrumb": "Breadcrumb",
+	"a11y.more": "More",
+	"a11y.toggleBreadcrumbMenu": "Toggle breadcrumb menu",
+	"a11y.sponsor": "Sponsor",
+	"login.loading": "Signing in..."
 }

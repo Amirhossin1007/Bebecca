@@ -768,7 +768,7 @@ export const AppSidebar: FC<AppSidebarProps> = memo(function AppSidebar({
 							<button
 								type="button"
 								data-drawer-close="true"
-								aria-label={t("cancel", "Close")}
+								aria-label={t("close")}
 								onClick={onRequestExpand}
 								className="inline-flex size-9 min-w-9 shrink-0 items-center justify-center rounded-full border border-panel-border! bg-panel-elevated/60 text-panel-text-secondary transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] outline-none active:scale-[0.92] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 							>

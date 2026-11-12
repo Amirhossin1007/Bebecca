@@ -9,6 +9,7 @@ import {
 	useMemo,
 	useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 
 export interface SponsorCarouselItem {
 	id: string;
@@ -76,6 +77,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = memo(
 		variant,
 		collapsed = false,
 	}) {
+		const { t } = useTranslation();
 		const stableItems = useMemo(
 			() => items.filter((item) => Boolean(item.src)),
 			[items],
@@ -135,7 +137,7 @@ export const SponsorCarousel: FC<SponsorCarouselProps> = memo(
 
 		return (
 			<section
-				aria-label="Sponsor"
+				aria-label={t("a11y.sponsor")}
 				onMouseEnter={() => setPaused(true)}
 				onMouseLeave={() => setPaused(false)}
 				onFocus={() => setPaused(true)}

@@ -31,9 +31,9 @@ import {
 	CircleAlert,
 	CircleCheck,
 	Clipboard,
-	Power,
 	RefreshCw,
 	RotateCcw,
+	RotateCw,
 	Terminal,
 	TriangleAlert,
 	X,
@@ -434,9 +434,9 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 						type="button"
 						onClick={() => info.refetch()}
 						variant="ghost"
-						size="xs"
+						size="sm"
 						loading={info.isFetching}
-						className="h-7 rounded-[10px] px-2.5 text-[11px] text-panel-text-muted active:scale-[0.97] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
+						className="h-8 min-h-8 rounded-[10px] px-2.5 has-[>svg]:px-2.5 text-[12px] text-panel-text-muted active:scale-[0.97] min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text"
 					>
 						<RefreshCw className="size-3.5" />
 						<span>{t("refresh")}</span>
@@ -584,10 +584,10 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 							type="button"
 							onClick={() => openConfirmFromPopover("soft-reload")}
 							disabled={!hostActionsAvailable}
-							variant="ghost"
-							size="xs"
+							variant="outline"
+							size="sm"
 							loading={reloadMutation.isPending}
-							className="h-8 rounded-[10px] bg-panel-elevated/70 px-3 text-[12px] font-semibold text-panel-text active:scale-[0.97] min-[769px]:hover:bg-panel-elevated"
+							className="h-8 min-h-8 rounded-[10px] border border-panel-border! bg-panel-elevated/70 px-3.5 has-[>svg]:px-3.5 text-[12px] font-semibold leading-none text-panel-text shadow-none hover:bg-panel-elevated/70 dark:bg-panel-elevated/70 dark:hover:bg-panel-elevated/70 active:scale-[0.97] min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated whitespace-nowrap"
 						>
 							<RotateCcw className="size-3.5 text-panel-text-secondary" />
 							<span>{t("dashboard.maintenance.softReloadAction")}</span>
@@ -596,9 +596,9 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 							type="button"
 							onClick={() => openConfirmFromPopover("update")}
 							disabled={!hostActionsAvailable}
-							size="xs"
+							size="sm"
 							loading={updateMutation.isPending}
-							className="h-8 rounded-[10px] px-4 text-[12px] font-semibold active:scale-[0.97]"
+							className="h-8 min-h-8 rounded-[10px] border border-transparent px-3.5 has-[>svg]:px-3.5 text-[12px] font-semibold leading-none shadow-none active:scale-[0.97] whitespace-nowrap"
 						>
 							<ArrowUpCircle className="size-3.5" />
 							<span>{t("dashboard.maintenance.updateAction")}</span>
@@ -618,12 +618,12 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 			size="xs"
 			loading={restartMutation.isPending}
 			className={cn(
-				"h-9 rounded-[12px] border border-red-500/30 bg-red-500/8 px-3.5 text-red-600 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-red-500/8 dark:bg-red-500/8 dark:hover:bg-red-500/8 active:scale-[0.97] min-[769px]:h-8 min-[769px]:hover:border-red-500/50 min-[769px]:hover:bg-red-500/14 min-[769px]:dark:hover:bg-red-500/14 dark:text-red-400 whitespace-nowrap",
+				"h-9 rounded-[12px] border border-panel-border! bg-panel-surface px-3.5 text-panel-text shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-panel-surface dark:hover:bg-input/30 active:scale-[0.97] min-[769px]:h-8 min-[769px]:hover:border-panel-border-strong! min-[769px]:hover:bg-panel-elevated min-[769px]:dark:hover:bg-panel-elevated min-[769px]:hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] whitespace-nowrap",
 				extraClassName,
 			)}
 		>
 			<span className="inline-flex items-center justify-center gap-2">
-				<Power className="size-3.5 shrink-0" />
+				<RotateCw className="size-3.5 shrink-0 text-panel-text-secondary" />
 				<span className="text-[12px] font-semibold leading-none">
 					{t("dashboard.maintenance.restartAction")}
 				</span>
@@ -847,7 +847,7 @@ export const DashboardMaintenanceControls: FC<DashboardMaintenanceControlsProps>
 					<DialogHeader className="flex flex-row items-center justify-between gap-3 border-b border-panel-border/70! px-5 py-3.5 text-start">
 						<div className="flex min-w-0 items-center gap-2.5">
 							{confirmAction === "restart" ? (
-								<Power className="size-4 shrink-0 text-red-600 dark:text-red-400" />
+								<RotateCw className="size-4 shrink-0 text-panel-text-secondary" />
 							) : confirmAction === "soft-reload" ? (
 								<RotateCcw className="size-4 shrink-0 text-panel-text-secondary" />
 							) : (
