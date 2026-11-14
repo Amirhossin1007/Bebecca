@@ -19,7 +19,6 @@ type LanguageProps = {
 	triggerVariant?: "outline" | "ghost";
 	size?: "default" | "sm" | "lg" | "icon" | "icon-sm" | "xs";
 	className?: string;
-	closeOnSelect?: boolean;
 };
 
 const LANGUAGE_OPTIONS = [
@@ -33,7 +32,6 @@ export const Language: FC<LanguageProps> = ({
 	triggerVariant = "outline",
 	size,
 	className,
-	closeOnSelect = true,
 }) => {
 	const { t, i18n } = useTranslation();
 	const isRTL = i18n.dir(i18n.language) === "rtl";
@@ -60,7 +58,7 @@ export const Language: FC<LanguageProps> = ({
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
-				align="end"
+				align="start"
 				sideOffset={8}
 				className="z-[9999] min-w-[180px]! rounded-[16px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_12px_32px_rgba(0,0,0,0.24)] select-none"
 			>
@@ -69,12 +67,7 @@ export const Language: FC<LanguageProps> = ({
 					return (
 						<DropdownMenuItem
 							key={code}
-							onSelect={(e) => {
-								if (!closeOnSelect) {
-									e.preventDefault();
-								}
-								i18n.changeLanguage(code);
-							}}
+							onSelect={() => i18n.changeLanguage(code)}
 							className={cn(
 								"flex cursor-pointer items-center justify-between gap-3 rounded-[10px] px-3 py-2 text-[13px] transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] focus:bg-panel-elevated min-[769px]:hover:bg-panel-elevated",
 								isActive

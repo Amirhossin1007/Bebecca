@@ -120,7 +120,7 @@ const DotMatrixBackground: FC<DotMatrixBackgroundProps> = ({ colorMode }) => {
 		let animationFrameId: number;
 		let width = 0;
 		let height = 0;
-		const spacing = 38;
+		const spacing = 42;
 		let offsetX = 0;
 		let offsetY = 0;
 		let lastTime = performance.now();
@@ -162,8 +162,8 @@ const DotMatrixBackground: FC<DotMatrixBackgroundProps> = ({ colorMode }) => {
 		const baseR = isDark ? 255 : 0;
 		const baseG = isDark ? 255 : 0;
 		const baseB = isDark ? 255 : 0;
-		const baseAlpha = isDark ? 0.08 : 0.07;
-		const repulseRadius = 90;
+		const baseAlpha = isDark ? 0.08 : 0.16;
+		const attractionRadius = 140;
 
 		const render = (currentTime: number) => {
 			const delta = Math.min((currentTime - lastTime) / 1000, 0.1);
@@ -190,18 +190,18 @@ const DotMatrixBackground: FC<DotMatrixBackgroundProps> = ({ colorMode }) => {
 					let dotB = baseB;
 
 					if (mouseActive) {
-						const dx = drawX - mouse.x;
-						const dy = drawY - mouse.y;
+						const dx = mouse.x - drawX;
+						const dy = mouse.y - drawY;
 						const dist = Math.hypot(dx, dy);
 
-						if (dist < repulseRadius && dist > 0.001) {
-							const factor = 1 - dist / repulseRadius;
+						if (dist < attractionRadius && dist > 0.001) {
+							const factor = 1 - dist / attractionRadius;
 							const ease = factor * factor;
-							const push = ease * 16;
-							drawX += (dx / dist) * push;
-							drawY += (dy / dist) * push;
+							const pull = ease * 18;
+							drawX += (dx / dist) * pull;
+							drawY += (dy / dist) * pull;
 
-							alpha = Math.min(baseAlpha + ease * 0.18, 0.32);
+							alpha = Math.min(baseAlpha + ease * 0.22, isDark ? 0.36 : 0.45);
 							dotR = Math.round(baseR * (1 - ease) + 59 * ease);
 							dotG = Math.round(baseG * (1 - ease) + 130 * ease);
 							dotB = Math.round(baseB * (1 - ease) + 246 * ease);
@@ -318,7 +318,8 @@ const LoginField: FC<LoginFieldProps> = ({
 };
 
 const LoginThemeMenu: FC = () => {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
+	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const { colorMode, setColorMode } = useColorMode();
 	const activeTheme: LoginThemeMode = colorMode === "light" ? "light" : "dark";
 
@@ -345,7 +346,7 @@ const LoginThemeMenu: FC = () => {
 	];
 
 	return (
-		<DropdownMenu>
+		<DropdownMenu dir={isRTL ? "rtl" : "ltr"}>
 			<DropdownMenuTrigger asChild>
 				<Button
 					type="button"
@@ -362,17 +363,14 @@ const LoginThemeMenu: FC = () => {
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
-				align="end"
+				align="start"
 				sideOffset={8}
 				className="z-[9999] min-w-36 rounded-[16px] border border-panel-border! bg-panel-surface p-1.5 text-panel-text shadow-[0_12px_32px_rgba(0,0,0,0.24)] select-none"
 			>
 				{options.map((option) => (
 					<DropdownMenuItem
 						key={option.key}
-						onSelect={(e) => {
-							e.preventDefault();
-							selectTheme(option.key);
-						}}
+						onSelect={() => selectTheme(option.key)}
 						className={cn(
 							"flex cursor-pointer items-center justify-between gap-2.5 rounded-[10px] px-2.5 py-2 text-[13px] transition-[background-color,transform] duration-150 active:scale-[0.98] min-[769px]:hover:bg-panel-elevated",
 							activeTheme === option.key
@@ -590,7 +588,7 @@ export const Login: FC = () => {
 						</div>
 
 						<div className="flex items-center gap-1 text-panel-text-muted">
-							<Language triggerVariant="ghost" closeOnSelect={false} />
+							<Language triggerVariant="ghost" />
 							<LoginThemeMenu />
 						</div>
 					</div>
