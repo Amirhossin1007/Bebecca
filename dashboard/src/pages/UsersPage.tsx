@@ -1,22 +1,21 @@
+import { Button } from "components/ui/button";
+import { toast } from "components/ui/sonner";
+import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
+import { withClass } from "lib/withClass";
+import { RefreshCw, Lock } from "lucide-react";
+
+import { AppDialog } from "components/dialogs/AppDialog";
+import { Icon } from "components/Icon";
 import { Pagination } from "components/Pagination";
 import { UsersTable } from "components/UsersTable";
-import { PageHeader, PageLoadingSkeleton } from "components/ui";
-import { Button } from "components/ui/button";
 import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "components/ui/dialog";
-import { toast } from "components/ui/sonner";
+	PageHeader,
+	PageLoadingSkeleton,
+} from "components/ui";
 import { UsersCreateButton, UsersFilterBar } from "components/users";
 import { RefreshSplitButton } from "components/users/RefreshSplitButton";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
-import { cn } from "lib/cn";
-import { Lock, RefreshCw, Unlink } from "lucide-react";
 import {
 	type FC,
 	lazy,
@@ -48,10 +47,13 @@ type OnlineUsersResponse =
 			speeds: Record<string, { upload_speed: number; download_speed: number }>;
 	  };
 
-const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
-	const { t, i18n } = useTranslation();
-	const isRTL = i18n.dir(i18n.language) === "rtl";
+const ResetIcon = withClass(RefreshCw, "w-5 h-5");
 
+const DisabledIcon = withClass(Lock, "h-12 w-12");
+
+const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
+	const { t } = useTranslation();
+	
 	const {
 		resetUsageUser,
 		revokeSubscriptionUser,
@@ -79,18 +81,13 @@ const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 			setLoading(true);
 			(isRevoke ? revokeSubscription(user) : resetDataUsage(user))
 				.then(() => {
-					toast.success(
-						t(isRevoke ? "revokeUserSub.success" : "resetUserUsage.success", {
-							username: user.username,
-						}),
-						{ duration: 3000 },
-					);
+					toast.success(t(
+							isRevoke ? "revokeUserSub.success" : "resetUserUsage.success",
+							{ username: user.username },
+						), { duration: 3000 });
 				})
 				.catch(() => {
-					toast.error(
-						t(isRevoke ? "revokeUserSub.error" : "resetUserUsage.error"),
-						{ duration: 3000 },
-					);
+					toast.error(t(isRevoke ? "revokeUserSub.error" : "resetUserUsage.error"), { duration: 3000 });
 				})
 				.finally(() => {
 					setLoading(false);
@@ -99,77 +96,33 @@ const UserActionDialog: FC<{ action: "reset" | "revoke" }> = ({ action }) => {
 	};
 
 	return (
-		<Dialog open={Boolean(user)} onOpenChange={(open) => !open && onClose()}>
-			<DialogContent
-				dir={isRTL ? "rtl" : "ltr"}
-				showCloseButton={false}
-				className="w-[calc(100vw-2rem)] max-w-[400px] gap-0 overflow-hidden rounded-2xl border-panel-border bg-panel-surface p-6 text-center text-panel-text shadow-2xl"
-			>
-				<div
-					className={cn(
-						"mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl",
-						isRevoke
-							? "bg-amber-500/10 text-amber-500 dark:bg-amber-400/15 dark:text-amber-400"
-							: "bg-blue-500/10 text-blue-500 dark:bg-blue-400/15 dark:text-blue-400",
-					)}
-				>
-					{isRevoke ? (
-						<Unlink className="size-5" />
-					) : (
-						<RefreshCw className="size-5" />
-					)}
-				</div>
-
-				<DialogHeader className="gap-1 p-0 text-center">
-					<DialogTitle className="text-base font-semibold text-panel-text text-center">
-						{t(isRevoke ? "revokeUserSub.title" : "resetUserUsage.title")}
-					</DialogTitle>
-					{user && (
-						<DialogDescription className="text-xs leading-relaxed text-panel-text-muted text-center">
-							<Trans
-								components={{
-									b: (
-										<b className="font-semibold text-panel-text [unicode-bidi:isolate]" />
-									),
-								}}
-							>
-								{t(
-									isRevoke ? "revokeUserSub.prompt" : "resetUserUsage.prompt",
-									{
-										username: user.username,
-									},
-								)}
-							</Trans>
-						</DialogDescription>
-					)}
-				</DialogHeader>
-
-				<DialogFooter className="mt-6 flex flex-row gap-2.5 p-0 sm:justify-center">
-					<Button
-						onClick={onClose}
-						disabled={loading}
-						variant="outline"
-						size="sm"
-						className="h-10 flex-1 rounded-xl border-panel-border text-xs font-semibold text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
-					>
+		<AppDialog open={Boolean(user)} onClose={onClose} size="sm" title={
+				<Icon color="blue">
+					<ResetIcon />
+				</Icon>
+			} contentProps={{ className: "mx-3" }} headerProps={{ className: "pt-6" }} footerProps={{ className: "flex" }} footer={
+				<>
+					<Button onClick={onClose} variant="outline" size="sm" className="flex-1">
 						{t("cancel")}
 					</Button>
-					<Button
-						onClick={onSubmit}
-						size="sm"
-						loading={loading}
-						className={cn(
-							"h-10 flex-1 rounded-xl text-xs font-semibold text-white shadow-xs transition-colors active:scale-[0.98] touch-manipulation",
-							isRevoke
-								? "bg-amber-600 min-[769px]:hover:bg-amber-700"
-								: "bg-panel-accent min-[769px]:hover:bg-panel-accent/90",
-						)}
-					>
+					<Button onClick={onSubmit} size="sm" loading={loading} className="flex-1 bg-blue-600 text-white shadow-xs hover:bg-blue-700">
 						{t(isRevoke ? "revoke" : "reset")}
 					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+				</>
+			}>
+			<p className="font-semibold text-[1.125rem]">
+				{t(isRevoke ? "revokeUserSub.title" : "resetUserUsage.title")}
+			</p>
+			{user && (
+				<p className="mt-1 text-[0.875rem] dark:text-gray-400 text-gray-600">
+					<Trans components={{ b: <b /> }}>
+						{t(isRevoke ? "revokeUserSub.prompt" : "resetUserUsage.prompt", {
+							username: user.username,
+						})}
+					</Trans>
+				</p>
+			)}
+		</AppDialog>
 	);
 };
 
@@ -202,8 +155,9 @@ export const UsersPage: FC = () => {
 		onlineRefreshInFlightRef.current = true;
 		try {
 			const dashboard = useDashboard.getState();
-			const needsGlobalSpeeds =
-				dashboard.filters.advancedFilters?.includes("top_speed");
+			const needsGlobalSpeeds = dashboard.filters.advancedFilters?.includes(
+				"top_speed",
+			);
 			const visibleUsernames = dashboard.users.users.map(
 				(user) => user.username,
 			);
@@ -253,6 +207,7 @@ export const UsersPage: FC = () => {
 				state.refetchUsers(true);
 			}
 		} catch {
+			// Keep the last successful snapshot during a transient poll failure.
 		} finally {
 			onlineRefreshInFlightRef.current = false;
 		}
@@ -314,19 +269,14 @@ export const UsersPage: FC = () => {
 
 	if (isAdminDisabled) {
 		return (
-			<div
-				dir={isRTL ? "rtl" : "ltr"}
-				className="flex flex-col gap-5 items-stretch"
-			>
+			<div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col gap-5 items-stretch">
 				<PageHeader title={t("users")} />
-				<div className="flex flex-col items-center justify-center rounded-2xl border border-panel-border bg-panel-surface min-h-[420px] px-6 py-10 text-center shadow-xs">
-					<div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-red-500/10 text-red-500">
-						<Lock className="size-7" />
-					</div>
-					<p className="text-lg font-bold text-panel-text mb-2">
+				<div className="flex-col flex items-center border border-panel-border! rounded-[8px] justify-center min-h-[420px] px-6 py-10 text-center">
+					<DisabledIcon className="text-red-400 mb-5" />
+					<p className="text-[1.25rem] font-bold mb-2">
 						{t("usersTable.adminDisabledTitle")}
 					</p>
-					<p className="text-sm text-panel-text-secondary max-w-[520px]">
+					<p className="text-panel-text-secondary max-w-[520px]">
 						{userData.disabled_reason ||
 							t("usersTable.adminDisabledDescription")}
 					</p>
@@ -336,10 +286,7 @@ export const UsersPage: FC = () => {
 	}
 
 	return (
-		<div
-			dir={isRTL ? "rtl" : "ltr"}
-			className="flex flex-col gap-4 items-stretch rb-users-section"
-		>
+		<div dir={isRTL ? "rtl" : "ltr"} className="flex flex-col gap-4 items-stretch rb-users-section">
 			<UsersTable
 				toolbar={<UsersFilterBar />}
 				headerActions={
