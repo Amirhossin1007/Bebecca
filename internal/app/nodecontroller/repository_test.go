@@ -128,7 +128,13 @@ CREATE TABLE nodes (
 	xray_config_mode TEXT,
 	xray_config TEXT,
 	last_status_change DATETIME,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -223,7 +229,13 @@ CREATE TABLE nodes (
 	port INTEGER,
 	api_port INTEGER,
 	status TEXT,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -297,7 +309,13 @@ CREATE TABLE nodes (
 	xray_config_mode TEXT,
 	xray_config TEXT,
 	last_status_change DATETIME,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -363,7 +381,13 @@ CREATE TABLE nodes (
 	certificate_key TEXT,
 	xray_config_mode TEXT,
 	xray_config TEXT,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -422,7 +446,13 @@ CREATE TABLE nodes (
 	certificate_key TEXT,
 	xray_config_mode TEXT,
 	xray_config TEXT,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -528,7 +558,13 @@ CREATE TABLE nodes (
 	xray_config_mode TEXT,
 	xray_config TEXT,
 	last_status_change DATETIME,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE default_certificates (
 	id INTEGER PRIMARY KEY,
@@ -577,9 +613,8 @@ VALUES ('add_user', 50, ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMEST
 	if result.Processed != 1 || result.Done != 0 || result.Retrying != 1 {
 		t.Fatalf("expected unavailable user delta to be retried, got %#v", result)
 	}
-	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE node_id = 24`, "pending")
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 24`, 0)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND status = 'retrying'`, 1)
-	assertRepositoryInt64(t, db, `SELECT attempts FROM node_operations WHERE node_id = 24`, 0)
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND attempts = 1`, 1)
 	assertRepositoryString(t, db, `SELECT status FROM nodes WHERE id = 50`, "connected")
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND operation_type = 'sync_config'`, 0)
@@ -608,7 +643,13 @@ CREATE TABLE nodes (
 	xray_config_mode TEXT,
 	xray_config TEXT,
 	last_status_change DATETIME,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE default_certificates (
 	id INTEGER PRIMARY KEY,
@@ -667,7 +708,7 @@ VALUES ('add_user', 50, ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMEST
 	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 50 AND operation_type = 'sync_config'`, 1)
 }
 
-func TestControllerProcessQueuePausesDisabledNodeOperation(t *testing.T) {
+func TestControllerProcessQueueDropsUserOperationsOfDisabledNode(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "queue-disabled.db")+"?_pragma=busy_timeout(30000)")
 	if err != nil {
@@ -689,7 +730,13 @@ CREATE TABLE nodes (
 	certificate_key TEXT,
 	xray_config_mode TEXT,
 	xray_config TEXT,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -719,10 +766,9 @@ VALUES ('add_user', 7, 200, '{}', 'pending', 'disabled-op', CURRENT_TIMESTAMP, C
 		t.Fatal(err)
 	}
 	if result.Processed != 0 || result.Failed != 0 || result.Retrying != 0 {
-		t.Fatalf("expected disabled operation to stay paused, got %#v", result)
+		t.Fatalf("expected disabled node operation to be dropped without running, got %#v", result)
 	}
-	assertRepositoryString(t, db, `SELECT status FROM node_operations WHERE id = 1`, "pending")
-	assertRepositoryInt64(t, db, `SELECT attempts FROM node_operations WHERE id = 1`, 0)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE id = 1`, 0)
 }
 
 func TestControllerCompletesGlobalSyncConfigWhenNoNodesExist(t *testing.T) {
@@ -747,7 +793,13 @@ CREATE TABLE nodes (
 	certificate_key TEXT,
 	xray_config_mode TEXT,
 	xray_config TEXT,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -830,7 +882,13 @@ CREATE TABLE nodes (
 	certificate_key TEXT,
 	xray_config_mode TEXT,
 	xray_config TEXT,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -924,7 +982,13 @@ CREATE TABLE nodes (
 	certificate_key TEXT,
 	xray_config_mode TEXT,
 	xray_config TEXT,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE default_certificates (
 	id INTEGER PRIMARY KEY,
@@ -998,7 +1062,13 @@ CREATE TABLE nodes (
 	certificate_key TEXT,
 	xray_config_mode TEXT,
 	xray_config TEXT,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1082,7 +1152,13 @@ CREATE TABLE nodes (
 	certificate_key TEXT,
 	xray_config_mode TEXT,
 	xray_config TEXT,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE node_operations (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1762,7 +1838,13 @@ CREATE TABLE nodes (
 	certificate_key TEXT,
 	xray_config_mode TEXT,
 	xray_config TEXT,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE default_certificates (
 	id INTEGER PRIMARY KEY,
@@ -1810,7 +1892,13 @@ CREATE TABLE nodes (
 	certificate_key TEXT,
 	xray_config_mode TEXT,
 	xray_config TEXT,
-	usage_coefficient REAL DEFAULT 1
+	usage_coefficient REAL DEFAULT 1,
+	proxy_enabled INTEGER DEFAULT 0,
+	proxy_type TEXT,
+	proxy_host TEXT,
+	proxy_port INTEGER,
+	proxy_username TEXT,
+	proxy_password TEXT
 );
 CREATE TABLE default_certificates (id INTEGER PRIMARY KEY, certificate TEXT, private_key TEXT);
 INSERT INTO nodes (id, name, address, port, api_port, status, message, usage_coefficient) VALUES
@@ -1861,5 +1949,180 @@ func assertRepositoryInt64(t *testing.T, db *sql.DB, query string, expected int6
 	}
 	if actual != expected {
 		t.Fatalf("%s: expected %d, got %d", query, expected, actual)
+	}
+}
+
+func newCompactionDB(t *testing.T) (*sql.DB, Repository) {
+	t.Helper()
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "compact.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err := db.ExecContext(ctx, `
+CREATE TABLE nodes (id INTEGER PRIMARY KEY, status TEXT);
+CREATE TABLE node_operations (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	operation_type TEXT NOT NULL,
+	node_id INTEGER NULL,
+	user_id INTEGER NULL,
+	payload TEXT NOT NULL,
+	status TEXT NOT NULL DEFAULT 'pending',
+	attempts INTEGER NOT NULL DEFAULT 0,
+	last_error TEXT NULL,
+	idempotency_key TEXT NOT NULL UNIQUE,
+	created_at DATETIME NOT NULL,
+	updated_at DATETIME NOT NULL
+);
+INSERT INTO nodes (id, status) VALUES (1, 'connected'), (2, 'error'), (3, 'deleted'), (4, 'connected');`); err != nil {
+		t.Fatal(err)
+	}
+	return db, NewRepository(db, "sqlite")
+}
+
+func TestRepositoryCompactBacklogsDropsOperationsOfNodesThatAreNotConnected(t *testing.T) {
+	ctx := context.Background()
+	db, repo := newCompactionDB(t)
+	for i, node := range []int{2, 2, 3, 1} {
+		if _, err := db.ExecContext(ctx, `INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('add_user', ?, ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, node, i+1, fmt.Sprintf("k%d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO node_operations (operation_type, node_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('sync_config', 2, '{}', 'pending', 'sync', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+	dropped, err := repo.CompactBacklogs(ctx, 200)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dropped != 3 {
+		t.Fatalf("dropped %d", dropped)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'pending' AND operation_type = 'add_user'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE status = 'pending' AND operation_type = 'sync_config'`, 1)
+}
+
+func TestRepositoryCompactBacklogsCollapsesAHugeBacklogIntoOneFullSync(t *testing.T) {
+	ctx := context.Background()
+	db, repo := newCompactionDB(t)
+	for i := 0; i < 30; i++ {
+		if _, err := db.ExecContext(ctx, `INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('update_user', 1, ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, i+1, fmt.Sprintf("big%d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 0; i < 5; i++ {
+		if _, err := db.ExecContext(ctx, `INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('update_user', 4, ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, i+1, fmt.Sprintf("small%d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := repo.CompactBacklogs(ctx, 10); err != nil {
+		t.Fatal(err)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 1 AND operation_type = 'sync_config' AND status = 'pending'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 4 AND operation_type = 'sync_config'`, 0)
+	if _, err := repo.CompactBacklogs(ctx, 10); err != nil {
+		t.Fatal(err)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 1 AND operation_type = 'sync_config' AND status = 'pending'`, 1)
+}
+
+func TestRepositoryPendingConfigOperationsIgnoresUserOperations(t *testing.T) {
+	ctx := context.Background()
+	db, repo := newCompactionDB(t)
+	for i := 0; i < 50; i++ {
+		if _, err := db.ExecContext(ctx, `INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('add_user', 1, ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, i+1, fmt.Sprintf("u%d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := repo.QueueSyncConfig(ctx, ptrInt64(1), map[string]any{"source": "inbound"}); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := repo.PendingConfigOperations(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0].OperationType != "sync_config" {
+		t.Fatalf("config lane must only see config syncs: %+v", rows)
+	}
+}
+
+func ptrInt64(v int64) *int64 { return &v }
+
+func TestRepositoryCompactBacklogsCleansDuplicateSyncsOfInactiveNodes(t *testing.T) {
+	ctx := context.Background()
+	db, repo := newCompactionDB(t)
+	for i := 0; i < 4; i++ {
+		for _, node := range []int{2, 3} {
+			if _, err := db.ExecContext(ctx, `INSERT INTO node_operations (operation_type, node_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('sync_config', ?, '{}', 'pending', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, node, fmt.Sprintf("s%d-%d", node, i)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO node_operations (operation_type, node_id, payload, status, idempotency_key, created_at, updated_at)
+VALUES ('sync_config', 1, '{}', 'pending', 'live', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CompactBacklogs(ctx, 200); err != nil {
+		t.Fatal(err)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 3 AND status = 'pending'`, 0)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 2 AND status = 'pending'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 1 AND status = 'pending'`, 1)
+}
+
+func TestRepositoryCompactBacklogsCollapsesOperationsThatKeepFailing(t *testing.T) {
+	ctx := context.Background()
+	db, repo := newCompactionDB(t)
+	for i := 0; i < 3; i++ {
+		if _, err := db.ExecContext(ctx, `INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, attempts, idempotency_key, created_at, updated_at)
+VALUES ('remove_user', 1, ?, '{}', 'retrying', 4, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`, i+1, fmt.Sprintf("stuck%d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO node_operations (operation_type, node_id, user_id, payload, status, attempts, idempotency_key, created_at, updated_at)
+VALUES ('add_user', 4, 9, '{}', 'retrying', 1, 'fine', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CompactBacklogs(ctx, 50); err != nil {
+		t.Fatal(err)
+	}
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 1 AND operation_type = 'sync_config' AND status = 'pending'`, 1)
+	assertRepositoryInt64(t, db, `SELECT COUNT(*) FROM node_operations WHERE node_id = 4 AND operation_type = 'sync_config'`, 0)
+}
+
+func TestRepositoryListNodeItemsReportsTheFailingSync(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(t.TempDir(), "sync-error.db")+"?_pragma=busy_timeout(30000)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.ExecContext(ctx, `
+CREATE TABLE nodes (id INTEGER PRIMARY KEY, name TEXT, note TEXT, address TEXT, port INTEGER, api_port INTEGER, usage_coefficient REAL, data_limit INTEGER, proxy_enabled INTEGER, proxy_type TEXT, proxy_host TEXT, proxy_port INTEGER, proxy_username TEXT, proxy_password TEXT, status TEXT, agent_status TEXT, xray_status TEXT, desired_revision INTEGER, applied_revision INTEGER, node_capabilities TEXT, message TEXT, xray_version TEXT, geo_mode TEXT, xray_config_mode TEXT, uplink INTEGER, downlink INTEGER, certificate TEXT, certificate_key TEXT);
+CREATE TABLE default_certificates (id INTEGER PRIMARY KEY, certificate TEXT, private_key TEXT);
+CREATE TABLE node_operations (id INTEGER PRIMARY KEY AUTOINCREMENT, operation_type TEXT NOT NULL, node_id INTEGER NULL, user_id INTEGER NULL, payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT NULL, idempotency_key TEXT NOT NULL UNIQUE, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL);
+INSERT INTO nodes (id, name, address, port, api_port, usage_coefficient, proxy_enabled, status) VALUES (1, 'bad', '1.1.1.1', 62050, 62051, 1, 0, 'connected'), (2, 'good', '2.2.2.2', 62050, 62051, 1, 0, 'connected');
+INSERT INTO node_operations (operation_type, node_id, payload, status, attempts, last_error, idempotency_key, created_at, updated_at) VALUES
+ ('sync_config', 1, '{}', 'retrying', 7, 'Failed to start: main: failed to load config files: [stdin:] > infra/conf: invalid WireGuard secret key', 'e1', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+ ('sync_config', 2, '{}', 'done', 0, 'old', 'e2', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+ ('add_user', 2, '{}', 'retrying', 3, 'dial failed', 'e3', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
+	items, _, _, err := NewRepository(db, "sqlite").ListNodeItems(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 || items[0].SyncError == nil || *items[0].SyncError != "invalid WireGuard secret key" || items[0].SyncErrorAttempts != 7 || items[0].SyncErrorDetail == nil {
+		t.Fatalf("the failing sync must be reported: %+v", items[0])
+	}
+	if items[1].SyncError != nil || items[1].SyncErrorAttempts != 0 {
+		t.Fatalf("a node without a failing sync must report nothing: %+v", items[1])
 	}
 }

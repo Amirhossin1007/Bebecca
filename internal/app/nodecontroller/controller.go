@@ -178,7 +178,7 @@ func (c Controller) Connect(ctx context.Context, req Request) (RuntimeResult, er
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("sync", req.NodeID, err)
 	}
-	state = syncRes.GetRuntime()
+	state = acknowledgedRuntime(syncRes.GetRuntime(), syncReq)
 	result, err := c.finishRuntime(ctx, node, state, "connected")
 	if err != nil {
 		return RuntimeResult{}, err
@@ -238,7 +238,7 @@ func (c Controller) restartNow(ctx context.Context, req Request) (RuntimeResult,
 		_ = c.repo.SetError(ctx, req.NodeID, err.Error())
 		return RuntimeResult{}, friendlyNodeError("restart", req.NodeID, err)
 	}
-	result, err := c.finishRuntime(ctx, node, res.GetRuntime(), res.GetMessage())
+	result, err := c.finishRuntime(ctx, node, acknowledgedRuntime(res.GetRuntime(), runtimeReq), res.GetMessage())
 	if err != nil {
 		return RuntimeResult{}, err
 	}
@@ -315,13 +315,14 @@ func (c Controller) RecoverNodes(ctx context.Context, req RecoverNodesRequest) (
 	result := RecoverNodesResult{Checked: len(nodeIDs)}
 	for _, nodeID := range nodeIDs {
 		metricsCtx, cancel := WithDefaultTimeout(ctx)
-		// A failed health poll is not a request to replace the live runtime.
-		// Restore control-plane health only; pending changes stay in the queue.
 		_, err := c.Health(metricsCtx, Request{NodeID: nodeID})
 		cancel()
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("node %d: %v", nodeID, err))
 			continue
+		}
+		if err := c.repo.QueueSyncConfig(ctx, &nodeID, nil); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("node %d: %v", nodeID, err))
 		}
 		result.Recovered++
 	}
@@ -465,14 +466,34 @@ func boundedLogLineLimit(maxLines int) uint32 {
 	return uint32(maxLines)
 }
 
+const backlogCollapseThreshold = 50
+const notStartedSyncInterval = 5 * time.Minute
+
+var notStartedSyncAt sync.Map
+
+func notStartedSyncDue(nodeID int64, now time.Time) bool {
+	if last, ok := notStartedSyncAt.Load(nodeID); ok && now.Sub(last.(time.Time)) < notStartedSyncInterval {
+		return false
+	}
+	notStartedSyncAt.Store(nodeID, now)
+	return true
+}
+
 func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsRequest) (ProcessOperationsResult, error) {
-	if err := c.repo.RecoverStaleOperations(ctx, 2*time.Minute); err != nil {
-		return ProcessOperationsResult{}, err
+	if !req.ConfigOnly && !req.GlobalOnly && req.NodeID <= 0 {
+		if err := c.Maintain(ctx); err != nil {
+			return ProcessOperationsResult{}, err
+		}
 	}
-	if err := c.repo.QueueLaggingNodeSyncs(ctx); err != nil {
-		return ProcessOperationsResult{}, err
+	var operations []OperationRow
+	var err error
+	if req.ConfigOnly {
+		operations, err = c.repo.PendingConfigOperations(ctx, req.Limit)
+	} else if req.GlobalOnly {
+		operations, err = c.repo.PendingGlobalOperations(ctx, req.Limit)
+	} else {
+		operations, err = c.repo.PendingOperations(ctx, req.NodeID, req.Limit)
 	}
-	operations, err := c.repo.PendingOperations(ctx, req.NodeID, req.Limit)
 	if err != nil {
 		return ProcessOperationsResult{}, err
 	}
@@ -500,14 +521,6 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 		}
 		groups[idx].operations = append(groups[idx].operations, operation)
 	}
-	userResult, err := c.applyRuntimeUserOperationBatch(ctx, runtimeUserOperations)
-	result.Processed += userResult.Processed
-	result.Done += userResult.Done
-	result.Retrying += userResult.Retrying
-	result.Failed += userResult.Failed
-	if err != nil {
-		return result, err
-	}
 	if err := c.processOrderedOperationGroups(ctx, groups, blockedNodes, &result, maxConcurrentSingleNodeOperations); err != nil {
 		return result, err
 	}
@@ -516,7 +529,45 @@ func (c Controller) ProcessQueue(ctx context.Context, req ProcessOperationsReque
 			return result, err
 		}
 	}
+	userResult, err := c.applyRuntimeUserOperationBatch(ctx, runtimeUserOperations)
+	result.Processed += userResult.Processed
+	result.Done += userResult.Done
+	result.Retrying += userResult.Retrying
+	result.Failed += userResult.Failed
+	if err != nil {
+		return result, err
+	}
 	return result, nil
+}
+
+func (c Controller) Maintain(ctx context.Context) error {
+	if err := retryOnLockConflict(ctx, func() error { return c.repo.RecoverStaleOperations(ctx, 2*time.Minute) }); err != nil {
+		return err
+	}
+	if err := retryOnLockConflict(ctx, func() error {
+		dropped, err := c.repo.CompactBacklogs(ctx, backlogCollapseThreshold)
+		if err == nil && dropped > 0 {
+			logging.Infof(logging.ComponentNode, "operation queue dropped %d user operations of nodes that are not connected; a full sync replaces them on connect", dropped)
+		}
+		return err
+	}); err != nil {
+		return err
+	}
+	if err := retryOnLockConflict(ctx, func() error { return c.repo.QueueLaggingNodeSyncs(ctx) }); err != nil {
+		return err
+	}
+	return retryOnLockConflict(ctx, func() error {
+		_, err := c.repo.PruneFinishedOperations(ctx, 0, 1000)
+		return err
+	})
+}
+
+func (c Controller) NodesWithOpenOperations(ctx context.Context) ([]int64, bool, error) {
+	return c.repo.NodesWithOpenOperations(ctx)
+}
+
+func (c Controller) EscalateToFullSync(ctx context.Context, nodeID int64) error {
+	return c.repo.QueueSyncConfig(ctx, &nodeID, nil)
 }
 
 type operationGroup struct {
@@ -612,6 +663,19 @@ func cloneBlockedNodes(blockedNodes map[int64]bool) map[int64]bool {
 	return clone
 }
 
+const hostActionMaxAttempts = 5
+
+// Host actions (runtime or geo updates, service restarts, proxy setup) change the machine, not the
+// user or config state of a node. One that keeps failing must neither hold back the user and
+// config operations queued behind it nor be retried forever.
+func isHostActionOperation(operationType string) bool {
+	switch operationType {
+	case "update_runtime", "update_geo", "restart_service", "update_service", "reboot_host", "apply_tor_proxy", "configure_windscribe", "configure_psiphon":
+		return true
+	}
+	return false
+}
+
 func (c Controller) processSingleOperation(ctx context.Context, operation OperationRow, blockedNodes map[int64]bool, result *ProcessOperationsResult) error {
 	if operation.NodeID.Valid && blockedNodes[operation.NodeID.Int64] {
 		return nil
@@ -629,6 +693,16 @@ func (c Controller) processSingleOperation(ctx context.Context, operation Operat
 		if isPermanentOperationError(err) {
 			_ = c.repo.MarkOperationFailed(ctx, operation.ID, err.Error())
 			result.Failed++
+			return nil
+		}
+		if isHostActionOperation(operation.OperationType) {
+			if operation.Attempts+1 >= hostActionMaxAttempts {
+				_ = c.repo.MarkOperationFailed(ctx, operation.ID, err.Error())
+				result.Failed++
+			} else {
+				_ = c.repo.MarkOperationRetrying(ctx, operation.ID, err.Error())
+				result.Retrying++
+			}
 			return nil
 		}
 		_ = c.repo.MarkOperationRetrying(ctx, operation.ID, err.Error())
@@ -867,7 +941,7 @@ func (c Controller) applyOperation(ctx context.Context, operation OperationRow, 
 			}
 			return err
 		}
-		_, err = c.finishRuntime(ctx, node, res.GetRuntime(), res.GetMessage())
+		_, err = c.finishRuntime(ctx, node, acknowledgedRuntime(res.GetRuntime(), runtimeReq), res.GetMessage())
 		return err
 	case "update_runtime", "update_geo", "restart_service", "update_service", "reboot_host", "apply_tor_proxy", "configure_windscribe", "configure_psiphon":
 		var req Request
@@ -1018,7 +1092,7 @@ func (c Controller) dial(ctx context.Context, nodeID int64) (*nodeclient.Client,
 		return nil, NodeRow{}, err
 	}
 	addresses := NodeGRPCAddressCandidates(node.Address, node.Port, node.APIPort)
-	cacheKey := fmt.Sprintf("%s:%x", strings.Join(addresses, ","), sha256.Sum256([]byte(cert+key)))
+	cacheKey := fmt.Sprintf("%s:%x:%s", strings.Join(addresses, ","), sha256.Sum256([]byte(cert+key)), node.Proxy.cacheKey())
 	if c.nodeClients != nil {
 		if value, ok := c.nodeClients.Load(nodeID); ok {
 			cached := value.(cachedNodeClient)
@@ -1036,7 +1110,11 @@ func (c Controller) dial(ctx context.Context, nodeID int64) (*nodeclient.Client,
 	errors := make([]string, 0, len(addresses))
 	for _, address := range addresses {
 		attemptCtx, cancel := withNodeDialAttemptTimeout(ctx)
-		client, err := nodeclient.Dial(attemptCtx, address, tlsConfig, grpc.WithBlock())
+		dialOptions := []grpc.DialOption{grpc.WithBlock()}
+		if node.Proxy.enabled() {
+			dialOptions = append(dialOptions, grpc.WithContextDialer(node.Proxy.dialer()))
+		}
+		client, err := nodeclient.Dial(attemptCtx, address, tlsConfig, dialOptions...)
 		cancel()
 		if err == nil {
 			// The dial deadline only covers transport setup. Reusing that context
@@ -1105,6 +1183,11 @@ func (c Controller) reconcileRuntimeState(ctx context.Context, client *nodeclien
 	if err := c.repo.SetRuntimeState(ctx, nodeID, state); err != nil {
 		return err
 	}
+	if state.GetConnected() && !state.GetStarted() && notStartedSyncDue(nodeID, time.Now()) {
+		if err := c.repo.QueueSyncConfig(ctx, &nodeID, nil); err != nil {
+			return err
+		}
+	}
 	desired, err := c.repo.DesiredRevision(ctx, nodeID)
 	if err != nil {
 		return err
@@ -1118,6 +1201,16 @@ func (c Controller) reconcileRuntimeState(ctx context.Context, client *nodeclien
 	}
 	result.DesiredRevision = desired
 	return nil
+}
+
+// A node builds the runtime state of its reply before it records the revision it just applied, so
+// the state of a successful sync reports the previous revision. Taking it at face value leaves the
+// node one revision behind and queues another sync every maintenance pass.
+func acknowledgedRuntime(runtime *nodev1.RuntimeState, req *nodev1.RuntimeConfigRequest) *nodev1.RuntimeState {
+	if runtime != nil && req != nil && req.GetDesiredRevision() > runtime.GetAppliedRevision() {
+		runtime.AppliedRevision = req.GetDesiredRevision()
+	}
+	return runtime
 }
 
 func (c Controller) prepareRuntimeRevision(ctx context.Context, client *nodeclient.Client, nodeID int64, req *nodev1.RuntimeConfigRequest) error {
