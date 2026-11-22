@@ -64,20 +64,20 @@ export const ConfirmDialog = ({
 					event.preventDefault();
 					void onConfirm();
 				}}
-				className="mx-4 max-w-[calc(100vw_-_32px)] gap-0 overflow-hidden rounded-2xl px-4 py-3.5 shadow-2xl sm:mx-0 sm:max-w-[520px] sm:px-4.5 sm:py-4"
+				className="mx-4 max-w-[calc(100vw_-_32px)] gap-0 overflow-hidden rounded-[20px] px-5 py-4 shadow-2xl sm:mx-0 sm:max-w-[500px]"
 			>
-				<div className="flex items-start gap-2.5">
-					<div className={cn(iconBg, iconColor, "flex size-9 shrink-0 items-center justify-center rounded-full")}>
+				<div className="flex items-start gap-3">
+					<div className={cn(iconBg, iconColor, "flex size-10 shrink-0 items-center justify-center rounded-2xl")}>
 						<WarningIcon />
 					</div>
 					<div className="min-w-0! flex-1">
-						<DialogTitle className="mb-0.5 text-[1.125rem] font-extrabold leading-[1.375] rb-confirm-dialog-content">
+						<DialogTitle className="mb-1 text-base font-bold leading-snug text-panel-text">
 							{title}
 						</DialogTitle>
-						<DialogDescription asChild className="mt-1.5">
+						<DialogDescription asChild className="mt-1">
 							<div>
 								{typeof description === "string" ? (
-									<p className={cn("text-[0.875rem] leading-[1.45]", mutedText)}>{description}</p>
+									<p className={cn("text-xs leading-relaxed sm:text-sm", mutedText)}>{description}</p>
 								) : (
 									description
 								)}
@@ -85,11 +85,11 @@ export const ConfirmDialog = ({
 						</DialogDescription>
 					</div>
 				</div>
-				<DialogFooter className="mt-2 flex-wrap justify-end gap-1.5 rb-confirm-dialog-actions">
-					<Button ref={cancelRef} onClick={onClose} disabled={isLoading} size="sm" className="h-[34px] min-h-[34px] min-w-[76px]! px-3 text-[0.875rem]">
+				<DialogFooter className="mt-4 flex-wrap justify-end gap-2">
+					<Button ref={cancelRef} onClick={onClose} disabled={isLoading} variant="outline" size="sm" className="h-9 min-w-[76px] rounded-xl border-panel-border px-3.5 text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation">
 						{cancelLabel ?? t("cancel")}
 					</Button>
-					<Button variant={colorScheme === "red" ? "destructive" : "default"} disabled={isConfirmDisabled} onClick={onConfirm} size="sm" loading={isLoading} className="h-[34px] min-h-[34px] min-w-[76px]! px-3 text-[0.875rem]">
+					<Button variant={colorScheme === "red" ? "destructive" : "default"} disabled={isConfirmDisabled} onClick={onConfirm} size="sm" loading={isLoading} className="h-9 min-w-[76px] rounded-xl px-4 text-xs font-semibold shadow-xs transition-colors min-[769px]:hover:opacity-90 active:scale-[0.98] touch-manipulation">
 						{confirmLabel ?? t("confirm")}
 					</Button>
 				</DialogFooter>

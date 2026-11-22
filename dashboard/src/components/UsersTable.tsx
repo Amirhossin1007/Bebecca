@@ -7,7 +7,6 @@ import { DataTableColumnMenu } from "components/ui/DataTableColumnMenu";
 import { RowActionButton } from "components/ui/row-actions";
 import { toast } from "components/ui/sonner";
 import { Spinner } from "components/ui/spinner";
-import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { UsersOverviewBand } from "components/users/UsersOverviewBand";
 import { useDashboard } from "contexts/DashboardContext";
 import dayjs from "dayjs";
@@ -1270,7 +1269,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 			(column) => column.id !== "username" && column.mobileVisible !== false,
 		);
 		const availableActions = toMenuItems(getUserRowActions(user), user);
-		const expandedActions = [
+		const primaryActions = [
 			user.status === "disabled" ? "enable" : "disable",
 			"revoke",
 			"reset",
@@ -1280,68 +1279,83 @@ export const UsersTable: FC<UsersTableProps> = ({
 			return action ? [action] : [];
 		});
 		return (
-			<div className="rb-resource-expanded">
-				<div data-density="compact" className="rb-resource-details">
-					<div className="rb-resource-meta">
-						<span className="text-panel-text-muted">{t("username")}</span>
+			<div className="my-2.5 flex flex-col gap-3.5 rounded-2xl border border-panel-border bg-panel-elevated/40 p-4 shadow-sm sm:p-5">
+				<div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+					<div className="flex flex-col gap-1 rounded-xl border border-panel-border/60 bg-panel-surface p-3 transition-colors">
+						<span className="text-[11px] font-medium text-panel-text-muted">
+							{t("username")}
+						</span>
 						<p
 							dir="ltr"
-							className="text-panel-text min-w-0! [unicode-bidi:isolate] rb-resource-meta-value"
+							className="truncate text-xs font-semibold text-panel-text [unicode-bidi:isolate] sm:text-sm"
 						>
 							{user.username}
 						</p>
 					</div>
-					{detailColumns.map((column) => (
-						<div key={column.id} className="rb-resource-meta">
-							<span className="text-panel-text-muted">
-								{column.mobileMetaLabel ?? column.mobileLabel ?? column.header}
-							</span>
-							<div className="text-panel-text min-w-0! rb-resource-meta-value">
-								{column.mobileDetailCell?.(user) ?? column.cell?.(user)}
+					{detailColumns.map((column) => {
+						const value =
+							column.mobileDetailCell?.(user) ?? column.cell?.(user);
+						if (value === null || value === undefined || value === "")
+							return null;
+						return (
+							<div
+								key={column.id}
+								className="flex min-w-0 flex-col gap-1 rounded-xl border border-panel-border/60 bg-panel-surface p-3 transition-colors"
+							>
+								<span className="truncate text-[11px] font-medium text-panel-text-muted">
+									{column.mobileMetaLabel ??
+										column.mobileLabel ??
+										column.header}
+								</span>
+								<div className="min-w-0 truncate text-xs font-semibold tabular-nums text-panel-text sm:text-sm">
+									{value}
+								</div>
 							</div>
-						</div>
-					))}
+						);
+					})}
 				</div>
 				<div
+					role="presentation"
+					onKeyDown={(event) => event.stopPropagation()}
 					onClick={(event) => event.stopPropagation()}
-					className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions"
+					className="flex flex-wrap items-center justify-between gap-2 border-t border-panel-border/50 pt-3"
 				>
-					<div className="flex flex-row items-center gap-1 rb-expanded-user-actions">
-						{expandedActions.map((action) => (
-							<Tooltip key={action.id}>
-								<TooltipTrigger asChild>
-									<span>
-										<Button
-											aria-label={String(action.label)}
-											disabled={action.disabled}
-											onClick={() => action.onClick?.()}
-											variant="ghost"
-											size="sm"
-											className={cn("size-8 p-0", "min-w-[30px]! h-[30px]")}
-										>
-											{action.icon}
-										</Button>
-									</span>
-								</TooltipTrigger>
-								<TooltipContent>{action.label}</TooltipContent>
-							</Tooltip>
+					<div className="flex flex-wrap items-center gap-1.5">
+						{primaryActions.map((action) => (
+							<Button
+								key={action.id}
+								type="button"
+								variant="outline"
+								size="sm"
+								disabled={action.disabled}
+								onClick={() => action.onClick?.()}
+								className="h-8 gap-1.5 rounded-xl border-panel-border bg-panel-surface px-3 text-xs font-medium text-panel-text transition-colors min-[769px]:hover:border-panel-accent min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-accent active:scale-[0.98] touch-manipulation"
+							>
+								<span className="size-3.5 shrink-0 [&>svg]:size-3.5">
+									{action.icon}
+								</span>
+								<span>{action.label}</span>
+							</Button>
 						))}
 					</div>
-					<ActionButtons
-						user={user}
-						isRTL={isRTL}
-						onEdit={
-							canOpenUserDialog &&
-							!isUserManagementLocked(userData, user.service_id)
-								? () => onEditingUser(user)
-								: undefined
-						}
-						onDelete={
-							canDeleteUserActions && canDeleteUserByTrafficCap(userData, user)
-								? () => handleDeleteUser(user)
-								: undefined
-						}
-					/>
+					<div className="ms-auto flex items-center gap-1">
+						<ActionButtons
+							user={user}
+							isRTL={isRTL}
+							onEdit={
+								canOpenUserDialog &&
+								!isUserManagementLocked(userData, user.service_id)
+									? () => onEditingUser(user)
+									: undefined
+							}
+							onDelete={
+								canDeleteUserActions &&
+								canDeleteUserByTrafficCap(userData, user)
+									? () => handleDeleteUser(user)
+									: undefined
+							}
+						/>
+					</div>
 				</div>
 			</div>
 		);
@@ -1496,6 +1510,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 										variant="outline"
 										size="sm"
 										loading={bulkAction === "disable"}
+										className="h-8.5 gap-1.5 rounded-xl border-panel-border bg-panel-surface px-3 text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
 									>
 										{<DisableIcon />}
 										{t("usersTable.disableUser")}
@@ -1512,6 +1527,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 										variant="outline"
 										size="sm"
 										loading={bulkAction === "enable"}
+										className="h-8.5 gap-1.5 rounded-xl border-panel-border bg-panel-surface px-3 text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
 									>
 										{<CheckIcon className="w-[16px]" />}
 										{t("usersTable.enableUser")}
@@ -1528,6 +1544,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 										variant="outline"
 										size="sm"
 										loading={bulkAction === "reset"}
+										className="h-8.5 gap-1.5 rounded-xl border-panel-border bg-panel-surface px-3 text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
 									>
 										{<ResetIcon />}
 										{t("usersTable.resetUsage")}
@@ -1544,6 +1561,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 										variant="outline"
 										size="sm"
 										loading={bulkAction === "revoke"}
+										className="h-8.5 gap-1.5 rounded-xl border-panel-border bg-panel-surface px-3 text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
 									>
 										{<RevokeIcon />}
 										{t("usersTable.revokeSub")}
@@ -1561,7 +1579,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 											variant="outline"
 											size="sm"
 											loading={bulkAction === "delete"}
-											className="border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10"
+											className="h-8.5 gap-1.5 rounded-xl border border-destructive/40 bg-destructive/10 px-3 text-xs font-medium text-destructive transition-colors min-[769px]:hover:bg-destructive/20 active:scale-[0.98] touch-manipulation"
 										>
 											{<DeleteIcon />}
 											{t("delete")}
@@ -1572,17 +1590,17 @@ export const UsersTable: FC<UsersTableProps> = ({
 						)}
 						tableProps={{
 							className:
-								"w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5",
+								"w-full [table-layout:fixed] [&_th]:px-2.5 [&_td]:px-2.5 [&_th]:py-3 [&_td]:py-3 [&_th]:align-middle [&_td]:align-middle",
 						}}
 					/>
 				</div>
 				{isAdminDisabled && (
-					<div className="flex-col flex absolute inset-0 items-center justify-center text-center px-6 py-8 bg-[rgba(255,_255,_255,_0.85)] dark:bg-[rgba(15,_23,_42,_0.9)] z-[overlay]">
-						<LockOverlayIcon className="text-red-400 mb-6" />
-						<p className="text-[1.25rem] font-bold mb-3">
+					<div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-2xl bg-panel-app/90 p-6 text-center">
+						<LockOverlayIcon className="mb-4 text-panel-danger opacity-90" />
+						<p className="mb-2 text-lg font-bold text-panel-text">
 							{t("usersTable.adminDisabledTitle")}
 						</p>
-						<p className="max-w-[480px] text-gray-600 dark:text-gray-200">
+						<p className="max-w-md text-sm text-panel-text-muted">
 							{disabledReason || t("usersTable.adminDisabledDescription")}
 						</p>
 					</div>
@@ -1595,12 +1613,17 @@ export const UsersTable: FC<UsersTableProps> = ({
 				size="lg"
 				contentProps={{
 					className:
-						"bg-panel-surface border-panel-border border rounded-2xl overflow-hidden shadow-2xl",
+						"bg-panel-surface border-panel-border border rounded-[20px] overflow-hidden shadow-2xl",
 				}}
 				bodyProps={{ className: "pb-5 px-6 pt-2" }}
 				footer={
 					<div className="flex flex-row items-center w-full justify-end gap-2">
-						<Button onClick={() => setIPDialog(null)} size="sm">
+						<Button
+							onClick={() => setIPDialog(null)}
+							variant="outline"
+							size="sm"
+							className="h-9 rounded-xl border-panel-border px-4 text-xs font-medium text-panel-text min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
+						>
 							{t("close")}
 						</Button>
 						<Button
@@ -1611,6 +1634,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 								!ipDialog?.records.length
 							}
 							size="sm"
+							className="h-9 gap-1.5 rounded-xl bg-panel-accent px-4 text-xs font-semibold text-white shadow-xs min-[769px]:hover:bg-panel-accent/90 active:scale-[0.98] touch-manipulation"
 						>
 							{<CopyIcon />}
 							{t("usersTable.copyIps")}

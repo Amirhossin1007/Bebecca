@@ -218,7 +218,7 @@ export const UsersFilterBar: FC = () => {
 
 	return (
 		<div className="flex w-full min-w-0 flex-wrap items-center gap-2">
-			<div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-[440px]">
+			<div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-[460px]">
 				<SearchInput
 					containerProps={{ className: "min-w-0 flex-1" }}
 					placeholder={t("search")}
@@ -237,7 +237,7 @@ export const UsersFilterBar: FC = () => {
 					rightElement={
 						<Tooltip>
 							<TooltipTrigger asChild>
-								<div className="inline-flex cursor-pointer items-center px-1 text-panel-text-muted hover:text-panel-text">
+								<div className="inline-flex cursor-pointer items-center px-1 text-panel-text-muted transition-colors min-[769px]:hover:text-panel-text">
 									<HelpCircle className="size-3.5" />
 								</div>
 							</TooltipTrigger>
@@ -248,6 +248,7 @@ export const UsersFilterBar: FC = () => {
 					}
 					className="h-9 rounded-xl border-panel-border bg-panel-surface text-xs focus-visible:border-panel-accent focus-visible:bg-panel-elevated"
 				/>
+
 				<DataTableSortMenu
 					options={userSortOptions}
 					sorting={userSorting}
@@ -281,7 +282,7 @@ export const UsersFilterBar: FC = () => {
 					align="start"
 					dir={isRTL ? "rtl" : "ltr"}
 					collisionPadding={12}
-					className="w-80 max-w-[calc(100vw-24px)] rounded-2xl border-panel-border bg-panel-elevated p-4 shadow-xl"
+					className="w-84 max-w-[calc(100vw-24px)] rounded-2xl border-panel-border! bg-panel-elevated p-4 shadow-xl"
 				>
 					<div className="mb-3 flex items-center justify-between border-b border-panel-border pb-2.5">
 						<span className="text-sm font-semibold text-panel-text">
@@ -292,20 +293,20 @@ export const UsersFilterBar: FC = () => {
 								onClick={clearAdvancedFilters}
 								variant="ghost"
 								size="sm"
-								className="h-7 px-2 text-xs text-panel-text-muted hover:text-panel-accent"
+								className="h-7 px-2 text-xs text-panel-text-muted min-[769px]:hover:text-panel-accent"
 							>
 								{t("filters.advancedClear")}
 							</Button>
 						)}
 					</div>
 					<div className="flex flex-col gap-2 max-h-[min(380px,60vh)] overflow-y-auto pe-1">
-						<div className="flex flex-col gap-2">
+						<div className="flex flex-col gap-1.5">
 							{ADVANCED_FILTER_OPTIONS.filter(
 								(option) => option.key !== "top_speed" || canViewTraffic,
 							).map((option) => (
 								<label
 									key={option.key}
-									className="flex cursor-pointer items-center gap-2 rounded-lg p-1 text-xs text-panel-text-secondary transition-colors hover:text-panel-text min-[769px]:hover:bg-panel-surface/60"
+									className="flex cursor-pointer items-center gap-2 rounded-xl p-1.5 text-xs text-panel-text-secondary transition-colors min-[769px]:hover:bg-panel-surface min-[769px]:hover:text-panel-text"
 								>
 									<Checkbox
 										checked={activeFilters.includes(option.key)}

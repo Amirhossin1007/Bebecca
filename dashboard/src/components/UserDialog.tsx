@@ -421,6 +421,7 @@ const UnitInput = ({
 		disabled={disabled}
 		invalid={invalid}
 		inputMode={integer ? "numeric" : "decimal"}
+		hideSteppers={true}
 	/>
 );
 
@@ -1351,15 +1352,6 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		: t("createNewUser");
 
 	const dataLimitSet = Boolean(dataLimit && Number(dataLimit) > 0);
-	const toggleOnHold = () => {
-		if (isOnHold) {
-			form.setValue("status", "active", { shouldDirty: true });
-			form.setValue("on_hold_expire_duration", null, { shouldDirty: true });
-		} else {
-			form.setValue("status", "on_hold", { shouldDirty: true });
-			form.setValue("expire", null, { shouldDirty: true });
-		}
-	};
 
 	const detailsTab = (
 		<div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
@@ -1395,7 +1387,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			<div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-panel-border/70 bg-panel-elevated/40 p-4 sm:grid-cols-2">
 				<div className="flex items-center gap-2 sm:col-span-2">
 					<span className="size-1.5 rounded-full bg-panel-accent" />
-					<span className="text-xs font-semibold uppercase tracking-wider text-panel-text-muted">
+					<span className="text-xs font-semibold text-panel-text-secondary">
 						{t("userDialog.basicInfo")}
 					</span>
 				</div>
@@ -1464,7 +1456,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 			<div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-panel-border/70 bg-panel-elevated/40 p-4 sm:grid-cols-2">
 				<div className="flex items-center gap-2 sm:col-span-2">
 					<span className="size-1.5 rounded-full bg-panel-accent" />
-					<span className="text-xs font-semibold uppercase tracking-wider text-panel-text-muted">
+					<span className="text-xs font-semibold text-panel-text-secondary">
 						{t("userDialog.limits")}
 					</span>
 				</div>
@@ -1483,13 +1475,39 @@ export const UserDialog: FC<UserDialogProps> = () => {
 							}
 							error={errors.data_limit?.message}
 						>
-							<DataSizeField
-								id="user-data-limit"
-								valueGb={field.value ? String(field.value) : ""}
-								onChangeGb={(raw) => field.onChange(raw)}
-								disabled={disabled}
-								invalid={!!errors.data_limit}
-							/>
+							<div className="flex flex-col gap-2">
+								<DataSizeField
+									id="user-data-limit"
+									valueGb={field.value ? String(field.value) : ""}
+									onChangeGb={(raw) => field.onChange(raw)}
+									disabled={disabled}
+									invalid={!!errors.data_limit}
+								/>
+								<div className="flex flex-wrap gap-1.5 pt-0.5">
+									{[10, 20, 50, 100].map((gb) => (
+										<button
+											key={gb}
+											type="button"
+											disabled={disabled}
+											onClick={() => {
+												const current = parseDecimalInput(field.value) || 0;
+												field.onChange(String(current + gb));
+											}}
+											className="rounded-lg border border-panel-border bg-panel-surface px-2.5 py-1 text-[11px] font-medium text-panel-text-secondary transition-colors min-[769px]:hover:border-panel-accent min-[769px]:hover:text-panel-accent active:scale-[0.98] touch-manipulation"
+										>
+											+{gb} GB
+										</button>
+									))}
+									<button
+										type="button"
+										disabled={disabled}
+										onClick={() => field.onChange("")}
+										className="rounded-lg border border-panel-border bg-panel-surface px-2.5 py-1 text-[11px] font-medium text-panel-text-muted transition-colors min-[769px]:hover:text-panel-text active:scale-[0.98] touch-manipulation"
+									>
+										∞
+									</button>
+								</div>
+							</div>
 						</FormField>
 					)}
 				/>
@@ -1522,6 +1540,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 									}
 									disabled={disabled}
 									invalid={!!errors.ip_limit}
+									hideSteppers={true}
 									onChange={(raw) => {
 										const trimmed = raw.trim();
 										if (!trimmed || trimmed === "-") {
@@ -1572,138 +1591,169 @@ export const UserDialog: FC<UserDialogProps> = () => {
 
 				<div
 					className={cn(
-						"flex min-w-0 flex-col gap-2",
+						"flex min-w-0 flex-col gap-2.5",
 						!speedLimitEditable && "sm:col-span-2",
 					)}
 				>
-					<Label>
-						{isOnHold ? t("expires.days") : t("userDialog.expiryDate")}
-					</Label>
-					<div className="flex items-start gap-2">
-						<div className="min-w-0 flex-1">
-							{isOnHold ? (
-								<Controller
-									control={form.control}
-									name="on_hold_expire_duration"
-									render={({ field }) => (
-										<UnitInput
-											value={field.value ? String(field.value) : ""}
-											unit={DAYS_UNIT}
-											integer
-											disabled={disabled}
-											invalid={!!errors.on_hold_expire_duration}
-											onChange={(raw) => {
-												form.setValue("expire", null);
-												if (!raw) {
-													field.onChange(null);
-													return;
-												}
-												if (!isDecimalDraft(raw)) return;
-												const parsed = Number(raw);
-												if (Number.isNaN(parsed) || parsed < 0) return;
-												field.onChange(Math.round(parsed));
-											}}
-										/>
-									)}
-								/>
-							) : (
-								<Controller
-									name="expire"
-									control={form.control}
-									render={({ field }) => {
-										const selectedDate = field.value
-											? dayjs.unix(field.value).toDate()
-											: null;
-										const handleDateChange = (next: Date | null) => {
-											form.setValue("on_hold_expire_duration", null, {
-												shouldDirty: false,
+					<div className="flex items-center justify-between gap-2">
+						<Label className="text-xs font-semibold text-panel-text-secondary">
+							{isOnHold ? t("onHold.button") : t("userDialog.expiryDate")}
+						</Label>
+						<div className="inline-flex items-center rounded-xl border border-panel-border bg-panel-surface p-0.5 text-xs">
+							<button
+								type="button"
+								disabled={disabled}
+								onClick={() => {
+									if (isOnHold) {
+										form.setValue("status", "active", { shouldDirty: true });
+										form.setValue("on_hold_expire_duration", null, {
+											shouldDirty: true,
+										});
+									}
+								}}
+								className={cn(
+									"rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors touch-manipulation",
+									!isOnHold
+										? "bg-panel-elevated font-semibold text-panel-text shadow-xs"
+										: "text-panel-text-muted min-[769px]:hover:text-panel-text",
+								)}
+							>
+								{t("userDialog.expiryDate")}
+							</button>
+							<button
+								type="button"
+								disabled={disabled}
+								onClick={() => {
+									if (!isOnHold) {
+										form.setValue("status", "on_hold", { shouldDirty: true });
+										form.setValue("expire", null, { shouldDirty: true });
+										if (!form.getValues("on_hold_expire_duration")) {
+											form.setValue("on_hold_expire_duration", 30, {
+												shouldDirty: true,
 											});
-											field.onChange(next ? dayjs(next).utc().unix() : null);
-										};
-										return (
-											<>
-												<DateTimeField
-													id="user-expire"
-													value={selectedDate}
-													onChange={handleDateChange}
-													placeholder={t("dateTimePicker.selectDate")}
-													disabled={disabled}
-													minDate={new Date()}
-													quickSelects={quickExpiryOptions.map((option) => ({
-														label: option.label,
-														onClick: () =>
-															handleDateChange(
-																addQuickExpiry(
-																	selectedDate,
-																	option.amount,
-																	option.unit,
-																),
-															),
-													}))}
-												/>
-												{expireHelperText ? (
-													<p className="mt-1 text-xs text-muted-foreground">
-														{expireHelperText}
-													</p>
-												) : null}
-												{errors.expire?.message ? (
-													<p
-														role="alert"
-														className="mt-1 text-xs text-destructive"
-													>
-														{errors.expire.message}
-													</p>
-												) : null}
-											</>
-										);
-									}}
-								/>
+										}
+									}
+								}}
+								className={cn(
+									"rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors touch-manipulation",
+									isOnHold
+										? "bg-panel-accent font-semibold text-white shadow-xs"
+										: "text-panel-text-muted min-[769px]:hover:text-panel-text",
+								)}
+							>
+								{t("onHold.button")}
+							</button>
+						</div>
+					</div>
+
+					{isOnHold ? (
+						<div className="flex flex-col gap-2">
+							<Controller
+								control={form.control}
+								name="on_hold_expire_duration"
+								render={({ field }) => (
+									<UnitInput
+										value={field.value ? String(field.value) : ""}
+										unit={DAYS_UNIT}
+										integer
+										disabled={disabled}
+										invalid={!!errors.on_hold_expire_duration}
+										onChange={(raw) => {
+											form.setValue("expire", null);
+											if (!raw) {
+												field.onChange(null);
+												return;
+											}
+											if (!isDecimalDraft(raw)) return;
+											const parsed = Number(raw);
+											if (Number.isNaN(parsed) || parsed < 0) return;
+											field.onChange(Math.round(parsed));
+										}}
+									/>
+								)}
+							/>
+							<div className="flex flex-wrap gap-1.5 pt-0.5">
+								{ON_HOLD_QUICK_DAYS.map((days) => (
+									<button
+										key={days}
+										type="button"
+										disabled={disabled}
+										onClick={() => {
+											form.setValue("expire", null);
+											form.setValue("on_hold_expire_duration", days, {
+												shouldDirty: true,
+												shouldValidate: true,
+											});
+										}}
+										className="rounded-lg border border-panel-border bg-panel-surface px-2.5 py-1 text-[11px] font-medium text-panel-text-secondary transition-colors min-[769px]:hover:border-panel-accent min-[769px]:hover:text-panel-accent active:scale-[0.98] touch-manipulation"
+									>
+										{days}D
+									</button>
+								))}
+							</div>
+							{errors.on_hold_expire_duration?.message && (
+								<p role="alert" className="text-xs text-destructive">
+									{errors.on_hold_expire_duration.message}
+								</p>
 							)}
 						</div>
-						<button
-							type="button"
-							disabled={disabled}
-							onClick={toggleOnHold}
-							className={buttonVariants({
-								variant: isOnHold ? "default" : "outline",
-							})}
-						>
-							{t("onHold.button")}
-						</button>
-					</div>
-					{isOnHold ? (
-						<div className="grid grid-cols-6 gap-1 [&>button]:w-full [&>button]:px-0">
-							{ON_HOLD_QUICK_DAYS.map((days) => (
-								<button
-									key={days}
-									type="button"
-									disabled={disabled}
-									onClick={() => {
-										form.setValue("expire", null);
-										form.setValue("on_hold_expire_duration", days, {
-											shouldDirty: true,
-											shouldValidate: true,
-										});
-									}}
-									className={buttonVariants({ variant: "outline", size: "sm" })}
-								>
-									{days}D
-								</button>
-							))}
-						</div>
-					) : null}
-					{isOnHold && errors.on_hold_expire_duration?.message ? (
-						<p role="alert" className="text-xs text-destructive">
-							{errors.on_hold_expire_duration.message}
-						</p>
-					) : null}
+					) : (
+						<Controller
+							name="expire"
+							control={form.control}
+							render={({ field }) => {
+								const selectedDate = field.value
+									? dayjs.unix(field.value).toDate()
+									: null;
+								const handleDateChange = (next: Date | null) => {
+									form.setValue("on_hold_expire_duration", null, {
+										shouldDirty: false,
+									});
+									field.onChange(next ? dayjs(next).utc().unix() : null);
+								};
+								return (
+									<div className="flex flex-col gap-1.5">
+										<DateTimeField
+											id="user-expire"
+											value={selectedDate}
+											onChange={handleDateChange}
+											placeholder={t("dateTimePicker.selectDate")}
+											disabled={disabled}
+											minDate={new Date()}
+											quickSelects={quickExpiryOptions.map((option) => ({
+												label: option.label,
+												onClick: () =>
+													handleDateChange(
+														addQuickExpiry(
+															selectedDate,
+															option.amount,
+															option.unit,
+														),
+													),
+											}))}
+										/>
+										{expireHelperText ? (
+											<p className="text-xs text-panel-text-muted">
+												{expireHelperText}
+											</p>
+										) : null}
+										{errors.expire?.message ? (
+											<p role="alert" className="text-xs text-destructive">
+												{errors.expire.message}
+											</p>
+										) : null}
+									</div>
+								);
+							}}
+						/>
+					)}
 				</div>
 			</div>
 
 			<div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-panel-border/70 bg-panel-elevated/40 p-4 sm:grid-cols-2">
 				<div className="flex items-center gap-2 sm:col-span-2">
 					<span className="size-1.5 rounded-full bg-panel-accent" />
-					<span className="text-xs font-semibold uppercase tracking-wider text-panel-text-muted">
+					<span className="text-xs font-semibold text-panel-text-secondary">
 						{t("userDialog.serviceSettings")}
 					</span>
 				</div>
@@ -2260,25 +2310,30 @@ export const UserDialog: FC<UserDialogProps> = () => {
 		>
 			<DialogContent
 				dir={isRTL ? "rtl" : "ltr"}
-				className="flex max-h-[min(640px,calc(100dvh-10rem))] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl max-md:inset-x-3 max-md:w-auto max-md:top-[4.5rem] max-md:bottom-24 max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0"
+				className="flex max-h-[min(680px,calc(100dvh-4rem))] flex-col gap-0 overflow-hidden rounded-[20px] border border-panel-border! bg-panel-surface p-0 text-panel-text shadow-2xl sm:max-w-xl max-md:inset-x-3 max-md:w-auto"
 			>
 				<form
 					onSubmit={form.handleSubmit(submit)}
 					className="flex min-h-0 flex-1 flex-col"
 				>
-					<DialogHeader className="flex-row items-center gap-3 border-b px-5 py-3.5 pe-12 text-start sm:text-start">
-						<div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+					<DialogHeader className="flex-row items-center gap-3.5 border-b border-panel-border/70 px-5 py-4 pe-12 text-start sm:text-start">
+						<div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-panel-accent/10 text-panel-accent">
 							{isEditing ? (
-								<Pencil className="size-4" />
+								<Pencil className="size-5" />
 							) : (
-								<UserPlus className="size-4" />
+								<UserPlus className="size-5" />
 							)}
 						</div>
-						<div className="min-w-0">
-							<DialogTitle className="truncate text-base">{title}</DialogTitle>
+						<div className="min-w-0 flex-1">
+							<DialogTitle className="truncate text-base font-semibold text-panel-text">
+								{title}
+							</DialogTitle>
 							{isEditing && hasPrivilegedRole && editingUser?.admin_username ? (
-								<DialogDescription className="truncate">
-									{t("userDialog.createdBy")}: {editingUser.admin_username}
+								<DialogDescription className="truncate text-xs text-panel-text-muted">
+									{t("userDialog.createdBy")}:{" "}
+									<span className="font-medium text-panel-text-secondary">
+										{editingUser.admin_username}
+									</span>
 								</DialogDescription>
 							) : null}
 						</div>
@@ -2290,15 +2345,26 @@ export const UserDialog: FC<UserDialogProps> = () => {
 						className="flex min-h-0 flex-1 flex-col"
 					>
 						{isEditing ? (
-							<div className="border-b px-5 pt-2.5 pb-2.5">
-								<TabsList className="w-full">
-									<TabsTrigger value="details">{t("details")}</TabsTrigger>
+							<div className="border-b border-panel-border/70 px-5 pt-3 pb-3">
+								<TabsList className="w-full rounded-xl border border-panel-border! bg-panel-elevated p-1">
+									<TabsTrigger
+										value="details"
+										className="flex-1 rounded-lg text-xs font-medium data-[state=active]:bg-panel-surface data-[state=active]:text-panel-text data-[state=active]:font-semibold data-[state=active]:shadow-xs transition-all"
+									>
+										{t("details")}
+									</TabsTrigger>
 									{canViewTraffic ? (
-										<TabsTrigger value="usage">
+										<TabsTrigger
+											value="usage"
+											className="flex-1 rounded-lg text-xs font-medium data-[state=active]:bg-panel-surface data-[state=active]:text-panel-text data-[state=active]:font-semibold data-[state=active]:shadow-xs transition-all"
+										>
 											{t("userDialog.tabs.usage")}
 										</TabsTrigger>
 									) : null}
-									<TabsTrigger value="links">
+									<TabsTrigger
+										value="links"
+										className="flex-1 rounded-lg text-xs font-medium data-[state=active]:bg-panel-surface data-[state=active]:text-panel-text data-[state=active]:font-semibold data-[state=active]:shadow-xs transition-all"
+									>
 										{t("userDialog.tabs.links")}
 									</TabsTrigger>
 								</TabsList>
@@ -2338,7 +2404,7 @@ export const UserDialog: FC<UserDialogProps> = () => {
 						</div>
 					</Tabs>
 
-					<DialogFooter className="flex-row flex-wrap items-center justify-between gap-2 border-t px-5 py-3">
+					<DialogFooter className="flex-row flex-wrap items-center justify-between gap-2.5 border-t border-panel-border/70 bg-panel-surface px-5 py-3.5">
 						<div className="flex flex-wrap items-center gap-1.5">
 							{isEditing && canDeleteUsersVisible ? (
 								<DeleteConfirmDialog
@@ -2352,12 +2418,12 @@ export const UserDialog: FC<UserDialogProps> = () => {
 										type="button"
 										aria-label={t("delete")}
 										disabled={disabled}
-										className={buttonVariants({
-											variant: "ghost",
-											size: "icon-sm",
-										})}
+										className={cn(
+											buttonVariants({ variant: "ghost", size: "icon" }),
+											"size-9 rounded-xl text-destructive transition-colors min-[769px]:hover:bg-destructive/10 active:scale-[0.98] touch-manipulation",
+										)}
 									>
-										<Trash2 className="text-destructive" />
+										<Trash2 className="size-4" />
 									</button>
 								</DeleteConfirmDialog>
 							) : null}
@@ -2365,20 +2431,26 @@ export const UserDialog: FC<UserDialogProps> = () => {
 								<button
 									type="button"
 									onClick={handleResetUsage}
-									className={buttonVariants({ variant: "ghost", size: "sm" })}
+									className={cn(
+										buttonVariants({ variant: "outline", size: "sm" }),
+										"h-9 gap-1.5 rounded-xl border-panel-border bg-panel-surface text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation",
+									)}
 								>
-									<RotateCcw />
-									{t("userDialog.resetUsage")}
+									<RotateCcw className="size-3.5" />
+									<span>{t("userDialog.resetUsage")}</span>
 								</button>
 							) : null}
 							{isEditing && canRevokeSubscriptionVisible ? (
 								<button
 									type="button"
 									onClick={handleRevokeSubscription}
-									className={buttonVariants({ variant: "ghost", size: "sm" })}
+									className={cn(
+										buttonVariants({ variant: "outline", size: "sm" }),
+										"h-9 gap-1.5 rounded-xl border-panel-border bg-panel-surface text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation",
+									)}
 								>
-									<Ban />
-									{t("userDialog.revokeSubscription")}
+									<Ban className="size-3.5 text-amber-500" />
+									<span>{t("userDialog.revokeSubscription")}</span>
 								</button>
 							) : null}
 						</div>
@@ -2386,11 +2458,14 @@ export const UserDialog: FC<UserDialogProps> = () => {
 						<button
 							type="submit"
 							disabled={submitDisabled}
-							className={cn(buttonVariants({ size: "sm" }), "ms-auto")}
+							className={cn(
+								buttonVariants({ size: "default" }),
+								"ms-auto h-9 min-w-[100px] rounded-xl bg-panel-accent px-4 text-xs font-semibold text-white shadow-xs transition-colors min-[769px]:hover:bg-panel-accent/90 active:scale-[0.98] touch-manipulation",
+							)}
 						>
 							{submitStatus === "success" ? (
 								<>
-									<Check />
+									<Check className="size-3.5 me-1" />
 									{t("userDialog.submitSuccess")}
 								</>
 							) : loading ? (

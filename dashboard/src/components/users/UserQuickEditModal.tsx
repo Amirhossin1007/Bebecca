@@ -83,7 +83,7 @@ export const UserQuickEditModal: FC = () => {
 				isDataLimit ? t("usersTable.setDataLimit") : t("usersTable.setExpiry")
 			}
 			contentProps={{
-				className: "mx-3 rounded-2xl border-panel-border bg-panel-elevated",
+				className: "mx-3 rounded-[20px] border-panel-border bg-panel-elevated",
 			}}
 			headerProps={{ className: "border-b border-panel-border px-5 py-4" }}
 			footerProps={{

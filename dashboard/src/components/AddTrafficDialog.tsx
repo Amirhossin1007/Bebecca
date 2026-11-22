@@ -4,6 +4,7 @@ import { buttonVariants } from "components/ui/button";
 import { DataSizeField } from "components/ui/data-size-field";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "components/ui/dialog";
 import { Label } from "components/ui/label";
+import { cn } from "lib/cn";
 
 const GB_IN_BYTES = 1024 * 1024 * 1024;
 
@@ -58,10 +59,10 @@ export const AddTrafficDialog: FC<AddTrafficDialogProps> = ({ target, onClose, o
 				if (!open && !busy) finish();
 			}}
 		>
-			<DialogContent className="flex flex-col gap-4 p-5 sm:max-w-sm">
+			<DialogContent className="flex flex-col gap-4 rounded-[20px] border border-panel-border bg-panel-surface p-5 shadow-2xl sm:max-w-sm">
 				<DialogHeader className="text-start">
-					<DialogTitle>{t("services.userActions.traffic.add")}</DialogTitle>
-					<DialogDescription>{description}</DialogDescription>
+					<DialogTitle className="text-base font-semibold text-panel-text">{t("services.userActions.traffic.add")}</DialogTitle>
+					<DialogDescription className="text-xs text-panel-text-muted">{description}</DialogDescription>
 				</DialogHeader>
 
 				{view === "presets" ? (
@@ -72,7 +73,7 @@ export const AddTrafficDialog: FC<AddTrafficDialogProps> = ({ target, onClose, o
 								type="button"
 								disabled={busy}
 								onClick={() => void apply(gb * GB_IN_BYTES)}
-								className={buttonVariants({ variant: "outline" })}
+								className={cn(buttonVariants({ variant: "outline" }), "h-10 rounded-xl border-panel-border bg-panel-surface text-xs font-medium text-panel-text transition-colors min-[769px]:hover:border-panel-accent min-[769px]:hover:text-panel-accent active:scale-[0.98] touch-manipulation")}
 							>
 								{PRESET_LABELS[gb]}
 							</button>
@@ -81,21 +82,21 @@ export const AddTrafficDialog: FC<AddTrafficDialogProps> = ({ target, onClose, o
 							type="button"
 							disabled={busy}
 							onClick={() => setView("custom")}
-							className={buttonVariants({ variant: "outline" })}
+							className={cn(buttonVariants({ variant: "outline" }), "h-10 rounded-xl border-panel-border bg-panel-surface text-xs font-medium text-panel-text transition-colors min-[769px]:hover:border-panel-accent min-[769px]:hover:text-panel-accent active:scale-[0.98] touch-manipulation")}
 						>
 							{t("addTraffic.custom")}
 						</button>
 					</div>
 				) : (
 					<div className="flex flex-col gap-2">
-						<Label htmlFor="add-traffic-amount">{t("addTraffic.amount")}</Label>
+						<Label htmlFor="add-traffic-amount" className="text-xs font-semibold text-panel-text-secondary">{t("addTraffic.amount")}</Label>
 						<DataSizeField id="add-traffic-amount" valueGb={amountGb} onChangeGb={setAmountGb} disabled={busy} />
 						<DialogFooter className="flex-row items-center justify-between gap-2 pt-2">
 							<button
 								type="button"
 								disabled={busy}
 								onClick={() => setView("presets")}
-								className={buttonVariants({ variant: "ghost", size: "sm" })}
+								className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9 rounded-xl border-panel-border px-3.5 text-xs font-medium text-panel-text min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation")}
 							>
 								{t("addTraffic.back")}
 							</button>
@@ -103,7 +104,7 @@ export const AddTrafficDialog: FC<AddTrafficDialogProps> = ({ target, onClose, o
 								type="button"
 								disabled={busy || !(Number(amountGb) > 0)}
 								onClick={() => void apply(Math.round(Number(amountGb) * GB_IN_BYTES))}
-								className={buttonVariants({ size: "sm" })}
+								className={cn(buttonVariants({ size: "sm" }), "h-9 rounded-xl bg-panel-accent px-4 text-xs font-semibold text-white shadow-xs min-[769px]:hover:bg-panel-accent/90 active:scale-[0.98] touch-manipulation")}
 							>
 								{t("add")}
 							</button>

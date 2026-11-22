@@ -1,11 +1,9 @@
-import { createElement } from "react";
+import type { SortingState } from "@tanstack/react-table";
 import { Button } from "components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
-import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
-import { ArrowDown, ArrowUp, ArrowUpDown, X } from "lucide-react";
-
 import { cn } from "lib/cn";
-import type { SortingState } from "@tanstack/react-table";
+import { ArrowDown, ArrowUp, ArrowUpDown, X } from "lucide-react";
+import { createElement } from "react";
 import { useTranslation } from "react-i18next";
 import type { DataTableColumn, DataTableSortType } from "./DataTable.types";
 
@@ -19,6 +17,7 @@ type DataTableSortMenuProps = {
 	options: SortOption[];
 	sorting: SortingState;
 	onSortingChange: (next: SortingState) => void;
+	buttonClassName?: string;
 };
 
 export const isSortableColumn = <TData,>(column: DataTableColumn<TData>) =>
@@ -26,7 +25,10 @@ export const isSortableColumn = <TData,>(column: DataTableColumn<TData>) =>
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}/;
 
-const readSortValue = <TData,>(column: DataTableColumn<TData>, row: TData): unknown => {
+const readSortValue = <TData,>(
+	column: DataTableColumn<TData>,
+	row: TData,
+): unknown => {
 	if (column.sortValue) return column.sortValue(row);
 	if (typeof column.accessor === "function") return column.accessor(row);
 	return column.accessor ? row[column.accessor] : undefined;
@@ -40,7 +42,8 @@ const detectSortType = <TData,>(
 		const value = readSortValue(column, row);
 		if (value === null || value === undefined || value === "") continue;
 		if (typeof value === "boolean") return "boolean";
-		if (typeof value === "string") return ISO_DATE_PATTERN.test(value) ? "date" : "text";
+		if (typeof value === "string")
+			return ISO_DATE_PATTERN.test(value) ? "date" : "text";
 		return "number";
 	}
 	return "number";
@@ -51,7 +54,11 @@ export const buildSortOptions = <TData,>(
 	rows: TData[] = [],
 ): SortOption[] =>
 	columns.filter(isSortableColumn).map((column) => {
-		const label = [column.header, column.mobileLabel, column.mobileMetaLabel].find(
+		const label = [
+			column.header,
+			column.mobileLabel,
+			column.mobileMetaLabel,
+		].find(
 			(candidate): candidate is string =>
 				typeof candidate === "string" && candidate.trim() !== "",
 		);
@@ -66,10 +73,9 @@ export const DataTableSortMenu = ({
 	options,
 	sorting,
 	onSortingChange,
+	buttonClassName,
 }: DataTableSortMenuProps) => {
 	const { t } = useTranslation();
-	const mutedColor = "text-gray-500 dark:text-gray-400";
-	const hoverBg = "hover:bg-gray-100 dark:hover:bg-whiteAlpha-100";
 	const activeSort = sorting[0];
 
 	const directionLabels = (type: DataTableSortType): [string, string] => {
@@ -81,7 +87,10 @@ export const DataTableSortMenu = ({
 			case "boolean":
 				return [t("sort.boolAsc", "Off first"), t("sort.boolDesc", "On first")];
 			default:
-				return [t("sort.numberAsc", "Low → High"), t("sort.numberDesc", "High → Low")];
+				return [
+					t("sort.numberAsc", "Low → High"),
+					t("sort.numberDesc", "High → Low"),
+				];
 		}
 	};
 
@@ -94,49 +103,97 @@ export const DataTableSortMenu = ({
 		<Popover>
 			<PopoverTrigger asChild>
 				<div className="relative inline-flex shrink-0">
-					<Button aria-label={t("dataTable.sortOptions", "Sort options")} variant="outline" size="sm" className={cn("size-8 p-0", "h-9 w-9 rounded-full")}>{<ArrowUpDown className="size-4" />}</Button>
-					{activeSort ? (
-						<div className="top-[-2px] absolute end-[-2px] w-[8px] h-[8px] rounded-full bg-primary-400 pointer-events-none" />
-					) : null}
+					<Button
+						aria-label={t("dataTable.sortOptions", "Sort options")}
+						variant="outline"
+						size="icon"
+						className={cn(
+							"size-9 rounded-xl border-panel-border bg-panel-surface text-panel-text-secondary transition-colors min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text active:scale-[0.98] touch-manipulation",
+							activeSort && "border-panel-accent/50 text-panel-accent",
+							buttonClassName,
+						)}
+					>
+						<ArrowUpDown className="size-3.5" />
+					</Button>
+					{activeSort && (
+						<span
+							aria-hidden="true"
+							className="pointer-events-none absolute end-1.5 top-1.5 size-1.5 rounded-full bg-panel-accent ring-2 ring-panel-surface"
+						/>
+					)}
 				</div>
 			</PopoverTrigger>
-			
-				<PopoverContent className="w-[300px] rounded-xl z-[2000]">
-					<div className={cn("p-3", "p-2")}>
-						<p className={cn("px-1 pb-1.5 text-[0.75rem] font-semibold", mutedColor)}>
-							{t("sort.title", "Sort by")}
-						</p>
-						<div className="flex flex-col gap-0.5">
-							{options.map((option) => {
-								const [ascLabel, descLabel] = directionLabels(option.type);
-								const isActive = activeSort?.id === option.id;
-								return (
-									<div key={option.id} className={cn("flex flex-row items-center justify-between gap-2 px-1.5 py-1 rounded-md", hoverBg)}>
-										<p className={cn("text-[0.75rem] truncate min-w-0!", isActive ? "font-semibold" : "font-medium")}>
-											{option.label}
-										</p>
-										<div className="flex flex-row items-center gap-1 shrink-0">
-											{[false, true].map((desc) => {
-												const selected = isActive && activeSort?.desc === desc;
-												return (
-													<Button key={String(desc)} aria-pressed={selected} onClick={() => applySort(option.id, desc)} size="xs" className="h-[22px] px-2 text-[0.75rem] font-medium rounded-full" variant={selected ? "default" : "outline"}>{createElement(desc ? ArrowDown : ArrowUp, { className: "size-3" })}
-														{desc ? descLabel : ascLabel}
-													</Button>
-												);
-											})}
-										</div>
+
+			<PopoverContent
+				align="start"
+				collisionPadding={12}
+				className="w-[300px] max-w-[calc(100vw-24px)] rounded-2xl border-panel-border! bg-panel-elevated p-3 shadow-xl"
+			>
+				<div className="p-1">
+					<p className="px-1 pb-2 text-xs font-semibold text-panel-text-muted">
+						{t("sort.title", "Sort by")}
+					</p>
+					<div className="flex max-h-[280px] flex-col gap-1 overflow-y-auto pe-1">
+						{options.map((option) => {
+							const [ascLabel, descLabel] = directionLabels(option.type);
+							const isActive = activeSort?.id === option.id;
+							return (
+								<div
+									key={option.id}
+									className={cn(
+										"flex items-center justify-between gap-2 rounded-xl p-1.5 transition-colors",
+										isActive
+											? "bg-panel-surface shadow-xs"
+											: "min-[769px]:hover:bg-panel-surface/60",
+									)}
+								>
+									<p
+										className={cn(
+											"truncate text-xs min-w-0!",
+											isActive
+												? "font-semibold text-panel-text"
+												: "font-medium text-panel-text-secondary",
+										)}
+									>
+										{option.label}
+									</p>
+									<div className="flex shrink-0 items-center gap-1">
+										{[false, true].map((desc) => {
+											const selected = isActive && activeSort?.desc === desc;
+											return (
+												<Button
+													key={String(desc)}
+													aria-pressed={selected}
+													onClick={() => applySort(option.id, desc)}
+													size="xs"
+													className="h-6 rounded-lg px-2 text-[11px] font-medium"
+													variant={selected ? "default" : "outline"}
+												>
+													{createElement(desc ? ArrowDown : ArrowUp, {
+														className: "size-2.5 me-1",
+													})}
+													{desc ? descLabel : ascLabel}
+												</Button>
+											);
+										})}
 									</div>
-								);
-							})}
-						</div>
-						{activeSort ? (
-							<Button onClick={() => onSortingChange([])} variant="ghost" size="xs" className="w-full mt-2">{<X className="size-3.5" />}
-								{t("sort.clear", "Clear sort")}
-							</Button>
-						) : null}
+								</div>
+							);
+						})}
 					</div>
-				</PopoverContent>
-			
+					{activeSort && (
+						<Button
+							onClick={() => onSortingChange([])}
+							variant="ghost"
+							size="xs"
+							className="mt-2.5 h-7 w-full rounded-lg text-xs text-panel-text-muted min-[769px]:hover:bg-panel-surface min-[769px]:hover:text-panel-accent"
+						>
+							<X className="size-3.5 me-1.5" />
+							{t("sort.clear", "Clear sort")}
+						</Button>
+					)}
+				</div>
+			</PopoverContent>
 		</Popover>
 	);
 };

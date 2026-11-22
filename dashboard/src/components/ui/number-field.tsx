@@ -1,6 +1,6 @@
+import { cn } from "lib/cn";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { type FC, type ReactNode, useEffect, useRef, useState } from "react";
-import { cn } from "lib/cn";
 
 type NumberFieldProps = {
 	id?: string;
@@ -14,19 +14,13 @@ type NumberFieldProps = {
 	placeholder?: string;
 	disabled?: boolean;
 	invalid?: boolean;
-	/** Which on-screen keypad a phone opens: whole numbers or decimals. */
 	inputMode?: "numeric" | "decimal";
 	doneLabel?: string;
+	hideSteppers?: boolean;
 };
 
-/** A mouse notch is large; trackpads send many small deltas that only step once they add up. */
 const WHEEL_THRESHOLD = 40;
 
-/**
- * A numeric input with an optional unit and stepper buttons. The stepper buttons, the up and down arrow keys and
- * the mouse wheel (while the pointer is over the field) all change the value. An empty value means unset,
- * so stepping down keeps it empty.
- */
 export const NumberField: FC<NumberFieldProps> = ({
 	id,
 	value,
@@ -41,6 +35,7 @@ export const NumberField: FC<NumberFieldProps> = ({
 	invalid = false,
 	inputMode = "decimal",
 	doneLabel,
+	hideSteppers = false,
 }) => {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [focused, setFocused] = useState(false);
@@ -53,7 +48,8 @@ export const NumberField: FC<NumberFieldProps> = ({
 		if (current.disabled) return;
 		const parsed = Number.parseFloat(current.value);
 		if (!current.value.trim() || Number.isNaN(parsed)) {
-			if (direction > 0) current.onChange(String(Math.max(current.min, current.step)));
+			if (direction > 0)
+				current.onChange(String(Math.max(current.min, current.step)));
 			return;
 		}
 		let next = Math.round((parsed + direction * current.step) * 100) / 100;
@@ -81,7 +77,7 @@ export const NumberField: FC<NumberFieldProps> = ({
 	return (
 		<div
 			className={cn(
-				"flex h-9 w-full min-w-0 items-stretch overflow-hidden rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
+				"flex h-10 w-full min-w-0 items-stretch overflow-hidden rounded-xl border border-panel-border bg-panel-surface text-panel-text shadow-xs transition-[border-color,box-shadow] focus-within:border-panel-accent focus-within:ring-2 focus-within:ring-panel-accent/20",
 				invalid && "border-destructive",
 				disabled && "opacity-50",
 			)}
@@ -103,7 +99,7 @@ export const NumberField: FC<NumberFieldProps> = ({
 					event.preventDefault();
 					stepBy(event.key === "ArrowUp" ? 1 : -1);
 				}}
-				className="min-w-0 flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+				className="min-w-0 flex-1 bg-transparent px-3 text-xs outline-none placeholder:text-panel-text-muted disabled:cursor-not-allowed tabular-nums [unicode-bidi:isolate]"
 			/>
 			{doneLabel && focused && !disabled ? (
 				<button
@@ -113,38 +109,41 @@ export const NumberField: FC<NumberFieldProps> = ({
 					title={doneLabel}
 					onPointerDown={(event) => event.preventDefault()}
 					onClick={() => inputRef.current?.blur()}
-					className="flex w-8 shrink-0 items-center justify-center text-primary transition-colors hover:bg-whiteAlpha-100"
+					className="flex w-8 shrink-0 items-center justify-center text-panel-accent transition-colors min-[769px]:hover:bg-panel-elevated"
 				>
 					<Check className="size-4" />
 				</button>
 			) : null}
-			{unitSlot ?? (unit ? (
-				<span className="inline-flex shrink-0 items-center border-s border-input bg-muted px-2.5 text-xs text-muted-foreground select-none">
-					{unit}
-				</span>
-			) : null)}
-			<div className="flex w-6 shrink-0 flex-col border-s border-input">
-				<button
-					type="button"
-					tabIndex={-1}
-					aria-hidden="true"
-					disabled={disabled}
-					onClick={() => stepBy(1)}
-					className="flex flex-1 items-center justify-center text-muted-foreground transition-colors hover:bg-whiteAlpha-100 hover:text-panel-text disabled:pointer-events-none"
-				>
-					<ChevronUp className="size-3" />
-				</button>
-				<button
-					type="button"
-					tabIndex={-1}
-					aria-hidden="true"
-					disabled={disabled}
-					onClick={() => stepBy(-1)}
-					className="flex flex-1 items-center justify-center border-t border-input text-muted-foreground transition-colors hover:bg-whiteAlpha-100 hover:text-panel-text disabled:pointer-events-none"
-				>
-					<ChevronDown className="size-3" />
-				</button>
-			</div>
+			{unitSlot ??
+				(unit ? (
+					<span className="inline-flex shrink-0 items-center border-s border-panel-border bg-panel-elevated/60 px-3 text-xs font-semibold text-panel-text-secondary select-none">
+						{unit}
+					</span>
+				) : null)}
+			{!hideSteppers && (
+				<div className="flex w-6 shrink-0 flex-col border-s border-panel-border">
+					<button
+						type="button"
+						tabIndex={-1}
+						aria-hidden="true"
+						disabled={disabled}
+						onClick={() => stepBy(1)}
+						className="flex flex-1 items-center justify-center text-panel-text-muted transition-colors min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text disabled:pointer-events-none"
+					>
+						<ChevronUp className="size-3" />
+					</button>
+					<button
+						type="button"
+						tabIndex={-1}
+						aria-hidden="true"
+						disabled={disabled}
+						onClick={() => stepBy(-1)}
+						className="flex flex-1 items-center justify-center border-t border-panel-border text-panel-text-muted transition-colors min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text disabled:pointer-events-none"
+					>
+						<ChevronDown className="size-3" />
+					</button>
+				</div>
+			)}
 		</div>
 	);
 };

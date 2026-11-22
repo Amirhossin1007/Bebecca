@@ -280,7 +280,7 @@ export const QRCodeDialog: FC = () => {
 		>
 			<DialogContent
 				dir={isRTL ? "rtl" : "ltr"}
-				className="max-h-[min(560px,calc(100dvh-6rem))] max-w-[420px] gap-0 overflow-hidden rounded-2xl border-panel-border bg-panel-elevated p-0 shadow-2xl"
+				className="max-h-[min(560px,calc(100dvh-6rem))] max-w-[420px] gap-0 overflow-hidden rounded-[20px] border-panel-border bg-panel-elevated p-0 shadow-2xl"
 			>
 				<DialogHeader className="border-b border-panel-border px-5 py-3.5 text-start">
 					<DialogTitle className="text-base font-semibold text-panel-text">
