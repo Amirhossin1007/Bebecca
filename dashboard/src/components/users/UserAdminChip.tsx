@@ -1,28 +1,34 @@
+import { cn } from "lib/cn";
 import type { FC } from "react";
 import { useTranslation } from "react-i18next";
 
 type UserAdminChipProps = {
 	adminUsername?: string | null;
 	show?: boolean;
+	className?: string;
 };
 
-/**
- * "by <admin>" tag for rows owned by another admin/reseller. Deliberately
- * muted and uniform (styled via .rb-user-admin-chip with the panel theme
- * tokens) so it reads as quiet metadata rather than a colored label.
- */
 export const UserAdminChip: FC<UserAdminChipProps> = ({
 	adminUsername,
 	show = true,
+	className,
 }) => {
 	const { t } = useTranslation();
 
 	if (!show || !adminUsername) return null;
 
 	return (
-		<span dir="ltr" className="[unicode-bidi:isolate] rb-user-admin-chip">
-			{t("usersTable.by")}{" "}
-			<span className="font-semibold">{adminUsername}</span>
+		<span
+			dir="ltr"
+			className={cn(
+				"inline-flex items-center gap-1 rounded-md bg-panel-elevated/60 px-1.5 py-0.5 text-[11px] font-normal text-panel-text-muted ring-1 ring-inset ring-panel-border/50 [unicode-bidi:isolate]",
+				className,
+			)}
+		>
+			<span className="text-panel-text-muted/70">{t("usersTable.by")}</span>
+			<span className="font-medium text-panel-text-secondary">
+				{adminUsername}
+			</span>
 		</span>
 	);
 };
