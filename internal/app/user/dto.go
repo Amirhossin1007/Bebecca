@@ -294,6 +294,7 @@ type Host struct {
 	Fingerprint          string         `json:"fingerprint"`
 	VerifyPeerCertByName string         `json:"verify_peer_cert_by_name"`
 	PinnedPeerCertSHA256 string         `json:"pinned_peer_cert_sha256"`
+	HostEncryption       string         `json:"host_encryption"`
 	AllowInsecure        *bool          `json:"allowinsecure"`
 	IsDisabled           bool           `json:"is_disabled"`
 	MuxEnable            bool           `json:"mux_enable"`
@@ -323,6 +324,7 @@ type SubscriptionSettings struct {
 	ClientRoutingRules             []ClientRoutingRule            `json:"client_routing_rules"`
 	SubscriptionPlaceholderEnabled bool                           `json:"subscription_placeholder_enabled"`
 	SubscriptionPlaceholderRemark  string                         `json:"subscription_placeholder_remark"`
+	SubscriptionWebPushEnabled     bool                           `json:"subscription_web_push_enabled"`
 	SubscriptionPlaceholderPolicy  *SubscriptionPlaceholderPolicy `json:"-"`
 	RawPanelSettings               json.RawMessage                `json:"raw_panel_settings,omitempty"`
 	RawSubscriptionSettings        json.RawMessage                `json:"raw_subscription_settings,omitempty"`

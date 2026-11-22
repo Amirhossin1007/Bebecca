@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	adminapp "github.com/rebeccapanel/rebecca/internal/app/admin"
@@ -72,6 +73,14 @@ type Server struct {
 	liveUserGlobalSpeed  liveUserSpeedTotal
 	sessionAdmissionMu   sync.Mutex
 	loginLimiter         loginRateLimiter
+	subPushEnabled       atomic.Bool
+	subPushLimiter       subPushRateLimiter
+	subPushEvalRunning   atomic.Bool
+	vapidPublicMu        sync.RWMutex
+	vapidPublicKey       string
+	pushHostMu           sync.RWMutex
+	cachedPushHost       string
+	pushClient           *http.Client
 	operators            *operatorResolver
 	recentActionsEnabled bool
 }
@@ -165,6 +174,9 @@ func New(cfg Config) (*Server, error) {
 	})
 	server.nodeMutations = nodeMutationRepo.WithRecentActionRecorder(server.recordRecentActionEventTx)
 	certificateManager.SetNodeIssuer(server.issueNodeCertificate)
+	if subSettings, err := settingsRepo.SubscriptionSettings(migrationCtx); err == nil {
+		server.applySubscriptionSettings(subSettings)
+	}
 	return server, nil
 }
 
@@ -177,6 +189,10 @@ func applyRuntimeSettingsToConfig(cfg *Config, settings settingsapp.RuntimeSetti
 
 func (s *Server) applyRuntimeSettings(settings settingsapp.RuntimeSettings) {
 	applyRuntimeSettingsToConfig(&s.cfg, settings)
+}
+
+func (s *Server) applySubscriptionSettings(settings settingsapp.SubscriptionSettings) {
+	s.subPushEnabled.Store(settings.SubscriptionWebPushEnabled)
 }
 
 func (s *Server) RuntimeSettings(ctx context.Context) (settingsapp.RuntimeSettings, error) {
@@ -196,12 +212,14 @@ func (s *Server) StartBackground(ctx context.Context) {
 			logging.Infof(logging.ComponentNode, "startup operation queue replaced with full sync cleared=%d", cleared)
 		}
 		go s.runNodeCoordinator(ctx)
+		go s.externalApps.RepairTelegramBots(ctx)
 		go s.runNodeRecoveryWorker(ctx)
 		go s.runNodeUsageCollector(ctx)
 		go s.runNodeUsageFlushWorker(ctx)
 		go s.runNodeUserUsageCompactionWorker(ctx)
 		go s.runAdminLifecycleWorker(ctx)
 		go s.runNotificationWorker(ctx)
+		go s.runSubscriptionPushWorker(ctx)
 		s.runUserLifecycleWorkers(ctx)
 		go s.runTelegramBackupScheduler(ctx)
 		go s.runCertificateRenewalWorker(ctx)
