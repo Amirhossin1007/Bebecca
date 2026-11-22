@@ -1,5 +1,5 @@
-import type { FC } from "react";
 import { cn } from "lib/cn";
+import type { FC } from "react";
 import { formatBytes } from "utils/formatByte";
 import { getUsageTone, usageToneGradients } from "./userColors";
 
@@ -34,7 +34,8 @@ export const UserUsageBar: FC<UserUsageBarProps> = ({
 	const isUnlimited = total === 0 || total === null;
 	const percent = isUnlimited ? 0 : Math.min((used / (total || 1)) * 100, 100);
 	const tone = getUsageTone(percent, isUnlimited);
-	const fillWidth = used <= 0 ? "0%" : isUnlimited ? "100%" : `${Math.max(percent, 2)}%`;
+	const fillWidth =
+		used <= 0 ? "0%" : isUnlimited ? "100%" : `${Math.max(percent, 2)}%`;
 	const percentLabel = isUnlimited ? "∞" : `${Math.round(percent)}%`;
 
 	const track = (
@@ -96,7 +97,11 @@ export const UserUsageBar: FC<UserUsageBarProps> = ({
 				</div>
 				{(lifetimeUsed !== undefined || resetLabel) && (
 					<div className="flex items-center justify-between gap-2 text-[10px] text-panel-text-muted">
-						{resetLabel ? <span className="truncate">{resetLabel}</span> : <span />}
+						{resetLabel ? (
+							<span className="truncate">{resetLabel}</span>
+						) : (
+							<span />
+						)}
 						{lifetimeUsed !== undefined && (
 							<span className="tabular-nums">
 								{lifetimeLabel ? `${lifetimeLabel}: ` : ""}

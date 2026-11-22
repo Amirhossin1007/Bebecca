@@ -1392,430 +1392,457 @@ export const UserDialog: FC<UserDialogProps> = () => {
 				</Alert>
 			) : null}
 
-			<FormField
-				label={t("username")}
-				htmlFor="user-username"
-				error={errors.username?.message}
-				description={`${usernameValue?.length ?? 0}/32`}
-				className={cn(!isEditing && "sm:col-span-2")}
-			>
-				<div className="relative">
-					<Input
-						id="user-username"
-						dir={isRTL ? "rtl" : "ltr"}
-						disabled={disabled || isEditing}
-						aria-invalid={!!errors.username || undefined}
-						className={cn(!isEditing && "pe-10")}
-						{...form.register("username")}
-					/>
-					{!isEditing ? (
-						<button
-							type="button"
-							aria-label={t("userDialog.generateUsername")}
-							title={t("userDialog.generateUsername")}
-							disabled={disabled || randomUsernameLoading}
-							onClick={createRandomUsername}
-							className={cn(
-								buttonVariants({ variant: "ghost", size: "icon-sm" }),
-								"absolute inset-y-0.5 end-0.5",
-							)}
-						>
-							{randomUsernameLoading ? (
-								<LoaderCircle className="size-4 animate-spin" />
-							) : (
-								<Sparkles className="size-4" />
-							)}
-						</button>
-					) : null}
+			<div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-panel-border/70 bg-panel-elevated/40 p-4 sm:grid-cols-2">
+				<div className="flex items-center gap-2 sm:col-span-2">
+					<span className="size-1.5 rounded-full bg-panel-accent" />
+					<span className="text-xs font-semibold uppercase tracking-wider text-panel-text-muted">
+						{t("userDialog.basicInfo")}
+					</span>
 				</div>
-			</FormField>
 
-			{isEditing ? (
-				<FormField label={t("status")}>
-					<div className="flex h-9 items-center justify-between rounded-md border px-3">
-						<Badge variant="outline">{t(`status.${userStatus}`)}</Badge>
-						<Controller
-							name="status"
-							control={form.control}
-							render={({ field }) => (
-								<Switch
-									aria-label={t("status")}
-									checked={field.value === "active"}
-									disabled={disabled}
-									onCheckedChange={(checked) =>
-										field.onChange(checked ? "active" : "disabled")
-									}
-								/>
-							)}
+				<FormField
+					label={t("username")}
+					htmlFor="user-username"
+					error={errors.username?.message}
+					description={`${usernameValue?.length ?? 0}/32`}
+					className={cn(!isEditing && "sm:col-span-2")}
+				>
+					<div className="relative">
+						<Input
+							id="user-username"
+							dir={isRTL ? "rtl" : "ltr"}
+							disabled={disabled || isEditing}
+							aria-invalid={!!errors.username || undefined}
+							className={cn(!isEditing && "pe-10")}
+							{...form.register("username")}
 						/>
+						{!isEditing ? (
+							<button
+								type="button"
+								aria-label={t("userDialog.generateUsername")}
+								title={t("userDialog.generateUsername")}
+								disabled={disabled || randomUsernameLoading}
+								onClick={createRandomUsername}
+								className={cn(
+									buttonVariants({ variant: "ghost", size: "icon-sm" }),
+									"absolute inset-y-0.5 end-0.5",
+								)}
+							>
+								{randomUsernameLoading ? (
+									<LoaderCircle className="size-4 animate-spin" />
+								) : (
+									<Sparkles className="size-4" />
+								)}
+							</button>
+						) : null}
 					</div>
 				</FormField>
-			) : null}
 
-			<Controller
-				control={form.control}
-				name="data_limit"
-				render={({ field }) => (
-					<FormField
-						label={t("userDialog.dataLimit")}
-						className={cn(!ipLimitEditable && "sm:col-span-2")}
-						description={
-							remainingDataInfo
-								? `${t("userDialog.remainingDataLabel")}: ${remainingDataInfo}`
-								: undefined
-						}
-						error={errors.data_limit?.message}
-					>
-						<DataSizeField
-							id="user-data-limit"
-							valueGb={field.value ? String(field.value) : ""}
-							onChangeGb={(raw) => field.onChange(raw)}
-							disabled={disabled}
-							invalid={!!errors.data_limit}
-						/>
-					</FormField>
-				)}
-			/>
-
-			{ipLimitEditable ? (
-				<Controller
-					control={form.control}
-					name="ip_limit"
-					rules={{
-						validate: (value) => {
-							if (value === null || value === undefined) return true;
-							if (typeof value !== "number" || Number.isNaN(value))
-								return t("userDialog.ipLimitValidation");
-							return value >= 0 ? true : t("userDialog.ipLimitValidation");
-						},
-					}}
-					render={({ field }) => (
-						<FormField
-							label={t("userDialog.ipLimitLabel")}
-							error={errors.ip_limit?.message}
-						>
-							<NumberField
-								id="user-ip-limit"
-								inputMode="numeric"
-								placeholder={t("userDialog.remainingDataUnlimited")}
-								value={
-									typeof field.value === "number" && field.value > 0
-										? String(field.value)
-										: ""
-								}
-								disabled={disabled}
-								invalid={!!errors.ip_limit}
-								onChange={(raw) => {
-									const trimmed = raw.trim();
-									if (!trimmed || trimmed === "-") {
-										field.onChange(null);
-										return;
-									}
-									const parsed = Number(trimmed);
-									if (Number.isNaN(parsed)) return;
-									field.onChange(parsed < 0 ? 0 : Math.floor(parsed));
-								}}
-							/>
-						</FormField>
-					)}
-				/>
-			) : null}
-
-			{speedLimitEditable ? (
-				<Controller
-					control={form.control}
-					name="speed_limit"
-					render={({ field }) => (
-						<FormField
-							label={t("userDialog.speedLimitLabel")}
-							error={errors.speed_limit?.message}
-						>
-							<UnitInput
-								value={
-									typeof field.value === "number" && field.value > 0
-										? String(field.value)
-										: ""
-								}
-								onChange={(raw) => {
-									const parsed = Number(raw.trim());
-									field.onChange(
-										Number.isFinite(parsed) && parsed > 0
-											? Math.round(parsed * 100) / 100
-											: null,
-									);
-								}}
-								unit={SPEED_UNIT}
-								disabled={disabled}
-								invalid={!!errors.speed_limit}
-							/>
-						</FormField>
-					)}
-				/>
-			) : null}
-
-			<div
-				className={cn(
-					"flex min-w-0 flex-col gap-2",
-					!speedLimitEditable && "sm:col-span-2",
-				)}
-			>
-				<Label>
-					{isOnHold ? t("expires.days") : t("userDialog.expiryDate")}
-				</Label>
-				<div className="flex items-start gap-2">
-					<div className="min-w-0 flex-1">
-						{isOnHold ? (
+				{isEditing ? (
+					<FormField label={t("status")}>
+						<div className="flex h-9 items-center justify-between rounded-xl border border-panel-border bg-panel-surface px-3">
+							<Badge variant="outline">{t(`status.${userStatus}`)}</Badge>
 							<Controller
+								name="status"
 								control={form.control}
-								name="on_hold_expire_duration"
 								render={({ field }) => (
-									<UnitInput
-										value={field.value ? String(field.value) : ""}
-										unit={DAYS_UNIT}
-										integer
+									<Switch
+										aria-label={t("status")}
+										checked={field.value === "active"}
 										disabled={disabled}
-										invalid={!!errors.on_hold_expire_duration}
-										onChange={(raw) => {
-											form.setValue("expire", null);
-											if (!raw) {
-												field.onChange(null);
-												return;
-											}
-											if (!isDecimalDraft(raw)) return;
-											const parsed = Number(raw);
-											if (Number.isNaN(parsed) || parsed < 0) return;
-											field.onChange(Math.round(parsed));
-										}}
+										onCheckedChange={(checked) =>
+											field.onChange(checked ? "active" : "disabled")
+										}
 									/>
 								)}
 							/>
-						) : (
-							<Controller
-								name="expire"
-								control={form.control}
-								render={({ field }) => {
-									const selectedDate = field.value
-										? dayjs.unix(field.value).toDate()
-										: null;
-									const handleDateChange = (next: Date | null) => {
-										form.setValue("on_hold_expire_duration", null, {
-											shouldDirty: false,
-										});
-										field.onChange(next ? dayjs(next).utc().unix() : null);
-									};
-									return (
-										<>
-											<DateTimeField
-												id="user-expire"
-												value={selectedDate}
-												onChange={handleDateChange}
-												placeholder={t("dateTimePicker.selectDate")}
-												disabled={disabled}
-												minDate={new Date()}
-												quickSelects={quickExpiryOptions.map((option) => ({
-													label: option.label,
-													onClick: () =>
-														handleDateChange(
-															addQuickExpiry(
-																selectedDate,
-																option.amount,
-																option.unit,
-															),
-														),
-												}))}
-											/>
-											{expireHelperText ? (
-												<p className="mt-1 text-xs text-muted-foreground">
-													{expireHelperText}
-												</p>
-											) : null}
-											{errors.expire?.message ? (
-												<p
-													role="alert"
-													className="mt-1 text-xs text-destructive"
-												>
-													{errors.expire.message}
-												</p>
-											) : null}
-										</>
-									);
-								}}
-							/>
-						)}
-					</div>
-					<button
-						type="button"
-						disabled={disabled}
-						onClick={toggleOnHold}
-						className={buttonVariants({
-							variant: isOnHold ? "default" : "outline",
-						})}
-					>
-						{t("onHold.button")}
-					</button>
-				</div>
-				{isOnHold ? (
-					<div className="grid grid-cols-6 gap-1 [&>button]:w-full [&>button]:px-0">
-						{ON_HOLD_QUICK_DAYS.map((days) => (
-							<button
-								key={days}
-								type="button"
-								disabled={disabled}
-								onClick={() => {
-									form.setValue("expire", null);
-									form.setValue("on_hold_expire_duration", days, {
-										shouldDirty: true,
-										shouldValidate: true,
-									});
-								}}
-								className={buttonVariants({ variant: "outline", size: "sm" })}
-							>
-								{days}D
-							</button>
-						))}
-					</div>
-				) : null}
-				{isOnHold && errors.on_hold_expire_duration?.message ? (
-					<p role="alert" className="text-xs text-destructive">
-						{errors.on_hold_expire_duration.message}
-					</p>
+						</div>
+					</FormField>
 				) : null}
 			</div>
 
-			{showServiceSelector ? (
-				<FormField
-					label={t("userDialog.selectServiceLabel")}
-					className={cn(!dataLimitSet && "sm:col-span-2")}
-					description={
-						selectedService ? (
-							<span className="flex flex-col gap-0.5">
-								{selectedService.description ? (
-									<span>{selectedService.description}</span>
-								) : null}
-								<span>
-									{t("userDialog.serviceSummary", {
-										hosts: selectedService.host_count,
-										users: selectedService.user_count,
-									})}
-								</span>
-							</span>
-						) : undefined
-					}
-				>
-					<Select
-						value={selectedServiceId ? String(selectedServiceId) : ""}
-						onValueChange={(value) => setSelectedServiceId(Number(value))}
-						disabled={serviceSelectionDisabled || servicesLoading}
-					>
-						<SelectTrigger
-							id="user-service"
-							aria-label={t("userDialog.selectServiceLabel")}
-						>
-							<SelectValue placeholder={t("userDialog.selectService")} />
-						</SelectTrigger>
-						<SelectContent>
-							{services.map((service) => {
-								const isBroken =
-									service.broken === true || service.has_hosts === false;
-								return (
-									<SelectItem
-										key={service.id}
-										value={String(service.id)}
-										disabled={isBroken}
-									>
-										<SelectItemText>{service.name}</SelectItemText>
-										{service.description ? (
-											<span className="line-clamp-2 text-xs text-muted-foreground">
-												{service.description}
-											</span>
-										) : null}
-										<span className="text-xs text-muted-foreground">
-											{t("userDialog.serviceSummary", {
-												hosts: service.host_count,
-												users: service.user_count,
-											})}
-											{isBroken ? ` · ${t("userDialog.brokenService")}` : ""}
-										</span>
-									</SelectItem>
-								);
-							})}
-						</SelectContent>
-					</Select>
-				</FormField>
-			) : null}
+			<div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-panel-border/70 bg-panel-elevated/40 p-4 sm:grid-cols-2">
+				<div className="flex items-center gap-2 sm:col-span-2">
+					<span className="size-1.5 rounded-full bg-panel-accent" />
+					<span className="text-xs font-semibold uppercase tracking-wider text-panel-text-muted">
+						{t("userDialog.limits")}
+					</span>
+				</div>
 
-			{dataLimitSet ? (
 				<Controller
 					control={form.control}
-					name="data_limit_reset_strategy"
+					name="data_limit"
 					render={({ field }) => (
 						<FormField
-							label={t("userDialog.periodicUsageReset")}
-							className={cn(!showServiceSelector && "sm:col-span-2")}
+							label={t("userDialog.dataLimit")}
+							className={cn(!ipLimitEditable && "sm:col-span-2")}
+							description={
+								remainingDataInfo
+									? `${t("userDialog.remainingDataLabel")}: ${remainingDataInfo}`
+									: undefined
+							}
+							error={errors.data_limit?.message}
 						>
-							<Select
-								value={field.value}
-								onValueChange={field.onChange}
-								disabled={disabled || !canConfigurePeriodicUsageReset}
-							>
-								<SelectTrigger id="user-reset">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{resetStrategy.map((strategy) => (
-										<SelectItem key={strategy.value} value={strategy.value}>
-											<SelectItemText>
-												{t(`userDialog.resetStrategy${strategy.title}`)}
-											</SelectItemText>
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
+							<DataSizeField
+								id="user-data-limit"
+								valueGb={field.value ? String(field.value) : ""}
+								onChangeGb={(raw) => field.onChange(raw)}
+								disabled={disabled}
+								invalid={!!errors.data_limit}
+							/>
 						</FormField>
 					)}
 				/>
-			) : null}
 
-			{hasExistingKey && canSetCustomKey ? (
-				<div className="flex flex-col gap-2 sm:col-span-2">
+				{ipLimitEditable ? (
 					<Controller
-						name="manual_key_entry"
 						control={form.control}
+						name="ip_limit"
+						rules={{
+							validate: (value) => {
+								if (value === null || value === undefined) return true;
+								if (typeof value !== "number" || Number.isNaN(value))
+									return t("userDialog.ipLimitValidation");
+								return value >= 0 ? true : t("userDialog.ipLimitValidation");
+							},
+						}}
 						render={({ field }) => (
-							<label className="flex items-center justify-between gap-3 text-sm">
-								<span>{t("userDialog.allowManualKeyEntry")}</span>
-								<Switch
-									checked={field.value}
+							<FormField
+								label={t("userDialog.ipLimitLabel")}
+								error={errors.ip_limit?.message}
+							>
+								<NumberField
+									id="user-ip-limit"
+									inputMode="numeric"
+									placeholder={t("userDialog.remainingDataUnlimited")}
+									value={
+										typeof field.value === "number" && field.value > 0
+											? String(field.value)
+											: ""
+									}
 									disabled={disabled}
-									onCheckedChange={(checked) => field.onChange(checked)}
+									invalid={!!errors.ip_limit}
+									onChange={(raw) => {
+										const trimmed = raw.trim();
+										if (!trimmed || trimmed === "-") {
+											field.onChange(null);
+											return;
+										}
+										const parsed = Number(trimmed);
+										if (Number.isNaN(parsed)) return;
+										field.onChange(parsed < 0 ? 0 : Math.floor(parsed));
+									}}
 								/>
-							</label>
+							</FormField>
 						)}
 					/>
-					{manualKeyEntryEnabled ? (
-						<Controller
-							name="credential_key"
-							control={form.control}
-							render={({ field }) => (
-								<FormField
-									label={t("userDialog.credentialKeyLabel")}
-									description={t("userDialog.manualKeyHelper")}
-									error={errors.credential_key?.message}
-								>
-									<Input
-										placeholder="35e4e39c7d5c4f4b8b71558e4f37ff53"
-										maxLength={32}
-										dir="ltr"
-										value={field.value ?? ""}
-										disabled={disabled}
-										onChange={(event) => field.onChange(event.target.value)}
-									/>
-								</FormField>
+				) : null}
+
+				{speedLimitEditable ? (
+					<Controller
+						control={form.control}
+						name="speed_limit"
+						render={({ field }) => (
+							<FormField
+								label={t("userDialog.speedLimitLabel")}
+								error={errors.speed_limit?.message}
+							>
+								<UnitInput
+									value={
+										typeof field.value === "number" && field.value > 0
+											? String(field.value)
+											: ""
+									}
+									onChange={(raw) => {
+										const parsed = Number(raw.trim());
+										field.onChange(
+											Number.isFinite(parsed) && parsed > 0
+												? Math.round(parsed * 100) / 100
+												: null,
+										);
+									}}
+									unit={SPEED_UNIT}
+									disabled={disabled}
+									invalid={!!errors.speed_limit}
+								/>
+							</FormField>
+						)}
+					/>
+				) : null}
+
+				<div
+					className={cn(
+						"flex min-w-0 flex-col gap-2",
+						!speedLimitEditable && "sm:col-span-2",
+					)}
+				>
+					<Label>
+						{isOnHold ? t("expires.days") : t("userDialog.expiryDate")}
+					</Label>
+					<div className="flex items-start gap-2">
+						<div className="min-w-0 flex-1">
+							{isOnHold ? (
+								<Controller
+									control={form.control}
+									name="on_hold_expire_duration"
+									render={({ field }) => (
+										<UnitInput
+											value={field.value ? String(field.value) : ""}
+											unit={DAYS_UNIT}
+											integer
+											disabled={disabled}
+											invalid={!!errors.on_hold_expire_duration}
+											onChange={(raw) => {
+												form.setValue("expire", null);
+												if (!raw) {
+													field.onChange(null);
+													return;
+												}
+												if (!isDecimalDraft(raw)) return;
+												const parsed = Number(raw);
+												if (Number.isNaN(parsed) || parsed < 0) return;
+												field.onChange(Math.round(parsed));
+											}}
+										/>
+									)}
+								/>
+							) : (
+								<Controller
+									name="expire"
+									control={form.control}
+									render={({ field }) => {
+										const selectedDate = field.value
+											? dayjs.unix(field.value).toDate()
+											: null;
+										const handleDateChange = (next: Date | null) => {
+											form.setValue("on_hold_expire_duration", null, {
+												shouldDirty: false,
+											});
+											field.onChange(next ? dayjs(next).utc().unix() : null);
+										};
+										return (
+											<>
+												<DateTimeField
+													id="user-expire"
+													value={selectedDate}
+													onChange={handleDateChange}
+													placeholder={t("dateTimePicker.selectDate")}
+													disabled={disabled}
+													minDate={new Date()}
+													quickSelects={quickExpiryOptions.map((option) => ({
+														label: option.label,
+														onClick: () =>
+															handleDateChange(
+																addQuickExpiry(
+																	selectedDate,
+																	option.amount,
+																	option.unit,
+																),
+															),
+													}))}
+												/>
+												{expireHelperText ? (
+													<p className="mt-1 text-xs text-muted-foreground">
+														{expireHelperText}
+													</p>
+												) : null}
+												{errors.expire?.message ? (
+													<p
+														role="alert"
+														className="mt-1 text-xs text-destructive"
+													>
+														{errors.expire.message}
+													</p>
+												) : null}
+											</>
+										);
+									}}
+								/>
 							)}
-						/>
+						</div>
+						<button
+							type="button"
+							disabled={disabled}
+							onClick={toggleOnHold}
+							className={buttonVariants({
+								variant: isOnHold ? "default" : "outline",
+							})}
+						>
+							{t("onHold.button")}
+						</button>
+					</div>
+					{isOnHold ? (
+						<div className="grid grid-cols-6 gap-1 [&>button]:w-full [&>button]:px-0">
+							{ON_HOLD_QUICK_DAYS.map((days) => (
+								<button
+									key={days}
+									type="button"
+									disabled={disabled}
+									onClick={() => {
+										form.setValue("expire", null);
+										form.setValue("on_hold_expire_duration", days, {
+											shouldDirty: true,
+											shouldValidate: true,
+										});
+									}}
+									className={buttonVariants({ variant: "outline", size: "sm" })}
+								>
+									{days}D
+								</button>
+							))}
+						</div>
+					) : null}
+					{isOnHold && errors.on_hold_expire_duration?.message ? (
+						<p role="alert" className="text-xs text-destructive">
+							{errors.on_hold_expire_duration.message}
+						</p>
 					) : null}
 				</div>
-			) : null}
+			</div>
+
+			<div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-panel-border/70 bg-panel-elevated/40 p-4 sm:grid-cols-2">
+				<div className="flex items-center gap-2 sm:col-span-2">
+					<span className="size-1.5 rounded-full bg-panel-accent" />
+					<span className="text-xs font-semibold uppercase tracking-wider text-panel-text-muted">
+						{t("userDialog.serviceSettings")}
+					</span>
+				</div>
+
+				{showServiceSelector ? (
+					<FormField
+						label={t("userDialog.selectServiceLabel")}
+						className={cn(!dataLimitSet && "sm:col-span-2")}
+						description={
+							selectedService ? (
+								<span className="flex flex-col gap-0.5">
+									{selectedService.description ? (
+										<span>{selectedService.description}</span>
+									) : null}
+									<span>
+										{t("userDialog.serviceSummary", {
+											hosts: selectedService.host_count,
+											users: selectedService.user_count,
+										})}
+									</span>
+								</span>
+							) : undefined
+						}
+					>
+						<Select
+							value={selectedServiceId ? String(selectedServiceId) : ""}
+							onValueChange={(value) => setSelectedServiceId(Number(value))}
+							disabled={serviceSelectionDisabled || servicesLoading}
+						>
+							<SelectTrigger
+								id="user-service"
+								aria-label={t("userDialog.selectServiceLabel")}
+							>
+								<SelectValue placeholder={t("userDialog.selectService")} />
+							</SelectTrigger>
+							<SelectContent>
+								{services.map((service) => {
+									const isBroken =
+										service.broken === true || service.has_hosts === false;
+									return (
+										<SelectItem
+											key={service.id}
+											value={String(service.id)}
+											disabled={isBroken}
+										>
+											<SelectItemText>{service.name}</SelectItemText>
+											{service.description ? (
+												<span className="line-clamp-2 text-xs text-muted-foreground">
+													{service.description}
+												</span>
+											) : null}
+											<span className="text-xs text-muted-foreground">
+												{t("userDialog.serviceSummary", {
+													hosts: service.host_count,
+													users: service.user_count,
+												})}
+												{isBroken ? ` · ${t("userDialog.brokenService")}` : ""}
+											</span>
+										</SelectItem>
+									);
+								})}
+							</SelectContent>
+						</Select>
+					</FormField>
+				) : null}
+
+				{dataLimitSet ? (
+					<Controller
+						control={form.control}
+						name="data_limit_reset_strategy"
+						render={({ field }) => (
+							<FormField
+								label={t("userDialog.periodicUsageReset")}
+								className={cn(!showServiceSelector && "sm:col-span-2")}
+							>
+								<Select
+									value={field.value}
+									onValueChange={field.onChange}
+									disabled={disabled || !canConfigurePeriodicUsageReset}
+								>
+									<SelectTrigger id="user-reset">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{resetStrategy.map((strategy) => (
+											<SelectItem key={strategy.value} value={strategy.value}>
+												<SelectItemText>
+													{t(`userDialog.resetStrategy${strategy.title}`)}
+												</SelectItemText>
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</FormField>
+						)}
+					/>
+				) : null}
+
+				{hasExistingKey && canSetCustomKey ? (
+					<div className="flex flex-col gap-2 sm:col-span-2">
+						<Controller
+							name="manual_key_entry"
+							control={form.control}
+							render={({ field }) => (
+								<label className="flex items-center justify-between gap-3 text-sm">
+									<span>{t("userDialog.allowManualKeyEntry")}</span>
+									<Switch
+										checked={field.value}
+										disabled={disabled}
+										onCheckedChange={(checked) => field.onChange(checked)}
+									/>
+								</label>
+							)}
+						/>
+						{manualKeyEntryEnabled ? (
+							<Controller
+								name="credential_key"
+								control={form.control}
+								render={({ field }) => (
+									<FormField
+										label={t("userDialog.credentialKeyLabel")}
+										description={t("userDialog.manualKeyHelper")}
+										error={errors.credential_key?.message}
+									>
+										<Input
+											placeholder="35e4e39c7d5c4f4b8b71558e4f37ff53"
+											maxLength={32}
+											dir="ltr"
+											value={field.value ?? ""}
+											disabled={disabled}
+											onChange={(event) => field.onChange(event.target.value)}
+										/>
+									</FormField>
+								)}
+							/>
+						) : null}
+					</div>
+				) : null}
+			</div>
 
 			<Collapsible
 				open={autoRenewOpen}

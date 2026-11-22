@@ -1368,47 +1368,42 @@ export const UsersTable: FC<UsersTableProps> = ({
 						: Promise.resolve()
 				}
 			/>
-			<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden rb-users-header-card">
-				<UsersOverviewBand
-					bare
-					selection={usersOverviewSelection(filters)}
-					onSelect={(target) =>
-						onFilterChange(nextUsersFiltersForOverview(filters, target))
-					}
-					total={usersResponse.total}
-					usersLimit={usersResponse.users_limit ?? null}
-					active={activeUsersCount}
-					online={usersResponse.online_total ?? 0}
-					usage={usageForSummary}
-					usageLabel={
-						hasUsageScopeFilter
-							? t("usersTable.filteredUsage")
-							: t("usersTable.listUsage")
-					}
-					breakdown={
-						statusBreakdown as Partial<
-							Record<
-								"active" | "expired" | "limited" | "on_hold" | "disabled",
-								number
-							>
+			<UsersOverviewBand
+				selection={usersOverviewSelection(filters)}
+				onSelect={(target) =>
+					onFilterChange(nextUsersFiltersForOverview(filters, target))
+				}
+				total={usersResponse.total}
+				usersLimit={usersResponse.users_limit ?? null}
+				active={activeUsersCount}
+				online={usersResponse.online_total ?? 0}
+				usage={usageForSummary}
+				usageLabel={
+					hasUsageScopeFilter
+						? t("usersTable.filteredUsage")
+						: t("usersTable.listUsage")
+				}
+				breakdown={
+					statusBreakdown as Partial<
+						Record<
+							"active" | "expired" | "limited" | "on_hold" | "disabled",
+							number
 						>
-					}
-					locale={locale}
-				/>
+					>
+				}
+				locale={locale}
+			/>
 
-				<div className="border-t border-panel-border! p-3 rb-users-toolbar">
-					<div className="flex-wrap flex items-center gap-2">
-						<div className="max-sm:contents sm:flex-[1_1_240px] min-w-0!">
-							{toolbar}
-						</div>
-						<div className="flex flex-row items-center gap-1 shrink-0">
-							<DataTableColumnMenu
-								columns={userColumns}
-								visibility={columnVisibility}
-								onChange={setColumnVisibility}
-							/>
-							{headerActions}
-						</div>
+			<div className="flex flex-col gap-3 rounded-2xl border border-panel-border bg-panel-surface p-3 sm:p-4 shadow-xs">
+				<div className="flex flex-wrap items-center justify-between gap-3">
+					<div className="flex-1 min-w-0">{toolbar}</div>
+					<div className="flex flex-row items-center gap-2 shrink-0">
+						<DataTableColumnMenu
+							columns={userColumns}
+							visibility={columnVisibility}
+							onChange={setColumnVisibility}
+						/>
+						{headerActions}
 					</div>
 				</div>
 			</div>
@@ -1600,9 +1595,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 				size="lg"
 				contentProps={{
 					className:
-						"bg-panel-surface border-panel-border! border rounded-lg overflow-hidden",
+						"bg-panel-surface border-panel-border border rounded-2xl overflow-hidden shadow-2xl",
 				}}
-				bodyProps={{ className: "pb-5" }}
+				bodyProps={{ className: "pb-5 px-6 pt-2" }}
 				footer={
 					<div className="flex flex-row items-center w-full justify-end gap-2">
 						<Button onClick={() => setIPDialog(null)} size="sm">
@@ -1652,12 +1647,12 @@ export const UsersTable: FC<UsersTableProps> = ({
 					) : ipDialog?.error ? (
 						<div
 							role="alert"
-							className="border border-red-400! rounded-md bg-red-50 text-red-700 dark:bg-[rgba(127,_29,_29,_0.22)] dark:text-red-200 px-3 py-2.5 text-[0.875rem]"
+							className="border border-red-500/40 rounded-xl bg-red-500/10 text-red-500 px-3.5 py-3 text-[0.875rem]"
 						>
 							{ipDialog.error}
 						</div>
 					) : !ipDialog?.records.length ? (
-						<div className="border border-panel-border! rounded-md px-4 py-8 text-center">
+						<div className="border border-panel-border/60 rounded-xl px-4 py-8 text-center bg-panel-elevated/30">
 							<p className="text-[0.875rem] text-panel-text-muted">
 								{t("usersTable.ipsDialogEmpty")}
 							</p>
@@ -1694,7 +1689,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 								return (
 									<article
 										key={ip === "-" ? `${metadata}-${index}` : ip}
-										className="p-3 border border-panel-border! rounded-[6px]"
+										className="p-3.5 border border-panel-border/70 rounded-xl bg-panel-elevated/40"
 									>
 										<div className="flex-col sm:flex-row flex justify-between items-stretch sm:items-start gap-3">
 											<OperatorIdentity
