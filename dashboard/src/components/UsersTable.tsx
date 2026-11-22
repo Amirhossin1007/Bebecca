@@ -1,22 +1,44 @@
-import { TagChips } from "components/labels/TagChips";
-import { Button } from "components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
-import { Spinner } from "components/ui/spinner";
-import { toast } from "components/ui/sonner";
-import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
-import { withClass } from "lib/withClass";
-
-import { useBreakpointValue } from "hooks/useBreakpointValue";
-
-import type { ComponentPropsWithoutRef } from "react";
-import { cn } from "lib/cn";
-import { Check, Copy, Link2, Pencil, QrCode, Trash2, RefreshCw, CalendarDays, ChartColumn, Check as CheckIcon, Database, Clock, Globe, Link, Unlink, Ban, CirclePlus, Server, Signal, Lock } from "lucide-react";
 import type { SortingState } from "@tanstack/react-table";
 import AddFileIcon from "assets/add_file.svg?react";
+import { AddTrafficDialog } from "components/AddTrafficDialog";
+import { TagChips } from "components/labels/TagChips";
+import { Button } from "components/ui/button";
+import { DataTableColumnMenu } from "components/ui/DataTableColumnMenu";
+import { RowActionButton } from "components/ui/row-actions";
+import { toast } from "components/ui/sonner";
+import { Spinner } from "components/ui/spinner";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
+import { UsersOverviewBand } from "components/users/UsersOverviewBand";
 import { useDashboard } from "contexts/DashboardContext";
-import { nextUsersFiltersForOverview, usersOverviewSelection } from "utils/usersOverview";
 import dayjs from "dayjs";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
 import useGetUser from "hooks/useGetUser";
+import { usePersistedColumnVisibility } from "hooks/usePersistedColumnVisibility";
+import { cn } from "lib/cn";
+import { withClass } from "lib/withClass";
+import {
+	Ban,
+	CalendarDays,
+	ChartColumn,
+	Check,
+	Check as CheckIcon,
+	CirclePlus,
+	Clock,
+	Copy,
+	Database,
+	Globe,
+	Link,
+	Link2,
+	Lock,
+	Pencil,
+	QrCode,
+	RefreshCw,
+	Server,
+	Signal,
+	Trash2,
+	Unlink,
+} from "lucide-react";
+import type { ComponentPropsWithoutRef } from "react";
 import {
 	type FC,
 	type ReactNode,
@@ -35,17 +57,16 @@ import {
 	isUserManagementLocked,
 } from "utils/adminTraffic";
 import { copyTextToClipboard } from "utils/clipboard";
-import { RowActionButton } from "components/ui/row-actions";
 import { formatBytes } from "utils/formatByte";
-import { DataTableColumnMenu } from "components/ui/DataTableColumnMenu";
-import { usePersistedColumnVisibility } from "hooks/usePersistedColumnVisibility";
-import { AddTrafficDialog } from "components/AddTrafficDialog";
-import { UsersOverviewBand } from "components/users/UsersOverviewBand";
 import { generateUserLinks } from "utils/userLinks";
+import {
+	nextUsersFiltersForOverview,
+	usersOverviewSelection,
+} from "utils/usersOverview";
 import { AppDialog } from "./dialogs/AppDialog";
 import { ConfirmDialog, DeleteConfirmDialog } from "./dialogs/ConfirmDialog";
-import { OperatorIdentity } from "./OperatorIdentity";
 import { OnlineStatus } from "./OnlineStatus";
+import { OperatorIdentity } from "./OperatorIdentity";
 import {
 	DataTable,
 	type DataTableColumn,
@@ -87,9 +108,20 @@ const UserSpeed: FC<{ user: UserListItem }> = ({ user }) => {
 		return <p className="text-panel-text-muted">—</p>;
 	}
 	return (
-		<div dir="ltr" className="rb-stat-pair flex flex-col gap-0 text-[0.75rem] leading-[1.375]">
-			<p><span aria-hidden="true">↑</span> <span className="sr-only">{t("usersTable.uploadSpeed")}: </span>{formatBytes(upload)}/s</p>
-			<p><span aria-hidden="true">↓</span> <span className="sr-only">{t("usersTable.downloadSpeed")}: </span>{formatBytes(download)}/s</p>
+		<div
+			dir="ltr"
+			className="rb-stat-pair flex flex-col gap-0 text-[0.75rem] leading-[1.375]"
+		>
+			<p>
+				<span aria-hidden="true">↑</span>{" "}
+				<span className="sr-only">{t("usersTable.uploadSpeed")}: </span>
+				{formatBytes(upload)}/s
+			</p>
+			<p>
+				<span aria-hidden="true">↓</span>{" "}
+				<span className="sr-only">{t("usersTable.downloadSpeed")}: </span>
+				{formatBytes(download)}/s
+			</p>
 		</div>
 	);
 };
@@ -107,7 +139,11 @@ const MobileUserOnlineDot: FC<{ user: UserListItem }> = ({ user }) => {
 	);
 	const isOnline = liveIsOnline ?? user.is_online;
 	return (
-		<span data-online={isOnline ? "true" : "false"} aria-hidden="true" className="rb-user-mobile-online-dot" />
+		<span
+			data-online={isOnline ? "true" : "false"}
+			aria-hidden="true"
+			className="rb-user-mobile-online-dot"
+		/>
 	);
 };
 
@@ -232,25 +268,26 @@ const formatUsernamePreview = (username: string, maxLength = 20) =>
 const MobileLifetimeDetail: FC<{
 	totalUsedTraffic: number;
 }> = ({ totalUsedTraffic }) => (
-	<p dir="ltr" className="text-[0.875rem] font-semibold text-panel-text truncate [unicode-bidi:isolate]">
+	<p
+		dir="ltr"
+		className="text-[0.875rem] font-semibold text-panel-text truncate [unicode-bidi:isolate]"
+	>
 		{formatBytes(totalUsedTraffic)}
 	</p>
 );
 
-// Plain text on purpose: the expanded card sits right under the collapsed
-// row, which already shows the usage bar and percentage.
 const MobileUsageDetail: FC<{
 	used: number;
 	total: number | null;
 }> = ({ used, total }) => (
-	<p dir="ltr" className="text-[0.875rem] font-semibold text-panel-text truncate [unicode-bidi:isolate]">
+	<p
+		dir="ltr"
+		className="text-[0.875rem] font-semibold text-panel-text truncate [unicode-bidi:isolate]"
+	>
 		{formatUsagePair(used, total)}
 	</p>
 );
 
-// Adapts the table's row-action descriptors into the shape the shared
-// RowActionsMenu ("...") expects, binding each callback to the given row.
-// Lets the desktop inline actions reuse the exact mobile overflow menu.
 const toMenuItems = (
 	actions: DataTableRowAction<UserListItem>[],
 	row: UserListItem,
@@ -270,7 +307,6 @@ const toMenuItems = (
 
 type UsersTableProps = ComponentPropsWithoutRef<"div"> & {
 	toolbar?: ReactNode;
-	/** Rendered in the header of the list summary card (e.g. refresh). */
 	headerActions?: ReactNode;
 };
 
@@ -311,16 +347,26 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const isDesktop = useBreakpointValue({ base: false, md: true }) ?? false;
 	const isRTL = i18n.dir(i18n.language) === "rtl";
 	const locale = i18n.language || "en";
-	
-	// One toast shape for every action in this section: top entrance, closable.
+
 	const notify = useCallback(
 		(
 			title: string,
 			status: "success" | "error",
 			options?: { description?: string; duration?: number },
-		) =>
-			toast("", { description: options?.description, duration: options?.duration ?? 2500 }),
-		[toast],
+		) => {
+			if (status === "error") {
+				toast.error(title, {
+					description: options?.description,
+					duration: options?.duration ?? 2500,
+				});
+			} else {
+				toast.success(title, {
+					description: options?.description,
+					duration: options?.duration ?? 2500,
+				});
+			}
+		},
+		[],
 	);
 	const { userData } = useGetUser();
 	const hasPrivilegedRole =
@@ -378,7 +424,8 @@ export const UsersTable: FC<UsersTableProps> = ({
 	const [selectedUsernames, setSelectedUsernames] = useState<string[]>([]);
 	const [bulkAction, setBulkAction] = useState<string | null>(null);
 	const [isBulkResetOpen, setIsBulkResetOpen] = useState(false);
-	const [userPendingDelete, setUserPendingDelete] = useState<UserListItem | null>(null);
+	const [userPendingDelete, setUserPendingDelete] =
+		useState<UserListItem | null>(null);
 	const [ipDialog, setIPDialog] = useState<{
 		username: string;
 		records: UserIPRecord[];
@@ -736,12 +783,25 @@ export const UsersTable: FC<UsersTableProps> = ({
 					<div className="flex flex-col gap-0.5 min-w-0! items-start">
 						<div className="flex flex-row items-center gap-1.5 min-w-0! max-w-full">
 							<MobileUserOnlineDot user={user} />
-							<p dir="ltr" className={cn(canOpenUserDialog ? "hover:text-panel-accent" : "", "font-semibold truncate max-w-full min-w-0! text-panel-text [unicode-bidi:isolate]")}>
+							<p
+								dir="ltr"
+								className={cn(
+									canOpenUserDialog ? "hover:text-panel-accent" : "",
+									"font-semibold truncate max-w-full min-w-0! text-panel-text [unicode-bidi:isolate]",
+								)}
+							>
 								{formatUsernamePreview(user.username)}
 							</p>
 						</div>
 						<UserAdminChip adminUsername={user.admin_username} />
-						<p style={{ color: USER_STATUS_TEXT_COLORS[user.status] ?? "var(--rb-panel-text)" }} className="text-[0.75rem] font-semibold capitalize rb-user-card-status">
+						<p
+							style={{
+								color:
+									USER_STATUS_TEXT_COLORS[user.status] ??
+									"var(--rb-panel-text)",
+							}}
+							className="text-[0.75rem] font-semibold capitalize rb-user-card-status"
+						>
 							{t(`status.${user.status}`)}
 						</p>
 					</div>
@@ -777,7 +837,13 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobilePriority: 2,
 				mobileMetaLabel: t("usersTable.status"),
 				cell: (user) => (
-					<p style={{ color: USER_STATUS_TEXT_COLORS[user.status] ?? "var(--rb-panel-text)" }} className="text-[0.875rem] font-semibold capitalize">
+					<p
+						style={{
+							color:
+								USER_STATUS_TEXT_COLORS[user.status] ?? "var(--rb-panel-text)",
+						}}
+						className="text-[0.875rem] font-semibold capitalize"
+					>
 						{t(`status.${user.status}`)}
 					</p>
 				),
@@ -797,7 +863,12 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobileVisible: true,
 				mobileMetaLabel: t("usersTable.service"),
 				cell: (user) => (
-					<p className={cn("text-[0.875rem] truncate max-w-full", user.service_name ? "text-panel-text" : "text-panel-text-muted")}>
+					<p
+						className={cn(
+							"text-[0.875rem] truncate max-w-full",
+							user.service_name ? "text-panel-text" : "text-panel-text-muted",
+						)}
+					>
 						{user.service_name ?? t("usersTable.defaultService")}
 					</p>
 				),
@@ -817,7 +888,12 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobileVisible: true,
 				mobileMetaLabel: t("groups.group"),
 				cell: (user) => (
-					<p className={cn("text-[0.875rem] truncate max-w-full", user.group ? "text-panel-text" : "text-panel-text-muted")}>
+					<p
+						className={cn(
+							"text-[0.875rem] truncate max-w-full",
+							user.group ? "text-panel-text" : "text-panel-text-muted",
+						)}
+					>
 						{user.group?.name ?? "–"}
 					</p>
 				),
@@ -893,10 +969,23 @@ export const UsersTable: FC<UsersTableProps> = ({
 				mobilePriority: 6,
 				mobileMetaLabel: t("usersTable.remainingTraffic"),
 				cell: (user) => (
-					<p dir="ltr" className={cn("leading-[1]", !user.data_limit ? "text-[1.25rem]" : "text-[0.875rem]", !user.data_limit ? "font-semibold" : "", !user.data_limit ? "text-panel-text-muted" : "text-panel-text")}>
-						{!user.data_limit
-							? <><span aria-hidden="true">∞</span><span className="sr-only">{t("unlimited")}</span></>
-							: formatBytes(Math.max(user.data_limit - user.used_traffic, 0))}
+					<p
+						dir="ltr"
+						className={cn(
+							"leading-[1]",
+							!user.data_limit ? "text-[1.25rem]" : "text-[0.875rem]",
+							!user.data_limit ? "font-semibold" : "",
+							!user.data_limit ? "text-panel-text-muted" : "text-panel-text",
+						)}
+					>
+						{!user.data_limit ? (
+							<>
+								<span aria-hidden="true">∞</span>
+								<span className="sr-only">{t("unlimited")}</span>
+							</>
+						) : (
+							formatBytes(Math.max(user.data_limit - user.used_traffic, 0))
+						)}
 					</p>
 				),
 			});
@@ -938,8 +1027,6 @@ export const UsersTable: FC<UsersTableProps> = ({
 			),
 		});
 
-		// The reseller tag is hidden in the collapsed mobile row (CSS) and
-		// surfaces here instead, inside the expanded details.
 		if (hasPrivilegedRole) {
 			columns.push({
 				id: "admin",
@@ -1053,7 +1140,6 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		// Reuses the edit dialog's existing Usage tab (chart + /user/{u}/usage).
 		if (canViewTraffic) {
 			actions.push({
 				id: "usage-history",
@@ -1120,8 +1206,6 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		// Absolute data-limit editor (PUT data_limit) — complements the
-		// relative "Add traffic" action above.
 		if (canMutateRow) {
 			actions.push({
 				id: "set-data-limit",
@@ -1149,7 +1233,6 @@ export const UsersTable: FC<UsersTableProps> = ({
 			});
 		}
 
-		// Absolute expiry editor (PUT expire) — complements "Add 30 days".
 		if (canMutateRow) {
 			actions.push({
 				id: "set-expiry",
@@ -1200,10 +1283,11 @@ export const UsersTable: FC<UsersTableProps> = ({
 			<div className="rb-resource-expanded">
 				<div data-density="compact" className="rb-resource-details">
 					<div className="rb-resource-meta">
-						<span className="text-panel-text-muted">
-							{t("username")}
-						</span>
-						<p dir="ltr" className="text-panel-text min-w-0! [unicode-bidi:isolate] rb-resource-meta-value">
+						<span className="text-panel-text-muted">{t("username")}</span>
+						<p
+							dir="ltr"
+							className="text-panel-text min-w-0! [unicode-bidi:isolate] rb-resource-meta-value"
+						>
 							{user.username}
 						</p>
 					</div>
@@ -1218,19 +1302,29 @@ export const UsersTable: FC<UsersTableProps> = ({
 						</div>
 					))}
 				</div>
-				{/* biome-ignore lint/a11y/noStaticElementInteractions: wrapper only stops row clicks, it is not a control */}
-				{/* biome-ignore lint/a11y/useKeyWithClickEvents: wrapper only stops row clicks, it is not a control */}
-				<div onClick={(event) => event.stopPropagation()} className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions">
+				<div
+					onClick={(event) => event.stopPropagation()}
+					className="flex items-center justify-end gap-1 flex-wrap rb-resource-expanded-actions"
+				>
 					<div className="flex flex-row items-center gap-1 rb-expanded-user-actions">
 						{expandedActions.map((action) => (
 							<Tooltip key={action.id}>
-<TooltipTrigger asChild>
-								<span>
-									<Button aria-label={String(action.label)} disabled={action.disabled} onClick={() => action.onClick?.()} variant="ghost" size="sm" className={cn("size-8 p-0", "min-w-[30px]! h-[30px]")}>{action.icon}</Button>
-								</span>
-							</TooltipTrigger>
-<TooltipContent>{action.label}</TooltipContent>
-</Tooltip>
+								<TooltipTrigger asChild>
+									<span>
+										<Button
+											aria-label={String(action.label)}
+											disabled={action.disabled}
+											onClick={() => action.onClick?.()}
+											variant="ghost"
+											size="sm"
+											className={cn("size-8 p-0", "min-w-[30px]! h-[30px]")}
+										>
+											{action.icon}
+										</Button>
+									</span>
+								</TooltipTrigger>
+								<TooltipContent>{action.label}</TooltipContent>
+							</Tooltip>
 						))}
 					</div>
 					<ActionButtons
@@ -1254,18 +1348,33 @@ export const UsersTable: FC<UsersTableProps> = ({
 	};
 
 	return (
-		<div dir={isRTL ? "rtl" : "ltr"} data-dir={isRTL ? "rtl" : "ltr"} {...props} className={cn("flex flex-col gap-4 items-stretch", selectedUsers.length > 0 ? "pb-32" + " " + "md:pb-24" : "pb-0")}>
+		<div
+			dir={isRTL ? "rtl" : "ltr"}
+			data-dir={isRTL ? "rtl" : "ltr"}
+			{...props}
+			className={cn(
+				"flex flex-col gap-4 items-stretch",
+				selectedUsers.length > 0 ? "pb-32" + " " + "md:pb-24" : "pb-0",
+			)}
+		>
 			<AddTrafficDialog
-				target={trafficUser ? { kind: "user", name: trafficUser.username } : null}
+				target={
+					trafficUser ? { kind: "user", name: trafficUser.username } : null
+				}
 				onClose={() => setTrafficUser(null)}
-				onApply={(deltaBytes) => (trafficUser ? handleAddTraffic(trafficUser, deltaBytes) : Promise.resolve())}
+				onApply={(deltaBytes) =>
+					trafficUser
+						? handleAddTraffic(trafficUser, deltaBytes)
+						: Promise.resolve()
+				}
 			/>
-			{/* One header card: the overview band, then the toolbar row. */}
 			<div className="border border-panel-border! bg-panel-surface rounded-xl overflow-hidden rb-users-header-card">
 				<UsersOverviewBand
 					bare
 					selection={usersOverviewSelection(filters)}
-					onSelect={(target) => onFilterChange(nextUsersFiltersForOverview(filters, target))}
+					onSelect={(target) =>
+						onFilterChange(nextUsersFiltersForOverview(filters, target))
+					}
 					total={usersResponse.total}
 					usersLimit={usersResponse.users_limit ?? null}
 					active={activeUsersCount}
@@ -1276,7 +1385,14 @@ export const UsersTable: FC<UsersTableProps> = ({
 							? t("usersTable.filteredUsage")
 							: t("usersTable.listUsage")
 					}
-					breakdown={statusBreakdown as Partial<Record<"active" | "expired" | "limited" | "on_hold" | "disabled", number>>}
+					breakdown={
+						statusBreakdown as Partial<
+							Record<
+								"active" | "expired" | "limited" | "on_hold" | "disabled",
+								number
+							>
+						>
+					}
 					locale={locale}
 				/>
 
@@ -1298,7 +1414,14 @@ export const UsersTable: FC<UsersTableProps> = ({
 			</div>
 
 			<div className="relative">
-				<div aria-hidden={isAdminDisabled ? true : undefined} className={cn("flex flex-col gap-3", isAdminDisabled ? "[filter:blur(4px)]" : "", isAdminDisabled ? "pointer-events-none" : "")}>
+				<div
+					aria-hidden={isAdminDisabled ? true : undefined}
+					className={cn(
+						"flex flex-col gap-3",
+						isAdminDisabled ? "[filter:blur(4px)]" : "",
+						isAdminDisabled ? "pointer-events-none" : "",
+					)}
+				>
 					<DataTable
 						ariaLabel={t("users")}
 						data={usersResponse.users}
@@ -1368,38 +1491,66 @@ export const UsersTable: FC<UsersTableProps> = ({
 						renderBulkActions={() => (
 							<>
 								{canToggleUserStatus && (
-									<Button onClick={handleBulkDisable} disabled={
+									<Button
+										onClick={handleBulkDisable}
+										disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											bulkDisableTargets.length === 0
-										} variant="outline" size="sm" loading={bulkAction === "disable"}>{<DisableIcon />}
+										}
+										variant="outline"
+										size="sm"
+										loading={bulkAction === "disable"}
+									>
+										{<DisableIcon />}
 										{t("usersTable.disableUser")}
 									</Button>
 								)}
 								{canToggleUserStatus && (
-									<Button onClick={handleBulkEnable} disabled={
+									<Button
+										onClick={handleBulkEnable}
+										disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											bulkEnableTargets.length === 0
-										} variant="outline" size="sm" loading={bulkAction === "enable"}>{<CheckIcon className="w-[16px]" />}
+										}
+										variant="outline"
+										size="sm"
+										loading={bulkAction === "enable"}
+									>
+										{<CheckIcon className="w-[16px]" />}
 										{t("usersTable.enableUser")}
 									</Button>
 								)}
 								{canResetUsageActions && (
-									<Button onClick={() => setIsBulkResetOpen(true)} disabled={
+									<Button
+										onClick={() => setIsBulkResetOpen(true)}
+										disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											selectedUsers.length === 0
-										} variant="outline" size="sm" loading={bulkAction === "reset"}>{<ResetIcon />}
+										}
+										variant="outline"
+										size="sm"
+										loading={bulkAction === "reset"}
+									>
+										{<ResetIcon />}
 										{t("usersTable.resetUsage")}
 									</Button>
 								)}
 								{canRevokeSubActions && (
-									<Button onClick={handleBulkRevoke} disabled={
+									<Button
+										onClick={handleBulkRevoke}
+										disabled={
 											Boolean(bulkAction) ||
 											selectedUsersManagementLocked ||
 											selectedUsers.length === 0
-										} variant="outline" size="sm" loading={bulkAction === "revoke"}>{<RevokeIcon />}
+										}
+										variant="outline"
+										size="sm"
+										loading={bulkAction === "revoke"}
+									>
+										{<RevokeIcon />}
 										{t("usersTable.revokeSub")}
 									</Button>
 								)}
@@ -1408,16 +1559,26 @@ export const UsersTable: FC<UsersTableProps> = ({
 										description={t("usersTable.bulkDeletePrompt")}
 										onConfirm={handleBulkDelete}
 									>
-										<Button disabled={
+										<Button
+											disabled={
 												Boolean(bulkAction) || bulkDeleteTargets.length === 0
-											} variant="outline" size="sm" loading={bulkAction === "delete"} className="border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10">{<DeleteIcon />}
+											}
+											variant="outline"
+											size="sm"
+											loading={bulkAction === "delete"}
+											className="border border-destructive/50 bg-transparent text-destructive hover:bg-destructive/10"
+										>
+											{<DeleteIcon />}
 											{t("delete")}
 										</Button>
 									</DeleteConfirmDialog>
 								)}
 							</>
 						)}
-						tableProps={{ className: "w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5" }}
+						tableProps={{
+							className:
+								"w-full [table-layout:fixed] [&_th]:px-2 [&_td]:px-2 [&_th]:py-2.5 [&_td]:py-2.5 [&_th]:align-middle [&_td]:align-middle xl:[&_th]:px-2.5 xl:[&_td]:px-2.5",
+						}}
 					/>
 				</div>
 				{isAdminDisabled && (
@@ -1432,20 +1593,36 @@ export const UsersTable: FC<UsersTableProps> = ({
 					</div>
 				)}
 			</div>
-			<AppDialog open={ipDialog !== null} onClose={() => setIPDialog(null)} title={t("usersTable.ipsDialogTitle")} size="lg" contentProps={{ className: "bg-panel-surface border-panel-border! border rounded-lg overflow-hidden" }} bodyProps={{ className: "pb-5" }} footer={
+			<AppDialog
+				open={ipDialog !== null}
+				onClose={() => setIPDialog(null)}
+				title={t("usersTable.ipsDialogTitle")}
+				size="lg"
+				contentProps={{
+					className:
+						"bg-panel-surface border-panel-border! border rounded-lg overflow-hidden",
+				}}
+				bodyProps={{ className: "pb-5" }}
+				footer={
 					<div className="flex flex-row items-center w-full justify-end gap-2">
 						<Button onClick={() => setIPDialog(null)} size="sm">
 							{t("close")}
 						</Button>
-						<Button onClick={handleCopyIPs} disabled={
+						<Button
+							onClick={handleCopyIPs}
+							disabled={
 								contextAction === "ips" ||
 								Boolean(ipDialog?.error) ||
 								!ipDialog?.records.length
-							} size="sm">{<CopyIcon />}
+							}
+							size="sm"
+						>
+							{<CopyIcon />}
 							{t("usersTable.copyIps")}
 						</Button>
 					</div>
-				}>
+				}
+			>
 				<div className="flex flex-col gap-4">
 					<div>
 						<div className="flex flex-row justify-between items-baseline gap-3">
@@ -1473,7 +1650,10 @@ export const UsersTable: FC<UsersTableProps> = ({
 							</p>
 						</div>
 					) : ipDialog?.error ? (
-						<div role="alert" className="border border-red-400! rounded-md bg-red-50 text-red-700 dark:bg-[rgba(127,_29,_29,_0.22)] dark:text-red-200 px-3 py-2.5 text-[0.875rem]">
+						<div
+							role="alert"
+							className="border border-red-400! rounded-md bg-red-50 text-red-700 dark:bg-[rgba(127,_29,_29,_0.22)] dark:text-red-200 px-3 py-2.5 text-[0.875rem]"
+						>
 							{ipDialog.error}
 						</div>
 					) : !ipDialog?.records.length ? (
@@ -1512,14 +1692,20 @@ export const UsersTable: FC<UsersTableProps> = ({
 								const connections = Math.max(record.connections || 1, 1);
 
 								return (
-									<article key={ip === "-" ? `${metadata}-${index}` : ip} className="p-3 border border-panel-border! rounded-[6px]">
+									<article
+										key={ip === "-" ? `${metadata}-${index}` : ip}
+										className="p-3 border border-panel-border! rounded-[6px]"
+									>
 										<div className="flex-col sm:flex-row flex justify-between items-stretch sm:items-start gap-3">
 											<OperatorIdentity
 												shortName={record.operator_short_name}
 												owner={record.operator_owner}
 											/>
 											<div className="min-w-0! text-start sm:text-end">
-												<p dir="ltr" className="font-mono font-bold text-[0.875rem] [overflow-wrap:anywhere]">
+												<p
+													dir="ltr"
+													className="font-mono font-bold text-[0.875rem] [overflow-wrap:anywhere]"
+												>
 													{ip}
 												</p>
 												<div className="flex flex-row items-center mt-0.5 gap-1 justify-start sm:justify-end text-panel-text-secondary text-[0.75rem]">
@@ -1587,7 +1773,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 					setUserPendingDelete(null);
 				}}
 				title={t("common.confirmAction")}
-				description={t("deleteUser.prompt", { username: userPendingDelete?.username ?? "" })}
+				description={t("deleteUser.prompt", {
+					username: userPendingDelete?.username ?? "",
+				})}
 				confirmLabel={t("delete")}
 				colorScheme="red"
 			/>
@@ -1613,8 +1801,6 @@ type ActionButtonsProps = {
 	onDelete?: () => void | Promise<void>;
 	onEdit?: () => void;
 	isRTL?: boolean;
-	// Full overflow action set for the trailing "..." menu (desktop parity
-	// with the mobile card); omitted where there is nothing extra to show.
 	menuActions?: RowActionItem[];
 };
 
@@ -1657,12 +1843,17 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 	}, [copiedConfigs]);
 
 	return (
-		// biome-ignore lint/a11y/noStaticElementInteractions: row click target, unchanged from HEAD, where the Chakra box had no keyboard handler
-		// biome-ignore lint/a11y/useKeyWithClickEvents: row click target, unchanged from HEAD, where the Chakra box had no keyboard handler
-		<div dir={isRTL ? "rtl" : "ltr"} onClick={(e) => {
+		<div
+			dir={isRTL ? "rtl" : "ltr"}
+			onClick={(e) => {
 				e.preventDefault();
 				e.stopPropagation();
-			}} className={cn("flex flex-row items-center gap-1 flex-nowrap", isRTL ? "justify-start" : "justify-end")}>
+			}}
+			className={cn(
+				"flex flex-row items-center gap-1 flex-nowrap",
+				isRTL ? "justify-start" : "justify-end",
+			)}
+		>
 			<RowActionButton
 				label={copied ? t("copied") : t("usersTable.copyLink")}
 				icon={copied ? <CopiedIcon /> : <SubscriptionLinkIcon />}
@@ -1694,13 +1885,23 @@ const ActionButtons: FC<ActionButtonsProps> = ({
 					setSubLink(subscriptionLink);
 				}}
 			/>
-			{onEdit && <RowActionButton label={t("userDialog.editUser")} icon={<EditIcon />} onClick={onEdit} />}
+			{onEdit && (
+				<RowActionButton
+					label={t("userDialog.editUser")}
+					icon={<EditIcon />}
+					onClick={onEdit}
+				/>
+			)}
 			{onDelete && (
 				<DeleteConfirmDialog
 					description={t("deleteUser.prompt", { username: user.username })}
 					onConfirm={onDelete}
 				>
-					<RowActionButton label={t("deleteUser.title")} icon={<DeleteIcon />} danger />
+					<RowActionButton
+						label={t("deleteUser.title")}
+						icon={<DeleteIcon />}
+						danger
+					/>
 				</DeleteConfirmDialog>
 			)}
 			{menuActions && menuActions.length > 0 && (
@@ -1728,13 +1929,17 @@ const EmptySection: FC<EmptySectionProps> = ({
 		onCreateUser(true);
 	};
 	return (
-		<div className="p-5 py-8 flex items-center flex-col gap-4 w-full border border-light-border! rounded-lg bg-surface-light dark:bg-surface-dark dark:border-whiteAlpha-200!">
-			<EmptySectionIcon className={"dark:[&_path[fill='#fff']]:[fill:var(--color-gray-800)] dark:[&_path[fill='#f2f2f2']]:[fill:var(--color-gray-700)] dark:[&_path[fill='#e6e6e6']]:[fill:var(--color-gray-700)] dark:[&_path[fill='#ccc']]:[fill:var(--color-gray-700)] dark:[&_circle[fill='#3182CE']]:[fill:var(--color-primary-300)] light:[&_path[fill='#f2f2f2']]:[fill:var(--color-gray-300)] light:[&_path[fill='#e6e6e6']]:[fill:var(--color-gray-300)] light:[&_path[fill='#ccc']]:[fill:var(--color-gray-300)] light:[&_circle[fill='#3182CE']]:[fill:var(--color-primary-500)] max-h-[200px] max-w-[200px]"} />
-			<p className="font-medium text-gray-600 dark:text-gray-400">
+		<div className="flex w-full flex-col items-center justify-center gap-4 rounded-2xl border border-panel-border bg-panel-surface p-10 text-center">
+			<EmptySectionIcon className="max-h-[160px] max-w-[160px] opacity-80" />
+			<p className="text-sm font-medium text-panel-text-secondary">
 				{isFiltered ? t("usersTable.noUserMatched") : t("usersTable.noUser")}
 			</p>
 			{!isFiltered && !isCreateDisabled && (
-				<Button onClick={handleCreate} size="sm">
+				<Button
+					onClick={handleCreate}
+					size="sm"
+					className="h-9 rounded-xl bg-panel-accent px-4 text-xs font-semibold text-white shadow-xs transition-colors min-[769px]:hover:bg-panel-accent/90 active:scale-[0.98] touch-manipulation"
+				>
 					{t("createUser")}
 				</Button>
 			)}

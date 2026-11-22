@@ -1,5 +1,6 @@
 import { cn } from "lib/cn";
-import { type FC, useEffect, useState } from "react";
+import type { FC } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Status } from "types/User";
 
@@ -13,9 +14,9 @@ const EXPIRY_UNITS = [
 ] as const;
 
 type UserExpiryCountdownProps = {
-	/** Expiry timestamp in unix seconds; null/0 means the user never expires. */
 	expire?: number | null;
 	status?: Status;
+	className?: string;
 };
 
 type Urgency = "none" | "soon" | "urgent" | "expired";
@@ -51,21 +52,17 @@ const getUrgency = (remainingSeconds: number): Urgency => {
 	return "none";
 };
 
-const URGENCY_COLORS: Record<Urgency, string> = {
-	none: "var(--rb-panel-text)",
-	soon: "var(--color-orange-400)",
-	urgent: "var(--color-red-400)",
-	expired: "var(--color-red-400)",
+const URGENCY_CLASSES: Record<Urgency, string> = {
+	none: "text-panel-text-secondary",
+	soon: "text-amber-500 dark:text-amber-400 font-medium",
+	urgent: "text-red-500 dark:text-red-400 font-semibold",
+	expired: "text-red-500 dark:text-red-400 font-semibold",
 };
 
-/**
- * Live expiry countdown for the expanded user card. Within the last 24 hours
- * it ticks every second as HH:MM:SS; further out it re-renders the relative
- * label once per half-minute so the value never goes stale on screen.
- */
 export const UserExpiryCountdown: FC<UserExpiryCountdownProps> = ({
 	expire,
 	status,
+	className,
 }) => {
 	const { t } = useTranslation();
 	const [nowSeconds, setNowSeconds] = useState(() =>
@@ -79,26 +76,65 @@ export const UserExpiryCountdown: FC<UserExpiryCountdownProps> = ({
 		if (!expire) return;
 		const interval = window.setInterval(
 			() => setNowSeconds(Math.floor(Date.now() / 1000)),
-			isLiveCountdown ? 1000 : 30000,
+			isLiveCountdown ? 1000 : 30_000,
 		);
 		return () => window.clearInterval(interval);
 	}, [expire, isLiveCountdown]);
 
-	if (status === "on_hold" || !expire || remaining === null) {
+	if (status === "expired" || (remaining !== null && remaining <= 0)) {
 		return (
-			<p className="text-[1.25rem] font-semibold leading-[1] text-panel-text-muted"><span aria-hidden="true">∞</span><span className="sr-only">{t("unlimited")}</span></p>
+			<span
+				className={cn(
+					"text-[11px] tabular-nums",
+					URGENCY_CLASSES.expired,
+					className,
+				)}
+			>
+				{t("usersTable.expired")}
+			</span>
 		);
 	}
 
-	const urgency = status === "expired" ? "expired" : getUrgency(remaining);
+	if (!expire || remaining === null) {
+		return (
+			<span
+				className={cn(
+					"text-[11px] text-panel-text-muted tabular-nums",
+					className,
+				)}
+			>
+				∞
+			</span>
+		);
+	}
+
+	const urgency = getUrgency(remaining);
+
+	if (isLiveCountdown) {
+		return (
+			<span
+				dir="ltr"
+				className={cn(
+					"text-[11px] font-mono tracking-tight tabular-nums",
+					URGENCY_CLASSES[urgency],
+					className,
+				)}
+			>
+				{formatExpiryClock(remaining)}
+			</span>
+		);
+	}
 
 	return (
-		<p data-urgency={urgency} style={{ color: URGENCY_COLORS[urgency] }} dir="auto" className={cn("text-[0.875rem] font-semibold truncate", urgency === "expired" ? "uppercase" : "", "rb-user-expiry-countdown")}>
-			{urgency === "expired"
-				? t("status.expired")
-				: isLiveCountdown
-					? formatExpiryClock(remaining)
-					: formatExpiryDuration(remaining)}
-		</p>
+		<span
+			dir="ltr"
+			className={cn(
+				"text-[11px] tabular-nums",
+				URGENCY_CLASSES[urgency],
+				className,
+			)}
+		>
+			{formatExpiryDuration(remaining)}
+		</span>
 	);
 };

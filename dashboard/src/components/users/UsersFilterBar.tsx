@@ -1,53 +1,43 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
-import { Button } from "components/ui/button";
-import { Badge } from "components/ui/badge";
-import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
-import { Checkbox } from "components/ui/checkbox";
-import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
-import { withClass } from "lib/withClass";
-
-
-import { buttonVariants } from "components/ui/button";
-import { Plus, Filter, CircleHelp } from "lucide-react";
-import { cn } from "lib/cn";
-
+import type { SortingState } from "@tanstack/react-table";
 import { PanelSelect as Select } from "components/common/PanelSelect";
+import { SearchInput } from "components/common/SearchInput";
 import {
 	LabelFilter,
 	type LabelFilterValue,
 	labelFilterCount,
 } from "components/labels/LabelFilter";
-import { SearchInput } from "components/common/SearchInput";
-import { DataTableSortMenu, type SortOption } from "components/ui/DataTableSortMenu";
+import { Badge } from "components/ui/badge";
+import { Button, buttonVariants } from "components/ui/button";
+import { Checkbox } from "components/ui/checkbox";
+import {
+	DataTableSortMenu,
+	type SortOption,
+} from "components/ui/DataTableSortMenu";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "components/ui/tooltip";
 import { ADVANCED_FILTER_OPTIONS } from "constants/advancedFilters";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { useDashboard } from "contexts/DashboardContext";
 import { useServicesStore } from "contexts/ServicesContext";
 import useGetUser from "hooks/useGetUser";
-import type { SortingState } from "@tanstack/react-table";
+import { cn } from "lib/cn";
 import debounce from "lodash.debounce";
+import { Filter, HelpCircle, Plus } from "lucide-react";
 import type React from "react";
 import { type FC, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AdminRole, AdminStatus, UserPermissionToggle } from "types/Admin";
 import { canViewUserTraffic, isUserManagementLocked } from "utils/adminTraffic";
 
-const FilterIcon = withClass(Filter, "w-4 h-4");
-const HelpIcon = withClass(CircleHelp, "w-4 h-4");
-
 const formatChipCount = (value: number, locale: string) =>
 	new Intl.NumberFormat(locale || "en").format(value);
 
-/**
- * Users-only search & filter bar: mobile-first search + advanced filters
- * popover. Intentionally separate from the shared <Filters /> so the
- * Admins page keeps its own untouched toolbar.
- */
 export const UsersFilterBar: FC = () => {
 	const loading = useDashboard((state) => state.loading);
 	const filters = useDashboard((state) => state.filters);
 	const onFilterChange = useDashboard((state) => state.onFilterChange);
 	const { t, i18n } = useTranslation();
+	const isRTL = i18n.dir() === "rtl";
 	const locale = i18n.language || "en";
 	const [search, setSearch] = useState("");
 	const { userData } = useGetUser();
@@ -63,18 +53,34 @@ export const UsersFilterBar: FC = () => {
 			{ id: "service", label: t("usersTable.service"), type: "text" },
 			{ id: "admin", label: t("usersTable.admin"), type: "text" },
 			{ id: "used_traffic", label: t("usersTable.traffic"), type: "number" },
-			{ id: "remaining_traffic", label: t("usersTable.remainingTraffic"), type: "number" },
-			{ id: "lifetime_used_traffic", label: t("usersTable.lifetimeUsage"), type: "number" },
+			{
+				id: "remaining_traffic",
+				label: t("usersTable.remainingTraffic"),
+				type: "number",
+			},
+			{
+				id: "lifetime_used_traffic",
+				label: t("usersTable.lifetimeUsage"),
+				type: "number",
+			},
 			{ id: "expire", label: t("usersTable.expire"), type: "date" },
 			{ id: "online", label: t("usersTable.online"), type: "date" },
-			{ id: "last_connection", label: t("bulkActions.delete.lastOnline"), type: "date" },
+			{
+				id: "last_connection",
+				label: t("bulkActions.delete.lastOnline"),
+				type: "date",
+			},
 		],
 		[t],
 	);
+
 	const userSortKey = (filters.sort ?? "").replace(/^-/, "");
-	const userSorting: SortingState = userSortOptions.some((option) => option.id === userSortKey)
+	const userSorting: SortingState = userSortOptions.some(
+		(option) => option.id === userSortKey,
+	)
 		? [{ id: userSortKey, desc: (filters.sort ?? "").startsWith("-") }]
 		: [];
+
 	const handleUserSortChange = (next: SortingState) => {
 		const item = next[0];
 		onFilterChange({
@@ -82,6 +88,7 @@ export const UsersFilterBar: FC = () => {
 			offset: 0,
 		});
 	};
+
 	const activeFilters = filters.advancedFilters ?? [];
 	const serviceId = filters.serviceId;
 	const ownerFilter = filters.owner;
@@ -210,59 +217,107 @@ export const UsersFilterBar: FC = () => {
 	const hasClearableFilters = activeFilterTotal > 0;
 
 	return (
-		<div className="max-sm:contents sm:flex items-center gap-2 w-full min-w-0!">
-			<div className="flex min-w-0 items-center gap-2 max-sm:basis-full sm:flex-[1_1_auto] sm:max-w-[440px]">
-			<SearchInput containerProps={{ className: "min-w-0 flex-1" }} placeholder={t("search")} value={search} onChange={onSearchChange} matchOptions={matchOptions} onMatchOptionsChange={(options) =>
-					onFilterChange({
-						matchCase: options.matchCase,
-						matchWholeWord: options.matchWholeWord,
-						offset: 0,
-					})
-				} loading={loading} onClear={clearSearch} rightElement={
-					<Tooltip>
-<TooltipTrigger asChild>
-						<div className="inline-flex items-center text-panel-text-muted px-1">
-							<HelpIcon />
-						</div>
-					</TooltipTrigger>
-<TooltipContent>{t("users.searchHelp")}</TooltipContent>
-</Tooltip>
-				} className="rounded-full border-panel-border! bg-panel-elevated focus-visible:border-primary-400! focus-visible:bg-panel-surface rb-users-search-input" />
-			<DataTableSortMenu
-				options={userSortOptions}
-				sorting={userSorting}
-				onSortingChange={handleUserSortChange}
-			/>
+		<div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+			<div className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-[440px]">
+				<SearchInput
+					containerProps={{ className: "min-w-0 flex-1" }}
+					placeholder={t("search")}
+					value={search}
+					onChange={onSearchChange}
+					matchOptions={matchOptions}
+					onMatchOptionsChange={(options) =>
+						onFilterChange({
+							matchCase: options.matchCase,
+							matchWholeWord: options.matchWholeWord,
+							offset: 0,
+						})
+					}
+					loading={loading}
+					onClear={clearSearch}
+					rightElement={
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<div className="inline-flex cursor-pointer items-center px-1 text-panel-text-muted hover:text-panel-text">
+									<HelpCircle className="size-3.5" />
+								</div>
+							</TooltipTrigger>
+							<TooltipContent className="rounded-xl border-panel-border bg-panel-elevated text-xs">
+								{t("users.searchHelp")}
+							</TooltipContent>
+						</Tooltip>
+					}
+					className="h-9 rounded-xl border-panel-border bg-panel-surface text-xs focus-visible:border-panel-accent focus-visible:bg-panel-elevated"
+				/>
+				<DataTableSortMenu
+					options={userSortOptions}
+					sorting={userSorting}
+					onSortingChange={handleUserSortChange}
+				/>
 			</div>
 
 			<Popover>
 				<PopoverTrigger asChild>
 					<div className="relative shrink-0">
-						<Button aria-label={t("filters.advancedButton")} variant="outline" className={cn("size-9 p-0", "rounded-full w-9 h-9")}>{<FilterIcon />}</Button>
+						<Button
+							aria-label={t("filters.advancedButton")}
+							variant="outline"
+							size="icon"
+							className={cn(
+								"size-9 rounded-xl border-panel-border bg-panel-surface text-panel-text-secondary transition-colors min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text active:scale-[0.98] touch-manipulation",
+								hasClearableFilters &&
+									"border-panel-accent/50 text-panel-accent",
+							)}
+						>
+							<Filter className="size-3.5" />
+						</Button>
 						{hasClearableFilters && (
-							<Badge className="top-[-4px] rounded-full absolute end-[-4px] text-[0.6rem] px-1.5 pointer-events-none rb-users-filter-badge">
+							<Badge className="pointer-events-none absolute -top-1.5 -end-1.5 size-4 rounded-full bg-panel-accent p-0 text-[10px] font-bold text-white shadow-xs">
 								{formatChipCount(activeFilterTotal, locale)}
 							</Badge>
 						)}
 					</div>
 				</PopoverTrigger>
-				<PopoverContent collisionPadding={12} className="border-light-border! min-w-[260px]! max-h-[var(--radix-popover-content-available-height)] overflow-y-auto">
-					
-					
-					<div className={cn("p-3 font-semibold", "font-semibold")}>
-						{t("filters.advancedTitle")}
+				<PopoverContent
+					align="start"
+					dir={isRTL ? "rtl" : "ltr"}
+					collisionPadding={12}
+					className="w-80 max-w-[calc(100vw-24px)] rounded-2xl border-panel-border bg-panel-elevated p-4 shadow-xl"
+				>
+					<div className="mb-3 flex items-center justify-between border-b border-panel-border pb-2.5">
+						<span className="text-sm font-semibold text-panel-text">
+							{t("filters.advancedTitle")}
+						</span>
+						{hasClearableFilters && (
+							<Button
+								onClick={clearAdvancedFilters}
+								variant="ghost"
+								size="sm"
+								className="h-7 px-2 text-xs text-panel-text-muted hover:text-panel-accent"
+							>
+								{t("filters.advancedClear")}
+							</Button>
+						)}
 					</div>
-					<div className="p-3">
+					<div className="flex flex-col gap-2 max-h-[min(380px,60vh)] overflow-y-auto pe-1">
 						<div className="flex flex-col gap-2">
 							{ADVANCED_FILTER_OPTIONS.filter(
 								(option) => option.key !== "top_speed" || canViewTraffic,
 							).map((option) => (
-								<label key={option.key} className="flex cursor-pointer items-center gap-2 text-sm"><Checkbox checked={activeFilters.includes(option.key)} onCheckedChange={() => toggleAdvancedFilter(option.key)} /><span>{getFilterLabel(option.key)}</span></label>
+								<label
+									key={option.key}
+									className="flex cursor-pointer items-center gap-2 rounded-lg p-1 text-xs text-panel-text-secondary transition-colors hover:text-panel-text min-[769px]:hover:bg-panel-surface/60"
+								>
+									<Checkbox
+										checked={activeFilters.includes(option.key)}
+										onCheckedChange={() => toggleAdvancedFilter(option.key)}
+									/>
+									<span>{getFilterLabel(option.key)}</span>
+								</label>
 							))}
 						</div>
-						<div className="flex flex-col gap-3 mt-3">
+						<div className="mt-3 flex flex-col gap-3 border-t border-panel-border pt-3">
 							<div>
-								<p className="text-[0.875rem] font-semibold mb-1">
+								<p className="mb-1 text-xs font-semibold text-panel-text-secondary">
 									{t("filters.advanced.serviceLabel")}
 								</p>
 								<Select
@@ -281,7 +336,7 @@ export const UsersFilterBar: FC = () => {
 							</div>
 							{hasPrivilegedRole && (
 								<div>
-									<p className="text-[0.875rem] font-semibold mb-1">
+									<p className="mb-1 text-xs font-semibold text-panel-text-secondary">
 										{t("filters.advanced.adminLabel")}
 									</p>
 									<Select
@@ -315,13 +370,9 @@ export const UsersFilterBar: FC = () => {
 								}
 							/>
 						</div>
-						<Button onClick={clearAdvancedFilters} disabled={!hasClearableFilters} variant="ghost" size="sm" className="mt-3 w-full">
-							{t("filters.advancedClear")}
-						</Button>
 					</div>
 				</PopoverContent>
 			</Popover>
-
 		</div>
 	);
 };
@@ -338,7 +389,9 @@ export const UsersCreateButton: FC = () => {
 	const isCurrentAdminDisabled =
 		!hasPrivilegedRole && userData.status === AdminStatus.Disabled;
 	const showCreateButton =
-		canCreateUsers && !isCurrentAdminDisabled && !isUserManagementLocked(userData);
+		canCreateUsers &&
+		!isCurrentAdminDisabled &&
+		!isUserManagementLocked(userData);
 
 	if (!showCreateButton) return null;
 
@@ -349,11 +402,11 @@ export const UsersCreateButton: FC = () => {
 			onClick={() => onCreateUser(true)}
 			className={cn(
 				buttonVariants({ size: "default" }),
-				"shrink-0 gap-2 bg-panel-accent px-4 font-semibold text-white shadow-xs hover:bg-panel-accent-hover whitespace-nowrap rb-users-create-btn",
+				"h-9 shrink-0 gap-1.5 rounded-xl bg-panel-accent px-3.5 text-xs font-semibold text-white shadow-xs transition-colors min-[769px]:hover:bg-panel-accent/90 active:scale-[0.98] touch-manipulation whitespace-nowrap",
 			)}
 		>
-			<Plus className="size-4" />
-			{t("createUser")}
+			<Plus className="size-3.5" />
+			<span>{t("createUser")}</span>
 		</button>
 	);
 };
