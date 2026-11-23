@@ -1154,5 +1154,20 @@
 	"dashboard.backup.stepUpload": "Отправка",
 	"dashboard.backup.stepRestore": "Восстановление",
 	"settings.subscriptions.webPushEnabled": "Web Push-уведомления на странице подписки",
-	"settings.subscriptions.webPushEnabledHint": "Разрешает пользователям включать браузерные уведомления о трафике (80% / 95%), скором истечении (24 ч.), исчерпании лимита и окончании срока подписки. В выключенном состоянии фоновая работа не выполняется."
+	"settings.subscriptions.webPushEnabledHint": "Разрешает пользователям включать браузерные уведомления о трафике (80% / 95%), скором истечении (24 ч.), исчерпании лимита и окончании срока подписки. В выключенном состоянии фоновая работа не выполняется.",
+	"userDialog.basicInfo": "Основная информация",
+	"userDialog.limits": "Лимиты и срок действия",
+	"userDialog.serviceSettings": "Настройки сервиса",
+	"userDialog.moreSettings": "Дополнительные настройки",
+	"userDialog.traffic": "Трафик",
+	"userDialog.trafficLimit": "Лимит трафика",
+	"userDialog.ipLimit": "Лимит IP",
+	"userDialog.speedLimit": "Лимит скорости",
+	"userDialog.expiryDateTitle": "Дата окончания",
+	"userDialog.onHoldDuration": "Период ожидания",
+	"userDialog.autoRenewTitle": "Автопродление",
+	"userDialog.autoRenewCarryOver": "Перенести остаток трафика",
+	"userDialog.autoRenewData": "Трафик для продления",
+	"userDialog.autoRenewDays": "Срок продления (дни)",
+	"userDialog.unlimited": "Безлимитно"
 }

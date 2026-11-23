@@ -1155,5 +1155,20 @@
 	"dashboard.backup.stepUpload": "上传",
 	"dashboard.backup.stepRestore": "恢复",
 	"settings.subscriptions.webPushEnabled": "订阅页 Web Push 通知",
-	"settings.subscriptions.webPushEnabledHint": "允许用户在订阅页开启浏览器推送提醒（80% / 95% 流量、到期前 24 小时、流量用尽及已到期）。关闭时不运行任何后台任务。"
+	"settings.subscriptions.webPushEnabledHint": "允许用户在订阅页开启浏览器推送提醒（80% / 95% 流量、到期前 24 小时、流量用尽及已到期）。关闭时不运行任何后台任务。",
+	"userDialog.basicInfo": "基本信息",
+	"userDialog.limits": "限制与有效期",
+	"userDialog.serviceSettings": "服务设置",
+	"userDialog.moreSettings": "更多设置",
+	"userDialog.traffic": "流量",
+	"userDialog.trafficLimit": "流量限制",
+	"userDialog.ipLimit": "IP限制",
+	"userDialog.speedLimit": "速度限制",
+	"userDialog.expiryDateTitle": "到期时间",
+	"userDialog.onHoldDuration": "暂停时长",
+	"userDialog.autoRenewTitle": "自动续费",
+	"userDialog.autoRenewCarryOver": "结转剩余流量",
+	"userDialog.autoRenewData": "续费流量",
+	"userDialog.autoRenewDays": "续费天数",
+	"userDialog.unlimited": "无限制"
 }
