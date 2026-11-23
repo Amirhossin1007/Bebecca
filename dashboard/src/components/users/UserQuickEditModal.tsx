@@ -1,30 +1,25 @@
 import { Button } from "components/ui/button";
-import { Field, FieldLabel } from "components/ui/field";
+import { DateTimeField } from "components/ui/date-time-field";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "components/ui/dialog";
+import { Input } from "components/ui/input";
 import { toast } from "components/ui/sonner";
-import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
-import { cn } from "lib/cn";
-
-
-import { NumericInput } from "components/common/NumericInput";
-import { DateTimePicker } from "components/DateTimePicker";
-import { AppDialog } from "components/dialogs/AppDialog";
 import { useDashboard } from "contexts/DashboardContext";
 import dayjs from "dayjs";
+import { Calendar, Database, X } from "lucide-react";
 import { type FC, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { fetch } from "service/http";
+import { fetch as apiFetch } from "service/http";
 
 const BYTES_PER_GB = 1024 * 1024 * 1024;
 
-/**
- * Lightweight single-field editor for a user's data limit or expiry date,
- * driven by the `quickEditUser` store slot. These map onto the same
- * PUT /v2/users/{username} contract the edit dialog uses, exposed as quick
- * one-off actions from the Users overflow menu.
- */
 export const UserQuickEditModal: FC = () => {
 	const { t } = useTranslation();
-	
+
 	const quickEditUser = useDashboard((state) => state.quickEditUser);
 	const refetchUsers = useDashboard((state) => state.refetchUsers);
 	const user = quickEditUser?.user ?? null;
@@ -34,7 +29,6 @@ export const UserQuickEditModal: FC = () => {
 	const [limitGb, setLimitGb] = useState("");
 	const [expireDate, setExpireDate] = useState<Date | null>(null);
 
-	// Seed the input from the user's current value each time the modal opens.
 	useEffect(() => {
 		if (!quickEditUser) return;
 		if (quickEditUser.field === "data_limit") {
@@ -62,76 +56,128 @@ export const UserQuickEditModal: FC = () => {
 
 		setLoading(true);
 		try {
-			await fetch(`/v2/users/${encodeURIComponent(user.username)}`, {
+			await apiFetch(`/v2/users/${encodeURIComponent(user.username)}`, {
 				method: "PUT",
 				body,
 			});
-			toast.success(field === "data_limit"
-						? t("usersTable.setDataLimitSuccess")
-						: t("usersTable.setExpirySuccess"), { duration: 2500 });
+			toast.success(
+				field === "data_limit"
+					? t("usersTable.setDataLimitSuccess")
+					: t("usersTable.setExpirySuccess"),
+				{ duration: 2500 },
+			);
 			refetchUsers(true);
 			useDashboard.setState({ quickEditUser: null });
 		} catch (error: any) {
-			toast.error(error?.data?.detail || error?.message || t("error"), { duration: 3000 });
+			toast.error(error?.data?.detail || error?.message || t("error"), {
+				duration: 3000,
+			});
 		} finally {
 			setLoading(false);
 		}
 	};
 
+	if (!quickEditUser) return null;
+
 	const isDataLimit = field === "data_limit";
 
 	return (
-		<AppDialog open={Boolean(quickEditUser)} onClose={onClose} size="sm" title={
-				isDataLimit
-					? t("usersTable.setDataLimit")
-					: t("usersTable.setExpiry")
-			} contentProps={{ className: "mx-3" }} footerProps={{ className: "gap-3" }} footer={
-				<>
-					<Button onClick={onClose} disabled={loading} variant="outline" size="sm">
+		<Dialog open onOpenChange={(open) => !open && onClose()}>
+			<DialogContent className="max-w-sm overflow-hidden rounded-[20px] border border-panel-border bg-panel-card p-0 shadow-2xl z-[1500]">
+				<DialogHeader className="flex flex-row items-center justify-between border-b border-panel-border px-6 py-4">
+					<div className="flex items-center gap-3">
+						<div className="flex size-9 items-center justify-center rounded-xl bg-panel-accent/10 text-panel-accent">
+							{isDataLimit ? (
+								<Database className="size-4" />
+							) : (
+								<Calendar className="size-4" />
+							)}
+						</div>
+						<div>
+							<DialogTitle className="text-sm font-bold text-panel-text">
+								{isDataLimit
+									? t("usersTable.setDataLimit")
+									: t("usersTable.setExpiry")}
+							</DialogTitle>
+							<p
+								dir="ltr"
+								className="text-[11px] font-mono text-panel-text-secondary text-start"
+							>
+								{user?.username}
+							</p>
+						</div>
+					</div>
+					<button
+						type="button"
+						onClick={onClose}
+						className="flex size-8 items-center justify-center rounded-xl border border-panel-border/70 text-panel-text-secondary transition-colors min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text cursor-pointer active:scale-95"
+					>
+						<X className="size-4" />
+					</button>
+				</DialogHeader>
+
+				<div className="px-6 py-5 flex flex-col gap-3">
+					{isDataLimit ? (
+						<div className="relative flex items-center">
+							<Input
+								type="number"
+								step="0.1"
+								min={0}
+								dir="ltr"
+								value={limitGb}
+								onChange={(e) => setLimitGb(e.target.value)}
+								placeholder={t("userDialog.unlimited")}
+								className="h-10 rounded-xl border border-panel-border bg-panel-surface text-sm text-panel-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none pe-12"
+							/>
+							<span className="absolute end-3 text-xs font-semibold text-panel-text-muted pointer-events-none select-none">
+								GB
+							</span>
+						</div>
+					) : (
+						<DateTimeField
+							value={expireDate}
+							onChange={setExpireDate}
+							placeholder={t("userDialog.expiryDate")}
+							quickSelects={[
+								{
+									label: "+1m",
+									onClick: () =>
+										setExpireDate(dayjs().add(1, "month").toDate()),
+								},
+								{
+									label: "+3m",
+									onClick: () =>
+										setExpireDate(dayjs().add(3, "month").toDate()),
+								},
+								{
+									label: "+1y",
+									onClick: () => setExpireDate(dayjs().add(1, "year").toDate()),
+								},
+							]}
+						/>
+					)}
+				</div>
+
+				<div className="flex items-center justify-end gap-2 border-t border-panel-border px-6 py-3.5 bg-panel-surface/60">
+					<Button
+						type="button"
+						variant="outline"
+						onClick={onClose}
+						disabled={loading}
+						className="h-9 rounded-xl border-panel-border bg-panel-surface text-xs font-medium"
+					>
 						{t("cancel")}
 					</Button>
-					<Button onClick={save} size="sm" loading={loading}>
+					<Button
+						type="button"
+						onClick={save}
+						disabled={loading}
+						className="h-9 rounded-xl bg-panel-accent text-xs font-semibold text-white shadow-xs"
+					>
 						{t("save")}
 					</Button>
-				</>
-			}>
-					<div className="flex flex-col items-stretch gap-3">
-						{user && (
-							<p dir="ltr" className="text-[0.875rem] text-panel-text-muted">
-								{user.username}
-							</p>
-						)}
-						{isDataLimit ? (
-							<Field>
-								<FieldLabel>{t("userDialog.dataLimit")}</FieldLabel>
-								<div className="relative flex w-full items-center">
-									<NumericInput
-										min={0}
-										step={1}
-										value={limitGb}
-										onChange={(valueAsString) => setLimitGb(valueAsString)}
-									/>
-									<div className="flex items-center rounded-e-md border border-s-0 border-input bg-muted px-3 text-sm">GB</div>
-								</div>
-								<p className="text-[0.75rem] text-panel-text-muted mt-1">
-									{t("usersTable.unlimitedHint")}
-								</p>
-							</Field>
-						) : (
-							<Field>
-								<FieldLabel>{t("usersTable.expire")}</FieldLabel>
-								<DateTimePicker
-									value={expireDate}
-									onChange={setExpireDate}
-									minDate={new Date()}
-									placeholder={t("usersTable.setExpiry")}
-								/>
-								<p className="text-[0.75rem] text-panel-text-muted mt-1">
-									{t("usersTable.expiryClearHint")}
-								</p>
-							</Field>
-						)}
-					</div>
-		</AppDialog>
+				</div>
+			</DialogContent>
+		</Dialog>
 	);
 };

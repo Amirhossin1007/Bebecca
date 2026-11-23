@@ -1,29 +1,22 @@
-import { Badge } from "components/ui/badge";
 import { Checkbox } from "components/ui/checkbox";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "components/ui/table";
-import { useDashboard } from "contexts/DashboardContext";
-import { cn } from "lib/cn";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "components/ui/table";
+import { Badge } from "components/ui/badge";
 import { ChevronDown, ChevronRight, User as UserIcon } from "lucide-react";
 import { type FC, type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { fetch as apiFetch } from "service/http";
-import type { UserListItem } from "types/User";
-import { relativeExpiryDate } from "utils/dateFormatter";
+import { useDashboard } from "contexts/DashboardContext";
+import { cn } from "lib/cn";
 import { formatBytes } from "utils/formatByte";
-import {
-	type UserIPRecord,
-	UserIPsDialog,
-} from "./users/dialogs/UserIPsDialog";
+import { relativeExpiryDate } from "utils/dateFormatter";
+import { fetch as apiFetch } from "service/http";
+import { toast } from "components/ui/sonner";
+import type { UserListItem } from "types/User";
+import { AddTrafficDialog } from "components/AddTrafficDialog";
 import { UserExpandedDetail } from "./users/table/UserExpandedDetail";
 import { UserRowActions } from "./users/table/UserRowActions";
 import { UsersBulkActionsBar } from "./users/table/UsersBulkActionsBar";
+import { UserIPsDialog, type UserIPRecord } from "./users/dialogs/UserIPsDialog";
+import { UserMobileCard } from "./users/table/UserMobileCard";
 
 type UsersTableProps = {
 	toolbar?: ReactNode;
@@ -31,21 +24,18 @@ type UsersTableProps = {
 	className?: string;
 };
 
-export const UsersTable: FC<UsersTableProps> = ({
-	toolbar,
-	headerActions,
-	className,
-}) => {
-	const { t, i18n } = useTranslation();
-	const _isRTL = i18n.dir(i18n.language) === "rtl";
+export const UsersTable: FC<UsersTableProps> = ({ toolbar, headerActions, className }) => {
+	const { t } = useTranslation();
 
 	const usersResponse = useDashboard((s) => s.users);
 	const loading = useDashboard((s) => s.loading);
 	const onEditingUser = useDashboard((s) => s.onEditingUser);
 	const liveUserStats = useDashboard((s) => s.liveUserStats);
+	const refetchUsers = useDashboard((s) => s.refetchUsers);
 
 	const [selectedUsernames, setSelectedUsernames] = useState<string[]>([]);
 	const [expandedUsername, setExpandedUsername] = useState<string | null>(null);
+	const [trafficUser, setTrafficUser] = useState<UserListItem | null>(null);
 
 	const [ipDialogState, setIpDialogState] = useState<{
 		isOpen: boolean;
@@ -71,23 +61,15 @@ export const UsersTable: FC<UsersTableProps> = ({
 
 	const toggleSelectUser = (username: string) => {
 		setSelectedUsernames((prev) =>
-			prev.includes(username)
-				? prev.filter((id) => id !== username)
-				: [...prev, username],
+			prev.includes(username) ? prev.filter((id) => id !== username) : [...prev, username],
 		);
 	};
 
 	const handleOpenIps = async (user: UserListItem) => {
 		setIpDialogState({ isOpen: true, username: user.username, records: [] });
 		try {
-			const res = await apiFetch<{ ips: UserIPRecord[] }>(
-				`/user/${encodeURIComponent(user.username)}/ips`,
-			);
-			setIpDialogState({
-				isOpen: true,
-				username: user.username,
-				records: res.ips || [],
-			});
+			const res = await apiFetch<{ ips: UserIPRecord[] }>(`/user/${encodeURIComponent(user.username)}/ips`);
+			setIpDialogState({ isOpen: true, username: user.username, records: res.ips || [] });
 		} catch (err: any) {
 			setIpDialogState({
 				isOpen: true,
@@ -95,6 +77,20 @@ export const UsersTable: FC<UsersTableProps> = ({
 				records: [],
 				error: err?.message || t("usersTable.getIpsFailed"),
 			});
+		}
+	};
+
+	const handleAddTraffic = async (user: UserListItem, deltaBytes: number) => {
+		const newLimit = (user.data_limit ?? 0) + deltaBytes;
+		try {
+			await apiFetch(`/v2/users/${encodeURIComponent(user.username)}`, {
+				method: "PUT",
+				body: { data_limit: newLimit },
+			});
+			toast.success(t("usersTable.setDataLimitSuccess"));
+			refetchUsers(true);
+		} catch (err: any) {
+			toast.error(err?.message || t("error"));
 		}
 	};
 
@@ -119,25 +115,42 @@ export const UsersTable: FC<UsersTableProps> = ({
 			{(toolbar || headerActions) && (
 				<div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-panel-border bg-panel-surface p-3 shadow-xs">
 					<div className="flex-1 min-w-[260px]">{toolbar}</div>
-					{headerActions && (
-						<div className="flex items-center gap-2 shrink-0">
-							{headerActions}
-						</div>
-					)}
+					{headerActions && <div className="flex items-center gap-2 shrink-0">{headerActions}</div>}
 				</div>
 			)}
 
-			<div className="rounded-[20px] border border-panel-border bg-panel-card shadow-xs overflow-hidden">
+			<div className="flex flex-col gap-3 md:hidden">
+				{loading && users.length === 0 ? (
+					<div className="flex h-32 items-center justify-center rounded-2xl border border-panel-border bg-panel-card text-xs text-panel-text-muted">
+						{t("loading")}
+					</div>
+				) : users.length === 0 ? (
+					<div className="flex h-32 items-center justify-center rounded-2xl border border-panel-border bg-panel-card text-xs text-panel-text-muted">
+						{t("noData")}
+					</div>
+				) : (
+					users.map((user) => (
+						<UserMobileCard
+							key={user.username}
+							user={user}
+							isSelected={selectedUsernames.includes(user.username)}
+							isOnline={liveUserStats[user.username]?.is_online}
+							onToggleSelect={() => toggleSelectUser(user.username)}
+							onEdit={() => onEditingUser(user)}
+							onGetIps={() => handleOpenIps(user)}
+						/>
+					))
+				)}
+			</div>
+
+			<div className="hidden md:block rounded-[20px] border border-panel-border bg-panel-card shadow-xs overflow-hidden">
 				<div className="overflow-x-auto">
 					<Table>
 						<TableHeader className="bg-panel-surface/60 border-b border-panel-border">
 							<TableRow className="hover:bg-transparent">
 								<TableHead className="w-10 px-3 text-center">
 									<Checkbox
-										checked={
-											users.length > 0 &&
-											selectedUsernames.length === users.length
-										}
+										checked={users.length > 0 && selectedUsernames.length === users.length}
 										onCheckedChange={toggleSelectAll}
 										aria-label={t("selectAll")}
 									/>
@@ -167,19 +180,13 @@ export const UsersTable: FC<UsersTableProps> = ({
 						<TableBody>
 							{loading && users.length === 0 ? (
 								<TableRow>
-									<TableCell
-										colSpan={8}
-										className="h-40 text-center text-xs text-panel-text-muted"
-									>
+									<TableCell colSpan={8} className="h-40 text-center text-xs text-panel-text-muted">
 										{t("loading")}
 									</TableCell>
 								</TableRow>
 							) : users.length === 0 ? (
 								<TableRow>
-									<TableCell
-										colSpan={8}
-										className="h-40 text-center text-xs text-panel-text-muted"
-									>
+									<TableCell colSpan={8} className="h-40 text-center text-xs text-panel-text-muted">
 										{t("noData")}
 									</TableCell>
 								</TableRow>
@@ -190,15 +197,9 @@ export const UsersTable: FC<UsersTableProps> = ({
 									const isOnline = liveUserStats[user.username]?.is_online;
 									const used = user.used_traffic ?? 0;
 									const limit = user.data_limit ?? 0;
-									const percent =
-										limit > 0
-											? Math.min(100, Math.round((used / limit) * 100))
-											: 0;
-									const expiryInfo = user.expire
-										? relativeExpiryDate(user.expire)
-										: null;
-									const expiryText =
-										expiryInfo?.time || t("userDialog.unlimited");
+									const percent = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+									const expiryInfo = user.expire ? relativeExpiryDate(user.expire) : null;
+									const expiryText = expiryInfo?.time || t("userDialog.unlimited");
 
 									return (
 										<div key={user.username} className="contents">
@@ -218,9 +219,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 												>
 													<Checkbox
 														checked={isSelected}
-														onCheckedChange={() =>
-															toggleSelectUser(user.username)
-														}
+														onCheckedChange={() => toggleSelectUser(user.username)}
 														aria-label={user.username}
 													/>
 												</TableCell>
@@ -246,10 +245,7 @@ export const UsersTable: FC<UsersTableProps> = ({
 															)}
 														</div>
 														<div className="min-w-0">
-															<p
-																dir="ltr"
-																className="text-xs font-semibold text-panel-text truncate text-start"
-															>
+															<p dir="ltr" className="text-xs font-semibold text-panel-text truncate text-start">
 																{user.username}
 															</p>
 														</div>
@@ -278,20 +274,14 @@ export const UsersTable: FC<UsersTableProps> = ({
 													<div className="flex flex-col gap-1 w-full max-w-[180px]">
 														<div className="flex items-center justify-between text-[11px] font-mono tabular-nums text-panel-text-secondary">
 															<span>{formatBytes(used, 1)}</span>
-															<span>
-																{limit > 0 ? formatBytes(limit, 1) : "∞"}
-															</span>
+															<span>{limit > 0 ? formatBytes(limit, 1) : "∞"}</span>
 														</div>
 														{limit > 0 && (
 															<div className="h-1.5 w-full rounded-full bg-panel-surface border border-panel-border/50 overflow-hidden">
 																<div
 																	className={cn(
 																		"h-full rounded-full transition-all duration-300",
-																		percent > 90
-																			? "bg-red-500"
-																			: percent > 75
-																				? "bg-amber-500"
-																				: "bg-panel-accent",
+																		percent > 90 ? "bg-red-500" : percent > 75 ? "bg-amber-500" : "bg-panel-accent",
 																	)}
 																	style={{ width: `${percent}%` }}
 																/>
@@ -356,6 +346,12 @@ export const UsersTable: FC<UsersTableProps> = ({
 				records={ipDialogState.records}
 				error={ipDialogState.error}
 				onClose={() => setIpDialogState((prev) => ({ ...prev, isOpen: false }))}
+			/>
+
+			<AddTrafficDialog
+				target={trafficUser ? { kind: "user", name: trafficUser.username } : null}
+				onClose={() => setTrafficUser(null)}
+				onApply={(delta) => (trafficUser ? handleAddTraffic(trafficUser, delta) : Promise.resolve())}
 			/>
 		</div>
 	);
