@@ -52,7 +52,7 @@ const getLanguage = () => i18n.resolvedLanguage || i18n.language || "en";
 
 const isRtlLanguage = () => RTL_LANGUAGE_RE.test(getLanguage());
 
-const enforceNoBreak = (value: string) => value.replace(/\s+/g, "\u00A0");
+const enforceNoBreak = (value: string) => value.replace(/\s+/g, " ");
 
 const isolateBidi = (value: string) =>
 	isRtlLanguage() ? `\u2068${value}\u2069` : value;
@@ -206,4 +206,30 @@ export const relativeExpiryDate = (
 		dateInfo.time = formatRelativeTimeParts(parts, options);
 	}
 	return dateInfo;
+};
+
+export const formatDateTime = (
+	value?: string | number | null,
+	locale = "en",
+): string => {
+	if (!value) return "—";
+	let date: Date;
+	if (typeof value === "number") {
+		date = new Date(value * (value < 1e11 ? 1000 : 1));
+	} else {
+		date = new Date(value);
+	}
+	if (Number.isNaN(date.getTime())) return String(value);
+	try {
+		return new Intl.DateTimeFormat(locale || "en", {
+			year: "numeric",
+			month: "short",
+			day: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+			hour12: false,
+		}).format(date);
+	} catch {
+		return date.toLocaleDateString(locale);
+	}
 };

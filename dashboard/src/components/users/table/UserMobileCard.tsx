@@ -56,7 +56,7 @@ export const UserMobileCard: FC<UserMobileCardProps> = ({
 	return (
 		<div
 			className={cn(
-				"flex flex-col gap-3 rounded-2xl border border-panel-border bg-panel-card p-3.5 shadow-xs transition-colors",
+				"flex flex-col gap-3 rounded-[18px] border border-panel-border bg-panel-card p-3.5 shadow-xs transition-colors",
 				isSelected &&
 					"border-panel-accent/50 bg-panel-accent/5 ring-1 ring-panel-accent/20",
 			)}
@@ -69,7 +69,7 @@ export const UserMobileCard: FC<UserMobileCardProps> = ({
 						aria-label={user.username}
 					/>
 					<div className="relative shrink-0">
-						<div className="flex size-8 items-center justify-center rounded-xl bg-panel-surface border border-panel-border/70 text-panel-text-secondary">
+						<div className="flex size-8 items-center justify-center rounded-[10px] bg-panel-surface border border-panel-border/70 text-panel-text-secondary">
 							<UserIcon className="size-4" />
 						</div>
 						{isOnline && (
@@ -84,7 +84,7 @@ export const UserMobileCard: FC<UserMobileCardProps> = ({
 							{user.username}
 						</p>
 						<p className="text-[11px] text-panel-text-muted truncate">
-							{user.service_name || "-"}
+							{user.service_name || "—"}
 						</p>
 					</div>
 				</div>
@@ -113,13 +113,16 @@ export const UserMobileCard: FC<UserMobileCardProps> = ({
 				</div>
 			</div>
 
-			<div className="flex flex-col gap-1.5 rounded-xl border border-panel-border/50 bg-panel-surface/60 p-2.5">
-				<div className="flex items-center justify-between text-[11px] font-mono tabular-nums text-panel-text-secondary">
+			<div className="flex flex-col gap-1.5 rounded-[12px] border border-panel-border/50 bg-panel-surface/60 p-2.5">
+				<div
+					dir="ltr"
+					className="flex items-center justify-between text-[11px] font-mono tabular-nums [unicode-bidi:isolate] text-panel-text-secondary"
+				>
 					<span>{formatBytes(used, 1)}</span>
-					<span>{limit > 0 ? formatBytes(limit, 1) : "∞"}</span>
+					<span>{limit > 0 ? `/ ${formatBytes(limit, 1)}` : "—"}</span>
 				</div>
 				{limit > 0 && (
-					<div className="h-1.5 w-full rounded-full bg-panel-card border border-panel-border/40 overflow-hidden">
+					<div className="h-1.5 w-full rounded-full bg-panel-elevated overflow-hidden">
 						<div
 							className={cn(
 								"h-full rounded-full transition-all duration-300",
@@ -133,11 +136,11 @@ export const UserMobileCard: FC<UserMobileCardProps> = ({
 						/>
 					</div>
 				)}
-				<div className="flex items-center justify-between pt-1 text-[11px] text-panel-text-secondary">
+				<div className="flex items-center justify-between pt-0.5 text-[11px] text-panel-text-secondary">
 					<span>{t("usersTable.expire")}:</span>
 					<span
 						className={cn(
-							"font-medium",
+							"font-medium whitespace-nowrap [unicode-bidi:isolate]",
 							expiryInfo?.status === "expired"
 								? "text-red-500 font-semibold"
 								: "text-panel-text",

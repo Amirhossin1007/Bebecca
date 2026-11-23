@@ -3257,7 +3257,7 @@
 	"core.empty": "Empty",
 	"core.model": "Model",
 	"core.quota": "Quota",
-	"user": "User",
+	"user": "کاربر",
 	"noReset": "No reset",
 	"yearly": "Yearly",
 	"pages.xray.outbound.testAddressRequired": "TCP and ICMP tests require an outbound address. Use latency test or configure an address for this outbound.",

@@ -302,6 +302,10 @@ export const UsersPage: FC = () => {
 	const breakdown = (usersResponse.status_breakdown ?? {}) as Partial<
 		Record<"active" | "expired" | "limited" | "on_hold" | "disabled", number>
 	>;
+	const resolvedActive =
+		breakdown.active !== undefined && breakdown.active > 0
+			? breakdown.active
+			: usersResponse.active_total ?? breakdown.active ?? 0;
 
 	return (
 		<div
@@ -315,7 +319,7 @@ export const UsersPage: FC = () => {
 				}
 				total={usersResponse.total ?? 0}
 				usersLimit={usersResponse.users_limit ?? null}
-				active={usersResponse.active_total ?? 0}
+				active={resolvedActive}
 				online={usersResponse.online_total ?? 0}
 				usage={usersResponse.usage_total ?? 0}
 				usageLabel={t("usersTable.listUsage")}
