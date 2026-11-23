@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "lib/cn";
 import { formatBytes } from "utils/formatByte";
@@ -97,7 +96,7 @@ export function UsersOverviewBand({
 	const limitPercent = usersLimit ? Math.min(100, share(total, usersLimit)) : null;
 
 	return (
-		<div
+		<section
 			className={cn(
 				"grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4",
 				bare ? "p-0" : "w-full",
@@ -322,6 +321,6 @@ export function UsersOverviewBand({
 					/>
 				</div>
 			</button>
-		</div>
+		</section>
 	);
 }
