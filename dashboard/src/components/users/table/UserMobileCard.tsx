@@ -56,7 +56,7 @@ export const UserMobileCard: FC<UserMobileCardProps> = ({
 	return (
 		<div
 			className={cn(
-				"flex flex-col gap-3 rounded-[18px] border border-panel-border bg-panel-card p-3.5 shadow-xs transition-colors",
+				"flex flex-col gap-3 rounded-[16px] border border-panel-border bg-panel-card p-3.5 shadow-xs transition-colors",
 				isSelected &&
 					"border-panel-accent/50 bg-panel-accent/5 ring-1 ring-panel-accent/20",
 			)}
@@ -102,7 +102,7 @@ export const UserMobileCard: FC<UserMobileCardProps> = ({
 					<button
 						type="button"
 						onClick={() => setIsExpanded((prev) => !prev)}
-						className="flex size-7 items-center justify-center rounded-lg border border-panel-border/60 text-panel-text-secondary min-[769px]:hover:text-panel-text"
+						className="flex size-7 items-center justify-center rounded-[8px] border border-panel-border/60 text-panel-text-secondary min-[769px]:hover:text-panel-text cursor-pointer active:scale-95 touch-manipulation"
 					>
 						{isExpanded ? (
 							<ChevronUp className="size-4" />

@@ -1,4 +1,4 @@
-import { Checkbox } from "components/ui/checkbox";
+﻿import { Checkbox } from "components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "components/ui/table";
 import { Badge } from "components/ui/badge";
 import { ChevronDown, ChevronRight, User as UserIcon } from "lucide-react";
@@ -12,6 +12,9 @@ import { fetch as apiFetch } from "service/http";
 import { toast } from "components/ui/sonner";
 import type { UserListItem } from "types/User";
 import { AddTrafficDialog } from "components/AddTrafficDialog";
+import { DataTableColumnMenu } from "components/ui/DataTableColumnMenu";
+import type { DataTableColumn } from "components/ui/DataTable.types";
+import { usePersistedColumnVisibility } from "hooks/usePersistedColumnVisibility";
 import { UserExpandedDetail } from "./users/table/UserExpandedDetail";
 import { UserRowActions } from "./users/table/UserRowActions";
 import { UsersBulkActionsBar } from "./users/table/UsersBulkActionsBar";
@@ -33,9 +36,29 @@ export const UsersTable: FC<UsersTableProps> = ({ toolbar, headerActions, classN
 	const liveUserStats = useDashboard((s) => s.liveUserStats);
 	const refetchUsers = useDashboard((s) => s.refetchUsers);
 
+	const [columnVisibility, setColumnVisibility] = usePersistedColumnVisibility("users");
 	const [selectedUsernames, setSelectedUsernames] = useState<string[]>([]);
 	const [expandedUsername, setExpandedUsername] = useState<string | null>(null);
 	const [trafficUser, setTrafficUser] = useState<UserListItem | null>(null);
+
+	const userColumns = useMemo<DataTableColumn<UserListItem>[]>(
+		() => [
+			{ id: "username", header: t("username"), menuLabel: t("username") },
+			{ id: "status", header: t("usersTable.status"), menuLabel: t("usersTable.status") },
+			{ id: "service", header: t("usersTable.service"), menuLabel: t("usersTable.service") },
+			{ id: "traffic", header: t("usersTable.traffic"), menuLabel: t("usersTable.traffic") },
+			{ id: "expire", header: t("usersTable.expire"), menuLabel: t("usersTable.expire") },
+		],
+		[t],
+	);
+
+	const visibleColumnCount =
+		3 +
+		(columnVisibility.username !== false ? 1 : 0) +
+		(columnVisibility.status !== false ? 1 : 0) +
+		(columnVisibility.service !== false ? 1 : 0) +
+		(columnVisibility.traffic !== false ? 1 : 0) +
+		(columnVisibility.expire !== false ? 1 : 0);
 
 	const [ipDialogState, setIpDialogState] = useState<{
 		isOpen: boolean;
@@ -113,9 +136,16 @@ export const UsersTable: FC<UsersTableProps> = ({ toolbar, headerActions, classN
 	return (
 		<div className={cn("flex flex-col gap-3 w-full", className)}>
 			{(toolbar || headerActions) && (
-				<div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-panel-border bg-panel-surface p-3 shadow-xs">
+				<div className="flex flex-wrap items-center justify-between gap-3 rounded-[16px] border border-panel-border bg-panel-surface p-3 shadow-xs">
 					<div className="flex-1 min-w-[260px]">{toolbar}</div>
-					{headerActions && <div className="flex items-center gap-2 shrink-0">{headerActions}</div>}
+					<div className="flex items-center gap-2 shrink-0">
+						<DataTableColumnMenu
+							columns={userColumns}
+							visibility={columnVisibility}
+							onChange={setColumnVisibility}
+						/>
+						{headerActions}
+					</div>
 				</div>
 			)}
 
@@ -156,21 +186,31 @@ export const UsersTable: FC<UsersTableProps> = ({ toolbar, headerActions, classN
 									/>
 								</TableHead>
 								<TableHead className="w-[36px] min-w-[36px] max-w-[36px] px-1 text-center" />
-								<TableHead className="min-w-[150px] text-start text-xs font-semibold text-panel-text">
-									{t("username")}
-								</TableHead>
-								<TableHead className="w-[110px] min-w-[110px] text-start text-xs font-semibold text-panel-text">
-									{t("usersTable.status")}
-								</TableHead>
-								<TableHead className="min-w-[120px] text-start text-xs font-semibold text-panel-text">
-									{t("usersTable.service")}
-								</TableHead>
-								<TableHead className="w-[190px] min-w-[190px] text-start text-xs font-semibold text-panel-text">
-									{t("usersTable.traffic")}
-								</TableHead>
-								<TableHead className="w-[140px] min-w-[140px] text-start text-xs font-semibold text-panel-text">
-									{t("usersTable.expire")}
-								</TableHead>
+								{columnVisibility.username !== false && (
+									<TableHead className="min-w-[150px] text-start text-xs font-semibold text-panel-text">
+										{t("username")}
+									</TableHead>
+								)}
+								{columnVisibility.status !== false && (
+									<TableHead className="w-[110px] min-w-[110px] text-start text-xs font-semibold text-panel-text">
+										{t("usersTable.status")}
+									</TableHead>
+								)}
+								{columnVisibility.service !== false && (
+									<TableHead className="min-w-[120px] text-start text-xs font-semibold text-panel-text">
+										{t("usersTable.service")}
+									</TableHead>
+								)}
+								{columnVisibility.traffic !== false && (
+									<TableHead className="w-[190px] min-w-[190px] text-start text-xs font-semibold text-panel-text">
+										{t("usersTable.traffic")}
+									</TableHead>
+								)}
+								{columnVisibility.expire !== false && (
+									<TableHead className="w-[140px] min-w-[140px] text-start text-xs font-semibold text-panel-text">
+										{t("usersTable.expire")}
+									</TableHead>
+								)}
 								<TableHead className="w-[150px] min-w-[150px] text-end text-xs font-semibold text-panel-text pe-4">
 									{t("actions")}
 								</TableHead>
@@ -180,13 +220,13 @@ export const UsersTable: FC<UsersTableProps> = ({ toolbar, headerActions, classN
 						<TableBody>
 							{loading && users.length === 0 ? (
 								<TableRow>
-									<TableCell colSpan={8} className="h-40 text-center text-xs text-panel-text-muted">
+									<TableCell colSpan={visibleColumnCount} className="h-40 text-center text-xs text-panel-text-muted">
 										{t("loading")}
 									</TableCell>
 								</TableRow>
 							) : users.length === 0 ? (
 								<TableRow>
-									<TableCell colSpan={8} className="h-40 text-center text-xs text-panel-text-muted">
+									<TableCell colSpan={visibleColumnCount} className="h-40 text-center text-xs text-panel-text-muted">
 										{t("noData")}
 									</TableCell>
 								</TableRow>
@@ -234,7 +274,7 @@ export const UsersTable: FC<UsersTableProps> = ({ toolbar, headerActions, classN
 													</div>
 												</TableCell>
 
-												<TableCell className="min-w-[150px] text-start py-3">
+												{columnVisibility.username !== false && (<TableCell className="min-w-[150px] text-start py-3">
 													<div className="flex items-center gap-2">
 														<div className="relative">
 															<div className="flex size-7 items-center justify-center rounded-[9px] bg-panel-surface border border-panel-border/70 text-panel-text-secondary">
@@ -250,9 +290,9 @@ export const UsersTable: FC<UsersTableProps> = ({ toolbar, headerActions, classN
 															</p>
 														</div>
 													</div>
-												</TableCell>
+												</TableCell>)}
 
-												<TableCell className="w-[110px] min-w-[110px] text-start py-3">
+												{columnVisibility.status !== false && (<TableCell className="w-[110px] min-w-[110px] text-start py-3">
 													<Badge
 														variant="outline"
 														className={cn(
@@ -262,15 +302,15 @@ export const UsersTable: FC<UsersTableProps> = ({ toolbar, headerActions, classN
 													>
 														{t(`status.${user.status}`)}
 													</Badge>
-												</TableCell>
+												</TableCell>)}
 
-												<TableCell className="min-w-[120px] text-start py-3">
+												{columnVisibility.service !== false && (<TableCell className="min-w-[120px] text-start py-3">
 													<span className="text-xs font-medium text-panel-text-secondary">
 														{user.service_name || "—"}
 													</span>
-												</TableCell>
+												</TableCell>)}
 
-												<TableCell className="w-[190px] min-w-[190px] text-start py-3">
+												{columnVisibility.traffic !== false && (<TableCell className="w-[190px] min-w-[190px] text-start py-3">
 													<div className="flex flex-col gap-1 w-full max-w-[180px]">
 														<div
 															dir="ltr"
@@ -291,9 +331,9 @@ export const UsersTable: FC<UsersTableProps> = ({ toolbar, headerActions, classN
 															</div>
 														)}
 													</div>
-												</TableCell>
+												</TableCell>)}
 
-												<TableCell className="w-[140px] min-w-[140px] text-start py-3">
+												{columnVisibility.expire !== false && (<TableCell className="w-[140px] min-w-[140px] text-start py-3">
 													<span
 														className={cn(
 															"text-xs font-medium whitespace-nowrap [unicode-bidi:isolate]",
@@ -304,7 +344,7 @@ export const UsersTable: FC<UsersTableProps> = ({ toolbar, headerActions, classN
 													>
 														{expiryText}
 													</span>
-												</TableCell>
+												</TableCell>)}
 
 												<TableCell
 													onClick={(e) => e.stopPropagation()}
@@ -320,7 +360,7 @@ export const UsersTable: FC<UsersTableProps> = ({ toolbar, headerActions, classN
 
 											{isExpanded && (
 												<TableRow className="bg-panel-elevated/20 hover:bg-panel-elevated/20 border-b border-panel-border/60">
-													<TableCell colSpan={8} className="p-4 sm:p-5">
+													<TableCell colSpan={visibleColumnCount} className="p-4 sm:p-5">
 														<UserExpandedDetail
 															user={user}
 															onEdit={() => onEditingUser(user)}

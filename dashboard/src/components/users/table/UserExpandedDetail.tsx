@@ -141,7 +141,7 @@ export const UserExpandedDetail: FC<UserExpandedDetailProps> = ({
 								t("userRowActions.copySub"),
 							)
 						}
-						className="h-8 gap-1.5 rounded-xl border-panel-border bg-panel-surface text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
+						className="h-8 gap-1.5 rounded-[12px] border-panel-border bg-panel-surface text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
 					>
 						{copiedKey === "sub" ? (
 							<Check className="size-3.5 text-emerald-500" />
@@ -158,7 +158,7 @@ export const UserExpandedDetail: FC<UserExpandedDetailProps> = ({
 						variant="outline"
 						size="sm"
 						onClick={onGetIps}
-						className="h-8 gap-1.5 rounded-xl border-panel-border bg-panel-surface text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
+						className="h-8 gap-1.5 rounded-[12px] border-panel-border bg-panel-surface text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
 					>
 						<Globe className="size-3.5 text-blue-500" />
 						<span>{t("usersTable.ipsDialogTitle")}</span>
@@ -171,7 +171,7 @@ export const UserExpandedDetail: FC<UserExpandedDetailProps> = ({
 						variant="outline"
 						size="sm"
 						onClick={() => setQRCode([user.subscription_url || ""], user.username)}
-						className="h-8 gap-1.5 rounded-xl border-panel-border bg-panel-surface text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
+						className="h-8 gap-1.5 rounded-[12px] border-panel-border bg-panel-surface text-xs font-medium text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
 					>
 						<QrCode className="size-3.5 text-purple-500" />
 						<span>{t("usersTable.qrCode")}</span>
@@ -183,7 +183,7 @@ export const UserExpandedDetail: FC<UserExpandedDetailProps> = ({
 						type="button"
 						size="sm"
 						onClick={onEdit}
-						className="h-8 gap-1.5 rounded-xl bg-panel-accent text-xs font-semibold text-white shadow-xs transition-colors min-[769px]:hover:bg-panel-accent/90 active:scale-[0.98] touch-manipulation"
+						className="h-8 gap-1.5 rounded-[12px] bg-panel-accent text-xs font-semibold text-white shadow-xs transition-colors min-[769px]:hover:bg-panel-accent/90 active:scale-[0.98] touch-manipulation"
 					>
 						<Pencil className="size-3.5" />
 						<span>{t("edit")}</span>

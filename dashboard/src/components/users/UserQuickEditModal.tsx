@@ -127,7 +127,7 @@ export const UserQuickEditModal: FC = () => {
 								value={limitGb}
 								onChange={(e) => setLimitGb(e.target.value)}
 								placeholder={t("userDialog.unlimited")}
-								className="h-10 rounded-xl border border-panel-border bg-panel-surface text-sm text-panel-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none pe-12"
+								className="h-10 rounded-[12px] border border-panel-border bg-panel-surface text-sm text-panel-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none pe-12"
 							/>
 							<span className="absolute end-3 text-xs font-semibold text-panel-text-muted pointer-events-none select-none">
 								GB
@@ -164,7 +164,7 @@ export const UserQuickEditModal: FC = () => {
 						variant="outline"
 						onClick={onClose}
 						disabled={loading}
-						className="h-9 rounded-xl border-panel-border bg-panel-surface text-xs font-medium"
+						className="h-9 rounded-[12px] border-panel-border bg-panel-surface text-xs font-medium"
 					>
 						{t("cancel")}
 					</Button>
@@ -172,7 +172,7 @@ export const UserQuickEditModal: FC = () => {
 						type="button"
 						onClick={save}
 						disabled={loading}
-						className="h-9 rounded-xl bg-panel-accent text-xs font-semibold text-white shadow-xs"
+						className="h-9 rounded-[12px] bg-panel-accent text-xs font-semibold text-white shadow-xs"
 					>
 						{t("save")}
 					</Button>

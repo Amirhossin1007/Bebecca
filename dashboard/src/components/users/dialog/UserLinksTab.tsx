@@ -40,7 +40,7 @@ export const UserLinksTab: FC<UserLinksTabProps> = ({ links, onOpenQr }) => {
 	return (
 		<div className="flex flex-col gap-4">
 			{subLinks.length > 0 && (
-				<div className="flex flex-col gap-2.5 rounded-2xl border border-panel-border bg-panel-surface p-4 shadow-xs">
+				<div className="flex flex-col gap-2.5 rounded-[14px] border border-panel-border bg-panel-surface/60 p-4 shadow-xs">
 					<div className="flex items-center justify-between pb-2 border-b border-panel-border/60">
 						<span className="text-xs font-semibold text-panel-text uppercase tracking-wider">
 							{t("userDialog.links.subscription")}
@@ -57,7 +57,7 @@ export const UserLinksTab: FC<UserLinksTabProps> = ({ links, onOpenQr }) => {
 						{subLinks.map((item) => (
 							<div
 								key={item.key}
-								className="flex items-center justify-between gap-3 rounded-xl border border-panel-border bg-panel-card p-2.5"
+								className="flex items-center justify-between gap-3 rounded-[10px] border border-panel-border bg-panel-card p-2.5"
 							>
 								<div className="min-w-0 flex-1">
 									<p className="text-xs font-medium text-panel-text truncate">
@@ -74,7 +74,7 @@ export const UserLinksTab: FC<UserLinksTabProps> = ({ links, onOpenQr }) => {
 									<button
 										type="button"
 										onClick={() => handleCopy(item.key, item.url)}
-										className="flex size-7 items-center justify-center rounded-lg border border-panel-border/70 bg-panel-surface text-panel-text-secondary transition-colors min-[769px]:hover:border-panel-accent min-[769px]:hover:text-panel-accent cursor-pointer active:scale-95"
+										className="flex size-7 items-center justify-center rounded-[8px] border border-panel-border/70 bg-panel-surface text-panel-text-secondary transition-colors min-[769px]:hover:border-panel-accent min-[769px]:hover:text-panel-accent cursor-pointer active:scale-95"
 									>
 										{copiedKey === item.key ? (
 											<Check className="size-3.5 text-emerald-500" />
@@ -85,7 +85,7 @@ export const UserLinksTab: FC<UserLinksTabProps> = ({ links, onOpenQr }) => {
 									<button
 										type="button"
 										onClick={() => onOpenQr(item.url)}
-										className="flex size-7 items-center justify-center rounded-lg border border-panel-border/70 bg-panel-surface text-panel-text-secondary transition-colors min-[769px]:hover:border-panel-accent min-[769px]:hover:text-panel-accent cursor-pointer active:scale-95"
+										className="flex size-7 items-center justify-center rounded-[8px] border border-panel-border/70 bg-panel-surface text-panel-text-secondary transition-colors min-[769px]:hover:border-panel-accent min-[769px]:hover:text-panel-accent cursor-pointer active:scale-95"
 									>
 										<QrCode className="size-3.5" />
 									</button>
@@ -96,7 +96,7 @@ export const UserLinksTab: FC<UserLinksTabProps> = ({ links, onOpenQr }) => {
 				</div>
 			)}
 
-			<div className="flex flex-col gap-2.5 rounded-2xl border border-panel-border bg-panel-surface p-4 shadow-xs">
+			<div className="flex flex-col gap-2.5 rounded-[14px] border border-panel-border bg-panel-surface/60 p-4 shadow-xs">
 				<div className="flex items-center justify-between pb-2 border-b border-panel-border/60">
 					<span className="text-xs font-semibold text-panel-text uppercase tracking-wider">
 						{t("userDialog.links.configs")}
@@ -123,7 +123,7 @@ export const UserLinksTab: FC<UserLinksTabProps> = ({ links, onOpenQr }) => {
 						{configLinks.map((item) => (
 							<div
 								key={item.key}
-								className="flex items-center justify-between gap-3 rounded-xl border border-panel-border bg-panel-card p-2.5"
+								className="flex items-center justify-between gap-3 rounded-[10px] border border-panel-border bg-panel-card p-2.5"
 							>
 								<div className="min-w-0 flex-1">
 									<p className="text-xs font-medium text-panel-text truncate">

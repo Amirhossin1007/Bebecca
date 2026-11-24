@@ -32,37 +32,49 @@ export const UserUsageTab: FC<UserUsageTabProps> = ({
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-				<div className="rounded-xl border border-panel-border bg-panel-surface p-3">
+				<div className="rounded-[12px] border border-panel-border bg-panel-surface/60 p-3">
 					<p className="text-[11px] font-medium text-panel-text-secondary">
 						{t("usersTable.traffic")}
 					</p>
-					<p className="mt-1 text-sm font-bold text-panel-text font-mono tabular-nums">
+					<p
+						dir="ltr"
+						className="mt-1 text-sm font-bold text-panel-text font-mono tabular-nums [unicode-bidi:isolate] text-start"
+					>
 						{formatBytes(user.used_traffic, 2)}
 					</p>
 				</div>
-				<div className="rounded-xl border border-panel-border bg-panel-surface p-3">
+				<div className="rounded-[12px] border border-panel-border bg-panel-surface/60 p-3">
 					<p className="text-[11px] font-medium text-panel-text-secondary">
 						{t("usersTable.remainingTraffic")}
 					</p>
-					<p className="mt-1 text-sm font-bold text-panel-text font-mono tabular-nums">
+					<p
+						dir="ltr"
+						className="mt-1 text-sm font-bold text-panel-text font-mono tabular-nums [unicode-bidi:isolate] text-start"
+					>
 						{user.data_limit
 							? formatBytes(Math.max(0, user.data_limit - user.used_traffic), 2)
 							: t("userDialog.unlimited")}
 					</p>
 				</div>
-				<div className="rounded-xl border border-panel-border bg-panel-surface p-3">
+				<div className="rounded-[12px] border border-panel-border bg-panel-surface/60 p-3">
 					<p className="text-[11px] font-medium text-panel-text-secondary">
 						{t("usersTable.lifetimeUsage")}
 					</p>
-					<p className="mt-1 text-sm font-bold text-panel-text font-mono tabular-nums">
+					<p
+						dir="ltr"
+						className="mt-1 text-sm font-bold text-panel-text font-mono tabular-nums [unicode-bidi:isolate] text-start"
+					>
 						{formatBytes(user.lifetime_used_traffic ?? user.used_traffic, 2)}
 					</p>
 				</div>
-				<div className="rounded-xl border border-panel-border bg-panel-surface p-3">
+				<div className="rounded-[12px] border border-panel-border bg-panel-surface/60 p-3">
 					<p className="text-[11px] font-medium text-panel-text-secondary">
 						{t("userDialog.dataLimit")}
 					</p>
-					<p className="mt-1 text-sm font-bold text-panel-text font-mono tabular-nums">
+					<p
+						dir="ltr"
+						className="mt-1 text-sm font-bold text-panel-text font-mono tabular-nums [unicode-bidi:isolate] text-start"
+					>
 						{user.data_limit
 							? formatBytes(user.data_limit, 2)
 							: t("userDialog.unlimited")}
@@ -70,7 +82,7 @@ export const UserUsageTab: FC<UserUsageTabProps> = ({
 				</div>
 			</div>
 
-			<div className="rounded-2xl border border-panel-border bg-panel-surface p-4 shadow-xs">
+			<div className="rounded-[16px] border border-panel-border bg-panel-surface/60 p-4 shadow-xs">
 				<div className="flex items-center justify-between pb-3 border-b border-panel-border/60">
 					<h4 className="text-xs font-semibold text-panel-text">
 						{t("userDialog.usage")}
@@ -81,9 +93,9 @@ export const UserUsageTab: FC<UserUsageTabProps> = ({
 								key={period.key}
 								type="button"
 								onClick={() => onUsageFilterChange(period.key)}
-								className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+								className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors cursor-pointer touch-manipulation active:scale-[0.98] ${
 									usageFilter === period.key
-										? "bg-panel-accent text-white"
+										? "bg-panel-accent text-white shadow-xs"
 										: "text-panel-text-secondary min-[769px]:hover:text-panel-text"
 								}`}
 							>

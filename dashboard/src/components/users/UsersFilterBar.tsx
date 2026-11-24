@@ -226,7 +226,7 @@ export const UsersFilterBar: FC = () => {
 							<TooltipContent>{t("users.searchHelp")}</TooltipContent>
 						</Tooltip>
 					}
-					className="h-9 rounded-xl border border-panel-border bg-panel-surface px-3 text-xs text-panel-text transition-colors focus-visible:border-panel-accent focus-visible:bg-panel-surface"
+					className="h-9 rounded-[12px] border border-panel-border bg-panel-surface px-3 text-xs text-panel-text transition-colors focus-visible:border-panel-accent focus-visible:bg-panel-surface"
 				/>
 				<DataTableSortMenu
 					options={userSortOptions}
@@ -241,7 +241,7 @@ export const UsersFilterBar: FC = () => {
 								variant="outline"
 								size="sm"
 								className={cn(
-									"size-9 rounded-xl border border-panel-border bg-panel-surface p-0 text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-accent active:scale-[0.98] touch-manipulation",
+									"size-9 rounded-[12px] border border-panel-border bg-panel-surface p-0 text-panel-text transition-colors min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-accent active:scale-[0.98] touch-manipulation",
 									hasClearableFilters && "border-panel-accent text-panel-accent",
 								)}
 							>
@@ -256,7 +256,7 @@ export const UsersFilterBar: FC = () => {
 					</PopoverTrigger>
 					<PopoverContent
 						collisionPadding={12}
-						className="w-[320px] rounded-2xl border border-panel-border bg-panel-elevated p-4 shadow-2xl z-[2000]"
+						className="w-[320px] rounded-[16px] border border-panel-border bg-panel-card p-4 shadow-xl z-[2000]"
 					>
 						<div className="flex items-center justify-between pb-3 border-b border-panel-border/60">
 							<span className="text-xs font-semibold text-panel-text">
@@ -373,7 +373,7 @@ export const UsersCreateButton: FC = () => {
 			type="button"
 			aria-label={t("createUser")}
 			onClick={() => onCreateUser(true)}
-			className="h-9 shrink-0 gap-1.5 rounded-xl bg-panel-accent px-3.5 text-xs font-semibold text-white shadow-xs transition-colors min-[769px]:hover:bg-panel-accent/90 active:scale-[0.98] touch-manipulation whitespace-nowrap"
+			className="h-9 shrink-0 gap-1.5 rounded-[12px] bg-panel-accent px-3.5 text-xs font-semibold text-white shadow-xs transition-colors min-[769px]:hover:bg-panel-accent/90 active:scale-[0.98] touch-manipulation whitespace-nowrap"
 		>
 			<Plus className="size-4" />
 			<span>{t("createUser")}</span>

@@ -24,7 +24,7 @@ export const UserAutoRenewFields: FC<UserAutoRenewFieldsProps> = ({
 	const fireOnEither = form.watch("next_plan_fire_on_either");
 
 	return (
-		<div className="flex flex-col rounded-2xl border border-panel-border bg-panel-surface shadow-xs overflow-hidden transition-all">
+		<div className="flex flex-col rounded-[14px] border border-panel-border bg-panel-surface/60 shadow-xs overflow-hidden transition-all">
 			<button
 				type="button"
 				onClick={() => setIsOpen((prev) => !prev)}

@@ -91,12 +91,12 @@ export function UsersOverviewBand({
 			className={cn("flex flex-col gap-3", bare ? "p-0" : "w-full")}
 			aria-label={t("usersStatusBreakdown")}
 		>
-			<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+			<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				<button
 					type="button"
 					onClick={() => onSelect({ kind: "all" })}
 					className={cn(
-						"flex flex-col justify-between gap-3 rounded-[18px] border bg-panel-surface p-4 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation",
+						"flex flex-col justify-between gap-2.5 rounded-[16px] border bg-panel-surface p-3.5 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-panel-accent/50",
 						!selection.status && !selection.online && !selection.usage
 							? "border-panel-accent shadow-xs ring-1 ring-panel-accent/30"
 							: "border-panel-border",
@@ -111,8 +111,8 @@ export function UsersOverviewBand({
 						</div>
 					</div>
 
-					<div className="flex items-baseline gap-2">
-						<span className="text-2xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-3xl">
+					<div className="flex items-baseline gap-1.5 flex-wrap">
+						<span className="text-xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-2xl">
 							{count(total, locale)}
 						</span>
 						{usersLimit ? (
@@ -135,7 +135,7 @@ export function UsersOverviewBand({
 					type="button"
 					onClick={() => onSelect({ kind: "online" })}
 					className={cn(
-						"flex flex-col justify-between gap-3 rounded-[18px] border bg-panel-surface p-4 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation",
+						"flex flex-col justify-between gap-2.5 rounded-[16px] border bg-panel-surface p-3.5 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-panel-accent/50",
 						selection.online
 							? "border-panel-accent shadow-xs ring-1 ring-panel-accent/30"
 							: "border-panel-border",
@@ -151,7 +151,7 @@ export function UsersOverviewBand({
 					</div>
 
 					<div className="flex items-baseline gap-2">
-						<span className="text-2xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-3xl">
+						<span className="text-xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-2xl">
 							{count(online, locale)}
 						</span>
 						<span className="inline-block size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
@@ -166,7 +166,7 @@ export function UsersOverviewBand({
 					type="button"
 					onClick={() => onSelect({ kind: "status", status: "active" })}
 					className={cn(
-						"flex flex-col justify-between gap-3 rounded-[18px] border bg-panel-surface p-4 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation",
+						"flex flex-col justify-between gap-2.5 rounded-[16px] border bg-panel-surface p-3.5 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-panel-accent/50",
 						selection.status === "active"
 							? "border-panel-accent shadow-xs ring-1 ring-panel-accent/30"
 							: "border-panel-border",
@@ -181,8 +181,8 @@ export function UsersOverviewBand({
 						</div>
 					</div>
 
-					<div className="flex items-baseline gap-2">
-						<span className="text-2xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-3xl">
+					<div className="flex items-baseline gap-1.5 flex-wrap">
+						<span className="text-xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-2xl">
 							{count(activeCount, locale)}
 						</span>
 						<span className="text-xs font-medium tabular-nums text-panel-text-muted [unicode-bidi:isolate]">
@@ -199,7 +199,7 @@ export function UsersOverviewBand({
 					type="button"
 					onClick={() => onSelect({ kind: "usage" })}
 					className={cn(
-						"flex flex-col justify-between gap-3 rounded-[18px] border bg-panel-surface p-4 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation",
+						"flex flex-col justify-between gap-2.5 rounded-[16px] border bg-panel-surface p-3.5 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-panel-accent/50",
 						selection.usage
 							? "border-panel-accent shadow-xs ring-1 ring-panel-accent/30"
 							: "border-panel-border",
@@ -217,7 +217,7 @@ export function UsersOverviewBand({
 					<div>
 						<span
 							dir="ltr"
-							className="block text-2xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-3xl text-start"
+							className="block text-xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-2xl text-start"
 						>
 							{usage === null ? "—" : formatBytes(usage, 1)}
 						</span>
@@ -243,7 +243,7 @@ export function UsersOverviewBand({
 							type="button"
 							onClick={() => onSelect({ kind: "status", status: key })}
 							className={cn(
-								"inline-flex items-center gap-1.5 rounded-[10px] border px-2.5 py-1 text-xs font-medium transition-all cursor-pointer active:scale-[0.98] touch-manipulation",
+								"inline-flex items-center gap-1.5 rounded-[10px] border px-2.5 py-1 text-xs font-medium transition-all cursor-pointer active:scale-[0.98] touch-manipulation focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-panel-accent/50",
 								isSelected
 									? "border-panel-accent bg-panel-accent text-white shadow-xs"
 									: "bg-panel-surface border-panel-border text-panel-text min-[769px]:hover:bg-panel-elevated",

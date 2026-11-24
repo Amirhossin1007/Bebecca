@@ -62,14 +62,11 @@ export const UserLimitsFields: FC<UserLimitsFieldsProps> = ({
 	};
 
 	return (
-		<div className="flex flex-col gap-3.5 rounded-2xl border border-panel-border bg-panel-surface p-4 shadow-xs">
-			<div className="flex items-center justify-between pb-2 border-b border-panel-border/60">
-				<div className="flex items-center gap-2">
-					<span className="size-2 rounded-full bg-panel-accent" />
-					<h4 className="text-xs font-semibold text-panel-text uppercase tracking-wider">
-						{t("userDialog.limits")}
-					</h4>
-				</div>
+		<div className="flex flex-col gap-3.5 pb-4 border-b border-panel-border/60">
+			<div className="flex items-center justify-between pb-1">
+				<h4 className="text-xs font-semibold text-panel-text uppercase tracking-wider">
+					{t("userDialog.limits")}
+				</h4>
 
 				<div className="flex items-center rounded-xl border border-panel-border bg-panel-card p-0.5">
 					<button

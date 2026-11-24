@@ -87,7 +87,7 @@ export const UserIPsDialog: FC<UserIPsDialogProps> = ({
 							{records.map((r, i) => (
 								<div
 									key={`${r.ip}-${i}`}
-									className="flex items-center justify-between rounded-xl border border-panel-border bg-panel-surface p-2.5 text-xs font-mono"
+									className="flex items-center justify-between rounded-[12px] border border-panel-border bg-panel-surface p-2.5 text-xs font-mono"
 								>
 									<span className="font-semibold text-panel-text select-all">
 										{r.ip}
@@ -107,7 +107,7 @@ export const UserIPsDialog: FC<UserIPsDialogProps> = ({
 							type="button"
 							variant="outline"
 							onClick={handleCopyAll}
-							className="h-8 gap-1.5 rounded-xl border-panel-border bg-panel-surface text-xs font-medium"
+							className="h-8 gap-1.5 rounded-[12px] border-panel-border bg-panel-surface text-xs font-medium"
 						>
 							{copied ? (
 								<Check className="size-3.5 text-emerald-500" />
@@ -121,7 +121,7 @@ export const UserIPsDialog: FC<UserIPsDialogProps> = ({
 						type="button"
 						variant="outline"
 						onClick={onClose}
-						className="h-8 ms-auto rounded-xl border-panel-border bg-panel-surface text-xs font-medium"
+						className="h-8 ms-auto rounded-[12px] border-panel-border bg-panel-surface text-xs font-medium"
 					>
 						{t("close")}
 					</Button>

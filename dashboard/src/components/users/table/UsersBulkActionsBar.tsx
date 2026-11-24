@@ -142,9 +142,9 @@ export const UsersBulkActionsBar: FC<UsersBulkActionsBarProps> = ({
 
 	return (
 		<>
-			<div className="fixed inset-x-4 bottom-6 z-40 mx-auto flex max-w-2xl items-center justify-between gap-3 rounded-2xl border border-panel-border bg-panel-surface p-3 shadow-2xl sm:bottom-8 sm:px-4">
+			<div className="fixed inset-x-4 bottom-6 z-40 mx-auto flex max-w-2xl items-center justify-between gap-3 rounded-[20px] border border-panel-border bg-panel-surface p-3 shadow-xl sm:bottom-8 sm:px-4">
 				<div className="flex items-center gap-2">
-					<span className="flex size-7 items-center justify-center rounded-xl bg-panel-accent text-xs font-bold text-white shadow-xs">
+					<span className="flex size-7 items-center justify-center rounded-[10px] bg-panel-accent text-xs font-bold text-white shadow-xs">
 						{count}
 					</span>
 					<span className="hidden text-xs font-semibold text-panel-text sm:inline">
@@ -160,7 +160,7 @@ export const UsersBulkActionsBar: FC<UsersBulkActionsBarProps> = ({
 							size="sm"
 							disabled={actionLoading}
 							onClick={handleBulkDisable}
-							className="h-8 gap-1 rounded-xl border-panel-border bg-panel-card px-2.5 text-xs font-medium"
+							className="h-8 gap-1.5 rounded-[12px] border-panel-border bg-panel-card px-2.5 text-xs font-medium transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
 						>
 							<Ban className="size-3.5 text-amber-500" />
 							<span className="hidden sm:inline">
@@ -176,7 +176,7 @@ export const UsersBulkActionsBar: FC<UsersBulkActionsBarProps> = ({
 							size="sm"
 							disabled={actionLoading}
 							onClick={handleBulkEnable}
-							className="h-8 gap-1 rounded-xl border-panel-border bg-panel-card px-2.5 text-xs font-medium"
+							className="h-8 gap-1.5 rounded-[12px] border-panel-border bg-panel-card px-2.5 text-xs font-medium transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
 						>
 							<Check className="size-3.5 text-emerald-500" />
 							<span className="hidden sm:inline">
@@ -192,7 +192,7 @@ export const UsersBulkActionsBar: FC<UsersBulkActionsBarProps> = ({
 							size="sm"
 							disabled={actionLoading}
 							onClick={handleBulkReset}
-							className="h-8 gap-1 rounded-xl border-panel-border bg-panel-card px-2.5 text-xs font-medium"
+							className="h-8 gap-1.5 rounded-[12px] border-panel-border bg-panel-card px-2.5 text-xs font-medium transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
 						>
 							<RefreshCw className="size-3.5 text-blue-500" />
 							<span className="hidden sm:inline">
@@ -208,7 +208,7 @@ export const UsersBulkActionsBar: FC<UsersBulkActionsBarProps> = ({
 							size="sm"
 							disabled={actionLoading}
 							onClick={handleBulkRevoke}
-							className="h-8 gap-1 rounded-xl border-panel-border bg-panel-card px-2.5 text-xs font-medium"
+							className="h-8 gap-1.5 rounded-[12px] border-panel-border bg-panel-card px-2.5 text-xs font-medium transition-colors min-[769px]:hover:bg-panel-elevated active:scale-[0.98] touch-manipulation"
 						>
 							<Unlink className="size-3.5 text-purple-500" />
 							<span className="hidden sm:inline">
@@ -224,7 +224,7 @@ export const UsersBulkActionsBar: FC<UsersBulkActionsBarProps> = ({
 							size="sm"
 							disabled={actionLoading}
 							onClick={() => setConfirmDeleteOpen(true)}
-							className="h-8 gap-1 rounded-xl border-red-500/30 bg-red-500/10 px-2.5 text-xs font-medium text-red-500 min-[769px]:hover:bg-red-500/20"
+							className="h-8 gap-1.5 rounded-[12px] border-red-500/30 bg-red-500/10 px-2.5 text-xs font-medium text-red-500 min-[769px]:hover:bg-red-500/20 active:scale-[0.98] touch-manipulation"
 						>
 							<Trash2 className="size-3.5" />
 							<span className="hidden sm:inline">{t("delete")}</span>
@@ -235,7 +235,7 @@ export const UsersBulkActionsBar: FC<UsersBulkActionsBarProps> = ({
 				<button
 					type="button"
 					onClick={onClearSelection}
-					className="flex size-7 items-center justify-center rounded-xl border border-panel-border/70 text-panel-text-secondary transition-colors min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text cursor-pointer active:scale-95"
+					className="flex size-7 items-center justify-center rounded-[10px] border border-panel-border/70 text-panel-text-secondary transition-colors min-[769px]:hover:bg-panel-elevated min-[769px]:hover:text-panel-text cursor-pointer active:scale-95 touch-manipulation"
 					title={t("clear")}
 				>
 					<X className="size-3.5" />

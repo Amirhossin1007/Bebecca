@@ -35,14 +35,11 @@ export const UserBasicFields: FC<UserBasicFieldsProps> = ({
 	const userStatus = form.watch("status");
 
 	return (
-		<div className="flex flex-col gap-3.5 rounded-2xl border border-panel-border bg-panel-surface p-4 shadow-xs">
-			<div className="flex items-center justify-between pb-2 border-b border-panel-border/60">
-				<div className="flex items-center gap-2">
-					<span className="size-2 rounded-full bg-panel-accent" />
-					<h4 className="text-xs font-semibold text-panel-text uppercase tracking-wider">
-						{t("userDialog.basicInfo")}
-					</h4>
-				</div>
+		<div className="flex flex-col gap-3.5 pb-4 border-b border-panel-border/60">
+			<div className="flex items-center justify-between pb-1">
+				<h4 className="text-xs font-semibold text-panel-text uppercase tracking-wider">
+					{t("userDialog.basicInfo")}
+				</h4>
 				{isEditing && (
 					<div className="flex items-center gap-2">
 						<Badge
@@ -94,7 +91,7 @@ export const UserBasicFields: FC<UserBasicFieldsProps> = ({
 								disabled={disabled || isEditing}
 								aria-invalid={Boolean(errors.username)}
 								className={cn(
-									"h-9 rounded-xl border border-panel-border bg-panel-card text-xs font-medium text-panel-text transition-colors",
+									"h-9 rounded-[12px] border border-panel-border bg-panel-card text-xs font-medium text-panel-text transition-colors",
 									!isEditing && "pe-9",
 								)}
 								{...form.register("username")}
@@ -125,7 +122,7 @@ export const UserBasicFields: FC<UserBasicFieldsProps> = ({
 							id="user-note"
 							placeholder={t("userDialog.optional")}
 							disabled={disabled}
-							className="h-9 rounded-xl border border-panel-border bg-panel-card text-xs text-panel-text placeholder:text-panel-text-muted"
+							className="h-9 rounded-[12px] border border-panel-border bg-panel-card text-xs text-panel-text placeholder:text-panel-text-muted"
 							{...form.register("note")}
 						/>
 					</FormField>
