@@ -33,6 +33,21 @@ export const UserExpandedDetail: FC<UserExpandedDetailProps> = ({
 		setTimeout(() => setCopiedKey(null), 2000);
 	};
 
+	const getResetStrategyLabel = (strategy: string | null | undefined) => {
+		switch (strategy) {
+			case "day":
+				return t("userDialog.resetStrategyDaily");
+			case "week":
+				return t("userDialog.resetStrategyWeekly");
+			case "month":
+				return t("userDialog.resetStrategyMonthly");
+			case "year":
+				return t("userDialog.resetStrategyAnnually");
+			default:
+				return t("userDialog.resetStrategyNo");
+		}
+	};
+
 	return (
 		<div className="flex flex-col gap-4 rounded-[16px] border border-panel-border/70 bg-panel-elevated/25 p-4 sm:p-5">
 			<div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-5 text-xs">
@@ -65,30 +80,48 @@ export const UserExpandedDetail: FC<UserExpandedDetailProps> = ({
 
 				<div className="flex flex-col gap-1">
 					<span className="text-[11px] font-medium text-panel-text-muted">
-						{t("userDialog.speedLimit")}
+						{t("bulkActions.delete.lastOnline")}
 					</span>
-					<span dir="ltr" className="font-mono font-medium text-panel-text tabular-nums [unicode-bidi:isolate] text-start">
-						{user.speed_limit ? `${user.speed_limit} Mbps` : t("userDialog.unlimited")}
+					<span className="font-medium text-panel-text tabular-nums [unicode-bidi:isolate]">
+						{user.online_at ? formatDateTime(user.online_at, locale) : "—"}
 					</span>
 				</div>
 
 				<div className="flex flex-col gap-1">
 					<span className="text-[11px] font-medium text-panel-text-muted">
-						{t("userDialog.ipLimit")}
+						{t("USERDIALOG.RESET_TRAFFIC_PERIODIC", "Reset Strategy")}
 					</span>
-					<span className="font-medium text-panel-text tabular-nums [unicode-bidi:isolate]">
-						{user.ip_limit ? user.ip_limit : t("userDialog.unlimited")}
+					<span className="font-medium text-panel-text">
+						{getResetStrategyLabel(user.data_limit_reset_strategy)}
 					</span>
 				</div>
 
-				{user.note && (
-					<div className="col-span-full flex flex-col gap-1 pt-1 border-t border-panel-border/40">
+				{user.group?.name && (
+					<div className="flex flex-col gap-1">
 						<span className="text-[11px] font-medium text-panel-text-muted">
-							{t("userDialog.note")}
+							{t("labels.group")}
 						</span>
-						<p className="text-xs text-panel-text whitespace-pre-wrap">
-							{user.note}
-						</p>
+						<span className="font-medium text-panel-text">
+							{user.group.name}
+						</span>
+					</div>
+				)}
+
+				{user.tags && user.tags.length > 0 && (
+					<div className="flex flex-col gap-1 col-span-2">
+						<span className="text-[11px] font-medium text-panel-text-muted">
+							{t("labels.tags")}
+						</span>
+						<div className="flex flex-wrap gap-1">
+							{user.tags.map((tag) => (
+								<span
+									key={tag}
+									className="inline-flex items-center rounded-md bg-panel-elevated px-1.5 py-0.5 text-[10px] font-medium text-panel-text-secondary border border-panel-border/50"
+								>
+									{tag}
+								</span>
+							))}
+						</div>
 					</div>
 				)}
 			</div>
