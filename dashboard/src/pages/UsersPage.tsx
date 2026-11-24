@@ -6,7 +6,6 @@ import { Dialog, DialogContent } from "components/ui/dialog";
 import { toast } from "components/ui/sonner";
 import { UsersCreateButton, UsersFilterBar } from "components/users";
 import { RefreshSplitButton } from "components/users/RefreshSplitButton";
-import { UsersOverviewBand } from "components/users/UsersOverviewBand";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import useGetUser from "hooks/useGetUser";
 import { cn } from "lib/cn";
@@ -23,10 +22,6 @@ import {
 import { Trans, useTranslation } from "react-i18next";
 import { fetch } from "service/http";
 import { AdminStatus } from "types/Admin";
-import {
-	nextUsersFiltersForOverview,
-	usersOverviewSelection,
-} from "utils/usersOverview";
 
 const UserDialog = lazy(async () => ({
 	default: (await import("components/UserDialog")).UserDialog,
@@ -299,34 +294,11 @@ export const UsersPage: FC = () => {
 		);
 	}
 
-	const breakdown = (usersResponse.status_breakdown ?? {}) as Partial<
-		Record<"active" | "expired" | "limited" | "on_hold" | "disabled", number>
-	>;
-	const resolvedActive =
-		breakdown.active !== undefined && breakdown.active > 0
-			? breakdown.active
-			: usersResponse.active_total ?? breakdown.active ?? 0;
-
 	return (
 		<div
 			dir={isRTL ? "rtl" : "ltr"}
 			className="flex flex-col gap-4 items-stretch w-full"
 		>
-			<UsersOverviewBand
-				selection={usersOverviewSelection(filters)}
-				onSelect={(target) =>
-					onFilterChange(nextUsersFiltersForOverview(filters, target))
-				}
-				total={usersResponse.total ?? 0}
-				usersLimit={usersResponse.users_limit ?? null}
-				active={resolvedActive}
-				online={usersResponse.online_total ?? 0}
-				usage={usersResponse.usage_total ?? 0}
-				usageLabel={t("usersTable.listUsage")}
-				breakdown={breakdown}
-				locale={locale}
-			/>
-
 			<UsersTable
 				toolbar={<UsersFilterBar />}
 				headerActions={
