@@ -1,8 +1,19 @@
-import { useTranslation } from "react-i18next";
 import { cn } from "lib/cn";
+import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { formatBytes } from "utils/formatByte";
-import type { UsersOverviewSelection, UsersOverviewTarget } from "utils/usersOverview";
-import { Users, Wifi, Activity, HardDrive } from "lucide-react";
+import type {
+	UsersOverviewSelection,
+	UsersOverviewTarget,
+} from "utils/usersOverview";
+
+const count = (value: number | null | undefined, locale: string) =>
+	value === null || value === undefined
+		? "—"
+		: new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
+
+const percent = (value: number, locale: string) =>
+	new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
 
 export type OverviewStatusKey =
 	| "active"
@@ -33,39 +44,44 @@ const STATUS_ORDER: OverviewStatusKey[] = [
 	"disabled",
 ];
 
-const STATUS_CONFIG: Record<
-	OverviewStatusKey,
-	{ dot: string; text: string }
-> = {
-	active: {
-		dot: "bg-emerald-500",
-		text: "text-emerald-600 dark:text-emerald-400",
-	},
-	expired: {
-		dot: "bg-red-500",
-		text: "text-red-600 dark:text-red-400",
-	},
-	limited: {
-		dot: "bg-amber-500",
-		text: "text-amber-600 dark:text-amber-400",
-	},
-	on_hold: {
-		dot: "bg-purple-500",
-		text: "text-purple-600 dark:text-purple-400",
-	},
-	disabled: {
-		dot: "bg-panel-text-muted/60",
-		text: "text-panel-text-muted",
-	},
+const STATUS_TONE: Record<OverviewStatusKey, string> = {
+	active: "bg-panel-success",
+	expired: "bg-panel-danger",
+	limited: "bg-panel-warning",
+	on_hold: "bg-panel-info",
+	disabled: "bg-panel-text-muted/60",
 };
 
-const count = (value: number | null | undefined, locale: string) =>
-	value === null || value === undefined
-		? "—"
-		: new Intl.NumberFormat(locale || "en", { maximumFractionDigits: 0 }).format(value);
+type OverviewLinkProps = {
+	label: string;
+	active?: boolean;
+	onSelect: () => void;
+	className?: string;
+	children: ReactNode;
+};
 
-const percent = (value: number, locale: string) =>
-	new Intl.NumberFormat(locale || "en", { maximumFractionDigits: 0 }).format(value);
+const OverviewLink = ({
+	label,
+	active = false,
+	onSelect,
+	className,
+	children,
+}: OverviewLinkProps) => (
+	<button
+		type="button"
+		aria-label={label}
+		aria-pressed={active}
+		title={label}
+		onClick={onSelect}
+		className={cn(
+			"cursor-pointer text-start underline decoration-panel-text-muted/60 underline-offset-4 transition-colors min-[769px]:hover:text-panel-accent min-[769px]:hover:decoration-panel-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-panel-accent rounded-sm",
+			active && "text-panel-accent decoration-panel-accent",
+			className,
+		)}
+	>
+		{children}
+	</button>
+);
 
 export function UsersOverviewBand({
 	total,
@@ -81,185 +97,190 @@ export function UsersOverviewBand({
 	onSelect,
 }: UsersOverviewBandProps) {
 	const { t } = useTranslation();
-	const activeCount = (breakdown.active !== undefined && breakdown.active > 0) ? breakdown.active : (active || breakdown.active || 0);
-	const share = (value: number, of: number) => (of > 0 ? (value / of) * 100 : 0);
-	const limitPercent = usersLimit ? Math.min(100, share(total, usersLimit)) : null;
-	const avgUsage = usage !== null && total > 0 ? Math.round(usage / total) : 0;
+	const totals = STATUS_ORDER.reduce(
+		(sum, key) => sum + (breakdown[key] ?? 0),
+		0,
+	);
+	const share = (value: number, of: number) =>
+		of > 0 ? (value / of) * 100 : 0;
+	const limitPercent = usersLimit
+		? Math.min(100, share(total, usersLimit))
+		: null;
 
 	return (
 		<section
-			className={cn("flex flex-col gap-3", bare ? "p-0" : "w-full")}
+			className={
+				bare
+					? "grid grid-cols-2 gap-x-4 gap-y-4 p-4 md:grid-cols-[minmax(0,14rem)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,13rem)] md:gap-0"
+					: "grid grid-cols-2 gap-x-4 gap-y-4 rounded-xl border border-panel-border bg-panel-surface p-4 md:grid-cols-[minmax(0,14rem)_minmax(0,0.9fr)_minmax(0,1.2fr)_minmax(0,13rem)] md:gap-0"
+			}
 			aria-label={t("usersStatusBreakdown")}
 		>
-			<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-				<button
-					type="button"
-					onClick={() => onSelect({ kind: "all" })}
-					className={cn(
-						"flex flex-col justify-between gap-2.5 rounded-[16px] border bg-panel-surface p-3.5 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-panel-accent/50",
-						!selection.status && !selection.online && !selection.usage
-							? "border-panel-accent shadow-xs ring-1 ring-panel-accent/30"
-							: "border-panel-border",
-					)}
-				>
-					<div className="flex items-center justify-between gap-2">
-						<span className="text-xs font-medium text-panel-text-muted">
-							{t("usersTable.total")}
-						</span>
-						<div className="flex size-7 items-center justify-center rounded-[9px] bg-panel-elevated text-panel-text-secondary">
-							<Users className="size-3.5" />
-						</div>
-					</div>
-
-					<div className="flex items-baseline gap-1.5 flex-wrap">
-						<span className="text-xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-2xl">
+			<div className="order-1 col-span-1 flex flex-col justify-between gap-2 md:pe-6">
+				<span className="text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-panel-text-muted">
+					{t("usersTable.total")}
+				</span>
+				<div>
+					<div className="flex items-baseline gap-2">
+						<OverviewLink
+							label={t("usersTable.total")}
+							onSelect={() => onSelect({ kind: "all" })}
+							className="rb-tabular text-[1.75rem] font-semibold leading-none tracking-tight text-panel-text"
+						>
 							{count(total, locale)}
-						</span>
+						</OverviewLink>
 						{usersLimit ? (
-							<span className="text-xs font-medium tabular-nums text-panel-text-muted [unicode-bidi:isolate]">
+							<span className="rb-tabular text-xs text-panel-text-muted">
 								/ {count(usersLimit, locale)}
 							</span>
 						) : null}
 					</div>
-
-					<div className="text-[11px] tabular-nums text-panel-text-muted [unicode-bidi:isolate]">
-						{limitPercent !== null ? (
-							<span>{percent(limitPercent, locale)}% {t("capacity")}</span>
-						) : (
-							<span>{t("usersTable.total")}</span>
-						)}
-					</div>
-				</button>
-
-				<button
-					type="button"
-					onClick={() => onSelect({ kind: "online" })}
-					className={cn(
-						"flex flex-col justify-between gap-2.5 rounded-[16px] border bg-panel-surface p-3.5 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-panel-accent/50",
-						selection.online
-							? "border-panel-accent shadow-xs ring-1 ring-panel-accent/30"
-							: "border-panel-border",
-					)}
-				>
-					<div className="flex items-center justify-between gap-2">
-						<span className="text-xs font-medium text-panel-text-muted">
-							{t("onlineStatus.online")}
-						</span>
-						<div className="flex size-7 items-center justify-center rounded-[9px] bg-emerald-500/10 text-emerald-500">
-							<Wifi className="size-3.5" />
+					{limitPercent !== null ? (
+						<div className="mt-2 space-y-1">
+							<div className="h-1 overflow-hidden rounded-full bg-panel-border">
+								<div
+									className="h-full rounded-full bg-panel-accent transition-[width] duration-500"
+									style={{ width: `${limitPercent}%` }}
+								/>
+							</div>
+							<p className="rb-tabular flex items-baseline gap-1 text-[0.625rem] text-panel-text-muted">
+								<span>{percent(limitPercent, locale)}%</span>
+								<span>/</span>
+								<span>{count(usersLimit, locale)}</span>
+							</p>
 						</div>
-					</div>
-
-					<div className="flex items-baseline gap-2">
-						<span className="text-xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-2xl">
-							{count(online, locale)}
-						</span>
-						<span className="inline-block size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-					</div>
-
-					<div className="text-[11px] tabular-nums text-panel-text-muted [unicode-bidi:isolate]">
-						<span>{percent(share(online, total || 1), locale)}% {t("onlineStatus.online")}</span>
-					</div>
-				</button>
-
-				<button
-					type="button"
-					onClick={() => onSelect({ kind: "status", status: "active" })}
-					className={cn(
-						"flex flex-col justify-between gap-2.5 rounded-[16px] border bg-panel-surface p-3.5 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-panel-accent/50",
-						selection.status === "active"
-							? "border-panel-accent shadow-xs ring-1 ring-panel-accent/30"
-							: "border-panel-border",
+					) : (
+						<p className="mt-2 text-[0.625rem] text-panel-text-muted">
+							{t("users")}
+						</p>
 					)}
-				>
-					<div className="flex items-center justify-between gap-2">
-						<span className="text-xs font-medium text-panel-text-muted">
-							{t("status.active")}
-						</span>
-						<div className="flex size-7 items-center justify-center rounded-[9px] bg-emerald-500/10 text-emerald-500">
-							<Activity className="size-3.5" />
-						</div>
-					</div>
-
-					<div className="flex items-baseline gap-1.5 flex-wrap">
-						<span className="text-xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-2xl">
-							{count(activeCount, locale)}
-						</span>
-						<span className="text-xs font-medium tabular-nums text-panel-text-muted [unicode-bidi:isolate]">
-							/ {count(total, locale)}
-						</span>
-					</div>
-
-					<div className="text-[11px] tabular-nums text-panel-text-muted [unicode-bidi:isolate]">
-						<span>{percent(share(activeCount, total || 1), locale)}% {t("status.active")}</span>
-					</div>
-				</button>
-
-				<button
-					type="button"
-					onClick={() => onSelect({ kind: "usage" })}
-					className={cn(
-						"flex flex-col justify-between gap-2.5 rounded-[16px] border bg-panel-surface p-3.5 text-start transition-all cursor-pointer min-[769px]:hover:border-panel-accent/40 active:scale-[0.99] touch-manipulation focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-panel-accent/50",
-						selection.usage
-							? "border-panel-accent shadow-xs ring-1 ring-panel-accent/30"
-							: "border-panel-border",
-					)}
-				>
-					<div className="flex items-center justify-between gap-2">
-						<span className="text-xs font-medium text-panel-text-muted">
-							{usageLabel ?? t("usersTable.listUsage")}
-						</span>
-						<div className="flex size-7 items-center justify-center rounded-[9px] bg-panel-elevated text-panel-text-secondary">
-							<HardDrive className="size-3.5" />
-						</div>
-					</div>
-
-					<div>
-						<span
-							dir="ltr"
-							className="block text-xl font-bold tabular-nums tracking-tight text-panel-text [unicode-bidi:isolate] sm:text-2xl text-start"
-						>
-							{usage === null ? "—" : formatBytes(usage, 1)}
-						</span>
-					</div>
-
-					<div className="flex items-baseline gap-1 text-[11px] text-panel-text-muted">
-						<span>{t("average")}:</span>
-						<span dir="ltr" className="font-semibold text-panel-text tabular-nums [unicode-bidi:isolate]">
-							{formatBytes(avgUsage, 1)}
-						</span>
-					</div>
-				</button>
+				</div>
 			</div>
 
-			<div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-				{STATUS_ORDER.map((key) => {
-					const isSelected = selection.status === key;
-					const cfg = STATUS_CONFIG[key];
-					const val = breakdown[key] ?? 0;
-					return (
-						<button
-							key={key}
-							type="button"
-							onClick={() => onSelect({ kind: "status", status: key })}
-							className={cn(
-								"inline-flex items-center gap-1.5 rounded-[10px] border px-2.5 py-1 text-xs font-medium transition-all cursor-pointer active:scale-[0.98] touch-manipulation focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-panel-accent/50",
-								isSelected
-									? "border-panel-accent bg-panel-accent text-white shadow-xs"
-									: "bg-panel-surface border-panel-border text-panel-text min-[769px]:hover:bg-panel-elevated",
-							)}
-						>
+			<div className="order-3 col-span-2 grid grid-cols-2 content-start gap-x-4 gap-y-3 border-t border-panel-border! pt-4 md:order-2 md:col-span-1 md:flex md:flex-col md:justify-between md:gap-3 md:border-s md:border-t-0 md:px-6 md:pt-0">
+				{[
+					{
+						key: "online",
+						label: t("onlineStatus.online"),
+						value: online,
+						tone: "bg-panel-accent",
+					},
+					{
+						key: "active",
+						label: t("status.active"),
+						value: active,
+						tone: "bg-panel-success",
+					},
+				].map((row) => (
+					<OverviewLink
+						key={row.key}
+						label={row.label}
+						active={
+							row.key === "online"
+								? selection.online
+								: selection.status === "active"
+						}
+						onSelect={() =>
+							onSelect(
+								row.key === "online"
+									? { kind: "online" }
+									: { kind: "status", status: "active" },
+							)
+						}
+						className="block w-full"
+					>
+						<div className="flex items-center gap-1.5">
+							<span className={`size-1.5 rounded-full ${row.tone}`} />
+							<span className="text-[0.6875rem] font-medium uppercase tracking-[0.08em] text-panel-text-muted">
+								{row.label}
+							</span>
+						</div>
+						<div className="mt-1 flex items-baseline gap-2">
+							<span className="rb-tabular text-lg font-semibold leading-none text-panel-text">
+								{count(row.value, locale)}
+							</span>
+							<span className="rb-tabular flex items-baseline gap-1 text-[0.625rem] text-panel-text-muted">
+								<span>
+									{percent(share(row.value, totals || total || 1), locale)}%
+								</span>
+								<span>{t("users")}</span>
+							</span>
+						</div>
+					</OverviewLink>
+				))}
+			</div>
+
+			<div className="order-4 col-span-2 flex flex-col justify-center gap-2 border-t border-panel-border! pt-4 md:order-3 md:col-span-1 md:border-s md:border-t-0 md:px-6 md:pt-0">
+				<div className="flex items-center justify-between">
+					<span className="text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-panel-text-muted">
+						{t("usersStatusBreakdown")}
+					</span>
+					<span className="rb-tabular text-[0.6875rem] text-panel-text-muted">
+						{count(totals, locale)}
+					</span>
+				</div>
+				<div className="flex h-1.5 w-full gap-px overflow-hidden rounded-full bg-panel-border">
+					{STATUS_ORDER.map((key) => {
+						const value = breakdown[key] ?? 0;
+						if (!value) return null;
+						return (
 							<span
-								className={cn(
-									"size-1.5 rounded-full shrink-0",
-									isSelected ? "bg-white" : cfg.dot,
-								)}
+								key={key}
+								className={`h-full first:rounded-s-full last:rounded-e-full ${STATUS_TONE[key]}`}
+								style={{ width: `${share(value, totals || 1)}%` }}
+								title={`${t(`status.${key}`)}: ${value}`}
 							/>
-							<span>{t(`status.${key}`)}</span>
-							<span className="tabular-nums font-mono opacity-80 [unicode-bidi:isolate]">{count(val, locale)}</span>
-						</button>
-					);
-				})}
+						);
+					})}
+				</div>
+				<div className="grid grid-cols-2 gap-x-4 gap-y-1">
+					{STATUS_ORDER.map((key) => (
+						<OverviewLink
+							key={key}
+							label={t(`status.${key}`)}
+							active={selection.status === key}
+							onSelect={() => onSelect({ kind: "status", status: key })}
+							className="flex items-center gap-1.5 text-[0.6875rem] text-panel-text-secondary"
+						>
+							<span className={`size-1.5 rounded-full ${STATUS_TONE[key]}`} />
+							{t(`status.${key}`)}
+							<span className="rb-tabular ms-auto font-medium text-panel-text">
+								{count(breakdown[key] ?? 0, locale)}
+							</span>
+						</OverviewLink>
+					))}
+				</div>
+			</div>
+
+			<div className="order-2 col-span-1 flex flex-col justify-between gap-2 md:order-4 md:col-span-1 md:border-s md:border-panel-border md:ps-6">
+				<span className="text-[0.6875rem] font-medium uppercase tracking-[0.1em] text-panel-text-muted">
+					{usageLabel ?? t("usersTable.listUsage")}
+				</span>
+				<div>
+					<OverviewLink
+						label={usageLabel ?? t("usersTable.listUsage")}
+						active={selection.usage}
+						onSelect={() => onSelect({ kind: "usage" })}
+						className="rb-tabular block w-full text-[1.75rem] font-semibold leading-none tracking-tight text-panel-text"
+					>
+						<span dir="ltr" style={{ unicodeBidi: "isolate" }}>
+							{usage === null ? "—" : formatBytes(usage)}
+						</span>
+					</OverviewLink>
+					<p className="mt-2 flex items-baseline gap-1 text-[0.625rem] text-panel-text-muted">
+						{usage === null || total === 0 ? (
+							<span>&nbsp;</span>
+						) : (
+							<>
+								<span dir="ltr" style={{ unicodeBidi: "isolate" }}>
+									{formatBytes(Math.round(usage / Math.max(1, total)))}
+								</span>
+								<span>/</span>
+								<span>{t("user")}</span>
+							</>
+						)}
+					</p>
+				</div>
 			</div>
 		</section>
 	);

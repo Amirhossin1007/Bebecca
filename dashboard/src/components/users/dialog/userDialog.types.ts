@@ -1,5 +1,7 @@
 import type { UserCreate } from "types/User";
 
+export type UserDialogProps = Record<string, never>;
+
 export type FormType = Pick<
 	UserCreate,
 	| "username"
@@ -30,13 +32,29 @@ export type FormType = Pick<
 
 export type TabValue = "details" | "usage" | "links";
 
-export const BYTES_PER_GB = 1073741824;
-export const CREDENTIAL_KEY_REGEX =
-	/^(?:[0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
-export const ALLOWED_FLOWS = [
-	"",
-	"xtls-rprx-vision",
-	"xtls-rprx-vision-udp443",
-];
-export const USERNAME_REGEX = /^[A-Za-z0-9._@-]{3,32}$/;
-export const ON_HOLD_QUICK_DAYS = [7, 30, 60, 90, 180, 365];
+export type AutoRenewRule = {
+	id: string;
+	dataLimit: number | null;
+	expire: number | null;
+	addRemaining: boolean;
+	fireOnEither: boolean;
+};
+
+export type RuleDraft = {
+	index: number | null;
+	data: string;
+	days: string;
+	addRemaining: boolean;
+	fireOnEither: boolean;
+};
+
+export type SubscriptionLinkItem = {
+	key: string;
+	label: string;
+	url: string;
+};
+
+export type ConfigLinkItem = {
+	link: string;
+	label: string;
+};

@@ -1,14 +1,15 @@
-import { PanelSelect as Select } from "components/common/PanelSelect";
-import { Button } from "components/ui/button";
+import { Button as KitButton } from "components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "components/ui/dropdown-menu";
 import { useAdminsStore } from "contexts/AdminsContext";
 import { useDashboard } from "contexts/DashboardContext";
+import { useBreakpointValue } from "hooks/useBreakpointValue";
 import { cn } from "lib/cn";
-import {
-	ChevronLeft,
-	ChevronRight,
-	ChevronsLeft,
-	ChevronsRight,
-} from "lucide-react";
+import { ChevronDown, MoveLeft, MoveRight } from "lucide-react";
 import { type FC, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -25,190 +26,240 @@ export type PaginationProps = {
 	onPageSizeChange?: (pageSize: number) => void;
 };
 
+const MINIMAL_PAGE_ITEM_COUNT = 5;
 const PAGE_SIZE_OPTIONS = [10, 20, 30, 50, 100];
+
+function generatePageItems(total: number, current: number, width: number) {
+	if (width < MINIMAL_PAGE_ITEM_COUNT) {
+		throw new Error(
+			`Must allow at least ${MINIMAL_PAGE_ITEM_COUNT} page items`,
+		);
+	}
+	if (width % 2 === 0) {
+		throw new Error("Must allow odd number of page items");
+	}
+	if (total < width) {
+		return [...new Array(total).keys()];
+	}
+	const left = Math.max(
+		0,
+		Math.min(total - width, current - Math.floor(width / 2)),
+	);
+	const items: (string | number)[] = new Array(width);
+	for (let i = 0; i < width; i += 1) {
+		items[i] = i + left;
+	}
+	if (typeof items[0] === "number" && items[0] > 0) {
+		items[0] = 0;
+		items[1] = "prev-more";
+	}
+	if ((items[items.length - 1] as number) < total - 1) {
+		items[items.length - 1] = total - 1;
+		items[items.length - 2] = "next-more";
+	}
+	return items;
+}
 
 export const Pagination: FC<PaginationProps> = ({
 	for: target = "users",
-	total: propTotal,
-	limit: propLimit,
-	offset: propOffset,
-	onPageChange: propOnPageChange,
-	onPageSizeChange: propOnPageSizeChange,
+	total: controlledTotal,
+	limit: controlledLimit,
+	offset: controlledOffset,
+	onPageChange,
+	onPageSizeChange,
 }) => {
-	const { t, i18n } = useTranslation();
-	const isRTL = i18n.dir(i18n.language) === "rtl";
-
-	const dashboardFilters = useDashboard((state) => state.filters);
-	const onDashboardFilterChange = useDashboard((state) => state.onFilterChange);
-	const dashboardTotal = useDashboard((state) => state.users.total);
+	const userFilters = useDashboard((state) => state.filters);
+	const onUserFilterChange = useDashboard((state) => state.onFilterChange);
+	const usersTotal = useDashboard((state) => state.users.total);
 
 	const adminFilters = useAdminsStore((state) => state.filters);
 	const onAdminFilterChange = useAdminsStore((state) => state.onFilterChange);
-	const adminTotal = useAdminsStore((state) => state.total);
+	const adminsTotal = useAdminsStore((state) => state.total);
 
-	const isUsers = target === "users";
-	const isAdmins = target === "admins";
+	const { t, i18n } = useTranslation();
+	const isRTL = i18n.dir(i18n.language) === "rtl";
 
-	const total =
-		propTotal ?? (isUsers ? dashboardTotal : isAdmins ? adminTotal : 0) ?? 0;
-	const limit =
-		propLimit ??
-		(isUsers
-			? (dashboardFilters.limit ?? 20)
-			: isAdmins
-				? (adminFilters.limit ?? 20)
-				: 20);
-	const offset =
-		propOffset ??
-		(isUsers
-			? (dashboardFilters.offset ?? 0)
-			: isAdmins
-				? (adminFilters.offset ?? 0)
-				: 0);
-
-	const currentPage = Math.floor(offset / limit) + 1;
-	const totalPages = Math.max(1, Math.ceil(total / limit));
-
-	const handlePageChange = (page: number) => {
-		const newOffset = (page - 1) * limit;
-		if (propOnPageChange) {
-			propOnPageChange(page);
-		} else if (isUsers) {
-			onDashboardFilterChange({ offset: newOffset });
-		} else if (isAdmins) {
-			onAdminFilterChange({ offset: newOffset });
+	const storedPagination = useMemo(() => {
+		if (target === "admins") {
+			return {
+				filters: adminFilters,
+				total: adminsTotal,
+				onFilterChange: onAdminFilterChange,
+			};
 		}
+		return {
+			filters: userFilters,
+			total: usersTotal,
+			onFilterChange: onUserFilterChange,
+		};
+	}, [
+		target,
+		adminFilters,
+		adminsTotal,
+		onAdminFilterChange,
+		userFilters,
+		usersTotal,
+		onUserFilterChange,
+	]);
+
+	const isControlled =
+		controlledTotal !== undefined &&
+		controlledLimit !== undefined &&
+		controlledOffset !== undefined;
+	const filters = isControlled
+		? { limit: controlledLimit ?? 10, offset: controlledOffset ?? 0 }
+		: storedPagination.filters;
+	const total = controlledTotal ?? storedPagination.total;
+
+	const perPageNum = Number(filters.limit || 10);
+	const offsetNum = Number(filters.offset || 0);
+
+	const page = Math.floor(offsetNum / perPageNum);
+	const noPages = Math.ceil(total / perPageNum);
+	const isCompactPagination =
+		useBreakpointValue({ base: true, md: false }) ?? false;
+	const pages = isCompactPagination ? [] : generatePageItems(noPages, page, 7);
+
+	const changePage = (nextPage: number) => {
+		if (isControlled) {
+			onPageChange?.(nextPage);
+			return;
+		}
+		storedPagination.onFilterChange({
+			...filters,
+			offset: nextPage * perPageNum,
+		});
 	};
 
-	const handlePageSizeChange = (newLimit: number) => {
-		if (isUsers) {
-			setUsersPerPageLimitSize(String(newLimit));
-			onDashboardFilterChange({ limit: newLimit, offset: 0 });
-		} else if (isAdmins) {
-			setAdminsPerPageLimitSize(String(newLimit));
-			onAdminFilterChange({ limit: newLimit, offset: 0 });
-		} else if (propOnPageSizeChange) {
-			propOnPageSizeChange(newLimit);
+	const handlePageSizeSelect = (next: number) => {
+		if (isControlled) {
+			onPageSizeChange?.(next);
+			return;
 		}
+		storedPagination.onFilterChange({
+			...filters,
+			limit: next,
+			offset: 0,
+		});
+		if (target === "users") setUsersPerPageLimitSize(String(next));
+		if (target === "admins") setAdminsPerPageLimitSize(String(next));
 	};
 
-	const pages = useMemo(() => {
-		const maxVisible = 5;
-		const start = Math.max(
-			1,
-			Math.min(currentPage - 2, totalPages - maxVisible + 1),
-		);
-		const end = Math.min(totalPages, start + maxVisible - 1);
-		const list: number[] = [];
-		for (let p = start; p <= end; p++) {
-			list.push(p);
-		}
-		return list;
-	}, [currentPage, totalPages]);
-
-	if (total <= 0) return null;
-
-	const startItem = offset + 1;
-	const endItem = Math.min(total, offset + limit);
+	const canPrev = useMemo(() => page > 0 && noPages > 0, [page, noPages]);
+	const canNext = useMemo(
+		() => page + 1 < noPages && noPages > 0,
+		[page, noPages],
+	);
 
 	return (
-		<div className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-panel-border bg-panel-card p-3 shadow-xs rb-data-table-pagination">
-			<div className="flex items-center gap-3 text-xs text-panel-text-secondary">
-				<span>
-					{t("pagination.showing", {
-						start: startItem,
-						end: endItem,
-						total,
-						defaultValue: `${startItem}-${endItem} of ${total}`,
-					})}
-				</span>
+		<div className="items-center gap-2 justify-between mt-4 w-full max-w-full flex lg:gap-x-4 md:gap-x-0 md:gap-y-0 gap-y-4 md:flex-row flex-col rb-data-table-pagination">
+			<div className="order-2 md:order-1 w-full md:w-auto">
+				<div className="flex flex-row items-center gap-2 justify-center md:justify-start min-w-0!">
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<KitButton
+								size="sm"
+								variant="outline"
+								className="min-w-[104px]! md:min-w-[112px]! max-w-[104px] md:max-w-[120px] justify-between px-3"
+							>
+								{perPageNum}
+								<ChevronDown className="w-4 h-4" />
+							</KitButton>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent className="z-[1800] min-w-[104px]! md:min-w-[112px]! max-w-[104px] md:max-w-[120px] py-1 rounded-lg shadow-2xl bg-panel-surface border-panel-border! overflow-hidden">
+							{PAGE_SIZE_OPTIONS.map((option) => {
+								const isSelected = option === perPageNum;
+								return (
+									<DropdownMenuItem
+										key={option}
+										onSelect={() => handlePageSizeSelect(option)}
+										className={cn(
+											"text-[0.875rem]",
+											isSelected
+												? "font-bold bg-primary-500 text-white min-[769px]:hover:bg-primary-600 focus:bg-primary-600"
+												: "font-medium bg-transparent text-inherit min-[769px]:hover:bg-panel-hover focus:bg-panel-hover",
+										)}
+									>
+										{option}
+									</DropdownMenuItem>
+								);
+							})}
+						</DropdownMenuContent>
+					</DropdownMenu>
+					<p className="whitespace-nowrap text-[0.875rem]">
+						{t("itemsPerPage")}
+					</p>
+				</div>
+			</div>
 
-				<div className="flex items-center gap-1.5">
-					<span className="text-[11px] text-panel-text-muted">
-						{t("pagination.perPage", "Per page")}:
-					</span>
-					<Select
-						value={String(limit)}
-						onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+			{noPages > 1 && (
+				<div className="order-1 md:order-2 w-full md:w-auto max-w-full inline-flex items-center gap-1">
+					<KitButton
+						variant="outline"
 						size="sm"
-						className="w-16 h-7 text-xs rounded-lg border-panel-border bg-panel-surface"
+						onClick={() => changePage(page - 1)}
+						disabled={!canPrev}
+						className="rounded-md flex-[1_1_0] md:flex-[0_0_auto] px-2 md:px-3"
 					>
-						{PAGE_SIZE_OPTIONS.map((size) => (
-							<option key={size} value={size}>
-								{size}
-							</option>
-						))}
-					</Select>
-				</div>
-			</div>
+						{isRTL ? (
+							<MoveRight className="w-4 h-4" />
+						) : (
+							<MoveLeft className="w-4 h-4" />
+						)}
+						{t("previous")}
+					</KitButton>
 
-			<div className="flex items-center gap-1">
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					disabled={currentPage <= 1}
-					onClick={() => handlePageChange(1)}
-					className="size-8 p-0 rounded-xl border-panel-border bg-panel-surface text-panel-text-secondary disabled:opacity-40"
-					aria-label={t("pagination.first", "First page")}
-				>
-					<ChevronsLeft className={cn("size-4", isRTL && "rotate-180")} />
-				</Button>
-
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					disabled={currentPage <= 1}
-					onClick={() => handlePageChange(currentPage - 1)}
-					className="size-8 p-0 rounded-xl border-panel-border bg-panel-surface text-panel-text-secondary disabled:opacity-40"
-					aria-label={t("pagination.previous", "Previous page")}
-				>
-					<ChevronLeft className={cn("size-4", isRTL && "rotate-180")} />
-				</Button>
-
-				<div className="flex items-center gap-1">
-					{pages.map((p) => (
-						<button
-							key={p}
-							type="button"
-							onClick={() => handlePageChange(p)}
-							className={cn(
-								"flex size-8 items-center justify-center rounded-xl text-xs font-semibold transition-all cursor-pointer",
-								p === currentPage
-									? "bg-panel-accent text-white shadow-xs"
-									: "border border-panel-border/70 bg-panel-surface text-panel-text-secondary min-[769px]:hover:border-panel-accent min-[769px]:hover:text-panel-text",
-							)}
+					{isCompactPagination ? (
+						<KitButton
+							variant="outline"
+							size="sm"
+							disabled
+							className="rounded-md flex-[0_0_auto] px-3"
 						>
-							{p}
-						</button>
-					))}
+							{page + 1} / {noPages}
+						</KitButton>
+					) : (
+						pages.map((pageIndex) =>
+							typeof pageIndex === "string" ? (
+								<KitButton
+									variant="outline"
+									size="sm"
+									key={pageIndex}
+									className="rounded-md"
+									disabled
+								>
+									…
+								</KitButton>
+							) : (
+								<KitButton
+									size="sm"
+									key={pageIndex}
+									variant={pageIndex === page ? "default" : "outline"}
+									onClick={() => changePage(pageIndex)}
+									className="rounded-md"
+								>
+									{pageIndex + 1}
+								</KitButton>
+							),
+						)
+					)}
+
+					<KitButton
+						variant="outline"
+						size="sm"
+						onClick={() => changePage(page + 1)}
+						disabled={!canNext}
+						className="rounded-md flex-[1_1_0] md:flex-[0_0_auto] px-2 md:px-3"
+					>
+						{t("next")}
+						{isRTL ? (
+							<MoveLeft className="w-4 h-4" />
+						) : (
+							<MoveRight className="w-4 h-4" />
+						)}
+					</KitButton>
 				</div>
-
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					disabled={currentPage >= totalPages}
-					onClick={() => handlePageChange(currentPage + 1)}
-					className="size-8 p-0 rounded-xl border-panel-border bg-panel-surface text-panel-text-secondary disabled:opacity-40"
-					aria-label={t("pagination.next", "Next page")}
-				>
-					<ChevronRight className={cn("size-4", isRTL && "rotate-180")} />
-				</Button>
-
-				<Button
-					type="button"
-					variant="outline"
-					size="sm"
-					disabled={currentPage >= totalPages}
-					onClick={() => handlePageChange(totalPages)}
-					className="size-8 p-0 rounded-xl border-panel-border bg-panel-surface text-panel-text-secondary disabled:opacity-40"
-					aria-label={t("pagination.last", "Last page")}
-				>
-					<ChevronsRight className={cn("size-4", isRTL && "rotate-180")} />
-				</Button>
-			</div>
+			)}
 		</div>
 	);
 };

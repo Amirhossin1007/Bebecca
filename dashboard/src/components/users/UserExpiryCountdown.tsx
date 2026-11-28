@@ -13,7 +13,6 @@ const EXPIRY_UNITS = [
 ] as const;
 
 type UserExpiryCountdownProps = {
-	/** Expiry timestamp in unix seconds; null/0 means the user never expires. */
 	expire?: number | null;
 	status?: Status;
 };
@@ -58,11 +57,6 @@ const URGENCY_COLORS: Record<Urgency, string> = {
 	expired: "var(--color-red-400)",
 };
 
-/**
- * Live expiry countdown for the expanded user card. Within the last 24 hours
- * it ticks every second as HH:MM:SS; further out it re-renders the relative
- * label once per half-minute so the value never goes stale on screen.
- */
 export const UserExpiryCountdown: FC<UserExpiryCountdownProps> = ({
 	expire,
 	status,
@@ -86,14 +80,26 @@ export const UserExpiryCountdown: FC<UserExpiryCountdownProps> = ({
 
 	if (status === "on_hold" || !expire || remaining === null) {
 		return (
-			<p className="text-[1.25rem] font-semibold leading-[1] text-panel-text-muted"><span aria-hidden="true">∞</span><span className="sr-only">{t("unlimited")}</span></p>
+			<p className="text-[1.25rem] font-semibold leading-[1] text-panel-text-muted">
+				<span aria-hidden="true">∞</span>
+				<span className="sr-only">{t("unlimited")}</span>
+			</p>
 		);
 	}
 
 	const urgency = status === "expired" ? "expired" : getUrgency(remaining);
 
 	return (
-		<p data-urgency={urgency} style={{ color: URGENCY_COLORS[urgency] }} dir="auto" className={cn("text-[0.875rem] font-semibold truncate", urgency === "expired" ? "uppercase" : "", "rb-user-expiry-countdown")}>
+		<p
+			data-urgency={urgency}
+			style={{ color: URGENCY_COLORS[urgency] }}
+			dir="auto"
+			className={cn(
+				"text-[0.875rem] font-semibold truncate",
+				urgency === "expired" ? "uppercase" : "",
+				"rb-user-expiry-countdown",
+			)}
+		>
 			{urgency === "expired"
 				? t("status.expired")
 				: isLiveCountdown
